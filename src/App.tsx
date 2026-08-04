@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AppBar,
+  Avatar,
   Box,
-  Button,
   Card,
   CardContent,
+  CircularProgress,
   FormControl,
-  InputLabel,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
   MenuItem,
   Select,
   type SelectChangeEvent,
@@ -14,31 +18,11 @@ import {
   Typography,
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
-import svgAdd from '@stratakit/icons/add.svg'
-import svgCheckmark from '@stratakit/icons/checkmark.svg'
-import svgClock from '@stratakit/icons/clock.svg'
-import svgChat from '@stratakit/icons/chat.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgAiSparkle from '@stratakit/icons/ai-sparkle.svg'
+import { getAppConfig } from './config'
 import { teamProfiles } from './teamProfiles'
-
-const standupSections = [
-  {
-    title: 'Yesterday',
-    icon: svgCheckmark,
-    placeholder: 'What did you accomplish yesterday?',
-  },
-  {
-    title: 'Today',
-    icon: svgClock,
-    placeholder: 'What will you work on today?',
-  },
-  {
-    title: 'Blockers',
-    icon: svgChat,
-    placeholder: 'Any impediments or blockers?',
-  },
-]
+import { AdoQueryEngine, type TeamMember } from './ado/queryEngine'
 
 type AppProps = {
   patConfigured: boolean
@@ -46,12 +30,78 @@ type AppProps = {
 
 function App({ patConfigured }: AppProps) {
   const [selectedTeamId, setSelectedTeamId] = useState(teamProfiles[0].id)
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [membersLoading, setMembersLoading] = useState(false)
+  const [membersError, setMembersError] = useState<string | null>(null)
   const selectedTeam =
     teamProfiles.find((team) => team.id === selectedTeamId) ?? teamProfiles[0]
+  const sortedMembers = useMemo(() => {
+    const getFirstName = (displayName: string) => displayName.trim().split(/\s+/)[0] ?? ''
+
+    return [...members].sort((a, b) => {
+      const firstNameCompare = getFirstName(a.displayName).localeCompare(getFirstName(b.displayName))
+      if (firstNameCompare !== 0) {
+        return firstNameCompare
+      }
+
+      return a.displayName.localeCompare(b.displayName)
+    })
+  }, [members])
+  const adoQueryEngine = useMemo(() => {
+    if (!patConfigured) {
+      return null
+    }
+
+    const config = getAppConfig()
+    return new AdoQueryEngine(config.azdoPat, config.azdoApiVersion)
+  }, [patConfigured])
 
   const handleTeamChange = (event: SelectChangeEvent<string>) => {
     setSelectedTeamId(event.target.value)
   }
+
+  useEffect(() => {
+    if (!adoQueryEngine) {
+      setMembers([])
+      setMembersError(null)
+      setMembersLoading(false)
+      return
+    }
+
+    const abortController = new AbortController()
+
+    setMembersLoading(true)
+    setMembersError(null)
+
+    adoQueryEngine
+      .getTeamMembers(selectedTeam, abortController.signal)
+      .then((teamMembers) => {
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        setMembers(teamMembers)
+      })
+      .catch((error: unknown) => {
+        if (abortController.signal.aborted || (error as Error).name === 'AbortError') {
+          return
+        }
+
+        const message =
+          error instanceof Error ? error.message : 'Unknown error while loading team members.'
+        setMembersError(message)
+        setMembers([])
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) {
+          setMembersLoading(false)
+        }
+      })
+
+    return () => {
+      abortController.abort()
+    }
+  }, [adoQueryEngine, selectedTeam])
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -68,36 +118,74 @@ function App({ patConfigured }: AppProps) {
       <Box component="main" sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
         <Card sx={{ mb: 2 }}>
           <CardContent>
-            <FormControl fullWidth>
-              <InputLabel id="team-select-label">Team</InputLabel>
-              <Select
-                labelId="team-select-label"
-                value={selectedTeamId}
-                label="Team"
-                onChange={handleTeamChange}
-              >
-                {teamProfiles.map((team) => (
-                  <MenuItem key={team.id} value={team.id}>
-                    {team.displayName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Box sx={{ mt: 2, display: 'grid', gap: 0.5 }}>
-              <Typography variant="body-sm">
-                <strong>Area Path:</strong> {selectedTeam.areaPath}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="body-md" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                Team
               </Typography>
-              <Typography variant="body-sm">
-                <strong>Iteration Path:</strong> {selectedTeam.iterationPath}
-              </Typography>
-              <Typography variant="body-sm">
-                <strong>Team Name:</strong> {selectedTeam.teamName}
-              </Typography>
-              <Typography variant="body-sm">
-                <strong>Repo Name:</strong> {selectedTeam.repoName}
-              </Typography>
+              <FormControl sx={{ minWidth: 260, flex: 1 }}>
+                <Select value={selectedTeamId} onChange={handleTeamChange}>
+                  {teamProfiles.map((team) => (
+                    <MenuItem key={team.id} value={team.id}>
+                      {team.displayName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Box>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="body-md" sx={{ fontWeight: 700, mb: 1 }}>
+              Team Members
+            </Typography>
+
+            {!patConfigured ? (
+              <Typography variant="body-sm" color="text.secondary">
+                Add AZDO_PAT in .env.local to load team members.
+              </Typography>
+            ) : null}
+
+            {patConfigured && membersLoading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={18} />
+                <Typography variant="body-sm" color="text.secondary">
+                  Loading team members...
+                </Typography>
+              </Box>
+            ) : null}
+
+            {patConfigured && !membersLoading && membersError ? (
+              <Typography variant="body-sm" color="error.main">
+                {membersError}
+              </Typography>
+            ) : null}
+
+            {patConfigured && !membersLoading && !membersError ? (
+              sortedMembers.length > 0 ? (
+                <List sx={{ py: 0 }}>
+                  {sortedMembers.map((member) => {
+                    const key = member.descriptor ?? member.uniqueName ?? member.id ?? member.displayName
+                    return (
+                      <ListItem key={key} disableGutters>
+                        <ListItemAvatar>
+                          <Avatar alt={member.displayName} src={member.imageUrl} />
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={member.displayName}
+                          secondary={member.uniqueName}
+                        />
+                      </ListItem>
+                    )
+                  })}
+                </List>
+              ) : (
+                <Typography variant="body-sm" color="text.secondary">
+                  No team members returned for this team.
+                </Typography>
+              )
+            ) : null}
           </CardContent>
         </Card>
 
@@ -121,39 +209,6 @@ function App({ patConfigured }: AppProps) {
           </Card>
         ) : null}
 
-        <Box
-          sx={{
-            mb: 3,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <Typography variant="body-lg" sx={{ fontWeight: 700 }}>
-            Today's Standup
-          </Typography>
-          <Button variant="contained" startIcon={<Icon href={svgAdd} />}>
-            New Entry
-          </Button>
-        </Box>
-
-        <Box sx={{ display: 'grid', gap: 2 }}>
-          {standupSections.map(({ title, icon, placeholder }) => (
-            <Card key={title}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Icon href={icon} />
-                  <Typography variant="body-md" sx={{ fontWeight: 700 }}>
-                    {title}
-                  </Typography>
-                </Box>
-                <Typography variant="body-sm" color="text.secondary">
-                  {placeholder}
-                </Typography>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
       </Box>
     </Box>
   )
