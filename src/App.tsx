@@ -1,9 +1,15 @@
+import { useState } from 'react'
 import {
   AppBar,
   Box,
   Button,
   Card,
   CardContent,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  type SelectChangeEvent,
   Toolbar,
   Typography,
 } from '@mui/material'
@@ -14,6 +20,7 @@ import svgClock from '@stratakit/icons/clock.svg'
 import svgChat from '@stratakit/icons/chat.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgAiSparkle from '@stratakit/icons/ai-sparkle.svg'
+import { teamProfiles } from './teamProfiles'
 
 const standupSections = [
   {
@@ -38,6 +45,14 @@ type AppProps = {
 }
 
 function App({ patConfigured }: AppProps) {
+  const [selectedTeamId, setSelectedTeamId] = useState(teamProfiles[0].id)
+  const selectedTeam =
+    teamProfiles.find((team) => team.id === selectedTeamId) ?? teamProfiles[0]
+
+  const handleTeamChange = (event: SelectChangeEvent<string>) => {
+    setSelectedTeamId(event.target.value)
+  }
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="static">
@@ -51,6 +66,41 @@ function App({ patConfigured }: AppProps) {
       </AppBar>
 
       <Box component="main" sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <FormControl fullWidth>
+              <InputLabel id="team-select-label">Team</InputLabel>
+              <Select
+                labelId="team-select-label"
+                value={selectedTeamId}
+                label="Team"
+                onChange={handleTeamChange}
+              >
+                {teamProfiles.map((team) => (
+                  <MenuItem key={team.id} value={team.id}>
+                    {team.displayName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Box sx={{ mt: 2, display: 'grid', gap: 0.5 }}>
+              <Typography variant="body-sm">
+                <strong>Area Path:</strong> {selectedTeam.areaPath}
+              </Typography>
+              <Typography variant="body-sm">
+                <strong>Iteration Path:</strong> {selectedTeam.iterationPath}
+              </Typography>
+              <Typography variant="body-sm">
+                <strong>Team Name:</strong> {selectedTeam.teamName}
+              </Typography>
+              <Typography variant="body-sm">
+                <strong>Repo Name:</strong> {selectedTeam.repoName}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+
         {!patConfigured ? (
           <Card
             sx={{
