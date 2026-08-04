@@ -23,7 +23,12 @@ import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgAiSparkle from '@stratakit/icons/ai-sparkle.svg'
 import { getAppConfig } from './config'
 import { teamProfiles } from './teamProfiles'
-import { AdoQueryEngine, type TeamMember, type WorkItemSummary } from './ado/queryEngine'
+import {
+  AdoQueryEngine,
+  type ResolvedWorkItemAssignee,
+  type TeamMember,
+  type WorkItemSummary,
+} from './ado/queryEngine'
 
 type AppProps = {
   patConfigured: boolean
@@ -37,11 +42,14 @@ function App({ patConfigured }: AppProps) {
   const [workItems, setWorkItems] = useState<WorkItemSummary[]>([])
   const [workItemsLoading, setWorkItemsLoading] = useState(false)
   const [workItemsError, setWorkItemsError] = useState<string | null>(null)
+  const [workItemAssignees, setWorkItemAssignees] = useState<Record<number, ResolvedWorkItemAssignee>>({})
+  const [assigneesLoading, setAssigneesLoading] = useState(false)
+  const [assigneesError, setAssigneesError] = useState<string | null>(null)
   const [reloadNonce, setReloadNonce] = useState(0)
   const forceRefreshRef = useRef(false)
   const selectedTeam =
     teamProfiles.find((team) => team.id === selectedTeamId) ?? teamProfiles[0]
-  const isTeamDataLoading = membersLoading || workItemsLoading
+  const isTeamDataLoading = membersLoading || workItemsLoading || assigneesLoading
   const sortedMembers = useMemo(() => {
     const getFirstName = (displayName: string) => displayName.trim().split(/\s+/)[0] ?? ''
 
@@ -80,6 +88,9 @@ function App({ patConfigured }: AppProps) {
       setWorkItems([])
       setWorkItemsError(null)
       setWorkItemsLoading(false)
+      setWorkItemAssignees({})
+      setAssigneesError(null)
+      setAssigneesLoading(false)
       return
     }
 
@@ -91,9 +102,11 @@ function App({ patConfigured }: AppProps) {
     setMembersError(null)
     setWorkItemsLoading(true)
     setWorkItemsError(null)
+    setWorkItemAssignees({})
+    setAssigneesError(null)
 
     adoQueryEngine
-      .getTeamMembers(selectedTeam, abortController.signal, { forceRefresh })
+      .getTeamMembers(selectedTeam, abortController.signal)
       .then((teamMembers) => {
         if (abortController.signal.aborted) {
           return
@@ -146,6 +159,88 @@ function App({ patConfigured }: AppProps) {
       abortController.abort()
     }
   }, [adoQueryEngine, selectedTeam, reloadNonce])
+
+  useEffect(() => {
+    if (!adoQueryEngine || !patConfigured || membersLoading || workItemsLoading) {
+      return
+    }
+
+    if (membersError || workItemsError) {
+      return
+    }
+
+    if (workItems.length === 0) {
+      setWorkItemAssignees({})
+      setAssigneesError(null)
+      setAssigneesLoading(false)
+      return
+    }
+
+    const abortController = new AbortController()
+    const memberLookup = members.reduce<Record<string, string>>((lookup, member) => {
+      const canonical = member.displayName
+      if (member.uniqueName) {
+        lookup[member.uniqueName.toLowerCase()] = canonical
+      }
+      lookup[member.displayName.toLowerCase()] = canonical
+      return lookup
+    }, {})
+
+    setAssigneesLoading(true)
+    setAssigneesError(null)
+
+    Promise.all(
+      workItems.map(async (item) => ({
+        id: item.id,
+        assignee: await adoQueryEngine.resolveWorkItemAssignee(
+          selectedTeam.orgName,
+          memberLookup,
+          item,
+          abortController.signal,
+        ),
+      })),
+    )
+      .then((resolved) => {
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        const mapped = resolved.reduce<Record<number, ResolvedWorkItemAssignee>>((acc, item) => {
+          acc[item.id] = item.assignee
+          return acc
+        }, {})
+        setWorkItemAssignees(mapped)
+      })
+      .catch((error: unknown) => {
+        if (abortController.signal.aborted || (error as Error).name === 'AbortError') {
+          return
+        }
+
+        const message =
+          error instanceof Error ? error.message : 'Unknown error while resolving work item assignees.'
+        setAssigneesError(message)
+        setWorkItemAssignees({})
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) {
+          setAssigneesLoading(false)
+        }
+      })
+
+    return () => {
+      abortController.abort()
+    }
+  }, [
+    adoQueryEngine,
+    members,
+    membersError,
+    membersLoading,
+    patConfigured,
+    selectedTeam.orgName,
+    workItems,
+    workItemsError,
+    workItemsLoading,
+  ])
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -267,12 +362,21 @@ function App({ patConfigured }: AppProps) {
               </Typography>
             ) : null}
 
-            {patConfigured && !isTeamDataLoading && !workItemsError ? (
+            {patConfigured && !isTeamDataLoading && !workItemsError && assigneesError ? (
+              <Typography variant="body-sm" color="error.main">
+                {assigneesError}
+              </Typography>
+            ) : null}
+
+            {patConfigured && !isTeamDataLoading && !workItemsError && !assigneesError ? (
               workItems.length > 0 ? (
                 <List sx={{ py: 0 }}>
                   {workItems.map((item) => (
                     <ListItem key={item.id} disableGutters>
-                      <ListItemText primary={item.title} secondary={`#${item.id}`} />
+                      <ListItemText
+                        primary={item.title}
+                        secondary={`#${item.id} · ${workItemAssignees[item.id]?.label ?? 'Unassigned'}`}
+                      />
                     </ListItem>
                   ))}
                 </List>

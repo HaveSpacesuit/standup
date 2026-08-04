@@ -20,6 +20,11 @@ type WorkItemsBatchResponse = {
   value: WorkItemApiItem[]
 }
 
+type WorkItemUpdatesResponse = {
+  count: number
+  value: WorkItemUpdateApiItem[]
+}
+
 export type TeamMember = {
   id?: string
   isTeamAdmin?: boolean
@@ -32,6 +37,12 @@ export type TeamMember = {
 export type WorkItemSummary = {
   id: number
   title: string
+  assignedTo?: IdentityRef
+}
+
+export type IdentityRef = {
+  displayName?: string
+  uniqueName?: string
 }
 
 type TeamMemberApiItem = {
@@ -53,7 +64,77 @@ type WorkItemApiItem = {
   id?: number
   fields?: {
     'System.Title'?: string
+    'System.AssignedTo'?: unknown
   }
+}
+
+type WorkItemUpdateApiItem = {
+  fields?: {
+    'System.AssignedTo'?: {
+      newValue?: unknown
+    }
+  }
+}
+
+type TeamMemberLookup = Record<string, string>
+
+export type ResolvedWorkItemAssignee = {
+  label: string
+  kind: 'team-member' | 'unassigned'
+}
+
+function parseAssignedTo(value: unknown): IdentityRef | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  if (typeof value === 'object') {
+    const candidate = value as { displayName?: unknown; uniqueName?: unknown; name?: unknown }
+    const displayName =
+      typeof candidate.displayName === 'string'
+        ? candidate.displayName
+        : typeof candidate.name === 'string'
+          ? candidate.name
+          : undefined
+    const uniqueName = typeof candidate.uniqueName === 'string' ? candidate.uniqueName : undefined
+
+    if (displayName || uniqueName) {
+      return { displayName, uniqueName }
+    }
+
+    return undefined
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      return undefined
+    }
+
+    const match = /^(.*)\s<([^>]+)>$/.exec(trimmed)
+    if (match) {
+      return {
+        displayName: match[1]?.trim(),
+        uniqueName: match[2]?.trim(),
+      }
+    }
+
+    return { displayName: trimmed }
+  }
+
+  return undefined
+}
+
+function toIdentityKeys(identity?: IdentityRef): string[] {
+  if (!identity) {
+    return []
+  }
+
+  const keys = [identity.uniqueName, identity.displayName]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => value.toLowerCase())
+
+  return Array.from(new Set(keys))
 }
 
 function normalizeTeamMember(item: TeamMemberApiItem): TeamMember | null {
@@ -76,8 +157,8 @@ function normalizeTeamMember(item: TeamMemberApiItem): TeamMember | null {
 export class AdoQueryEngine {
   private readonly pat: string
   private readonly defaultApiVersion: string
-  private readonly teamMembersCache = new Map<string, TeamMember[]>()
   private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
+  private readonly workItemAssignmentTrailCache = new Map<string, IdentityRef[]>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.pat = pat
@@ -87,17 +168,7 @@ export class AdoQueryEngine {
   async getTeamMembers(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'teamName'>,
     signal?: AbortSignal,
-    options?: { forceRefresh?: boolean },
   ): Promise<TeamMember[]> {
-    const cacheKey = team.id
-
-    if (!options?.forceRefresh) {
-      const cachedMembers = this.teamMembersCache.get(cacheKey)
-      if (cachedMembers) {
-        return cachedMembers
-      }
-    }
-
     const response = await this.request<TeamMembersResponse>({
       orgName: team.orgName,
       path: `/_apis/projects/${encodeURIComponent(team.projectName)}/teams/${encodeURIComponent(team.teamName)}/members`,
@@ -111,18 +182,7 @@ export class AdoQueryEngine {
       .map(normalizeTeamMember)
       .filter((member): member is TeamMember => member !== null)
 
-    this.teamMembersCache.set(cacheKey, members)
-
     return members
-  }
-
-  clearTeamMembersCache(teamId?: string): void {
-    if (teamId) {
-      this.teamMembersCache.delete(teamId)
-      return
-    }
-
-    this.teamMembersCache.clear()
   }
 
   async getWorkItemsForCurrentAndNextIteration(
@@ -174,7 +234,7 @@ export class AdoQueryEngine {
       },
       body: {
         ids,
-        fields: ['System.Title'],
+        fields: ['System.Title', 'System.AssignedTo'],
       },
       signal,
     })
@@ -188,6 +248,7 @@ export class AdoQueryEngine {
         return {
           id: item.id,
           title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+          assignedTo: parseAssignedTo(item.fields?.['System.AssignedTo']),
         }
       })
       .filter((item): item is WorkItemSummary => item !== null)
@@ -204,6 +265,88 @@ export class AdoQueryEngine {
     }
 
     this.teamWorkItemsCache.clear()
+  }
+
+  async resolveWorkItemAssignee(
+    orgName: string,
+    teamMemberLookup: TeamMemberLookup,
+    workItem: WorkItemSummary,
+    signal?: AbortSignal,
+  ): Promise<ResolvedWorkItemAssignee> {
+    const currentIdentity = workItem.assignedTo
+
+    if (!currentIdentity) {
+      return {
+        label: 'Unassigned',
+        kind: 'unassigned',
+      }
+    }
+
+    const currentMatch = this.matchTeamMember(teamMemberLookup, currentIdentity)
+    if (currentMatch) {
+      return {
+        label: currentMatch,
+        kind: 'team-member',
+      }
+    }
+
+    const assignmentTrail = await this.getWorkItemAssignmentTrail(orgName, workItem.id, signal)
+
+    for (const identity of assignmentTrail) {
+      const match = this.matchTeamMember(teamMemberLookup, identity)
+      if (match) {
+        return {
+          label: match,
+          kind: 'team-member',
+        }
+      }
+    }
+
+    return {
+      label: 'Unassigned',
+      kind: 'unassigned',
+    }
+  }
+
+  private matchTeamMember(teamMemberLookup: TeamMemberLookup, identity: IdentityRef): string | undefined {
+    const keys = toIdentityKeys(identity)
+    for (const key of keys) {
+      const matched = teamMemberLookup[key]
+      if (matched) {
+        return matched
+      }
+    }
+
+    return undefined
+  }
+
+  private async getWorkItemAssignmentTrail(
+    orgName: string,
+    workItemId: number,
+    signal?: AbortSignal,
+  ): Promise<IdentityRef[]> {
+    const cacheKey = `${orgName}:${workItemId}`
+    const cachedTrail = this.workItemAssignmentTrailCache.get(cacheKey)
+    if (cachedTrail) {
+      return cachedTrail
+    }
+
+    const updatesResponse = await this.request<WorkItemUpdatesResponse>({
+      path: `/_apis/wit/workItems/${workItemId}/updates`,
+      params: {
+        'api-version': '7.1',
+      },
+      orgName,
+      signal,
+    })
+
+    const trail = (updatesResponse.value ?? [])
+      .map((update) => parseAssignedTo(update.fields?.['System.AssignedTo']?.newValue))
+      .filter((value): value is IdentityRef => Boolean(value))
+      .reverse()
+
+    this.workItemAssignmentTrailCache.set(cacheKey, trail)
+    return trail
   }
 
   private buildIterationScopedWiql(
