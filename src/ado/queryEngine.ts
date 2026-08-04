@@ -1,134 +1,28 @@
 import type { TeamProfile } from '../teamProfiles'
-import { parseAssignedTo, toIdentityKeys, type IdentityRef } from './identity'
-import { resolveStatusFromStateAndTags, type WorkItemStatus } from './workItemStatus'
+import type { AdoRequestOptions } from './httpClient'
+import { AdoHttpClient } from './httpClient'
+import { WorkItemAssigneeResolver } from './assigneeResolver'
+import { fetchTeamMembers } from './teamMembersApi'
+import { fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
+import type { ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
 
-type QueryValue = string | number | boolean | undefined
-
-type QueryParams = Record<string, QueryValue>
-
-type QueryMethod = 'GET' | 'POST'
-
-type TeamMembersResponse = {
-  count: number
-  value: TeamMemberApiItem[]
-}
-
-type WiqlResponse = {
-  workItems?: Array<{ id: number }>
-}
-
-type WorkItemsBatchResponse = {
-  count: number
-  value: WorkItemApiItem[]
-}
-
-type WorkItemUpdatesResponse = {
-  count: number
-  value: WorkItemUpdateApiItem[]
-}
-
-export type TeamMember = {
-  id?: string
-  isTeamAdmin?: boolean
-  displayName: string
-  uniqueName?: string
-  imageUrl?: string
-  descriptor?: string
-}
-
-export type WorkItemSummary = {
-  id: number
-  title: string
-  assignedTo?: IdentityRef
-  status: WorkItemStatus
-}
-
-type TeamMemberApiItem = {
-  id?: string
-  isTeamAdmin?: boolean
-  displayName?: string
-  uniqueName?: string
-  imageUrl?: string
-  descriptor?: string
-  identity?: {
-    displayName?: string
-    uniqueName?: string
-    imageUrl?: string
-    descriptor?: string
-  }
-}
-
-type WorkItemApiItem = {
-  id?: number
-  fields?: {
-    'System.Title'?: string
-    'System.AssignedTo'?: unknown
-    'System.State'?: unknown
-    'System.Tags'?: unknown
-  }
-}
-
-type WorkItemUpdateApiItem = {
-  fields?: {
-    'System.AssignedTo'?: {
-      newValue?: unknown
-    }
-  }
-}
-
-type TeamMemberLookup = Record<string, string>
-
-export type ResolvedWorkItemAssignee = {
-  label: string
-  kind: 'team-member' | 'unassigned'
-}
-
-function normalizeTeamMember(item: TeamMemberApiItem): TeamMember | null {
-  const displayName = item.displayName ?? item.identity?.displayName
-
-  if (!displayName) {
-    return null
-  }
-
-  return {
-    id: item.id,
-    isTeamAdmin: item.isTeamAdmin,
-    displayName,
-    uniqueName: item.uniqueName ?? item.identity?.uniqueName,
-    imageUrl: item.imageUrl ?? item.identity?.imageUrl,
-    descriptor: item.descriptor ?? item.identity?.descriptor,
-  }
-}
+export type { TeamMember, WorkItemSummary, ResolvedWorkItemAssignee } from './types'
 
 export class AdoQueryEngine {
-  private readonly pat: string
-  private readonly defaultApiVersion: string
+  private readonly client: AdoHttpClient
+  private readonly assigneeResolver: WorkItemAssigneeResolver
   private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
-  private readonly workItemAssignmentTrailCache = new Map<string, IdentityRef[]>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
-    this.pat = pat
-    this.defaultApiVersion = defaultApiVersion
+    this.client = new AdoHttpClient(pat, defaultApiVersion)
+    this.assigneeResolver = new WorkItemAssigneeResolver(this.client)
   }
 
   async getTeamMembers(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'teamName'>,
     signal?: AbortSignal,
   ): Promise<TeamMember[]> {
-    const response = await this.request<TeamMembersResponse>({
-      orgName: team.orgName,
-      path: `/_apis/projects/${encodeURIComponent(team.projectName)}/teams/${encodeURIComponent(team.teamName)}/members`,
-      params: {
-        'api-version': '7.1-preview.1',
-      },
-      signal,
-    })
-
-    const members = (response.value ?? [])
-      .map(normalizeTeamMember)
-      .filter((member): member is TeamMember => member !== null)
-
-    return members
+    return fetchTeamMembers(this.client, team, signal)
   }
 
   async getWorkItemsForCurrentAndNextIteration(
@@ -145,63 +39,7 @@ export class AdoQueryEngine {
       }
     }
 
-    const wiqlQuery = this.buildIterationScopedWiql(
-      team.projectName,
-      team.areaPath,
-      team.iterationPath,
-    )
-
-    const wiqlResponse = await this.request<WiqlResponse>({
-      method: 'POST',
-      orgName: team.orgName,
-      path: `/${encodeURIComponent(team.projectName)}/_apis/wit/wiql`,
-      params: {
-        'api-version': '7.1',
-      },
-      body: {
-        query: wiqlQuery,
-      },
-      signal,
-    })
-
-    const ids = (wiqlResponse.workItems ?? []).map((item) => item.id)
-
-    if (ids.length === 0) {
-      this.teamWorkItemsCache.set(cacheKey, [])
-      return []
-    }
-
-    const batchResponse = await this.request<WorkItemsBatchResponse>({
-      method: 'POST',
-      orgName: team.orgName,
-      path: '/_apis/wit/workitemsbatch',
-      params: {
-        'api-version': '7.1',
-      },
-      body: {
-        ids,
-        fields: ['System.Title', 'System.AssignedTo', 'System.State', 'System.Tags'],
-      },
-      signal,
-    })
-
-    const items = (batchResponse.value ?? [])
-      .map((item): WorkItemSummary | null => {
-        if (typeof item.id !== 'number') {
-          return null
-        }
-
-        return {
-          id: item.id,
-          title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
-          assignedTo: parseAssignedTo(item.fields?.['System.AssignedTo']),
-          status: resolveStatusFromStateAndTags(
-            item.fields?.['System.State'],
-            item.fields?.['System.Tags'],
-          ),
-        }
-      })
-      .filter((item): item is WorkItemSummary => item !== null)
+    const items = await fetchWorkItemsForCurrentAndNextIteration(this.client, team, signal)
 
     this.teamWorkItemsCache.set(cacheKey, items)
 
@@ -223,145 +61,10 @@ export class AdoQueryEngine {
     workItem: WorkItemSummary,
     signal?: AbortSignal,
   ): Promise<ResolvedWorkItemAssignee> {
-    const currentIdentity = workItem.assignedTo
-
-    if (!currentIdentity) {
-      return {
-        label: 'Unassigned',
-        kind: 'unassigned',
-      }
-    }
-
-    const currentMatch = this.matchTeamMember(teamMemberLookup, currentIdentity)
-    if (currentMatch) {
-      return {
-        label: currentMatch,
-        kind: 'team-member',
-      }
-    }
-
-    const assignmentTrail = await this.getWorkItemAssignmentTrail(orgName, workItem.id, signal)
-
-    for (const identity of assignmentTrail) {
-      const match = this.matchTeamMember(teamMemberLookup, identity)
-      if (match) {
-        return {
-          label: match,
-          kind: 'team-member',
-        }
-      }
-    }
-
-    return {
-      label: 'Unassigned',
-      kind: 'unassigned',
-    }
+    return this.assigneeResolver.resolveWorkItemAssignee(orgName, teamMemberLookup, workItem, signal)
   }
 
-  private matchTeamMember(teamMemberLookup: TeamMemberLookup, identity: IdentityRef): string | undefined {
-    const keys = toIdentityKeys(identity)
-    for (const key of keys) {
-      const matched = teamMemberLookup[key]
-      if (matched) {
-        return matched
-      }
-    }
-
-    return undefined
-  }
-
-  private async getWorkItemAssignmentTrail(
-    orgName: string,
-    workItemId: number,
-    signal?: AbortSignal,
-  ): Promise<IdentityRef[]> {
-    const cacheKey = `${orgName}:${workItemId}`
-    const cachedTrail = this.workItemAssignmentTrailCache.get(cacheKey)
-    if (cachedTrail) {
-      return cachedTrail
-    }
-
-    const updatesResponse = await this.request<WorkItemUpdatesResponse>({
-      path: `/_apis/wit/workItems/${workItemId}/updates`,
-      params: {
-        'api-version': '7.1',
-      },
-      orgName,
-      signal,
-    })
-
-    const trail = (updatesResponse.value ?? [])
-      .map((update) => parseAssignedTo(update.fields?.['System.AssignedTo']?.newValue))
-      .filter((value): value is IdentityRef => Boolean(value))
-      .reverse()
-
-    this.workItemAssignmentTrailCache.set(cacheKey, trail)
-    return trail
-  }
-
-  private buildIterationScopedWiql(
-    projectName: string,
-    areaPath: string,
-    teamIterationPath: string,
-  ): string {
-    const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
-    const iterationMacro = `@CurrentIteration(${quote(teamIterationPath)})`
-
-    return [
-      'SELECT [System.Id]',
-      'FROM WorkItems',
-      `WHERE [System.TeamProject] = ${quote(projectName)}`,
-      `  AND [System.AreaPath] UNDER ${quote(areaPath)}`,
-      `  AND (`,
-      `    [System.IterationPath] = ${iterationMacro}`,
-      `    OR (`,
-      `      [System.IterationPath] = ${iterationMacro} + 1`,
-      `      AND [System.AssignedTo] <> ''`,
-      `    )`,
-      `  )`,
-      'ORDER BY [System.ChangedDate] DESC',
-    ].join('\n')
-  }
-
-  async request<T>(options: {
-    method?: QueryMethod
-    orgName: string
-    path: string
-    params?: QueryParams
-    body?: unknown
-    signal?: AbortSignal
-  }): Promise<T> {
-    const url = new URL(`https://dev.azure.com/${encodeURIComponent(options.orgName)}${options.path}`)
-    const params = options.params ?? {}
-
-    if (!params['api-version']) {
-      params['api-version'] = this.defaultApiVersion
-    }
-
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined) {
-        url.searchParams.set(key, String(value))
-      }
-    }
-
-    const response = await fetch(url, {
-      method: options.method ?? 'GET',
-      headers: {
-        Authorization: `Basic ${btoa(`:${this.pat}`)}`,
-        Accept: 'application/json',
-        ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      },
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-      signal: options.signal,
-    })
-
-    if (!response.ok) {
-      const errorBody = await response.text()
-      throw new Error(
-        `Azure DevOps query failed (${response.status} ${response.statusText}): ${errorBody || 'no error details returned'}`,
-      )
-    }
-
-    return (await response.json()) as T
+  async request<T>(options: AdoRequestOptions): Promise<T> {
+    return this.client.request<T>(options)
   }
 }
