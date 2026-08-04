@@ -4,9 +4,20 @@ type QueryValue = string | number | boolean | undefined
 
 type QueryParams = Record<string, QueryValue>
 
+type QueryMethod = 'GET' | 'POST'
+
 type TeamMembersResponse = {
   count: number
   value: TeamMemberApiItem[]
+}
+
+type WiqlResponse = {
+  workItems?: Array<{ id: number }>
+}
+
+type WorkItemsBatchResponse = {
+  count: number
+  value: WorkItemApiItem[]
 }
 
 export type TeamMember = {
@@ -16,6 +27,11 @@ export type TeamMember = {
   uniqueName?: string
   imageUrl?: string
   descriptor?: string
+}
+
+export type WorkItemSummary = {
+  id: number
+  title: string
 }
 
 type TeamMemberApiItem = {
@@ -30,6 +46,13 @@ type TeamMemberApiItem = {
     uniqueName?: string
     imageUrl?: string
     descriptor?: string
+  }
+}
+
+type WorkItemApiItem = {
+  id?: number
+  fields?: {
+    'System.Title'?: string
   }
 }
 
@@ -54,6 +77,7 @@ export class AdoQueryEngine {
   private readonly pat: string
   private readonly defaultApiVersion: string
   private readonly teamMembersCache = new Map<string, TeamMember[]>()
+  private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.pat = pat
@@ -101,10 +125,111 @@ export class AdoQueryEngine {
     this.teamMembersCache.clear()
   }
 
+  async getWorkItemsForCurrentAndNextIteration(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath' | 'iterationPath'>,
+    signal?: AbortSignal,
+    options?: { forceRefresh?: boolean },
+  ): Promise<WorkItemSummary[]> {
+    const cacheKey = team.id
+
+    if (!options?.forceRefresh) {
+      const cachedItems = this.teamWorkItemsCache.get(cacheKey)
+      if (cachedItems) {
+        return cachedItems
+      }
+    }
+
+    const wiqlQuery = this.buildIterationScopedWiql(
+      team.projectName,
+      team.areaPath,
+      team.iterationPath,
+    )
+
+    const wiqlResponse = await this.request<WiqlResponse>({
+      method: 'POST',
+      orgName: team.orgName,
+      path: `/${encodeURIComponent(team.projectName)}/_apis/wit/wiql`,
+      params: {
+        'api-version': '7.1',
+      },
+      body: {
+        query: wiqlQuery,
+      },
+      signal,
+    })
+
+    const ids = (wiqlResponse.workItems ?? []).map((item) => item.id)
+
+    if (ids.length === 0) {
+      this.teamWorkItemsCache.set(cacheKey, [])
+      return []
+    }
+
+    const batchResponse = await this.request<WorkItemsBatchResponse>({
+      method: 'POST',
+      orgName: team.orgName,
+      path: '/_apis/wit/workitemsbatch',
+      params: {
+        'api-version': '7.1',
+      },
+      body: {
+        ids,
+        fields: ['System.Title'],
+      },
+      signal,
+    })
+
+    const items = (batchResponse.value ?? [])
+      .map((item): WorkItemSummary | null => {
+        if (typeof item.id !== 'number') {
+          return null
+        }
+
+        return {
+          id: item.id,
+          title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+        }
+      })
+      .filter((item): item is WorkItemSummary => item !== null)
+
+    this.teamWorkItemsCache.set(cacheKey, items)
+
+    return items
+  }
+
+  clearTeamWorkItemsCache(teamId?: string): void {
+    if (teamId) {
+      this.teamWorkItemsCache.delete(teamId)
+      return
+    }
+
+    this.teamWorkItemsCache.clear()
+  }
+
+  private buildIterationScopedWiql(
+    projectName: string,
+    areaPath: string,
+    teamIterationPath: string,
+  ): string {
+    const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
+    const iterationMacro = `@CurrentIteration(${quote(teamIterationPath)})`
+
+    return [
+      'SELECT [System.Id]',
+      'FROM WorkItems',
+      `WHERE [System.TeamProject] = ${quote(projectName)}`,
+      `  AND [System.AreaPath] UNDER ${quote(areaPath)}`,
+      `  AND ([System.IterationPath] = ${iterationMacro} OR [System.IterationPath] = ${iterationMacro} + 1)`,
+      'ORDER BY [System.ChangedDate] DESC',
+    ].join('\n')
+  }
+
   async request<T>(options: {
+    method?: QueryMethod
     orgName: string
     path: string
     params?: QueryParams
+    body?: unknown
     signal?: AbortSignal
   }): Promise<T> {
     const url = new URL(`https://dev.azure.com/${encodeURIComponent(options.orgName)}${options.path}`)
@@ -121,11 +246,13 @@ export class AdoQueryEngine {
     }
 
     const response = await fetch(url, {
-      method: 'GET',
+      method: options.method ?? 'GET',
       headers: {
         Authorization: `Basic ${btoa(`:${this.pat}`)}`,
         Accept: 'application/json',
+        ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       signal: options.signal,
     })
 

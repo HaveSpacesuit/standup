@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AppBar,
   Avatar,
   Box,
+  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -22,7 +23,7 @@ import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgAiSparkle from '@stratakit/icons/ai-sparkle.svg'
 import { getAppConfig } from './config'
 import { teamProfiles } from './teamProfiles'
-import { AdoQueryEngine, type TeamMember } from './ado/queryEngine'
+import { AdoQueryEngine, type TeamMember, type WorkItemSummary } from './ado/queryEngine'
 
 type AppProps = {
   patConfigured: boolean
@@ -33,8 +34,14 @@ function App({ patConfigured }: AppProps) {
   const [members, setMembers] = useState<TeamMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [membersError, setMembersError] = useState<string | null>(null)
+  const [workItems, setWorkItems] = useState<WorkItemSummary[]>([])
+  const [workItemsLoading, setWorkItemsLoading] = useState(false)
+  const [workItemsError, setWorkItemsError] = useState<string | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
+  const forceRefreshRef = useRef(false)
   const selectedTeam =
     teamProfiles.find((team) => team.id === selectedTeamId) ?? teamProfiles[0]
+  const isTeamDataLoading = membersLoading || workItemsLoading
   const sortedMembers = useMemo(() => {
     const getFirstName = (displayName: string) => displayName.trim().split(/\s+/)[0] ?? ''
 
@@ -60,21 +67,33 @@ function App({ patConfigured }: AppProps) {
     setSelectedTeamId(event.target.value)
   }
 
+  const handleRefresh = () => {
+    forceRefreshRef.current = true
+    setReloadNonce((current) => current + 1)
+  }
+
   useEffect(() => {
     if (!adoQueryEngine) {
       setMembers([])
       setMembersError(null)
       setMembersLoading(false)
+      setWorkItems([])
+      setWorkItemsError(null)
+      setWorkItemsLoading(false)
       return
     }
 
     const abortController = new AbortController()
+    const forceRefresh = forceRefreshRef.current
+    forceRefreshRef.current = false
 
     setMembersLoading(true)
     setMembersError(null)
+    setWorkItemsLoading(true)
+    setWorkItemsError(null)
 
     adoQueryEngine
-      .getTeamMembers(selectedTeam, abortController.signal)
+      .getTeamMembers(selectedTeam, abortController.signal, { forceRefresh })
       .then((teamMembers) => {
         if (abortController.signal.aborted) {
           return
@@ -98,10 +117,35 @@ function App({ patConfigured }: AppProps) {
         }
       })
 
+    adoQueryEngine
+      .getWorkItemsForCurrentAndNextIteration(selectedTeam, abortController.signal, { forceRefresh })
+      .then((items) => {
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        setWorkItems(items)
+      })
+      .catch((error: unknown) => {
+        if (abortController.signal.aborted || (error as Error).name === 'AbortError') {
+          return
+        }
+
+        const message =
+          error instanceof Error ? error.message : 'Unknown error while loading work items.'
+        setWorkItemsError(message)
+        setWorkItems([])
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) {
+          setWorkItemsLoading(false)
+        }
+      })
+
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, selectedTeam])
+  }, [adoQueryEngine, selectedTeam, reloadNonce])
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -131,6 +175,13 @@ function App({ patConfigured }: AppProps) {
                   ))}
                 </Select>
               </FormControl>
+              <Button
+                variant="outlined"
+                onClick={handleRefresh}
+                disabled={!patConfigured || isTeamDataLoading}
+              >
+                Refresh
+              </Button>
             </Box>
           </CardContent>
         </Card>
@@ -147,22 +198,22 @@ function App({ patConfigured }: AppProps) {
               </Typography>
             ) : null}
 
-            {patConfigured && membersLoading ? (
+            {patConfigured && isTeamDataLoading ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircularProgress size={18} />
                 <Typography variant="body-sm" color="text.secondary">
-                  Loading team members...
+                  Loading team data...
                 </Typography>
               </Box>
             ) : null}
 
-            {patConfigured && !membersLoading && membersError ? (
+            {patConfigured && !isTeamDataLoading && membersError ? (
               <Typography variant="body-sm" color="error.main">
                 {membersError}
               </Typography>
             ) : null}
 
-            {patConfigured && !membersLoading && !membersError ? (
+            {patConfigured && !isTeamDataLoading && !membersError ? (
               sortedMembers.length > 0 ? (
                 <List sx={{ py: 0 }}>
                   {sortedMembers.map((member) => {
@@ -183,6 +234,51 @@ function App({ patConfigured }: AppProps) {
               ) : (
                 <Typography variant="body-sm" color="text.secondary">
                   No team members returned for this team.
+                </Typography>
+              )
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="body-md" sx={{ fontWeight: 700, mb: 1 }}>
+              Work Items
+            </Typography>
+
+            {!patConfigured ? (
+              <Typography variant="body-sm" color="text.secondary">
+                Add AZDO_PAT in .env.local to load work items.
+              </Typography>
+            ) : null}
+
+            {patConfigured && isTeamDataLoading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={18} />
+                <Typography variant="body-sm" color="text.secondary">
+                  Loading team data...
+                </Typography>
+              </Box>
+            ) : null}
+
+            {patConfigured && !isTeamDataLoading && workItemsError ? (
+              <Typography variant="body-sm" color="error.main">
+                {workItemsError}
+              </Typography>
+            ) : null}
+
+            {patConfigured && !isTeamDataLoading && !workItemsError ? (
+              workItems.length > 0 ? (
+                <List sx={{ py: 0 }}>
+                  {workItems.map((item) => (
+                    <ListItem key={item.id} disableGutters>
+                      <ListItemText primary={item.title} secondary={`#${item.id}`} />
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Typography variant="body-sm" color="text.secondary">
+                  No work items returned for current or next iteration.
                 </Typography>
               )
             ) : null}
