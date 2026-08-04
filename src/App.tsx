@@ -375,7 +375,7 @@ function App({ patConfigured }: AppProps) {
                     <ListItem key={item.id} disableGutters>
                       <ListItemText
                         primary={item.title}
-                        secondary={`#${item.id} · ${workItemAssignees[item.id]?.label ?? 'Unassigned'}`}
+                        secondary={`#${item.id} · ${workItemAssignees[item.id]?.label ?? 'Unassigned'} · ${item.status}`}
                       />
                     </ListItem>
                   ))}

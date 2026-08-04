@@ -38,7 +38,10 @@ export type WorkItemSummary = {
   id: number
   title: string
   assignedTo?: IdentityRef
+  status: WorkItemStatus
 }
+
+export type WorkItemStatus = 'Blocked' | 'New' | 'Active' | 'Review' | 'Done'
 
 export type IdentityRef = {
   displayName?: string
@@ -65,6 +68,8 @@ type WorkItemApiItem = {
   fields?: {
     'System.Title'?: string
     'System.AssignedTo'?: unknown
+    'System.State'?: unknown
+    'System.Tags'?: unknown
   }
 }
 
@@ -82,6 +87,22 @@ export type ResolvedWorkItemAssignee = {
   label: string
   kind: 'team-member' | 'unassigned'
 }
+
+const blockedStates = new Set(['design', 'in planning', 'inactive', 'on hold'])
+const todoStates = new Set([
+  'accepted',
+  'approved',
+  'not started',
+  'new',
+  'open',
+  'ready',
+  'refined',
+  'requested',
+  'to do',
+])
+const inProgressStates = new Set(['active', 'committed', 'failed testing', 'in progress'])
+const validationStates = new Set(['available for testing', 'in code review', 'ready to build'])
+const doneStates = new Set(['closed', 'completed', 'done', 'removed'])
 
 function parseAssignedTo(value: unknown): IdentityRef | undefined {
   if (!value) {
@@ -123,6 +144,54 @@ function parseAssignedTo(value: unknown): IdentityRef | undefined {
   }
 
   return undefined
+}
+
+function normalizeText(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function parseTags(value: unknown): string[] {
+  if (typeof value !== 'string') {
+    return []
+  }
+
+  return value
+    .split(';')
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0)
+}
+
+function resolveStatusFromStateAndTags(stateValue: unknown, tagsValue: unknown): WorkItemStatus {
+  const tags = parseTags(tagsValue)
+  const normalizedTags = tags.map((tag) => normalizeText(tag))
+
+  const hasBlockedTag = normalizedTags.some((tag) => tag.includes('blocked'))
+  if (hasBlockedTag) {
+    return 'Blocked'
+  }
+
+  const normalizedState = typeof stateValue === 'string' ? normalizeText(stateValue) : ''
+
+  let status: WorkItemStatus = 'New'
+
+  if (blockedStates.has(normalizedState)) {
+    status = 'Blocked'
+  } else if (todoStates.has(normalizedState)) {
+    status = 'New'
+  } else if (inProgressStates.has(normalizedState)) {
+    status = 'Active'
+  } else if (validationStates.has(normalizedState)) {
+    status = 'Review'
+  } else if (doneStates.has(normalizedState)) {
+    status = 'Done'
+  }
+
+  const hasPrTag = normalizedTags.some((tag) => tag === 'pr')
+  if (hasPrTag && status === 'Active') {
+    return 'Review'
+  }
+
+  return status
 }
 
 function toIdentityKeys(identity?: IdentityRef): string[] {
@@ -234,7 +303,7 @@ export class AdoQueryEngine {
       },
       body: {
         ids,
-        fields: ['System.Title', 'System.AssignedTo'],
+        fields: ['System.Title', 'System.AssignedTo', 'System.State', 'System.Tags'],
       },
       signal,
     })
@@ -249,6 +318,10 @@ export class AdoQueryEngine {
           id: item.id,
           title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
           assignedTo: parseAssignedTo(item.fields?.['System.AssignedTo']),
+          status: resolveStatusFromStateAndTags(
+            item.fields?.['System.State'],
+            item.fields?.['System.Tags'],
+          ),
         }
       })
       .filter((item): item is WorkItemSummary => item !== null)
@@ -362,7 +435,13 @@ export class AdoQueryEngine {
       'FROM WorkItems',
       `WHERE [System.TeamProject] = ${quote(projectName)}`,
       `  AND [System.AreaPath] UNDER ${quote(areaPath)}`,
-      `  AND ([System.IterationPath] = ${iterationMacro} OR [System.IterationPath] = ${iterationMacro} + 1)`,
+      `  AND (`,
+      `    [System.IterationPath] = ${iterationMacro}`,
+      `    OR (`,
+      `      [System.IterationPath] = ${iterationMacro} + 1`,
+      `      AND [System.AssignedTo] <> ''`,
+      `    )`,
+      `  )`,
       'ORDER BY [System.ChangedDate] DESC',
     ].join('\n')
   }
