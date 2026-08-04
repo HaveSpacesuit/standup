@@ -1,4 +1,6 @@
 import type { TeamProfile } from '../teamProfiles'
+import { parseAssignedTo, toIdentityKeys, type IdentityRef } from './identity'
+import { resolveStatusFromStateAndTags, type WorkItemStatus } from './workItemStatus'
 
 type QueryValue = string | number | boolean | undefined
 
@@ -41,13 +43,6 @@ export type WorkItemSummary = {
   status: WorkItemStatus
 }
 
-export type WorkItemStatus = 'Blocked' | 'New' | 'Active' | 'Review' | 'Done'
-
-export type IdentityRef = {
-  displayName?: string
-  uniqueName?: string
-}
-
 type TeamMemberApiItem = {
   id?: string
   isTeamAdmin?: boolean
@@ -86,124 +81,6 @@ type TeamMemberLookup = Record<string, string>
 export type ResolvedWorkItemAssignee = {
   label: string
   kind: 'team-member' | 'unassigned'
-}
-
-const blockedStates = new Set(['design', 'in planning', 'inactive', 'on hold'])
-const todoStates = new Set([
-  'accepted',
-  'approved',
-  'not started',
-  'new',
-  'open',
-  'ready',
-  'refined',
-  'requested',
-  'to do',
-])
-const inProgressStates = new Set(['active', 'committed', 'failed testing', 'in progress'])
-const validationStates = new Set(['available for testing', 'in code review', 'ready to build'])
-const doneStates = new Set(['closed', 'completed', 'done', 'removed'])
-
-function parseAssignedTo(value: unknown): IdentityRef | undefined {
-  if (!value) {
-    return undefined
-  }
-
-  if (typeof value === 'object') {
-    const candidate = value as { displayName?: unknown; uniqueName?: unknown; name?: unknown }
-    const displayName =
-      typeof candidate.displayName === 'string'
-        ? candidate.displayName
-        : typeof candidate.name === 'string'
-          ? candidate.name
-          : undefined
-    const uniqueName = typeof candidate.uniqueName === 'string' ? candidate.uniqueName : undefined
-
-    if (displayName || uniqueName) {
-      return { displayName, uniqueName }
-    }
-
-    return undefined
-  }
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) {
-      return undefined
-    }
-
-    const match = /^(.*)\s<([^>]+)>$/.exec(trimmed)
-    if (match) {
-      return {
-        displayName: match[1]?.trim(),
-        uniqueName: match[2]?.trim(),
-      }
-    }
-
-    return { displayName: trimmed }
-  }
-
-  return undefined
-}
-
-function normalizeText(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').toLowerCase()
-}
-
-function parseTags(value: unknown): string[] {
-  if (typeof value !== 'string') {
-    return []
-  }
-
-  return value
-    .split(';')
-    .map((tag) => tag.trim())
-    .filter((tag) => tag.length > 0)
-}
-
-function resolveStatusFromStateAndTags(stateValue: unknown, tagsValue: unknown): WorkItemStatus {
-  const tags = parseTags(tagsValue)
-  const normalizedTags = tags.map((tag) => normalizeText(tag))
-
-  const hasBlockedTag = normalizedTags.some((tag) => tag.includes('blocked'))
-  if (hasBlockedTag) {
-    return 'Blocked'
-  }
-
-  const normalizedState = typeof stateValue === 'string' ? normalizeText(stateValue) : ''
-
-  let status: WorkItemStatus = 'New'
-
-  if (blockedStates.has(normalizedState)) {
-    status = 'Blocked'
-  } else if (todoStates.has(normalizedState)) {
-    status = 'New'
-  } else if (inProgressStates.has(normalizedState)) {
-    status = 'Active'
-  } else if (validationStates.has(normalizedState)) {
-    status = 'Review'
-  } else if (doneStates.has(normalizedState)) {
-    status = 'Done'
-  }
-
-  const hasPrTag = normalizedTags.some((tag) => tag === 'pr')
-  if (hasPrTag && status === 'Active') {
-    return 'Review'
-  }
-
-  return status
-}
-
-function toIdentityKeys(identity?: IdentityRef): string[] {
-  if (!identity) {
-    return []
-  }
-
-  const keys = [identity.uniqueName, identity.displayName]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .map((value) => value.toLowerCase())
-
-  return Array.from(new Set(keys))
 }
 
 function normalizeTeamMember(item: TeamMemberApiItem): TeamMember | null {
