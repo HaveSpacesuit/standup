@@ -1,32 +1,52 @@
-# React + TypeScript + Vite
+# Standup App (StrataKit + React + TypeScript + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A small starter app for daily standup entries, built with StrataKit on top of MUI.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19 + TypeScript
+- Vite 8
+- `@stratakit/mui` and `@stratakit/icons`
+- `@mui/material` with Emotion
 
-## React Compiler
+## Requirements
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 22+
+- npm 10+
 
-## Expanding the Oxlint configuration
+## Install
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Run locally
+
+```bash
+npm run dev
+```
+
+Then open the URL printed by Vite (typically http://localhost:5173).
+
+## Build
+
+```bash
+npm run build
+```
+
+## Preview production build
+
+```bash
+npm run preview
+```
+
+## StrataKit setup notes
+
+- App root is wrapped with `Root` from `@stratakit/mui` in `src/main.tsx`.
+- StrataKit type augmentation is enabled in `tsconfig.app.json` via `@stratakit/mui/types.d.ts`.
+- Vite is configured to not inline SVGs so StrataKit icons are emitted as files.
+- Icons are imported from package exports (example: `@stratakit/icons/add.svg`).
+
+## Agent skill
+
+This repository includes a local project skill at `.github/skills/stratakit-usage/SKILL.md` to guide UI work toward StrataKit conventions.
