@@ -20,6 +20,35 @@ A small starter app for daily standup entries, built with StrataKit on top of MU
 npm install
 ```
 
+## Local Azure DevOps auth (.env.local)
+
+1. Copy `.env.example` to `.env.local`.
+2. Fill your own values in `.env.local`:
+	- `AZDO_PAT`: your personal access token.
+	- `AZDO_API_VERSION` (optional): defaults to `7.1`.
+3. Restart `npm run dev` after any `.env.local` change.
+
+Required PAT scopes:
+
+- Build (Read)
+- Code (Read)
+- Project and Team (Read)
+- Release (Read)
+- Work Items (Read)
+
+Example:
+
+```dotenv
+AZDO_PAT=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+AZDO_API_VERSION=7.1
+```
+
+Notes:
+
+- `.env.local` is ignored by git.
+- `.env.example` is committed as a template for teammates.
+- App startup validates required env vars and fails fast if any are missing.
+
 ## Run locally
 
 ```bash
