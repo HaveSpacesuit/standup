@@ -31,7 +31,7 @@ function parseTags(value: unknown): string[] {
     .filter((tag) => tag.length > 0)
 }
 
-export function resolveStatusFromStateAndTags(stateValue: unknown, tagsValue: unknown): WorkItemStatus {
+const resolveStatusFromStateAndTags = (stateValue: unknown, tagsValue: unknown): WorkItemStatus => {
   const tags = parseTags(tagsValue)
   const normalizedTags = tags.map((tag) => normalizeText(tag))
 
@@ -63,3 +63,6 @@ export function resolveStatusFromStateAndTags(stateValue: unknown, tagsValue: un
 
   return status
 }
+
+export { resolveStatusFromStateAndTags }
+export default resolveStatusFromStateAndTags

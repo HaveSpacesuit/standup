@@ -3,7 +3,7 @@ import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { WorkItemSummary } from './types'
 import { buildIterationScopedWiql } from './wiql'
-import { resolveStatusFromStateAndTags } from './workItemStatus'
+import resolveStatusFromStateAndTags from './workItemStatus'
 
 type WiqlResponse = {
   workItems?: Array<{ id: number }>
