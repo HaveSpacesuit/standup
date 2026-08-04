@@ -2,14 +2,14 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Root } from '@stratakit/mui'
 import App from './App.tsx'
-import { validateAppConfig } from './config'
+import { isPatConfigured } from './config'
 
-validateAppConfig()
+const patConfigured = isPatConfigured()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Root colorScheme="light">
-      <App />
+      <App patConfigured={patConfigured} />
     </Root>
   </StrictMode>,
 )

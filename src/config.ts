@@ -5,9 +5,13 @@ type AppConfig = {
 
 const PLACEHOLDER_VALUES = new Set(['', 'paste-your-pat-here'])
 
-function readRequiredEnv(name: string): string {
+function readEnv(name: string): string {
   const env = import.meta.env as Record<string, string | undefined>
-  const value = env[name]?.trim() ?? ''
+  return env[name]?.trim() ?? ''
+}
+
+function readRequiredEnv(name: string): string {
+  const value = readEnv(name)
 
   if (PLACEHOLDER_VALUES.has(value)) {
     throw new Error(
@@ -25,6 +29,11 @@ export function getAppConfig(): AppConfig {
     azdoPat: readRequiredEnv('AZDO_PAT'),
     azdoApiVersion: env.AZDO_API_VERSION?.trim() || '7.1',
   }
+}
+
+export function isPatConfigured(): boolean {
+  const pat = readEnv('AZDO_PAT')
+  return !PLACEHOLDER_VALUES.has(pat)
 }
 
 export function validateAppConfig(): void {
