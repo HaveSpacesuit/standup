@@ -1,14 +1,23 @@
 import { useMemo, useRef, useState } from 'react'
-import { AppBar, Box, Card, CardContent, Toolbar, Typography, type SelectChangeEvent } from '@mui/material'
+import {
+  AppBar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  FormControl,
+  MenuItem,
+  Select,
+  Toolbar,
+  Typography,
+  type SelectChangeEvent,
+} from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
-import svgAiSparkle from '@stratakit/icons/ai-sparkle.svg'
 import { getAppConfig } from './config'
 import { teamProfiles } from './teamProfiles'
 import { AdoQueryEngine } from './ado/queryEngine'
-import { TeamSelectorCard } from './features/standup/components/TeamSelectorCard'
-import { TeamMembersCard } from './features/standup/components/TeamMembersCard'
-import { WorkItemsCard } from './features/standup/components/WorkItemsCard'
+import { KanbanBoard } from './features/standup/components/KanbanBoard'
 import { useTeamData } from './features/standup/hooks/useTeamData'
 import { useWorkItemAssignees } from './features/standup/hooks/useWorkItemAssignees'
 
@@ -71,36 +80,48 @@ function App({ patConfigured }: AppProps) {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="static">
-        <Toolbar sx={{ gap: 1 }}>
+        <Toolbar sx={{ gap: 1.5 }}>
           <Icon href={svgCalendar} />
-          <Typography variant="body-lg" sx={{ flexGrow: 1, fontWeight: 700 }}>
-            Daily Standup
+          <Typography variant="body-lg" sx={{ fontWeight: 700 }}>
+            Team Standup
           </Typography>
-          <Icon href={svgAiSparkle} />
+
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 420 }}>
+            <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+              Team
+            </Typography>
+
+            <FormControl size="small" sx={{ minWidth: 260, flex: 1 }}>
+              <Select value={selectedTeamId} onChange={handleTeamChange}>
+                {teamProfiles.map((team) => (
+                  <MenuItem key={team.id} value={team.id}>
+                    {team.displayName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Button
+              variant="outlined"
+              onClick={handleRefresh}
+              disabled={!patConfigured || isTeamDataLoading}
+            >
+              Refresh
+            </Button>
+          </Box>
+
         </Toolbar>
       </AppBar>
 
-      <Box component="main" sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-        <TeamSelectorCard
-          teams={teamProfiles}
-          selectedTeamId={selectedTeamId}
-          onTeamChange={handleTeamChange}
-          onRefresh={handleRefresh}
-          refreshDisabled={!patConfigured || isTeamDataLoading}
-        />
+      <Box component="main" sx={{ p: 2.5 }}>
 
-        <TeamMembersCard
+        <KanbanBoard
           patConfigured={patConfigured}
           isLoading={isTeamDataLoading}
           membersError={membersError}
-          members={members}
-        />
-
-        <WorkItemsCard
-          patConfigured={patConfigured}
-          isLoading={isTeamDataLoading}
           workItemsError={workItemsError}
           assigneesError={assigneesError}
+          members={members}
           workItems={workItems}
           workItemAssignees={workItemAssignees}
         />

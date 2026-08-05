@@ -1,6 +1,6 @@
 # Standup App (StrataKit + React + TypeScript + Vite)
 
-A small starter app for daily standup entries, built with StrataKit on top of MUI.
+A small starter app for team standup entries, built with StrataKit on top of MUI.
 
 ## Stack
 
