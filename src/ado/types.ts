@@ -13,6 +13,8 @@ export type TeamMember = {
 export type WorkItemSummary = {
   id: number
   title: string
+  workItemType?: string
+  workItemIconUrl?: string
   assignedTo?: IdentityRef
   status: WorkItemStatus
 }

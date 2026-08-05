@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
+import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import { getAppConfig } from './config'
 import { teamProfiles } from './teamProfiles'
 import { AdoQueryEngine } from './ado/queryEngine'
@@ -102,7 +103,9 @@ function App({ patConfigured }: AppProps) {
             </FormControl>
 
             <Button
-              variant="outlined"
+                size="small"
+                variant="outlined"
+                startIcon={<Icon href={svgCloudSync} />}
               onClick={handleRefresh}
               disabled={!patConfigured || isTeamDataLoading}
             >

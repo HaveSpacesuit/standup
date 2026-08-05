@@ -1,7 +1,9 @@
 import { Avatar, Card, CardContent, CircularProgress, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useMemo, type ReactNode } from 'react'
+import { useTheme } from '@mui/material/styles'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import { getWorkItemIconUrlWithThemeColor } from '../utils/workItemIconColor'
 
 const STATUS_COLUMNS = ['Blocked', 'New', 'Active', 'Review', 'Done'] as const
 
@@ -46,25 +48,43 @@ export function KanbanBoard({
   workItems,
   workItemAssignees,
 }: KanbanBoardProps) {
+  const theme = useTheme()
   const sortedMembers = useMemo(() => sortMembers(members), [members])
 
   const rows = useMemo<RowData[]>(() => {
-    const memberRows = sortedMembers.map((member) => ({
-      key: member.displayName.toLowerCase(),
-      label: member.displayName,
-      avatarUrl: member.imageUrl,
-      isUnassigned: false,
-    }))
+    const membersWithItems = new Set(
+      workItems
+        .map((item) => workItemAssignees[item.id])
+        .filter((assignee): assignee is ResolvedWorkItemAssignee => Boolean(assignee))
+        .filter((assignee) => assignee.kind === 'team-member')
+        .map((assignee) => assignee.label.toLowerCase()),
+    )
 
-    return [
-      ...memberRows,
-      {
-        key: '__unassigned__',
-        label: 'Unassigned',
-        isUnassigned: true,
-      },
-    ]
-  }, [sortedMembers])
+    const hasUnassignedItems = workItems.some((item) => {
+      const assignee = workItemAssignees[item.id]
+      return !assignee || assignee.kind === 'unassigned'
+    })
+
+    const memberRows = sortedMembers
+      .filter((member) => membersWithItems.has(member.displayName.toLowerCase()))
+      .map((member) => ({
+        key: member.displayName.toLowerCase(),
+        label: member.displayName,
+        avatarUrl: member.imageUrl,
+        isUnassigned: false,
+      }))
+
+    return hasUnassignedItems
+      ? [
+          ...memberRows,
+          {
+            key: '__unassigned__',
+            label: 'Unassigned',
+            isUnassigned: true,
+          },
+        ]
+      : memberRows
+  }, [sortedMembers, workItems, workItemAssignees])
 
   const rowLookup = useMemo(() => {
     return rows.reduce<Record<string, RowData>>((acc, row) => {
@@ -238,17 +258,32 @@ export function KanbanBoard({
                             maxWidth: 220,
                           }}
                         >
-                          <Typography
-                            variant="body-sm"
-                            sx={{
-                              fontWeight: 700,
-                              mb: 0.25,
-                              color: 'text.secondary',
-                              fontSize: 12,
-                            }}
-                          >
-                            #{item.id}
-                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
+                            {item.workItemIconUrl ? (
+                              <Box
+                                component="img"
+                                src={getWorkItemIconUrlWithThemeColor(
+                                  item.workItemIconUrl,
+                                  item.workItemType,
+                                  theme.palette,
+                                )}
+                                alt=""
+                                sx={{ width: 14, height: 14, display: 'block', flexShrink: 0 }}
+                              />
+                            ) : null}
+
+                            <Typography
+                              variant="body-sm"
+                              sx={{
+                                fontWeight: 700,
+                                color: 'text.secondary',
+                                fontSize: 12,
+                              }}
+                            >
+                              #{item.id}
+                            </Typography>
+                          </Box>
+
                           <Typography
                             variant="body-sm"
                             sx={{
