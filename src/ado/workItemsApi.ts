@@ -107,6 +107,7 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
       return {
         id: item.id,
         title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+        workItemUrl: `https://dev.azure.com/${encodeURIComponent(team.orgName)}/${encodeURIComponent(team.projectName)}/_workitems/edit/${item.id}`,
         workItemType,
         workItemIconUrl: workItemIconMap[iconId],
         assignedTo: parseAssignedTo(item.fields?.['System.AssignedTo']),

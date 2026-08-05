@@ -258,44 +258,62 @@ export function KanbanBoard({
                             maxWidth: 220,
                           }}
                         >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
-                            {item.workItemIconUrl ? (
-                              <Box
-                                component="img"
-                                src={getWorkItemIconUrlWithThemeColor(
-                                  item.workItemIconUrl,
-                                  item.workItemType,
-                                  theme.palette,
-                                )}
-                                alt=""
-                                sx={{ width: 14, height: 14, display: 'block', flexShrink: 0 }}
-                              />
-                            ) : null}
-
+                          <Box
+                            component="a"
+                            href={item.workItemUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            sx={{
+                              color: 'text.primary',
+                              textDecoration: 'none',
+                              '&:hover': {
+                                textDecoration: 'underline',
+                              },
+                            }}
+                          >
                             <Typography
                               variant="body-sm"
                               sx={{
-                                fontWeight: 700,
-                                color: 'text.secondary',
-                                fontSize: 12,
-                              }}
-                            >
-                              #{item.id}
-                            </Typography>
-                          </Box>
-
-                          <Typography
-                            variant="body-sm"
-                            sx={{
                               lineHeight: 1.25,
                               display: '-webkit-box',
                               WebkitBoxOrient: 'vertical',
                               WebkitLineClamp: 3,
                               overflow: 'hidden',
-                            }}
-                          >
-                            {item.title}
-                          </Typography>
+                              }}
+                            >
+                              {item.workItemIconUrl ? (
+                                <Box
+                                  component="img"
+                                  src={getWorkItemIconUrlWithThemeColor(
+                                    item.workItemIconUrl,
+                                    item.workItemType,
+                                    theme.palette,
+                                  )}
+                                  alt=""
+                                  sx={{
+                                    width: 14,
+                                    height: 14,
+                                    display: 'inline-block',
+                                    verticalAlign: 'text-bottom',
+                                    mr: 0.5,
+                                  }}
+                                />
+                              ) : null}
+                              <Box
+                                component="span"
+                                sx={{
+                                  fontWeight: 700,
+                                  color: 'text.secondary',
+                                  mr: 0.5,
+                                }}
+                              >
+                                {item.id}
+                              </Box>
+                              <Box component="span" sx={{ fontWeight: 400 }}>
+                                {item.title}
+                              </Box>
+                            </Typography>
+                          </Box>
                         </Box>
                       ))}
                     </Box>
