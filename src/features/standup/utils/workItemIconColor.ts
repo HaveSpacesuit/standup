@@ -255,3 +255,7 @@ export function getWorkItemIconUrlWithThemeColor(
 ): string {
   return withIconColor(workItemIconUrl, getWorkItemTypeColorHex(workItemType, palette))
 }
+
+export function getIconUrlWithThemeColorValue(iconUrl: string, colorValue: string): string {
+  return withIconColor(iconUrl, resolveColorValueToHexWithoutPound(colorValue))
+}

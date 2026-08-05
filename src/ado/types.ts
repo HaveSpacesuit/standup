@@ -10,10 +10,19 @@ export type TeamMember = {
   descriptor?: string
 }
 
+export type WorkItemPullRequestSummary = {
+  id: number
+  title: string
+  url: string
+  iconUrl?: string
+  reviewState?: 'rejected' | 'waiting-for-author' | 'partially-approved' | 'fully-approved'
+}
+
 export type WorkItemSummary = {
   id: number
   title: string
   sprintName?: string
+  activePullRequests?: WorkItemPullRequestSummary[]
   workItemUrl?: string
   effort?: number
   workItemType?: string

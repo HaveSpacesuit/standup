@@ -1,8 +1,15 @@
 import { Badge, Card, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
+import { Icon } from '@stratakit/mui'
+import svgStatusPending from '@stratakit/icons/status-pending.svg'
+import svgStatusRejected from '@stratakit/icons/status-rejected.svg'
+import svgStatusSuccess from '@stratakit/icons/status-success.svg'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
-import { getWorkItemIconUrlWithThemeColor } from '../utils/workItemIconColor'
+import {
+  getIconUrlWithThemeColorValue,
+  getWorkItemIconUrlWithThemeColor,
+} from '../utils/workItemIconColor'
 
 type WorkItemCardProps = {
   item: WorkItemSummary
@@ -52,6 +59,43 @@ function getStatusTintOpacity(status: WorkItemSummary['status'], mode: 'light' |
       return 0.07
     case 'Done':
       return 0.05
+  }
+}
+
+function getPullRequestReviewIcon(
+  reviewState: 'rejected' | 'waiting-for-author' | 'partially-approved' | 'fully-approved' | undefined,
+): { href: string; color: string; label: string; count?: number } | undefined {
+  switch (reviewState) {
+    case 'rejected':
+      return {
+        href: svgStatusRejected,
+        color: 'error.main',
+        label: 'Rejected',
+        count: 1,
+      }
+    case 'waiting-for-author':
+      return {
+        href: svgStatusPending,
+        color: 'warning.main',
+        label: 'Waiting for author',
+        count: 1,
+      }
+    case 'partially-approved':
+      return {
+        href: svgStatusSuccess,
+        color: 'success.main',
+        label: 'Partially approved',
+        count: 1,
+      }
+    case 'fully-approved':
+      return {
+        href: svgStatusSuccess,
+        color: 'success.main',
+        label: 'Fully approved',
+        count: 2,
+      }
+    default:
+      return undefined
   }
 }
 
@@ -127,6 +171,7 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
           sx={{
             display: 'block',
             minWidth: 0,
+            mb: 1.2,
             color: 'text.primary',
             textDecoration: 'none',
             '&:hover': {
@@ -179,11 +224,89 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
           </Typography>
         </Box>
 
+        {(item.activePullRequests?.length ?? 0) > 0 ? (
+          <Box sx={{ clear: 'both' }}>
+            {item.activePullRequests?.map((pullRequest) => {
+              const reviewIcon = getPullRequestReviewIcon(pullRequest.reviewState)
+
+              return (
+                <Box
+                  key={pullRequest.id}
+                  component="a"
+                  href={pullRequest.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  sx={{
+                    display: 'block',
+                    mt: 0.2,
+                    color: 'text.secondary',
+                    textDecoration: 'none',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                  }}
+                >
+                  {reviewIcon ? (
+                    <Box
+                      component="span"
+                      sx={{
+                        float: 'right',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.2,
+                        ml: 0.5,
+                        mt: 0.1,
+                        lineHeight: 0,
+                        color: reviewIcon.color,
+                      }}
+                      aria-label={reviewIcon.label}
+                    >
+                      {Array.from({ length: Math.min(reviewIcon.count ?? 1, 2) }).map((_, index) => (
+                        <Icon key={`${reviewIcon.label}-${index}`} href={reviewIcon.href} size="regular" />
+                      ))}
+                    </Box>
+                  ) : null}
+
+                  <Typography
+                    component="span"
+                    variant="body-sm"
+                    sx={{
+                      fontSize: 10,
+                      lineHeight: 1.2,
+                      display: '-webkit-box',
+                      WebkitBoxOrient: 'vertical',
+                      WebkitLineClamp: 2,
+                      overflow: 'hidden',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {pullRequest.iconUrl ? (
+                      <Box
+                        component="img"
+                        src={getIconUrlWithThemeColorValue(pullRequest.iconUrl, statusColor)}
+                        alt="PR"
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          display: 'inline-block',
+                          verticalAlign: 'text-bottom',
+                          mr: 0.5,
+                        }}
+                      />
+                    ) : null}
+                    {pullRequest.id} {pullRequest.title}
+                  </Typography>
+                </Box>
+              )
+            })}
+          </Box>
+        ) : null}
+
         {item.sprintName ? (
           <Typography
             variant="body-sm"
             sx={{
-              mt: 0.35,
+              mt: 0.45,
               clear: 'both',
               fontSize: 11,
               lineHeight: 1.2,
