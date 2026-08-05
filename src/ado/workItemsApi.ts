@@ -46,7 +46,33 @@ type WorkItemApiItem = {
     'System.AssignedTo'?: unknown
     'System.State'?: unknown
     'System.Tags'?: unknown
+    'Microsoft.VSTS.Scheduling.Effort'?: unknown
+    'Microsoft.VSTS.Scheduling.StoryPoints'?: unknown
+    'Microsoft.VSTS.Scheduling.Size'?: unknown
   }
+}
+
+function parseEffort(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  return undefined
+}
+
+function resolveEffort(fields: WorkItemApiItem['fields']): number | undefined {
+  return (
+    parseEffort(fields?.['Microsoft.VSTS.Scheduling.Effort']) ??
+    parseEffort(fields?.['Microsoft.VSTS.Scheduling.StoryPoints']) ??
+    parseEffort(fields?.['Microsoft.VSTS.Scheduling.Size'])
+  )
 }
 
 export async function fetchWorkItemsForCurrentAndNextIteration(
@@ -85,7 +111,16 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
     },
     body: {
       ids,
-      fields: ['System.Title', 'System.WorkItemType', 'System.AssignedTo', 'System.State', 'System.Tags'],
+      fields: [
+        'System.Title',
+        'System.WorkItemType',
+        'System.AssignedTo',
+        'System.State',
+        'System.Tags',
+        'Microsoft.VSTS.Scheduling.Effort',
+        'Microsoft.VSTS.Scheduling.StoryPoints',
+        'Microsoft.VSTS.Scheduling.Size',
+      ],
     },
     signal,
   })
@@ -108,6 +143,7 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
         id: item.id,
         title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
         workItemUrl: `https://dev.azure.com/${encodeURIComponent(team.orgName)}/${encodeURIComponent(team.projectName)}/_workitems/edit/${item.id}`,
+        effort: resolveEffort(item.fields),
         workItemType,
         workItemIconUrl: workItemIconMap[iconId],
         assignedTo: parseAssignedTo(item.fields?.['System.AssignedTo']),

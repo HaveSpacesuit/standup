@@ -14,6 +14,7 @@ export type WorkItemSummary = {
   id: number
   title: string
   workItemUrl?: string
+  effort?: number
   workItemType?: string
   workItemIconUrl?: string
   assignedTo?: IdentityRef

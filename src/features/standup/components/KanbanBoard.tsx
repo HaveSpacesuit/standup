@@ -1,9 +1,8 @@
-import { Avatar, Card, CardContent, CircularProgress, Typography } from '@mui/material'
+import { Avatar, CircularProgress, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useMemo, type ReactNode } from 'react'
-import { useTheme } from '@mui/material/styles'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
-import { getWorkItemIconUrlWithThemeColor } from '../utils/workItemIconColor'
+import { WorkItemCard } from './WorkItemCard'
 
 const STATUS_COLUMNS = ['Blocked', 'New', 'Active', 'Review', 'Done'] as const
 
@@ -48,7 +47,6 @@ export function KanbanBoard({
   workItems,
   workItemAssignees,
 }: KanbanBoardProps) {
-  const theme = useTheme()
   const sortedMembers = useMemo(() => sortMembers(members), [members])
 
   const rows = useMemo<RowData[]>(() => {
@@ -165,6 +163,7 @@ export function KanbanBoard({
             borderColor: 'divider',
             borderRadius: 1,
             bgcolor: 'background.paper',
+            overflow: 'hidden',
           }}
         >
           <Box
@@ -173,7 +172,7 @@ export function KanbanBoard({
               py: 1.5,
               borderBottom: '1px solid',
               borderColor: 'divider',
-              bgcolor: 'background.default',
+              bgcolor: 'background.paper',
             }}
           >
             <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
@@ -188,9 +187,8 @@ export function KanbanBoard({
                 px: 2,
                 py: 1.5,
                 borderBottom: '1px solid',
-                borderLeft: '1px solid',
                 borderColor: 'divider',
-                bgcolor: 'background.default',
+                bgcolor: 'background.paper',
               }}
             >
               <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
@@ -207,6 +205,7 @@ export function KanbanBoard({
                   py: 1.25,
                   borderBottom: '1px solid',
                   borderColor: 'divider',
+                  bgcolor: 'background.paper',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
@@ -232,8 +231,8 @@ export function KanbanBoard({
                       px: 1,
                       py: 1,
                       borderBottom: '1px solid',
-                      borderLeft: '1px solid',
                       borderColor: 'divider',
+                      bgcolor: 'background.default',
                       minHeight: 92,
                     }}
                   >
@@ -246,75 +245,7 @@ export function KanbanBoard({
                       }}
                     >
                       {cellItems.map((item) => (
-                        <Box
-                          key={item.id}
-                          sx={{
-                            p: 1,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 1,
-                            bgcolor: 'background.default',
-                            minWidth: 150,
-                            maxWidth: 220,
-                          }}
-                        >
-                          <Box
-                            component="a"
-                            href={item.workItemUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            sx={{
-                              color: 'text.primary',
-                              textDecoration: 'none',
-                              '&:hover': {
-                                textDecoration: 'underline',
-                              },
-                            }}
-                          >
-                            <Typography
-                              variant="body-sm"
-                              sx={{
-                              lineHeight: 1.25,
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 3,
-                              overflow: 'hidden',
-                              }}
-                            >
-                              {item.workItemIconUrl ? (
-                                <Box
-                                  component="img"
-                                  src={getWorkItemIconUrlWithThemeColor(
-                                    item.workItemIconUrl,
-                                    item.workItemType,
-                                    theme.palette,
-                                  )}
-                                  alt=""
-                                  sx={{
-                                    width: 14,
-                                    height: 14,
-                                    display: 'inline-block',
-                                    verticalAlign: 'text-bottom',
-                                    mr: 0.5,
-                                  }}
-                                />
-                              ) : null}
-                              <Box
-                                component="span"
-                                sx={{
-                                  fontWeight: 700,
-                                  color: 'text.secondary',
-                                  mr: 0.5,
-                                }}
-                              >
-                                {item.id}
-                              </Box>
-                              <Box component="span" sx={{ fontWeight: 400 }}>
-                                {item.title}
-                              </Box>
-                            </Typography>
-                          </Box>
-                        </Box>
+                        <WorkItemCard key={item.id} item={item} />
                       ))}
                     </Box>
                   </Box>
@@ -327,14 +258,5 @@ export function KanbanBoard({
     )
   }
 
-  return (
-    <Card sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="body-md" sx={{ fontWeight: 700, mb: 1 }}>
-          Kanban Board
-        </Typography>
-        {content}
-      </CardContent>
-    </Card>
-  )
+  return <Box sx={{ mb: 2 }}>{content}</Box>
 }
