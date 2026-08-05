@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AppBar,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
   FormControl,
   MenuItem,
   Select,
@@ -15,20 +16,76 @@ import {
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
+import svgFilter from '@stratakit/icons/filter.svg'
 import { getAppConfig } from './config'
 import { teamProfiles } from './teamProfiles'
 import { AdoQueryEngine } from './ado/queryEngine'
 import { KanbanBoard } from './features/standup/components/KanbanBoard'
+import { HiddenTagsDialog } from './features/standup/components/HiddenTagsDialog'
 import { useTeamData } from './features/standup/hooks/useTeamData'
 import { useWorkItemAssignees } from './features/standup/hooks/useWorkItemAssignees'
+import type { WorkItemSummary } from './ado/queryEngine'
 
 type AppProps = {
   patConfigured: boolean
 }
 
+const HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
+
+function normalizeTag(tag: string): string {
+  return tag.trim()
+}
+
+function normalizeTagKey(tag: string): string {
+  return normalizeTag(tag).toLowerCase()
+}
+
+function parseStoredHiddenTags(value: string | null): string[] {
+  if (!value) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+
+    const deduped = new Map<string, string>()
+    for (const entry of parsed) {
+      if (typeof entry !== 'string') {
+        continue
+      }
+
+      const normalized = normalizeTag(entry)
+      if (!normalized) {
+        continue
+      }
+
+      deduped.set(normalizeTagKey(normalized), normalized)
+    }
+
+    return [...deduped.values()]
+  } catch {
+    return []
+  }
+}
+
+function shouldHideByTag(item: WorkItemSummary, hiddenTagKeys: Set<string>): boolean {
+  if (hiddenTagKeys.size === 0) {
+    return false
+  }
+
+  return (item.tags ?? []).some((tag) => hiddenTagKeys.has(normalizeTagKey(tag)))
+}
+
 function App({ patConfigured }: AppProps) {
   const [selectedTeamId, setSelectedTeamId] = useState(teamProfiles[0].id)
   const [reloadNonce, setReloadNonce] = useState(0)
+  const [hiddenTagsDialogOpen, setHiddenTagsDialogOpen] = useState(false)
+  const [hiddenTags, setHiddenTags] = useState<string[]>(() =>
+    parseStoredHiddenTags(localStorage.getItem(HIDDEN_TAGS_STORAGE_KEY)),
+  )
   const forceRefreshRef = useRef(false)
   const selectedTeam =
     teamProfiles.find((team) => team.id === selectedTeamId) ?? teamProfiles[0]
@@ -49,6 +106,14 @@ function App({ patConfigured }: AppProps) {
   const handleRefresh = () => {
     forceRefreshRef.current = true
     setReloadNonce((current) => current + 1)
+  }
+
+  const handleOpenHiddenTagsDialog = () => {
+    setHiddenTagsDialogOpen(true)
+  }
+
+  const handleCloseHiddenTagsDialog = () => {
+    setHiddenTagsDialogOpen(false)
   }
 
   const {
@@ -75,6 +140,20 @@ function App({ patConfigured }: AppProps) {
     workItemsLoading,
     workItemsError,
   })
+
+  useEffect(() => {
+    localStorage.setItem(HIDDEN_TAGS_STORAGE_KEY, JSON.stringify(hiddenTags))
+  }, [hiddenTags])
+
+  const hiddenTagKeys = useMemo(
+    () => new Set(hiddenTags.map((tag) => normalizeTagKey(tag))),
+    [hiddenTags],
+  )
+
+  const filteredWorkItems = useMemo(
+    () => workItems.filter((item) => !shouldHideByTag(item, hiddenTagKeys)),
+    [workItems, hiddenTagKeys],
+  )
 
   const isTeamDataLoading = membersLoading || workItemsLoading || assigneesLoading
 
@@ -103,15 +182,37 @@ function App({ patConfigured }: AppProps) {
             </FormControl>
 
             <Button
-                size="small"
-                variant="outlined"
-                startIcon={<Icon href={svgCloudSync} />}
+              size="small"
+              variant="outlined"
+              startIcon={<Icon href={svgCloudSync} />}
               onClick={handleRefresh}
               disabled={!patConfigured || isTeamDataLoading}
             >
               Refresh
             </Button>
+
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Icon href={svgFilter} />}
+              onClick={handleOpenHiddenTagsDialog}
+              disabled={!patConfigured}
+            >
+              Hidden tags
+            </Button>
           </Box>
+
+          {hiddenTags.length > 0 ? (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={`${hiddenTags.length} hidden tag${hiddenTags.length === 1 ? '' : 's'}`}
+              sx={{
+                borderColor: 'warning.main',
+                color: 'warning.main',
+              }}
+            />
+          ) : null}
 
         </Toolbar>
       </AppBar>
@@ -125,8 +226,15 @@ function App({ patConfigured }: AppProps) {
           workItemsError={workItemsError}
           assigneesError={assigneesError}
           members={members}
-          workItems={workItems}
+          workItems={filteredWorkItems}
           workItemAssignees={workItemAssignees}
+        />
+
+        <HiddenTagsDialog
+          open={hiddenTagsDialogOpen}
+          hiddenTags={hiddenTags}
+          onChange={setHiddenTags}
+          onClose={handleCloseHiddenTagsDialog}
         />
 
         {!patConfigured ? (
