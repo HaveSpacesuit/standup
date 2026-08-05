@@ -42,6 +42,7 @@ type WorkItemApiItem = {
   id?: number
   fields?: {
     'System.Title'?: string
+    'System.IterationPath'?: unknown
     'System.WorkItemType'?: unknown
     'System.AssignedTo'?: unknown
     'System.State'?: unknown
@@ -73,6 +74,21 @@ function resolveEffort(fields: WorkItemApiItem['fields']): number | undefined {
     parseEffort(fields?.['Microsoft.VSTS.Scheduling.StoryPoints']) ??
     parseEffort(fields?.['Microsoft.VSTS.Scheduling.Size'])
   )
+}
+
+function resolveSprintName(fields: WorkItemApiItem['fields']): string | undefined {
+  const path = fields?.['System.IterationPath']
+  if (typeof path !== 'string') {
+    return undefined
+  }
+
+  const trimmed = path.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  const segments = trimmed.split('\\').filter(Boolean)
+  return segments.length > 0 ? segments[segments.length - 1] : trimmed
 }
 
 export async function fetchWorkItemsForCurrentAndNextIteration(
@@ -113,6 +129,7 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
       ids,
       fields: [
         'System.Title',
+        'System.IterationPath',
         'System.WorkItemType',
         'System.AssignedTo',
         'System.State',
@@ -142,6 +159,7 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
       return {
         id: item.id,
         title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+        sprintName: resolveSprintName(item.fields),
         workItemUrl: `https://dev.azure.com/${encodeURIComponent(team.orgName)}/${encodeURIComponent(team.projectName)}/_workitems/edit/${item.id}`,
         effort: resolveEffort(item.fields),
         workItemType,

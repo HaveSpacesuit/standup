@@ -79,7 +79,7 @@ function App({ patConfigured }: AppProps) {
   const isTeamDataLoading = membersLoading || workItemsLoading || assigneesLoading
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.paper' }}>
       <AppBar position="static">
         <Toolbar sx={{ gap: 1.5 }}>
           <Icon href={svgCalendar} />

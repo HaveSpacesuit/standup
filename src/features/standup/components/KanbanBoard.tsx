@@ -5,6 +5,7 @@ import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../.
 import { WorkItemCard } from './WorkItemCard'
 
 const STATUS_COLUMNS = ['Blocked', 'New', 'Active', 'Review', 'Done'] as const
+const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
 
 type KanbanBoardProps = {
   patConfigured: boolean
@@ -153,17 +154,19 @@ export function KanbanBoard({
     )
   } else {
     content = (
-      <Box sx={{ overflowX: 'auto' }}>
+      <Box
+        sx={{
+          overflowX: 'auto',
+        }}
+      >
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: '220px repeat(5, minmax(200px, 1fr))',
+            gridTemplateColumns: BOARD_GRID_TEMPLATE,
             minWidth: 1220,
-            border: '1px solid',
+            borderBottom: '1px solid',
             borderColor: 'divider',
-            borderRadius: 1,
             bgcolor: 'background.paper',
-            overflow: 'hidden',
           }}
         >
           <Box
@@ -176,7 +179,7 @@ export function KanbanBoard({
             }}
           >
             <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-              Assignee
+              Team member
             </Typography>
           </Box>
 
@@ -196,63 +199,82 @@ export function KanbanBoard({
               </Typography>
             </Box>
           ))}
+        </Box>
 
-          {rows.map((row) => (
-            <Box key={row.key} sx={{ display: 'contents' }}>
-              <Box
-                sx={{
-                  px: 1.5,
-                  py: 1.25,
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                  bgcolor: 'background.paper',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                }}
-              >
-                {row.isUnassigned ? (
-                  <Avatar sx={{ width: 28, height: 28 }} />
-                ) : (
-                  <Avatar alt={row.label} src={row.avatarUrl} sx={{ width: 28, height: 28 }} />
-                )}
-                <Typography variant="body-sm" sx={{ fontWeight: row.isUnassigned ? 700 : 500 }}>
-                  {row.label}
-                </Typography>
-              </Box>
+        <Box
+          sx={{
+            maxHeight: 'calc(100vh - 220px)',
+            overflowY: 'auto',
+            overflowX: 'visible',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: BOARD_GRID_TEMPLATE,
+              minWidth: 1220,
+              bgcolor: 'background.default',
+            }}
+          >
 
-              {STATUS_COLUMNS.map((status) => {
-                const cellItems = cardsByCell[`${row.key}:${status}`] ?? []
+            {rows.map((row) => (
+              <Box key={row.key} sx={{ display: 'contents' }}>
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 1.25,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 1,
+                  }}
+                >
+                  {row.isUnassigned ? (
+                    <Avatar sx={{ width: 28, height: 28 }} />
+                  ) : (
+                    <Avatar alt={row.label} src={row.avatarUrl} sx={{ width: 28, height: 28 }} />
+                  )}
+                  <Typography variant="body-sm" sx={{ fontWeight: row.isUnassigned ? 700 : 500 }}>
+                    {row.label}
+                  </Typography>
+                </Box>
 
-                return (
-                  <Box
-                    key={`${row.key}:${status}`}
-                    sx={{
-                      px: 1,
-                      py: 1,
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: 'background.default',
-                      minHeight: 92,
-                    }}
-                  >
+                {STATUS_COLUMNS.map((status) => {
+                  const cellItems = cardsByCell[`${row.key}:${status}`] ?? []
+
+                  return (
                     <Box
+                      key={`${row.key}:${status}`}
                       sx={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        alignContent: 'flex-start',
-                        gap: 0.75,
+                        pl: 1,
+                        pr: 2,
+                        py: 1,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: 'background.default',
+                        minHeight: 92,
                       }}
                     >
-                      {cellItems.map((item) => (
-                        <WorkItemCard key={item.id} item={item} />
-                      ))}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignContent: 'flex-start',
+                          gap: 0.75,
+                        }}
+                      >
+                        {cellItems.map((item) => (
+                          <WorkItemCard key={item.id} item={item} />
+                        ))}
+                      </Box>
                     </Box>
-                  </Box>
-                )
-              })}
-            </Box>
-          ))}
+                  )
+                })}
+              </Box>
+            ))}
+          </Box>
         </Box>
       </Box>
     )

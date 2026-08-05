@@ -13,6 +13,7 @@ export type TeamMember = {
 export type WorkItemSummary = {
   id: number
   title: string
+  sprintName?: string
   workItemUrl?: string
   effort?: number
   workItemType?: string

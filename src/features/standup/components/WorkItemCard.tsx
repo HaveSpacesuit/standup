@@ -8,42 +8,124 @@ type WorkItemCardProps = {
   item: WorkItemSummary
 }
 
+type StatusPaletteKey = 'error' | 'info' | 'primary' | 'warning' | 'success'
+
+function getStatusPaletteKey(status: WorkItemSummary['status']): StatusPaletteKey {
+  switch (status) {
+    case 'Blocked':
+      return 'error'
+    case 'New':
+      return 'info'
+    case 'Active':
+      return 'primary'
+    case 'Review':
+      return 'warning'
+    case 'Done':
+      return 'success'
+  }
+}
+
+function getStatusTintOpacity(status: WorkItemSummary['status'], mode: 'light' | 'dark'): number {
+  if (mode === 'dark') {
+    switch (status) {
+      case 'Blocked':
+        return 0.16
+      case 'New':
+        return 0.14
+      case 'Active':
+        return 0.18
+      case 'Review':
+        return 0.16
+      case 'Done':
+        return 0.12
+    }
+  }
+
+  switch (status) {
+    case 'Blocked':
+      return 0.07
+    case 'New':
+      return 0.05
+    case 'Active':
+      return 0.08
+    case 'Review':
+      return 0.07
+    case 'Done':
+      return 0.05
+  }
+}
+
 export function WorkItemCard({ item }: WorkItemCardProps) {
   const theme = useTheme()
+  const statusPaletteKey = getStatusPaletteKey(item.status)
+  const statusColor = theme.palette[statusPaletteKey].main
+  const tintOpacity = getStatusTintOpacity(item.status, theme.palette.mode)
 
   return (
     <Card
       elevation={2}
       sx={{
+        position: 'relative',
         p: 1,
         border: '1px solid',
-        borderColor: 'divider',
+        borderColor: statusColor,
         borderRadius: 1,
         bgcolor: 'background.paper',
         overflow: 'visible',
         transition: 'box-shadow 120ms ease, border-color 120ms ease',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 'inherit',
+          backgroundColor: statusColor,
+          opacity: tintOpacity,
+          pointerEvents: 'none',
+        },
         '&:hover': {
           boxShadow: 4,
-          borderColor: 'grey.300',
+          borderColor: statusColor,
         },
-        minWidth: 150,
-        maxWidth: 220,
+        width: '100%',
+        minWidth: 0,
       }}
     >
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 0.75,
+          position: 'relative',
+          zIndex: 1,
         }}
       >
+        {typeof item.effort === 'number' ? (
+          <Box
+            component="span"
+            sx={{
+              float: 'right',
+              ml: 0.75,
+              mt: 0.125,
+              lineHeight: 0,
+            }}
+          >
+            <Badge
+              badgeContent={item.effort}
+              color={statusPaletteKey}
+              max={999}
+              inline
+              size="small"
+              showZero
+            >
+              <Box sx={{ width: 0, height: 0 }} />
+            </Badge>
+          </Box>
+        ) : null}
+
         <Box
           component="a"
           href={item.workItemUrl}
           target="_blank"
           rel="noreferrer noopener"
           sx={{
+            display: 'block',
             minWidth: 0,
             color: 'text.primary',
             textDecoration: 'none',
@@ -60,6 +142,7 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
               WebkitBoxOrient: 'vertical',
               WebkitLineClamp: 3,
               overflow: 'hidden',
+              wordBreak: 'break-word',
             }}
           >
             {item.workItemIconUrl ? (
@@ -84,7 +167,7 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
               component="span"
               sx={{
                 fontWeight: 700,
-                color: 'text.secondary',
+                color: statusColor,
                 mr: 0.5,
               }}
             >
@@ -96,26 +179,24 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
           </Typography>
         </Box>
 
-        {typeof item.effort === 'number' ? (
-          <Badge
-            badgeContent={item.effort}
-            color="primary"
-            max={999}
-            showZero
-            overlap="rectangular"
-            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        {item.sprintName ? (
+          <Typography
+            variant="body-sm"
             sx={{
-              flexShrink: 0,
-              mt: 0.25,
-              mr: 0.25,
-              '& .MuiBadge-badge': {
-                right: -8,
-                top: -4,
-              },
+              mt: 0.35,
+              clear: 'both',
+              fontSize: 11,
+              lineHeight: 1.2,
+              color: 'text.secondary',
+              opacity: 0.85,
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: 1,
+              overflow: 'hidden',
             }}
           >
-            <Box sx={{ width: 10, height: 10 }} />
-          </Badge>
+            Sprint {item.sprintName}
+          </Typography>
         ) : null}
       </Box>
     </Card>
