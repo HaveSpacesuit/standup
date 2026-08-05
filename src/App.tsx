@@ -8,9 +8,12 @@ import {
   Chip,
   FormControl,
   FormControlLabel,
+  IconButton,
+  InputAdornment,
   MenuItem,
   Select,
   Switch,
+  TextField,
   Toolbar,
   Typography,
   type SelectChangeEvent,
@@ -18,6 +21,7 @@ import {
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
+import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgFilter from '@stratakit/icons/filter.svg'
 import svgAssign from '@stratakit/icons/assign.svg'
 import { getAppConfig } from './config'
@@ -28,7 +32,7 @@ import { HiddenTagsDialog } from './features/standup/components/HiddenTagsDialog
 import { usePullRequestBoardItems } from './features/standup/hooks/usePullRequestBoardItems'
 import { useTeamData } from './features/standup/hooks/useTeamData'
 import { useWorkItemAssignees } from './features/standup/hooks/useWorkItemAssignees'
-import type { WorkItemSummary } from './ado/queryEngine'
+import type { ResolvedWorkItemAssignee, WorkItemSummary } from './ado/queryEngine'
 
 type AppProps = {
   patConfigured: boolean
@@ -108,10 +112,44 @@ function shouldHideByTag(item: WorkItemSummary, hiddenTagKeys: Set<string>): boo
   return (item.tags ?? []).some((tag) => hiddenTagKeys.has(normalizeTagKey(tag)))
 }
 
+function normalizeQuickFilterText(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function matchesQuickFilter(
+  item: WorkItemSummary,
+  filterText: string,
+  assignee: ResolvedWorkItemAssignee | undefined,
+): boolean {
+  if (!filterText) {
+    return true
+  }
+
+  const values: string[] = [
+    String(item.id),
+    item.title,
+    item.workItemType ?? '',
+    item.sprintName ?? '',
+    assignee?.label ?? '',
+    ...(item.tags ?? []),
+    ...(item.activePullRequests ?? []).flatMap((pullRequest) => [
+      String(pullRequest.id),
+      pullRequest.title,
+    ]),
+  ]
+
+  if (item.kind === 'pull-request' && item.pullRequest) {
+    values.push(String(item.pullRequest.id), item.pullRequest.title)
+  }
+
+  return values.some((value) => value.toLowerCase().includes(filterText))
+}
+
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const [selectedTeamId, setSelectedTeamId] = useState(getInitialSelectedTeamId)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [hiddenTagsDialogOpen, setHiddenTagsDialogOpen] = useState(false)
+  const [quickFilterInput, setQuickFilterInput] = useState('')
   const [teamSubjectDescriptor, setTeamSubjectDescriptor] = useState<string | null>(null)
   const [hiddenTags, setHiddenTags] = useState<string[]>(() =>
     parseStoredHiddenTags(localStorage.getItem(HIDDEN_TAGS_STORAGE_KEY)),
@@ -188,6 +226,11 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     [filteredWorkItems, pullRequestBoardItems],
   )
 
+  const normalizedQuickFilterText = useMemo(
+    () => normalizeQuickFilterText(quickFilterInput),
+    [quickFilterInput],
+  )
+
   const { workItemAssignees, assigneesLoading, assigneesError } = useWorkItemAssignees({
     adoQueryEngine,
     orgName: selectedTeam.orgName,
@@ -198,6 +241,14 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     workItemsLoading: workItemsLoading || pullRequestBoardItemsLoading,
     workItemsError,
   })
+
+  const visibleBoardItems = useMemo(
+    () =>
+      boardItems.filter((item) =>
+        matchesQuickFilter(item, normalizedQuickFilterText, workItemAssignees[item.id]),
+      ),
+    [boardItems, normalizedQuickFilterText, workItemAssignees],
+  )
 
   useEffect(() => {
     localStorage.setItem(HIDDEN_TAGS_STORAGE_KEY, JSON.stringify(hiddenTags))
@@ -268,6 +319,31 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             Team Standup
           </Typography>
 
+          <TextField
+            size="small"
+            placeholder="Quick filter cards"
+            value={quickFilterInput}
+            onChange={(event) => setQuickFilterInput(event.target.value)}
+            disabled={!patConfigured}
+            sx={{ minWidth: 230, maxWidth: 320 }}
+            slotProps={{
+              input: {
+                endAdornment: quickFilterInput ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      edge="end"
+                      aria-label="Clear quick filter"
+                      onClick={() => setQuickFilterInput('')}
+                    >
+                      <Icon href={svgDismiss} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined,
+              },
+            }}
+          />
+
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 420 }}>
             <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
               Team
@@ -314,6 +390,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             >
               Hidden tags
             </Button>
+
           </Box>
 
           {hiddenTags.length > 0 ? (
@@ -354,7 +431,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             workItemsError={workItemsError}
             assigneesError={assigneesError}
             members={members}
-            workItems={boardItems}
+            workItems={visibleBoardItems}
             currentIterationName={currentIteration?.name ?? null}
             workItemAssignees={workItemAssignees}
           />
