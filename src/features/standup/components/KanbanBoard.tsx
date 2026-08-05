@@ -1,14 +1,17 @@
-import { Avatar, Badge, Box, Button, CircularProgress, Skeleton, Tooltip, Typography } from '@mui/material'
-import type { Theme } from '@mui/material/styles'
+import { Box, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { useMemo, useState, type ReactNode } from 'react'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
-import { WorkItemCard } from './WorkItemCard'
+import {
+  getStatusColumnBackground,
+  STATUS_COLUMNS,
+  type StatusColumn,
+} from '../utils/statusColumnStyles'
+import { KanbanBoardGrid, type BoardRowData } from './KanbanBoardGrid'
+import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
 
-const STATUS_COLUMNS = ['Blocked', 'New', 'Active', 'Review', 'Done'] as const
 const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
 const COLLAPSED_CELL_CARD_LIMIT = 3
-type StatusColumn = (typeof STATUS_COLUMNS)[number]
 
 type KanbanBoardProps = {
   patConfigured: boolean
@@ -21,84 +24,6 @@ type KanbanBoardProps = {
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
-}
-
-type RowData = {
-  key: string
-  label: string
-  avatarUrl?: string
-  isUnassigned?: boolean
-}
-
-type StatusBadgeColor = 'error' | 'info' | 'primary' | 'warning' | 'success'
-
-function getStatusBadgeColor(status: StatusColumn): StatusBadgeColor {
-  switch (status) {
-    case 'Blocked':
-      return 'error'
-    case 'New':
-      return 'info'
-    case 'Active':
-      return 'primary'
-    case 'Review':
-      return 'warning'
-    case 'Done':
-      return 'success'
-  }
-}
-
-function getStatusColumnColor(status: WorkItemSummary['status'], palette: Theme['palette']): string {
-  switch (status) {
-    case 'Blocked':
-      return palette.error.main as string
-    case 'New':
-      return palette.info.main as string
-    case 'Active':
-      return palette.primary.main as string
-    case 'Review':
-      return palette.warning.main as string
-    case 'Done':
-      return palette.success.main as string
-  }
-}
-
-function getStatusTint(colorScheme: 'light' | 'dark'): number {
-  return colorScheme === 'light' ? 14 : 22
-}
-
-function getTintedStatusColor(
-  status: WorkItemSummary['status'],
-  palette: Theme['palette'],
-  colorScheme: 'light' | 'dark',
-): string {
-  const statusColor = getStatusColumnColor(status, palette)
-  const tint = getStatusTint(colorScheme)
-  return `color-mix(in srgb, ${statusColor} ${tint}%, var(--stratakit-mui-palette-background-paper))`
-}
-
-function getStatusColumnBackground(
-  status: WorkItemSummary['status'],
-  columnIndex: number,
-  palette: Theme['palette'],
-  colorScheme: 'light' | 'dark',
-): string {
-  const base = getTintedStatusColor(status, palette, colorScheme)
-  const previousStatus = STATUS_COLUMNS[columnIndex - 1]
-  const nextStatus = STATUS_COLUMNS[columnIndex + 1]
-
-  if (!previousStatus && !nextStatus) {
-    return base
-  }
-
-  const edgeBlend = 2
-  const leftEdge = previousStatus
-    ? `color-mix(in srgb, ${getTintedStatusColor(previousStatus, palette, colorScheme)} 45%, ${base})`
-    : base
-  const rightEdge = nextStatus
-    ? `color-mix(in srgb, ${base} 45%, ${getTintedStatusColor(nextStatus, palette, colorScheme)})`
-    : base
-
-  return `linear-gradient(to right, ${leftEdge} 0%, ${base} ${edgeBlend}%, ${base} ${100 - edgeBlend}%, ${rightEdge} 100%)`
 }
 
 function sortMembers(members: TeamMember[]): TeamMember[] {
@@ -137,9 +62,11 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const theme = useTheme()
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
+  const renderStatusColumnBackground = (status: StatusColumn, columnIndex: number) =>
+    getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme)
   const sortedMembers = useMemo(() => sortMembers(members), [members])
 
-  const rows = useMemo<RowData[]>(() => {
+  const rows = useMemo<BoardRowData[]>(() => {
     const membersWithItems = new Set(
       workItems
         .map((item) => workItemAssignees[item.id])
@@ -175,7 +102,7 @@ export function KanbanBoard({
   }, [sortedMembers, workItems, workItemAssignees])
 
   const rowLookup = useMemo(() => {
-    return rows.reduce<Record<string, RowData>>((acc, row) => {
+    return rows.reduce<Record<string, BoardRowData>>((acc, row) => {
       acc[row.key] = row
       return acc
     }, {})
@@ -251,127 +178,11 @@ export function KanbanBoard({
     )
   } else if (isLoading) {
     content = (
-      <Box
-        sx={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          bgcolor: 'background.default',
-          borderTop: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <Box
-          sx={{
-            px: 2,
-            py: 1.25,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-          }}
-        >
-          <CircularProgress size={18} />
-          <Box>
-            <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-              Loading board data...
-            </Typography>
-            <Typography variant="body-sm" color="text.secondary">
-              Fetching team members, work items, and pull requests.
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden' }}>
-          <Box sx={{ minWidth: 1220, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: BOARD_GRID_TEMPLATE,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-              }}
-            >
-              <Box sx={{ px: 2, py: 1.5 }}>
-                <Skeleton variant="text" width={110} height={20} />
-              </Box>
-
-              {STATUS_COLUMNS.map((status, columnIndex) => (
-                <Box
-                  key={`loading-header-${status}`}
-                  sx={{
-                    px: 2,
-                    py: 1.5,
-                    backgroundImage: getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme),
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Skeleton variant="text" width={58} height={20} />
-                    <Skeleton variant="rounded" width={30} height={18} />
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-
-            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              {Array.from({ length: 4 }).map((_, rowIndex) => (
-                <Box
-                  key={`loading-row-${rowIndex}`}
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: BOARD_GRID_TEMPLATE,
-                    flex: 1,
-                    minHeight: 98,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      px: 1.5,
-                      py: 1.25,
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: 'background.paper',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Skeleton variant="circular" width={28} height={28} />
-                      <Skeleton variant="text" width={120} height={20} />
-                    </Box>
-                  </Box>
-
-                  {STATUS_COLUMNS.map((status, columnIndex) => (
-                    <Box
-                      key={`loading-cell-${rowIndex}-${status}`}
-                      sx={{
-                        pl: 1,
-                        pr: 2,
-                        py: 1,
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        minHeight: 92,
-                        height: '100%',
-                        backgroundImage: getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme),
-                      }}
-                    >
-                      <Box sx={{ display: 'grid', gap: 0.75 }}>
-                        <Skeleton
-                          variant="rounded"
-                          height={rowIndex % 2 === 0 ? 60 : 42}
-                          sx={{ borderRadius: 1 }}
-                        />
-                        {rowIndex % 2 === 0 ? <Skeleton variant="rounded" height={42} sx={{ borderRadius: 1 }} /> : null}
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Box>
-      </Box>
+      <KanbanBoardLoadingState
+        boardGridTemplate={BOARD_GRID_TEMPLATE}
+        statusColumns={STATUS_COLUMNS}
+        getStatusColumnBackground={renderStatusColumnBackground}
+      />
     )
   } else if (membersError) {
     content = (
@@ -393,199 +204,17 @@ export function KanbanBoard({
     )
   } else {
     content = (
-      <Box sx={{ height: '100%' }}>
-        <Box
-          sx={{
-            height: '100%',
-            overflowX: 'auto',
-          }}
-        >
-          <Box
-            sx={{
-              minWidth: 1220,
-              height: '100%',
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              scrollbarGutter: 'stable',
-              bgcolor: 'background.default',
-            }}
-          >
-            <Box
-              sx={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 3,
-              }}
-            >
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: BOARD_GRID_TEMPLATE,
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                  bgcolor: 'background.paper',
-                }}
-              >
-                <Box
-                  sx={{
-                    px: 2,
-                    py: 1.5,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                  }}
-                >
-                  <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-                    Team member
-                  </Typography>
-                </Box>
-
-                {STATUS_COLUMNS.map((status, columnIndex) => (
-                  <Box
-                    key={status}
-                    sx={{
-                      px: 2,
-                      py: 1.5,
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      backgroundImage: getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme),
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
-                      <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-                        {status}
-                      </Typography>
-
-                      <Tooltip
-                        title={
-                          currentIterationName
-                            ? `Effort total includes visible items from ${currentIterationName} only.`
-                            : 'Effort total includes visible items from the current sprint only.'
-                        }
-                      >
-                        <Box component="span">
-                          <Badge
-                            badgeContent={statusEffortTotals[status]}
-                            color={getStatusBadgeColor(status)}
-                            max={999}
-                            inline
-                            size="small"
-                            showZero
-                          >
-                            <Box sx={{ width: 0, height: 0 }} />
-                          </Badge>
-                        </Box>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: BOARD_GRID_TEMPLATE,
-                minWidth: 1220,
-                bgcolor: 'background.default',
-              }}
-            >
-
-              {rows.map((row) => (
-                <Box key={row.key} sx={{ display: 'contents' }}>
-                  <Box
-                    sx={{
-                      px: 1.5,
-                      py: 1.25,
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: 'background.paper',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {row.isUnassigned ? (
-                        <Avatar sx={{ width: 28, height: 28 }} />
-                      ) : (
-                        <Avatar alt={row.label} src={row.avatarUrl} sx={{ width: 28, height: 28 }} />
-                      )}
-                      <Typography variant="body-sm" sx={{ fontWeight: 500 }}>
-                        {row.label}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {STATUS_COLUMNS.map((status, columnIndex) => {
-                    const cellKey = `${row.key}:${status}`
-                    const cellItems = cardsByCell[cellKey] ?? []
-                    const isExpanded = expandedCells[cellKey] === true
-                    const visibleItems = isExpanded
-                      ? cellItems
-                      : cellItems.slice(0, COLLAPSED_CELL_CARD_LIMIT)
-                    const hiddenCount = Math.max(cellItems.length - visibleItems.length, 0)
-
-                    return (
-                      <Box
-                        key={cellKey}
-                        sx={{
-                          pl: 1,
-                          pr: 2,
-                          py: 1,
-                          borderBottom: '1px solid',
-                          borderColor: 'divider',
-                          backgroundImage: getStatusColumnBackground(
-                            status,
-                            columnIndex,
-                            theme.palette,
-                            colorScheme,
-                          ),
-                          minHeight: 92,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            alignContent: 'flex-start',
-                            gap: 0.75,
-                          }}
-                        >
-                          {visibleItems.map((item) => (
-                            <WorkItemCard key={item.id} item={item} />
-                          ))}
-                        </Box>
-
-                        {hiddenCount > 0 ? (
-                          <Button
-                            size="small"
-                            variant="text"
-                            sx={{ mt: 0.5, px: 0.5, minWidth: 0 }}
-                            onClick={() => setCellExpanded(cellKey, true)}
-                          >
-                            Show {hiddenCount} more
-                          </Button>
-                        ) : null}
-
-                        {isExpanded && cellItems.length > COLLAPSED_CELL_CARD_LIMIT ? (
-                          <Button
-                            size="small"
-                            variant="text"
-                            sx={{ mt: 0.5, px: 0.5, minWidth: 0 }}
-                            onClick={() => setCellExpanded(cellKey, false)}
-                          >
-                            Show less
-                          </Button>
-                        ) : null}
-                      </Box>
-                    )
-                  })}
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Box>
-      </Box>
+      <KanbanBoardGrid
+        boardGridTemplate={BOARD_GRID_TEMPLATE}
+        collapsedCellCardLimit={COLLAPSED_CELL_CARD_LIMIT}
+        rows={rows}
+        cardsByCell={cardsByCell}
+        expandedCells={expandedCells}
+        currentIterationName={currentIterationName}
+        statusEffortTotals={statusEffortTotals}
+        renderStatusColumnBackground={renderStatusColumnBackground}
+        onSetCellExpanded={setCellExpanded}
+      />
     )
   }
 
