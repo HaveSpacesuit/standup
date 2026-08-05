@@ -32,9 +32,12 @@ Required PAT scopes:
 
 - Build (Read)
 - Code (Read)
+- Graph (Read)
 - Project and Team (Read)
 - Release (Read)
 - Work Items (Read)
+
+`Graph (Read)` is required for resolving the team `subjectDescriptor` used by the direct "Manage team" deep link. Without it, the app falls back to the project teams listing page.
 
 Example:
 

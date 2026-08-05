@@ -11,6 +11,7 @@ export type AdoRequestOptions = {
   params?: QueryParams
   body?: unknown
   signal?: AbortSignal
+  host?: 'dev.azure.com' | 'vssps.dev.azure.com'
 }
 
 export interface AdoRequestClient {
@@ -27,7 +28,8 @@ export class AdoHttpClient implements AdoRequestClient {
   }
 
   async request<T>(options: AdoRequestOptions): Promise<T> {
-    const url = new URL(`https://dev.azure.com/${encodeURIComponent(options.orgName)}${options.path}`)
+    const host = options.host ?? 'dev.azure.com'
+    const url = new URL(`https://${host}/${encodeURIComponent(options.orgName)}${options.path}`)
     const params = options.params ?? {}
 
     if (!params['api-version']) {

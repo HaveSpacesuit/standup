@@ -3,6 +3,7 @@ import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
 import { fetchTeamMembers } from './teamMembersApi'
+import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
 import type { ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
 
@@ -66,5 +67,12 @@ export class AdoQueryEngine {
 
   async request<T>(options: AdoRequestOptions): Promise<T> {
     return this.client.request<T>(options)
+  }
+
+  async getTeamSubjectDescriptor(
+    team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName'>,
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    return fetchTeamSubjectDescriptor(this.client, team, signal)
   }
 }

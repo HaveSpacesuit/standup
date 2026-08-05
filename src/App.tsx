@@ -17,6 +17,7 @@ import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgFilter from '@stratakit/icons/filter.svg'
+import svgAssign from '@stratakit/icons/assign.svg'
 import { getAppConfig } from './config'
 import { teamProfiles } from './teamProfiles'
 import { AdoQueryEngine } from './ado/queryEngine'
@@ -31,6 +32,19 @@ type AppProps = {
 }
 
 const HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
+
+function buildTeamManagementUrl(
+  orgName: string,
+  projectName: string,
+  teamName: string,
+  subjectDescriptor?: string | null,
+): string {
+  const baseUrl = `https://dev.azure.com/${encodeURIComponent(orgName)}/${encodeURIComponent(projectName)}/_settings/teams`
+  const params = new URLSearchParams(
+    subjectDescriptor ? { subjectDescriptor } : { team: teamName },
+  )
+  return `${baseUrl}?${params.toString()}`
+}
 
 function normalizeTag(tag: string): string {
   return tag.trim()
@@ -83,6 +97,7 @@ function App({ patConfigured }: AppProps) {
   const [selectedTeamId, setSelectedTeamId] = useState(teamProfiles[0].id)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [hiddenTagsDialogOpen, setHiddenTagsDialogOpen] = useState(false)
+  const [teamSubjectDescriptor, setTeamSubjectDescriptor] = useState<string | null>(null)
   const [hiddenTags, setHiddenTags] = useState<string[]>(() =>
     parseStoredHiddenTags(localStorage.getItem(HIDDEN_TAGS_STORAGE_KEY)),
   )
@@ -155,13 +170,63 @@ function App({ patConfigured }: AppProps) {
     [workItems, hiddenTagKeys],
   )
 
+  useEffect(() => {
+    let isDisposed = false
+    const abortController = new AbortController()
+
+    setTeamSubjectDescriptor(null)
+
+    if (!adoQueryEngine || !patConfigured) {
+      return () => {
+        isDisposed = true
+        abortController.abort()
+      }
+    }
+
+    adoQueryEngine
+      .getTeamSubjectDescriptor(
+        {
+          orgName: selectedTeam.orgName,
+          projectName: selectedTeam.projectName,
+          teamName: selectedTeam.teamName,
+        },
+        abortController.signal,
+      )
+      .then((descriptor) => {
+        if (!isDisposed) {
+          setTeamSubjectDescriptor(descriptor)
+        }
+      })
+      .catch(() => {
+        if (!isDisposed) {
+          setTeamSubjectDescriptor(null)
+        }
+      })
+
+    return () => {
+      isDisposed = true
+      abortController.abort()
+    }
+  }, [adoQueryEngine, patConfigured, selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName])
+
+  const teamManagementUrl = useMemo(
+    () =>
+      buildTeamManagementUrl(
+        selectedTeam.orgName,
+        selectedTeam.projectName,
+        selectedTeam.teamName,
+        teamSubjectDescriptor,
+      ),
+    [selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName, teamSubjectDescriptor],
+  )
+
   const isTeamDataLoading = membersLoading || workItemsLoading || assigneesLoading
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.paper' }}>
       <AppBar position="static">
         <Toolbar sx={{ gap: 1.5 }}>
-          <Icon href={svgCalendar} />
+          <Icon href={svgCalendar} size="large"/>
           <Typography variant="body-lg" sx={{ fontWeight: 700 }}>
             Team Standup
           </Typography>
@@ -180,6 +245,18 @@ function App({ patConfigured }: AppProps) {
                 ))}
               </Select>
             </FormControl>
+
+            <Button
+              size="small"
+              variant="outlined"
+              component="a"
+              href={teamManagementUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              startIcon={<Icon href={svgAssign} />}
+            >
+              Manage team
+            </Button>
 
             <Button
               size="small"
