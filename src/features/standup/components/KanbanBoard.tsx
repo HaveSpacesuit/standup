@@ -64,8 +64,8 @@ function getStatusColumnColor(status: WorkItemSummary['status'], palette: Theme[
 
 function getStatusColumnBackground(status: WorkItemSummary['status'], palette: Theme['palette']): string {
   const statusColor = getStatusColumnColor(status, palette)
-  const tint = palette.mode === 'dark' ? 13 : 7
-  return `color-mix(in srgb, ${statusColor} ${tint}%, ${palette.background.default})`
+  const tint = 18
+  return `color-mix(in srgb, ${statusColor} ${tint}%, var(--stratakit-mui-palette-background-paper))`
 }
 
 function sortMembers(members: TeamMember[]): TeamMember[] {

@@ -7,8 +7,10 @@ import {
   CardContent,
   Chip,
   FormControl,
+  FormControlLabel,
   MenuItem,
   Select,
+  Switch,
   Toolbar,
   Typography,
   type SelectChangeEvent,
@@ -30,6 +32,8 @@ import type { WorkItemSummary } from './ado/queryEngine'
 
 type AppProps = {
   patConfigured: boolean
+  colorScheme: 'light' | 'dark'
+  onToggleColorScheme: () => void
 }
 
 const HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
@@ -94,7 +98,7 @@ function shouldHideByTag(item: WorkItemSummary, hiddenTagKeys: Set<string>): boo
   return (item.tags ?? []).some((tag) => hiddenTagKeys.has(normalizeTagKey(tag)))
 }
 
-function App({ patConfigured }: AppProps) {
+function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const [selectedTeamId, setSelectedTeamId] = useState(teamProfiles[0].id)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [hiddenTagsDialogOpen, setHiddenTagsDialogOpen] = useState(false)
@@ -309,6 +313,18 @@ function App({ patConfigured }: AppProps) {
               }}
             />
           ) : null}
+
+          <FormControlLabel
+            sx={{ ml: 0.25 }}
+            control={
+              <Switch
+                size="small"
+                checked={colorScheme === 'dark'}
+                onChange={onToggleColorScheme}
+              />
+            }
+            label={<Typography variant="body-sm">Dark mode</Typography>}
+          />
 
         </Toolbar>
       </AppBar>
