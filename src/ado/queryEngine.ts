@@ -12,9 +12,14 @@ import type { CurrentIterationInfo, ResolvedWorkItemAssignee, TeamMember, TeamMe
 export type { CurrentIterationInfo, TeamMember, WorkItemSummary, ResolvedWorkItemAssignee } from './types'
 
 export class AdoQueryEngine {
+  private static readonly DEFAULT_CACHE_TTL_MS = 60_000
+
   private readonly client: AdoHttpClient
   private readonly assigneeResolver: WorkItemAssigneeResolver
   private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
+  private readonly teamMembersCache = new Map<string, { expiresAt: number; value: TeamMember[] }>()
+  private readonly currentIterationCache = new Map<string, { expiresAt: number; value: CurrentIterationInfo | null }>()
+  private readonly teamSubjectDescriptorCache = new Map<string, { expiresAt: number; value: string | null }>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
@@ -24,8 +29,24 @@ export class AdoQueryEngine {
   async getTeamMembers(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'teamName'>,
     signal?: AbortSignal,
+    options?: { forceRefresh?: boolean },
   ): Promise<TeamMember[]> {
-    return fetchTeamMembers(this.client, team, signal)
+    const cacheKey = team.id
+
+    if (!options?.forceRefresh) {
+      const cached = this.teamMembersCache.get(cacheKey)
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.value
+      }
+    }
+
+    const members = await fetchTeamMembers(this.client, team, signal)
+    this.teamMembersCache.set(cacheKey, {
+      value: members,
+      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,
+    })
+
+    return members
   }
 
   async getWorkItemsForCurrentAndNextIteration(
@@ -58,6 +79,25 @@ export class AdoQueryEngine {
     this.teamWorkItemsCache.clear()
   }
 
+  clearTeamMetadataCaches(
+    team?: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
+  ): void {
+    if (!team) {
+      this.teamMembersCache.clear()
+      this.currentIterationCache.clear()
+      this.teamSubjectDescriptorCache.clear()
+      return
+    }
+
+    this.teamMembersCache.delete(team.id)
+    this.currentIterationCache.delete(
+      `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}:${team.iterationPath.toLowerCase()}`,
+    )
+    this.teamSubjectDescriptorCache.delete(
+      `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}`,
+    )
+  }
+
   async resolveWorkItemAssignee(
     orgName: string,
     teamMemberLookup: TeamMemberLookup,
@@ -74,15 +114,47 @@ export class AdoQueryEngine {
   async getTeamSubjectDescriptor(
     team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName'>,
     signal?: AbortSignal,
+    options?: { forceRefresh?: boolean },
   ): Promise<string | null> {
-    return fetchTeamSubjectDescriptor(this.client, team, signal)
+    const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}`
+
+    if (!options?.forceRefresh) {
+      const cached = this.teamSubjectDescriptorCache.get(cacheKey)
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.value
+      }
+    }
+
+    const descriptor = await fetchTeamSubjectDescriptor(this.client, team, signal)
+    this.teamSubjectDescriptorCache.set(cacheKey, {
+      value: descriptor,
+      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,
+    })
+
+    return descriptor
   }
 
   async getCurrentIterationInfo(
     team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
     signal?: AbortSignal,
+    options?: { forceRefresh?: boolean },
   ): Promise<CurrentIterationInfo | null> {
-    return fetchCurrentIterationInfo(this.client, team, signal)
+    const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}:${team.iterationPath.toLowerCase()}`
+
+    if (!options?.forceRefresh) {
+      const cached = this.currentIterationCache.get(cacheKey)
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.value
+      }
+    }
+
+    const currentIterationInfo = await fetchCurrentIterationInfo(this.client, team, signal)
+    this.currentIterationCache.set(cacheKey, {
+      value: currentIterationInfo,
+      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,
+    })
+
+    return currentIterationInfo
   }
 
   async getUnlinkedActivePullRequestItems(

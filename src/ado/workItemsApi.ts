@@ -95,6 +95,37 @@ type PullRequestRef = {
 }
 
 const PULL_REQUEST_ARTIFACT_PREFIX = 'vstfs:///Git/PullRequestId/'
+const PULL_REQUEST_LOOKUP_CONCURRENCY = 8
+
+async function mapWithConcurrency<TInput, TOutput>(
+  items: TInput[],
+  concurrency: number,
+  mapper: (item: TInput) => Promise<TOutput>,
+): Promise<TOutput[]> {
+  if (items.length === 0) {
+    return []
+  }
+
+  const outputs = new Array<TOutput>(items.length)
+  let nextIndex = 0
+
+  const worker = async () => {
+    while (true) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+
+      if (currentIndex >= items.length) {
+        return
+      }
+
+      outputs[currentIndex] = await mapper(items[currentIndex])
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return outputs
+}
 
 function getPullRequestIconUrl(iconMap: Record<string, string>): string | undefined {
   const direct = iconMap['icon_pull_request']
@@ -285,8 +316,10 @@ async function fetchActivePullRequestsByWorkItem(
 
   const activePullRequestMap = new Map<string, WorkItemPullRequestSummary>()
 
-  await Promise.all(
-    [...uniqueRefMap.entries()].map(async ([key, ref]) => {
+  await mapWithConcurrency(
+    [...uniqueRefMap.entries()],
+    PULL_REQUEST_LOOKUP_CONCURRENCY,
+    async ([key, ref]) => {
       try {
         const pullRequest = await client.request<PullRequestApiResponse>({
           method: 'GET',
@@ -313,7 +346,7 @@ async function fetchActivePullRequestsByWorkItem(
       } catch {
         // Ignore PR lookup failures so work item rendering still succeeds.
       }
-    }),
+    },
   )
 
   const result: Record<number, WorkItemPullRequestSummary[]> = {}

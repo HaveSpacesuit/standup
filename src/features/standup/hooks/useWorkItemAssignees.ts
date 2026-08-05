@@ -7,6 +7,38 @@ import type {
 } from '../../../ado/queryEngine'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
+const ASSIGNEE_RESOLUTION_CONCURRENCY = 8
+
+async function mapWithConcurrency<TInput, TOutput>(
+  items: TInput[],
+  concurrency: number,
+  mapper: (item: TInput) => Promise<TOutput>,
+): Promise<TOutput[]> {
+  if (items.length === 0) {
+    return []
+  }
+
+  const outputs = new Array<TOutput>(items.length)
+  let nextIndex = 0
+
+  const worker = async () => {
+    while (true) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+
+      if (currentIndex >= items.length) {
+        return
+      }
+
+      outputs[currentIndex] = await mapper(items[currentIndex])
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return outputs
+}
+
 type UseWorkItemAssigneesArgs = {
   adoQueryEngine: AdoQueryEngine | null
   orgName: string
@@ -81,8 +113,10 @@ export function useWorkItemAssignees({
     setAssigneesLoading(true)
     setAssigneesError(null)
 
-    Promise.all(
-      workItems.map(async (item) => ({
+    mapWithConcurrency(
+      workItems,
+      ASSIGNEE_RESOLUTION_CONCURRENCY,
+      async (item) => ({
         id: item.id,
         assignee: await adoQueryEngine.resolveWorkItemAssignee(
           orgName,
@@ -90,7 +124,7 @@ export function useWorkItemAssignees({
           item,
           abortController.signal,
         ),
-      })),
+      }),
     )
       .then((resolved) => {
         if (abortController.signal.aborted) {

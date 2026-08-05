@@ -57,11 +57,15 @@ export function useTeamData({
 
     const loadTeamData = async () => {
       const [membersResult, workItemsResult, currentIterationResult] = await Promise.allSettled([
-        adoQueryEngine.getTeamMembers(selectedTeam, abortController.signal),
+        adoQueryEngine.getTeamMembers(selectedTeam, abortController.signal, {
+          forceRefresh,
+        }),
         adoQueryEngine.getWorkItemsForCurrentAndNextIteration(selectedTeam, abortController.signal, {
           forceRefresh,
         }),
-        adoQueryEngine.getCurrentIterationInfo(selectedTeam, abortController.signal),
+        adoQueryEngine.getCurrentIterationInfo(selectedTeam, abortController.signal, {
+          forceRefresh,
+        }),
       ])
 
       if (abortController.signal.aborted) {

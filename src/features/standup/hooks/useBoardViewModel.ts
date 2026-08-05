@@ -101,6 +101,8 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
   }
 
   const onRefresh = () => {
+    adoQueryEngine?.clearTeamWorkItemsCache(selectedTeam.id)
+    adoQueryEngine?.clearTeamMetadataCaches(selectedTeam)
     forceRefreshRef.current = true
     setReloadNonce((current) => current + 1)
   }
