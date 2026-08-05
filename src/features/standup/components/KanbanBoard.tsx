@@ -14,6 +14,7 @@ type StatusColumn = (typeof STATUS_COLUMNS)[number]
 type KanbanBoardProps = {
   patConfigured: boolean
   isLoading: boolean
+  colorScheme: 'light' | 'dark'
   membersError: string | null
   workItemsError: string | null
   assigneesError: string | null
@@ -62,10 +63,43 @@ function getStatusColumnColor(status: WorkItemSummary['status'], palette: Theme[
   }
 }
 
-function getStatusColumnBackground(status: WorkItemSummary['status'], palette: Theme['palette']): string {
+function getStatusTint(colorScheme: 'light' | 'dark'): number {
+  return colorScheme === 'light' ? 14 : 22
+}
+
+function getTintedStatusColor(
+  status: WorkItemSummary['status'],
+  palette: Theme['palette'],
+  colorScheme: 'light' | 'dark',
+): string {
   const statusColor = getStatusColumnColor(status, palette)
-  const tint = 18
+  const tint = getStatusTint(colorScheme)
   return `color-mix(in srgb, ${statusColor} ${tint}%, var(--stratakit-mui-palette-background-paper))`
+}
+
+function getStatusColumnBackground(
+  status: WorkItemSummary['status'],
+  columnIndex: number,
+  palette: Theme['palette'],
+  colorScheme: 'light' | 'dark',
+): string {
+  const base = getTintedStatusColor(status, palette, colorScheme)
+  const previousStatus = STATUS_COLUMNS[columnIndex - 1]
+  const nextStatus = STATUS_COLUMNS[columnIndex + 1]
+
+  if (!previousStatus && !nextStatus) {
+    return base
+  }
+
+  const edgeBlend = 2
+  const leftEdge = previousStatus
+    ? `color-mix(in srgb, ${getTintedStatusColor(previousStatus, palette, colorScheme)} 45%, ${base})`
+    : base
+  const rightEdge = nextStatus
+    ? `color-mix(in srgb, ${base} 45%, ${getTintedStatusColor(nextStatus, palette, colorScheme)})`
+    : base
+
+  return `linear-gradient(to right, ${leftEdge} 0%, ${base} ${edgeBlend}%, ${base} ${100 - edgeBlend}%, ${rightEdge} 100%)`
 }
 
 function sortMembers(members: TeamMember[]): TeamMember[] {
@@ -93,6 +127,7 @@ function getRecentActivitySortValue(item: WorkItemSummary): number {
 export function KanbanBoard({
   patConfigured,
   isLoading,
+  colorScheme,
   membersError,
   workItemsError,
   assigneesError,
@@ -244,16 +279,17 @@ export function KanbanBoard({
     )
   } else {
     content = (
-      <Box>
+      <Box sx={{ height: '100%' }}>
         <Box
           sx={{
+            height: '100%',
             overflowX: 'auto',
           }}
         >
           <Box
             sx={{
               minWidth: 1220,
-              maxHeight: 'calc(100vh - 220px)',
+              height: '100%',
               overflowY: 'auto',
               overflowX: 'hidden',
               scrollbarGutter: 'stable',
@@ -290,7 +326,7 @@ export function KanbanBoard({
                   </Typography>
                 </Box>
 
-                {STATUS_COLUMNS.map((status) => (
+                {STATUS_COLUMNS.map((status, columnIndex) => (
                   <Box
                     key={status}
                     sx={{
@@ -298,7 +334,7 @@ export function KanbanBoard({
                       py: 1.5,
                       borderBottom: '1px solid',
                       borderColor: 'divider',
-                      bgcolor: getStatusColumnBackground(status, theme.palette),
+                      backgroundImage: getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme),
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
@@ -352,20 +388,21 @@ export function KanbanBoard({
                       bgcolor: 'background.paper',
                       display: 'flex',
                       alignItems: 'flex-start',
-                      gap: 1,
                     }}
                   >
-                    {row.isUnassigned ? (
-                      <Avatar sx={{ width: 28, height: 28 }} />
-                    ) : (
-                      <Avatar alt={row.label} src={row.avatarUrl} sx={{ width: 28, height: 28 }} />
-                    )}
-                    <Typography variant="body-sm" sx={{ fontWeight: row.isUnassigned ? 700 : 500 }}>
-                      {row.label}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {row.isUnassigned ? (
+                        <Avatar sx={{ width: 28, height: 28 }} />
+                      ) : (
+                        <Avatar alt={row.label} src={row.avatarUrl} sx={{ width: 28, height: 28 }} />
+                      )}
+                      <Typography variant="body-sm" sx={{ fontWeight: 500 }}>
+                        {row.label}
+                      </Typography>
+                    </Box>
                   </Box>
 
-                  {STATUS_COLUMNS.map((status) => {
+                  {STATUS_COLUMNS.map((status, columnIndex) => {
                     const cellKey = `${row.key}:${status}`
                     const cellItems = cardsByCell[cellKey] ?? []
                     const isExpanded = expandedCells[cellKey] === true
@@ -383,7 +420,12 @@ export function KanbanBoard({
                           py: 1,
                           borderBottom: '1px solid',
                           borderColor: 'divider',
-                          bgcolor: getStatusColumnBackground(status, theme.palette),
+                          backgroundImage: getStatusColumnBackground(
+                            status,
+                            columnIndex,
+                            theme.palette,
+                            colorScheme,
+                          ),
                           minHeight: 92,
                         }}
                       >
@@ -433,5 +475,5 @@ export function KanbanBoard({
     )
   }
 
-  return <Box sx={{ mb: 2 }}>{content}</Box>
+  return <Box sx={{ height: '100%' }}>{content}</Box>
 }

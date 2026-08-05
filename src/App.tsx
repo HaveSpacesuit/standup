@@ -37,6 +37,16 @@ type AppProps = {
 }
 
 const HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
+const SELECTED_TEAM_STORAGE_KEY = 'standup:selected-team-id'
+
+function getInitialSelectedTeamId(): string {
+  const storedTeamId = localStorage.getItem(SELECTED_TEAM_STORAGE_KEY)
+  if (storedTeamId && teamProfiles.some((team) => team.id === storedTeamId)) {
+    return storedTeamId
+  }
+
+  return teamProfiles[0].id
+}
 
 function buildTeamManagementUrl(
   orgName: string,
@@ -99,7 +109,7 @@ function shouldHideByTag(item: WorkItemSummary, hiddenTagKeys: Set<string>): boo
 }
 
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
-  const [selectedTeamId, setSelectedTeamId] = useState(teamProfiles[0].id)
+  const [selectedTeamId, setSelectedTeamId] = useState(getInitialSelectedTeamId)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [hiddenTagsDialogOpen, setHiddenTagsDialogOpen] = useState(false)
   const [teamSubjectDescriptor, setTeamSubjectDescriptor] = useState<string | null>(null)
@@ -194,6 +204,10 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   }, [hiddenTags])
 
   useEffect(() => {
+    localStorage.setItem(SELECTED_TEAM_STORAGE_KEY, selectedTeamId)
+  }, [selectedTeamId])
+
+  useEffect(() => {
     let isDisposed = false
     const abortController = new AbortController()
 
@@ -246,7 +260,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const isTeamDataLoading = membersLoading || workItemsLoading || pullRequestBoardItemsLoading || assigneesLoading
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.paper' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
       <AppBar position="static">
         <Toolbar sx={{ gap: 1.5 }}>
           <Icon href={svgCalendar} size="large"/>
@@ -329,19 +343,22 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         </Toolbar>
       </AppBar>
 
-      <Box component="main" sx={{ p: 2.5 }}>
+      <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
 
-        <KanbanBoard
-          patConfigured={patConfigured}
-          isLoading={isTeamDataLoading}
-          membersError={membersError}
-          workItemsError={workItemsError}
-          assigneesError={assigneesError}
-          members={members}
-          workItems={boardItems}
-          currentIterationName={currentIteration?.name ?? null}
-          workItemAssignees={workItemAssignees}
-        />
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <KanbanBoard
+            patConfigured={patConfigured}
+            isLoading={isTeamDataLoading}
+            colorScheme={colorScheme}
+            membersError={membersError}
+            workItemsError={workItemsError}
+            assigneesError={assigneesError}
+            members={members}
+            workItems={boardItems}
+            currentIterationName={currentIteration?.name ?? null}
+            workItemAssignees={workItemAssignees}
+          />
+        </Box>
 
         <HiddenTagsDialog
           open={hiddenTagsDialogOpen}
