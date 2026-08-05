@@ -1,4 +1,4 @@
-import { Badge, Card, Typography } from '@mui/material'
+import { Badge, Card, Chip, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
@@ -16,6 +16,46 @@ type WorkItemCardProps = {
 }
 
 type StatusPaletteKey = 'error' | 'info' | 'primary' | 'warning' | 'success'
+
+type TagLayout = {
+  visibleTags: string[]
+  hiddenCount: number
+}
+
+const TAG_ROW_UNIT_BUDGET = 34
+const TAG_BASE_UNITS = 5
+const TAG_PER_CHAR_UNITS = 1
+const TAG_MIN_VISIBLE = 1
+
+function buildTagLayout(tags: string[], budget: number): TagLayout {
+  if (tags.length === 0) {
+    return { visibleTags: [], hiddenCount: 0 }
+  }
+
+  const visibleTags: string[] = []
+  let usedUnits = 0
+
+  for (let index = 0; index < tags.length; index += 1) {
+    const tag = tags[index]
+    const chipUnits = TAG_BASE_UNITS + Math.min(tag.length, 20) * TAG_PER_CHAR_UNITS
+    const remainingCount = tags.length - (index + 1)
+    const reservedOverflowUnits = remainingCount > 0 ? 8 : 0
+    const canFit = usedUnits + chipUnits + reservedOverflowUnits <= budget
+
+    if (canFit || visibleTags.length < TAG_MIN_VISIBLE) {
+      visibleTags.push(tag)
+      usedUnits += chipUnits
+      continue
+    }
+
+    break
+  }
+
+  return {
+    visibleTags,
+    hiddenCount: Math.max(tags.length - visibleTags.length, 0),
+  }
+}
 
 function getStatusPaletteKey(status: WorkItemSummary['status']): StatusPaletteKey {
   switch (status) {
@@ -73,6 +113,11 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
   const theme = useTheme()
   const statusPaletteKey = getStatusPaletteKey(item.status)
   const statusColor = theme.palette[statusPaletteKey].main
+  const sortedTags = [...(item.tags ?? [])].sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: 'base' }),
+  )
+  const tagBudget = Math.max(TAG_ROW_UNIT_BUDGET - (item.sprintName ? 10 : 0), 16)
+  const tagLayout = buildTagLayout(sortedTags, tagBudget)
 
   return (
     <Card
@@ -262,24 +307,96 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
           </Box>
         ) : null}
 
-        {item.sprintName ? (
-          <Typography
-            variant="body-sm"
+        {tagLayout.visibleTags.length > 0 || item.sprintName ? (
+          <Box
             sx={{
-              mt: 0.45,
+              mt: 0.7,
+              pt: 0.6,
               clear: 'both',
-              fontSize: 11,
-              lineHeight: 1.2,
-              color: 'text.secondary',
-              opacity: 0.85,
-              display: '-webkit-box',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: 1,
-              overflow: 'hidden',
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              display: 'flex',
+              flexWrap: 'nowrap',
+              gap: 0.5,
+              alignItems: 'center',
+              minWidth: 0,
+              justifyContent: 'space-between',
             }}
           >
-            Sprint {item.sprintName}
-          </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'nowrap',
+                gap: 0.5,
+                alignItems: 'center',
+                minWidth: 0,
+                overflow: 'hidden',
+                flex: '1 1 auto',
+              }}
+            >
+              {tagLayout.visibleTags.map((tag) => (
+                <Chip
+                  key={tag}
+                  label={tag}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    flex: '0 1 auto',
+                    minWidth: 0,
+                    maxWidth: 110,
+                    height: 18,
+                    '& .MuiChip-label': {
+                      px: 0.75,
+                      fontSize: 10,
+                      lineHeight: 1.1,
+                      display: 'block',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    },
+                  }}
+                />
+              ))}
+
+              {tagLayout.hiddenCount > 0 ? (
+                <Chip
+                  label={`+${tagLayout.hiddenCount}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    flex: '0 0 auto',
+                    height: 18,
+                    '& .MuiChip-label': {
+                      px: 0.75,
+                      fontSize: 10,
+                      lineHeight: 1.1,
+                      display: 'block',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    },
+                  }}
+                />
+              ) : null}
+            </Box>
+
+            {item.sprintName ? (
+              <Typography
+                variant="body-sm"
+                sx={{
+                  ml: 0.5,
+                  flex: '0 0 auto',
+                  fontSize: 10,
+                  lineHeight: 1.1,
+                  color: 'text.secondary',
+                  opacity: 0.85,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Sprint {item.sprintName}
+              </Typography>
+            ) : null}
+          </Box>
         ) : null}
       </Box>
     </Card>

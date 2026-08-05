@@ -21,6 +21,7 @@ export type WorkItemPullRequestSummary = {
 export type WorkItemSummary = {
   id: number
   title: string
+  tags?: string[]
   sprintName?: string
   activePullRequests?: WorkItemPullRequestSummary[]
   workItemUrl?: string

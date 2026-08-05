@@ -149,6 +149,18 @@ function resolveSprintName(fields: WorkItemApiItem['fields']): string | undefine
   return segments.length > 0 ? segments[segments.length - 1] : trimmed
 }
 
+function resolveTags(fields: WorkItemApiItem['fields']): string[] {
+  const rawTags = fields?.['System.Tags']
+  if (typeof rawTags !== 'string') {
+    return []
+  }
+
+  return rawTags
+    .split(';')
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0)
+}
+
 function parsePullRequestArtifactLink(url: string): PullRequestRef | null {
   const markerIndex = url.indexOf(PULL_REQUEST_ARTIFACT_PREFIX)
   if (markerIndex === -1) {
@@ -430,6 +442,7 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
       return {
         id: item.id,
         title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+        tags: resolveTags(item.fields),
         sprintName: resolveSprintName(item.fields),
         activePullRequests: activePullRequestsByWorkItem[item.id] ?? [],
         workItemUrl: `https://dev.azure.com/${encodeURIComponent(team.orgName)}/${encodeURIComponent(team.projectName)}/_workitems/edit/${item.id}`,
