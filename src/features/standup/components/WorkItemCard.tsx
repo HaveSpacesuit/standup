@@ -32,36 +32,6 @@ function getStatusPaletteKey(status: WorkItemSummary['status']): StatusPaletteKe
   }
 }
 
-function getStatusTintOpacity(status: WorkItemSummary['status'], mode: 'light' | 'dark'): number {
-  if (mode === 'dark') {
-    switch (status) {
-      case 'Blocked':
-        return 0.16
-      case 'New':
-        return 0.14
-      case 'Active':
-        return 0.18
-      case 'Review':
-        return 0.16
-      case 'Done':
-        return 0.12
-    }
-  }
-
-  switch (status) {
-    case 'Blocked':
-      return 0.07
-    case 'New':
-      return 0.05
-    case 'Active':
-      return 0.08
-    case 'Review':
-      return 0.07
-    case 'Done':
-      return 0.05
-  }
-}
-
 function getPullRequestReviewIcon(
   reviewState: 'rejected' | 'waiting-for-author' | 'partially-approved' | 'fully-approved' | undefined,
 ): { href: string; color: string; label: string; count?: number } | undefined {
@@ -103,7 +73,6 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
   const theme = useTheme()
   const statusPaletteKey = getStatusPaletteKey(item.status)
   const statusColor = theme.palette[statusPaletteKey].main
-  const tintOpacity = getStatusTintOpacity(item.status, theme.palette.mode)
 
   return (
     <Card
@@ -117,15 +86,6 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
         bgcolor: 'background.paper',
         overflow: 'visible',
         transition: 'box-shadow 120ms ease, border-color 120ms ease',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          borderRadius: 'inherit',
-          backgroundColor: statusColor,
-          opacity: tintOpacity,
-          pointerEvents: 'none',
-        },
         '&:hover': {
           boxShadow: 4,
           borderColor: statusColor,

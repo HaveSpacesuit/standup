@@ -1,5 +1,7 @@
 import { Avatar, CircularProgress, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
+import type { Theme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
 import { useMemo, type ReactNode } from 'react'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import { WorkItemCard } from './WorkItemCard'
@@ -25,6 +27,27 @@ type RowData = {
   isUnassigned?: boolean
 }
 
+function getStatusColumnColor(status: WorkItemSummary['status'], palette: Theme['palette']): string {
+  switch (status) {
+    case 'Blocked':
+      return palette.error.main as string
+    case 'New':
+      return palette.info.main as string
+    case 'Active':
+      return palette.primary.main as string
+    case 'Review':
+      return palette.warning.main as string
+    case 'Done':
+      return palette.success.main as string
+  }
+}
+
+function getStatusColumnBackground(status: WorkItemSummary['status'], palette: Theme['palette']): string {
+  const statusColor = getStatusColumnColor(status, palette)
+  const tint = palette.mode === 'dark' ? 13 : 7
+  return `color-mix(in srgb, ${statusColor} ${tint}%, ${palette.background.default})`
+}
+
 function sortMembers(members: TeamMember[]): TeamMember[] {
   const getFirstName = (displayName: string) => displayName.trim().split(/\s+/)[0] ?? ''
 
@@ -48,6 +71,7 @@ export function KanbanBoard({
   workItems,
   workItemAssignees,
 }: KanbanBoardProps) {
+  const theme = useTheme()
   const sortedMembers = useMemo(() => sortMembers(members), [members])
 
   const rows = useMemo<RowData[]>(() => {
@@ -161,53 +185,63 @@ export function KanbanBoard({
       >
         <Box
           sx={{
-            display: 'grid',
-            gridTemplateColumns: BOARD_GRID_TEMPLATE,
             minWidth: 1220,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
+            maxHeight: 'calc(100vh - 220px)',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            scrollbarGutter: 'stable',
+            bgcolor: 'background.default',
           }}
         >
           <Box
             sx={{
-              px: 2,
-              py: 1.5,
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'background.paper',
+              position: 'sticky',
+              top: 0,
+              zIndex: 3,
             }}
           >
-            <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-              Team member
-            </Typography>
-          </Box>
-
-          {STATUS_COLUMNS.map((status) => (
             <Box
-              key={status}
               sx={{
-                px: 2,
-                py: 1.5,
+                display: 'grid',
+                gridTemplateColumns: BOARD_GRID_TEMPLATE,
                 borderBottom: '1px solid',
                 borderColor: 'divider',
                 bgcolor: 'background.paper',
               }}
             >
-              <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-                {status}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                  Team member
+                </Typography>
+              </Box>
 
-        <Box
-          sx={{
-            maxHeight: 'calc(100vh - 220px)',
-            overflowY: 'auto',
-            overflowX: 'visible',
-          }}
-        >
+              {STATUS_COLUMNS.map((status) => (
+                <Box
+                  key={status}
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: getStatusColumnBackground(status, theme.palette),
+                  }}
+                >
+                  <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                    {status}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+
           <Box
             sx={{
               display: 'grid',
@@ -253,7 +287,7 @@ export function KanbanBoard({
                         py: 1,
                         borderBottom: '1px solid',
                         borderColor: 'divider',
-                        bgcolor: 'background.default',
+                        bgcolor: getStatusColumnBackground(status, theme.palette),
                         minHeight: 92,
                       }}
                     >
