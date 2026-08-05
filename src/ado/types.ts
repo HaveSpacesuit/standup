@@ -28,6 +28,7 @@ export type WorkItemSummary = {
   id: number
   kind?: 'work-item' | 'pull-request'
   title: string
+  recentActivityAt?: string
   tags?: string[]
   sprintName?: string
   activePullRequests?: WorkItemPullRequestSummary[]

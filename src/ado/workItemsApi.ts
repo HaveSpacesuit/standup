@@ -42,6 +42,7 @@ type WorkItemApiItem = {
   id?: number
   fields?: {
     'System.Title'?: string
+    'System.ChangedDate'?: unknown
     'System.IterationPath'?: unknown
     'System.WorkItemType'?: unknown
     'System.AssignedTo'?: unknown
@@ -159,6 +160,11 @@ function resolveTags(fields: WorkItemApiItem['fields']): string[] {
     .split(';')
     .map((tag) => tag.trim())
     .filter((tag) => tag.length > 0)
+}
+
+function resolveRecentActivityAt(fields: WorkItemApiItem['fields']): string | undefined {
+  const changedDate = fields?.['System.ChangedDate']
+  return typeof changedDate === 'string' && changedDate.trim() ? changedDate : undefined
 }
 
 function parsePullRequestArtifactLink(url: string): PullRequestRef | null {
@@ -413,6 +419,7 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
       ids,
       fields: [
         'System.Title',
+        'System.ChangedDate',
         'System.IterationPath',
         'System.WorkItemType',
         'System.AssignedTo',
@@ -465,6 +472,7 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
         id: item.id,
         kind: 'work-item',
         title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+        recentActivityAt: resolveRecentActivityAt(item.fields),
         tags: resolveTags(item.fields),
         sprintName: resolveSprintName(item.fields),
         activePullRequests: activePullRequestsByWorkItem[item.id] ?? [],

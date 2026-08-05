@@ -1,13 +1,14 @@
-import { Avatar, Badge, CircularProgress, Tooltip, Typography } from '@mui/material'
+import { Avatar, Badge, Button, CircularProgress, Tooltip, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import type { Theme } from '@mui/material/styles'
 import { useTheme } from '@mui/material/styles'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import { WorkItemCard } from './WorkItemCard'
 
 const STATUS_COLUMNS = ['Blocked', 'New', 'Active', 'Review', 'Done'] as const
 const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
+const COLLAPSED_CELL_CARD_LIMIT = 3
 type StatusColumn = (typeof STATUS_COLUMNS)[number]
 
 type KanbanBoardProps = {
@@ -80,6 +81,15 @@ function sortMembers(members: TeamMember[]): TeamMember[] {
   })
 }
 
+function getRecentActivitySortValue(item: WorkItemSummary): number {
+  if (!item.recentActivityAt) {
+    return Number.NEGATIVE_INFINITY
+  }
+
+  const parsed = Date.parse(item.recentActivityAt)
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
+}
+
 export function KanbanBoard({
   patConfigured,
   isLoading,
@@ -92,6 +102,7 @@ export function KanbanBoard({
   workItemAssignees,
 }: KanbanBoardProps) {
   const theme = useTheme()
+  const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
   const sortedMembers = useMemo(() => sortMembers(members), [members])
 
   const rows = useMemo<RowData[]>(() => {
@@ -182,8 +193,19 @@ export function KanbanBoard({
       initial[cellKey].push(item)
     }
 
+    for (const cellItems of Object.values(initial)) {
+      cellItems.sort((left, right) => getRecentActivitySortValue(right) - getRecentActivitySortValue(left))
+    }
+
     return initial
   }, [rows, rowLookup, workItems, workItemAssignees])
+
+  const setCellExpanded = (cellKey: string, expanded: boolean) => {
+    setExpandedCells((current) => ({
+      ...current,
+      [cellKey]: expanded,
+    }))
+  }
 
   let content: ReactNode
 
@@ -344,10 +366,17 @@ export function KanbanBoard({
                   </Box>
 
                   {STATUS_COLUMNS.map((status) => {
-                    const cellItems = cardsByCell[`${row.key}:${status}`] ?? []
+                    const cellKey = `${row.key}:${status}`
+                    const cellItems = cardsByCell[cellKey] ?? []
+                    const isExpanded = expandedCells[cellKey] === true
+                    const visibleItems = isExpanded
+                      ? cellItems
+                      : cellItems.slice(0, COLLAPSED_CELL_CARD_LIMIT)
+                    const hiddenCount = Math.max(cellItems.length - visibleItems.length, 0)
+
                     return (
                       <Box
-                        key={`${row.key}:${status}`}
+                        key={cellKey}
                         sx={{
                           pl: 1,
                           pr: 2,
@@ -366,10 +395,32 @@ export function KanbanBoard({
                             gap: 0.75,
                           }}
                         >
-                          {cellItems.map((item) => (
+                          {visibleItems.map((item) => (
                             <WorkItemCard key={item.id} item={item} />
                           ))}
                         </Box>
+
+                        {hiddenCount > 0 ? (
+                          <Button
+                            size="small"
+                            variant="text"
+                            sx={{ mt: 0.5, px: 0.5, minWidth: 0 }}
+                            onClick={() => setCellExpanded(cellKey, true)}
+                          >
+                            Show {hiddenCount} more
+                          </Button>
+                        ) : null}
+
+                        {isExpanded && cellItems.length > COLLAPSED_CELL_CARD_LIMIT ? (
+                          <Button
+                            size="small"
+                            variant="text"
+                            sx={{ mt: 0.5, px: 0.5, minWidth: 0 }}
+                            onClick={() => setCellExpanded(cellKey, false)}
+                          >
+                            Show less
+                          </Button>
+                        ) : null}
                       </Box>
                     )
                   })}

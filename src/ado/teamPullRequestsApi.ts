@@ -14,6 +14,7 @@ type PullRequestApiResponse = {
   status?: string
   isDraft?: boolean
   creationDate?: string
+  closedDate?: string
   createdBy?: unknown
   reviewers?: Array<{
     id?: string
@@ -278,6 +279,10 @@ export async function fetchUnlinkedActivePullRequestItems(
         id: -pullRequestId,
         kind: 'pull-request',
         title: pullRequestSummary.title,
+        recentActivityAt:
+          pullRequest.status?.trim().toLowerCase() === 'completed'
+            ? pullRequest.closedDate ?? pullRequest.creationDate
+            : pullRequest.creationDate,
         pullRequest: pullRequestSummary,
         assignedTo: creator,
         status: pullRequest.status?.trim().toLowerCase() === 'completed' ? 'Done' : 'Review',
