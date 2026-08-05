@@ -23,6 +23,7 @@ import { teamProfiles } from './teamProfiles'
 import { AdoQueryEngine } from './ado/queryEngine'
 import { KanbanBoard } from './features/standup/components/KanbanBoard'
 import { HiddenTagsDialog } from './features/standup/components/HiddenTagsDialog'
+import { usePullRequestBoardItems } from './features/standup/hooks/usePullRequestBoardItems'
 import { useTeamData } from './features/standup/hooks/useTeamData'
 import { useWorkItemAssignees } from './features/standup/hooks/useWorkItemAssignees'
 import type { WorkItemSummary } from './ado/queryEngine'
@@ -138,28 +139,13 @@ function App({ patConfigured }: AppProps) {
     workItems,
     workItemsLoading,
     workItemsError,
-    currentIterationName,
+    currentIteration,
   } = useTeamData({
     adoQueryEngine,
     selectedTeam,
     reloadNonce,
     forceRefreshRef,
   })
-
-  const { workItemAssignees, assigneesLoading, assigneesError } = useWorkItemAssignees({
-    adoQueryEngine,
-    orgName: selectedTeam.orgName,
-    members,
-    membersLoading,
-    membersError,
-    workItems,
-    workItemsLoading,
-    workItemsError,
-  })
-
-  useEffect(() => {
-    localStorage.setItem(HIDDEN_TAGS_STORAGE_KEY, JSON.stringify(hiddenTags))
-  }, [hiddenTags])
 
   const hiddenTagKeys = useMemo(
     () => new Set(hiddenTags.map((tag) => normalizeTagKey(tag))),
@@ -170,6 +156,38 @@ function App({ patConfigured }: AppProps) {
     () => workItems.filter((item) => !shouldHideByTag(item, hiddenTagKeys)),
     [workItems, hiddenTagKeys],
   )
+
+  const { pullRequestBoardItems, pullRequestBoardItemsLoading } = usePullRequestBoardItems({
+    adoQueryEngine,
+    selectedTeam,
+    currentIteration,
+    members,
+    membersLoading,
+    membersError,
+    workItems: filteredWorkItems,
+    workItemsLoading,
+    workItemsError,
+  })
+
+  const boardItems = useMemo(
+    () => [...filteredWorkItems, ...pullRequestBoardItems],
+    [filteredWorkItems, pullRequestBoardItems],
+  )
+
+  const { workItemAssignees, assigneesLoading, assigneesError } = useWorkItemAssignees({
+    adoQueryEngine,
+    orgName: selectedTeam.orgName,
+    members,
+    membersLoading,
+    membersError,
+    workItems: boardItems,
+    workItemsLoading: workItemsLoading || pullRequestBoardItemsLoading,
+    workItemsError,
+  })
+
+  useEffect(() => {
+    localStorage.setItem(HIDDEN_TAGS_STORAGE_KEY, JSON.stringify(hiddenTags))
+  }, [hiddenTags])
 
   useEffect(() => {
     let isDisposed = false
@@ -221,7 +239,7 @@ function App({ patConfigured }: AppProps) {
     [selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName, teamSubjectDescriptor],
   )
 
-  const isTeamDataLoading = membersLoading || workItemsLoading || assigneesLoading
+  const isTeamDataLoading = membersLoading || workItemsLoading || pullRequestBoardItemsLoading || assigneesLoading
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.paper' }}>
@@ -304,8 +322,8 @@ function App({ patConfigured }: AppProps) {
           workItemsError={workItemsError}
           assigneesError={assigneesError}
           members={members}
-          workItems={filteredWorkItems}
-          currentIterationName={currentIterationName}
+          workItems={boardItems}
+          currentIterationName={currentIteration?.name ?? null}
           workItemAssignees={workItemAssignees}
         />
 

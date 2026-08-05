@@ -10,6 +10,12 @@ export type TeamMember = {
   descriptor?: string
 }
 
+export type CurrentIterationInfo = {
+  name: string
+  startDate?: string
+  finishDate?: string
+}
+
 export type WorkItemPullRequestSummary = {
   id: number
   title: string
@@ -20,10 +26,13 @@ export type WorkItemPullRequestSummary = {
 
 export type WorkItemSummary = {
   id: number
+  kind?: 'work-item' | 'pull-request'
   title: string
   tags?: string[]
   sprintName?: string
   activePullRequests?: WorkItemPullRequestSummary[]
+  linkedPullRequestIds?: number[]
+  pullRequest?: WorkItemPullRequestSummary
   workItemUrl?: string
   effort?: number
   workItemType?: string

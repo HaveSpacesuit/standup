@@ -258,51 +258,19 @@ function resolvePullRequestReviewState(
 async function fetchActivePullRequestsByWorkItem(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
-  workItemIds: number[],
+  refsByWorkItem: Map<number, PullRequestRef[]>,
   pullRequestIconUrl: string | undefined,
   signal?: AbortSignal,
 ): Promise<Record<number, WorkItemPullRequestSummary[]>> {
-  if (workItemIds.length === 0) {
+  if (refsByWorkItem.size === 0) {
     return {}
   }
-
-  const relationsResponse = await client.request<WorkItemRelationsBatchResponse>({
-    method: 'GET',
-    orgName: team.orgName,
-    path: '/_apis/wit/workitems',
-    params: {
-      'api-version': '7.1',
-      ids: workItemIds.join(','),
-      '$expand': 'Relations',
-    },
-    signal,
-  })
-
-  const refsByWorkItem = new Map<number, PullRequestRef[]>()
   const uniqueRefMap = new Map<string, PullRequestRef>()
 
-  for (const item of relationsResponse.value ?? []) {
-    if (typeof item.id !== 'number') {
-      continue
+  for (const refs of refsByWorkItem.values()) {
+    for (const ref of refs) {
+      uniqueRefMap.set(`${ref.repositoryId}:${ref.pullRequestId}`, ref)
     }
-
-    const refs: PullRequestRef[] = []
-    for (const relation of item.relations ?? []) {
-      if (relation.rel !== 'ArtifactLink' || typeof relation.url !== 'string') {
-        continue
-      }
-
-      const parsed = parsePullRequestArtifactLink(relation.url)
-      if (!parsed) {
-        continue
-      }
-
-      const key = `${parsed.repositoryId}:${parsed.pullRequestId}`
-      uniqueRefMap.set(key, parsed)
-      refs.push(parsed)
-    }
-
-    refsByWorkItem.set(item.id, refs)
   }
 
   if (uniqueRefMap.size === 0) {
@@ -360,6 +328,53 @@ async function fetchActivePullRequestsByWorkItem(
   return result
 }
 
+async function fetchPullRequestRefsByWorkItem(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName'>,
+  workItemIds: number[],
+  signal?: AbortSignal,
+): Promise<Map<number, PullRequestRef[]>> {
+  if (workItemIds.length === 0) {
+    return new Map()
+  }
+
+  const relationsResponse = await client.request<WorkItemRelationsBatchResponse>({
+    method: 'GET',
+    orgName: team.orgName,
+    path: '/_apis/wit/workitems',
+    params: {
+      'api-version': '7.1',
+      ids: workItemIds.join(','),
+      '$expand': 'Relations',
+    },
+    signal,
+  })
+
+  const refsByWorkItem = new Map<number, PullRequestRef[]>()
+
+  for (const item of relationsResponse.value ?? []) {
+    if (typeof item.id !== 'number') {
+      continue
+    }
+
+    const refs: PullRequestRef[] = []
+    for (const relation of item.relations ?? []) {
+      if (relation.rel !== 'ArtifactLink' || typeof relation.url !== 'string') {
+        continue
+      }
+
+      const parsed = parsePullRequestArtifactLink(relation.url)
+      if (parsed) {
+        refs.push(parsed)
+      }
+    }
+
+    refsByWorkItem.set(item.id, refs)
+  }
+
+  return refsByWorkItem
+}
+
 export async function fetchWorkItemsForCurrentAndNextIteration(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath' | 'iterationPath'>,
@@ -413,12 +428,19 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
 
   const workItemIconMap = await workItemIconMapPromise
   const pullRequestIconUrl = getPullRequestIconUrl(workItemIconMap)
+  const pullRequestRefsByWorkItem = await (async () => {
+    try {
+      return await fetchPullRequestRefsByWorkItem(client, team, ids, signal)
+    } catch {
+      return new Map<number, PullRequestRef[]>()
+    }
+  })()
   const activePullRequestsByWorkItem = await (async () => {
     try {
       return await fetchActivePullRequestsByWorkItem(
         client,
         team,
-        ids,
+        pullRequestRefsByWorkItem,
         pullRequestIconUrl,
         signal,
       )
@@ -441,10 +463,12 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
 
       return {
         id: item.id,
+        kind: 'work-item',
         title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
         tags: resolveTags(item.fields),
         sprintName: resolveSprintName(item.fields),
         activePullRequests: activePullRequestsByWorkItem[item.id] ?? [],
+        linkedPullRequestIds: (pullRequestRefsByWorkItem.get(item.id) ?? []).map((ref) => ref.pullRequestId),
         workItemUrl: `https://dev.azure.com/${encodeURIComponent(team.orgName)}/${encodeURIComponent(team.projectName)}/_workitems/edit/${item.id}`,
         effort: resolveEffort(item.fields),
         workItemType,

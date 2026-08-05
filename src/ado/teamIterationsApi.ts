@@ -1,14 +1,23 @@
 import type { TeamProfile } from '../teamProfiles'
 import type { AdoRequestClient } from './httpClient'
+import type { CurrentIterationInfo } from './types'
 
 type TeamIterationsResponse = {
   values?: Array<{
     name?: string
     path?: string
+    attributes?: {
+      startDate?: string
+      finishDate?: string
+    }
   }>
   value?: Array<{
     name?: string
     path?: string
+    attributes?: {
+      startDate?: string
+      finishDate?: string
+    }
   }>
 }
 
@@ -46,11 +55,38 @@ function resolveIterationName(iteration: { name?: string; path?: string } | unde
   return segments[segments.length - 1] ?? null
 }
 
-export async function fetchCurrentIterationName(
+function resolveCurrentIterationInfo(
+  iteration:
+    | {
+        name?: string
+        path?: string
+        attributes?: {
+          startDate?: string
+          finishDate?: string
+        }
+      }
+    | undefined,
+): CurrentIterationInfo | null {
+  const name = resolveIterationName(iteration)
+  if (!name) {
+    return null
+  }
+
+  const startDate = iteration?.attributes?.startDate?.trim() || undefined
+  const finishDate = iteration?.attributes?.finishDate?.trim() || undefined
+
+  return {
+    name,
+    startDate,
+    finishDate,
+  }
+}
+
+export async function fetchCurrentIterationInfo(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
   signal?: AbortSignal,
-): Promise<string | null> {
+): Promise<CurrentIterationInfo | null> {
   const iterationOwnerTeamName = resolveIterationOwnerTeamName(team)
 
   const teamReference = await client.request<TeamReferenceResponse>({
@@ -79,5 +115,5 @@ export async function fetchCurrentIterationName(
     signal,
   })
 
-  return resolveIterationName(response.values?.[0] ?? response.value?.[0])
+  return resolveCurrentIterationInfo(response.values?.[0] ?? response.value?.[0])
 }

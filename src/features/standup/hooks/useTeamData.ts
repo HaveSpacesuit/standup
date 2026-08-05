@@ -1,5 +1,5 @@
 import { useEffect, useState, type MutableRefObject } from 'react'
-import type { AdoQueryEngine, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import type { AdoQueryEngine, CurrentIterationInfo, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../teamProfiles'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
@@ -17,7 +17,7 @@ type UseTeamDataResult = {
   workItems: WorkItemSummary[]
   workItemsLoading: boolean
   workItemsError: string | null
-  currentIterationName: string | null
+  currentIteration: CurrentIterationInfo | null
 }
 
 export function useTeamData({
@@ -32,7 +32,7 @@ export function useTeamData({
   const [workItems, setWorkItems] = useState<WorkItemSummary[]>([])
   const [workItemsLoading, setWorkItemsLoading] = useState(false)
   const [workItemsError, setWorkItemsError] = useState<string | null>(null)
-  const [currentIterationName, setCurrentIterationName] = useState<string | null>(null)
+  const [currentIteration, setCurrentIteration] = useState<CurrentIterationInfo | null>(null)
 
   useEffect(() => {
     if (!adoQueryEngine) {
@@ -42,7 +42,7 @@ export function useTeamData({
       setWorkItems([])
       setWorkItemsError(null)
       setWorkItemsLoading(false)
-      setCurrentIterationName(null)
+      setCurrentIteration(null)
       return
     }
 
@@ -61,7 +61,7 @@ export function useTeamData({
         adoQueryEngine.getWorkItemsForCurrentAndNextIteration(selectedTeam, abortController.signal, {
           forceRefresh,
         }),
-        adoQueryEngine.getCurrentIterationName(selectedTeam, abortController.signal),
+        adoQueryEngine.getCurrentIterationInfo(selectedTeam, abortController.signal),
       ])
 
       if (abortController.signal.aborted) {
@@ -91,9 +91,9 @@ export function useTeamData({
       }
 
       if (currentIterationResult.status === 'fulfilled') {
-        setCurrentIterationName(currentIterationResult.value)
+        setCurrentIteration(currentIterationResult.value)
       } else if (!isAbortError(currentIterationResult.reason)) {
-        setCurrentIterationName(null)
+        setCurrentIteration(null)
       }
 
       setMembersLoading(false)
@@ -107,7 +107,7 @@ export function useTeamData({
 
       setMembers([])
       setWorkItems([])
-      setCurrentIterationName(null)
+      setCurrentIteration(null)
       setMembersError(toErrorMessage(error, 'Unknown error while loading team data.'))
       setWorkItemsError(toErrorMessage(error, 'Unknown error while loading team data.'))
       setMembersLoading(false)
@@ -126,6 +126,6 @@ export function useTeamData({
     workItems,
     workItemsLoading,
     workItemsError,
-    currentIterationName,
+    currentIteration,
   }
 }

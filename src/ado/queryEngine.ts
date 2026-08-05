@@ -2,13 +2,14 @@ import type { TeamProfile } from '../teamProfiles'
 import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
-import { fetchCurrentIterationName } from './teamIterationsApi'
+import { fetchCurrentIterationInfo } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
+import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
-import type { ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
+import type { CurrentIterationInfo, ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
 
-export type { TeamMember, WorkItemSummary, ResolvedWorkItemAssignee } from './types'
+export type { CurrentIterationInfo, TeamMember, WorkItemSummary, ResolvedWorkItemAssignee } from './types'
 
 export class AdoQueryEngine {
   private readonly client: AdoHttpClient
@@ -77,10 +78,27 @@ export class AdoQueryEngine {
     return fetchTeamSubjectDescriptor(this.client, team, signal)
   }
 
-  async getCurrentIterationName(
+  async getCurrentIterationInfo(
     team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
     signal?: AbortSignal,
-  ): Promise<string | null> {
-    return fetchCurrentIterationName(this.client, team, signal)
+  ): Promise<CurrentIterationInfo | null> {
+    return fetchCurrentIterationInfo(this.client, team, signal)
+  }
+
+  async getUnlinkedActivePullRequestItems(
+    team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,
+    members: TeamMember[],
+    visibleWorkItems: WorkItemSummary[],
+    currentIteration: CurrentIterationInfo | null,
+    signal?: AbortSignal,
+  ): Promise<WorkItemSummary[]> {
+    return fetchUnlinkedActivePullRequestItems(
+      this.client,
+      team,
+      members,
+      visibleWorkItems,
+      currentIteration,
+      signal,
+    )
   }
 }
