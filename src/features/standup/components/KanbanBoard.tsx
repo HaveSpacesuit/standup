@@ -1,4 +1,4 @@
-import { Avatar, CircularProgress, Typography } from '@mui/material'
+import { Avatar, Badge, CircularProgress, Tooltip, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import type { Theme } from '@mui/material/styles'
 import { useTheme } from '@mui/material/styles'
@@ -8,6 +8,7 @@ import { WorkItemCard } from './WorkItemCard'
 
 const STATUS_COLUMNS = ['Blocked', 'New', 'Active', 'Review', 'Done'] as const
 const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
+type StatusColumn = (typeof STATUS_COLUMNS)[number]
 
 type KanbanBoardProps = {
   patConfigured: boolean
@@ -17,6 +18,7 @@ type KanbanBoardProps = {
   assigneesError: string | null
   members: TeamMember[]
   workItems: WorkItemSummary[]
+  currentIterationName: string | null
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
@@ -25,6 +27,23 @@ type RowData = {
   label: string
   avatarUrl?: string
   isUnassigned?: boolean
+}
+
+type StatusBadgeColor = 'error' | 'info' | 'primary' | 'warning' | 'success'
+
+function getStatusBadgeColor(status: StatusColumn): StatusBadgeColor {
+  switch (status) {
+    case 'Blocked':
+      return 'error'
+    case 'New':
+      return 'info'
+    case 'Active':
+      return 'primary'
+    case 'Review':
+      return 'warning'
+    case 'Done':
+      return 'success'
+  }
 }
 
 function getStatusColumnColor(status: WorkItemSummary['status'], palette: Theme['palette']): string {
@@ -69,6 +88,7 @@ export function KanbanBoard({
   assigneesError,
   members,
   workItems,
+  currentIterationName,
   workItemAssignees,
 }: KanbanBoardProps) {
   const theme = useTheme()
@@ -115,6 +135,30 @@ export function KanbanBoard({
       return acc
     }, {})
   }, [rows])
+
+  const statusEffortTotals = useMemo(() => {
+    const totals: Record<StatusColumn, number> = {
+      Blocked: 0,
+      New: 0,
+      Active: 0,
+      Review: 0,
+      Done: 0,
+    }
+
+    for (const item of workItems) {
+      if (currentIterationName && item.sprintName !== currentIterationName) {
+        continue
+      }
+
+      if (typeof item.effort !== 'number') {
+        continue
+      }
+
+      totals[item.status] += item.effort
+    }
+
+    return totals
+  }, [currentIterationName, workItems])
 
   const cardsByCell = useMemo(() => {
     const initial = rows.reduce<Record<string, WorkItemSummary[]>>((acc, row) => {
@@ -178,136 +222,160 @@ export function KanbanBoard({
     )
   } else {
     content = (
-      <Box
-        sx={{
-          overflowX: 'auto',
-        }}
-      >
+      <Box>
         <Box
           sx={{
-            minWidth: 1220,
-            maxHeight: 'calc(100vh - 220px)',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            scrollbarGutter: 'stable',
-            bgcolor: 'background.default',
+            overflowX: 'auto',
           }}
         >
           <Box
             sx={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 3,
+              minWidth: 1220,
+              maxHeight: 'calc(100vh - 220px)',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              scrollbarGutter: 'stable',
+              bgcolor: 'background.default',
             }}
           >
             <Box
               sx={{
-                display: 'grid',
-                gridTemplateColumns: BOARD_GRID_TEMPLATE,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
+                position: 'sticky',
+                top: 0,
+                zIndex: 3,
               }}
             >
               <Box
                 sx={{
-                  px: 2,
-                  py: 1.5,
+                  display: 'grid',
+                  gridTemplateColumns: BOARD_GRID_TEMPLATE,
                   borderBottom: '1px solid',
                   borderColor: 'divider',
                   bgcolor: 'background.paper',
                 }}
               >
-                <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-                  Team member
-                </Typography>
-              </Box>
-
-              {STATUS_COLUMNS.map((status) => (
                 <Box
-                  key={status}
                   sx={{
                     px: 2,
                     py: 1.5,
                     borderBottom: '1px solid',
                     borderColor: 'divider',
-                    bgcolor: getStatusColumnBackground(status, theme.palette),
+                    bgcolor: 'background.paper',
                   }}
                 >
                   <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-                    {status}
+                    Team member
                   </Typography>
+                </Box>
+
+                {STATUS_COLUMNS.map((status) => (
+                  <Box
+                    key={status}
+                    sx={{
+                      px: 2,
+                      py: 1.5,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: getStatusColumnBackground(status, theme.palette),
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
+                      <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                        {status}
+                      </Typography>
+
+                      <Tooltip
+                        title={
+                          currentIterationName
+                            ? `Effort total includes visible items from ${currentIterationName} only.`
+                            : 'Effort total includes visible items from the current sprint only.'
+                        }
+                      >
+                        <Box component="span">
+                          <Badge
+                            badgeContent={statusEffortTotals[status]}
+                            color={getStatusBadgeColor(status)}
+                            max={999}
+                            inline
+                            size="small"
+                            showZero
+                          >
+                            <Box sx={{ width: 0, height: 0 }} />
+                          </Badge>
+                        </Box>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: BOARD_GRID_TEMPLATE,
+                minWidth: 1220,
+                bgcolor: 'background.default',
+              }}
+            >
+
+              {rows.map((row) => (
+                <Box key={row.key} sx={{ display: 'contents' }}>
+                  <Box
+                    sx={{
+                      px: 1.5,
+                      py: 1.25,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: 'background.paper',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 1,
+                    }}
+                  >
+                    {row.isUnassigned ? (
+                      <Avatar sx={{ width: 28, height: 28 }} />
+                    ) : (
+                      <Avatar alt={row.label} src={row.avatarUrl} sx={{ width: 28, height: 28 }} />
+                    )}
+                    <Typography variant="body-sm" sx={{ fontWeight: row.isUnassigned ? 700 : 500 }}>
+                      {row.label}
+                    </Typography>
+                  </Box>
+
+                  {STATUS_COLUMNS.map((status) => {
+                    const cellItems = cardsByCell[`${row.key}:${status}`] ?? []
+                    return (
+                      <Box
+                        key={`${row.key}:${status}`}
+                        sx={{
+                          pl: 1,
+                          pr: 2,
+                          py: 1,
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          bgcolor: getStatusColumnBackground(status, theme.palette),
+                          minHeight: 92,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignContent: 'flex-start',
+                            gap: 0.75,
+                          }}
+                        >
+                          {cellItems.map((item) => (
+                            <WorkItemCard key={item.id} item={item} />
+                          ))}
+                        </Box>
+                      </Box>
+                    )
+                  })}
                 </Box>
               ))}
             </Box>
-          </Box>
-
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: BOARD_GRID_TEMPLATE,
-              minWidth: 1220,
-              bgcolor: 'background.default',
-            }}
-          >
-
-            {rows.map((row) => (
-              <Box key={row.key} sx={{ display: 'contents' }}>
-                <Box
-                  sx={{
-                    px: 1.5,
-                    py: 1.25,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 1,
-                  }}
-                >
-                  {row.isUnassigned ? (
-                    <Avatar sx={{ width: 28, height: 28 }} />
-                  ) : (
-                    <Avatar alt={row.label} src={row.avatarUrl} sx={{ width: 28, height: 28 }} />
-                  )}
-                  <Typography variant="body-sm" sx={{ fontWeight: row.isUnassigned ? 700 : 500 }}>
-                    {row.label}
-                  </Typography>
-                </Box>
-
-                {STATUS_COLUMNS.map((status) => {
-                  const cellItems = cardsByCell[`${row.key}:${status}`] ?? []
-
-                  return (
-                    <Box
-                      key={`${row.key}:${status}`}
-                      sx={{
-                        pl: 1,
-                        pr: 2,
-                        py: 1,
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: getStatusColumnBackground(status, theme.palette),
-                        minHeight: 92,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          alignContent: 'flex-start',
-                          gap: 0.75,
-                        }}
-                      >
-                        {cellItems.map((item) => (
-                          <WorkItemCard key={item.id} item={item} />
-                        ))}
-                      </Box>
-                    </Box>
-                  )
-                })}
-              </Box>
-            ))}
           </Box>
         </Box>
       </Box>

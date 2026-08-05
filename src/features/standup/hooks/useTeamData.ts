@@ -17,6 +17,7 @@ type UseTeamDataResult = {
   workItems: WorkItemSummary[]
   workItemsLoading: boolean
   workItemsError: string | null
+  currentIterationName: string | null
 }
 
 export function useTeamData({
@@ -31,6 +32,7 @@ export function useTeamData({
   const [workItems, setWorkItems] = useState<WorkItemSummary[]>([])
   const [workItemsLoading, setWorkItemsLoading] = useState(false)
   const [workItemsError, setWorkItemsError] = useState<string | null>(null)
+  const [currentIterationName, setCurrentIterationName] = useState<string | null>(null)
 
   useEffect(() => {
     if (!adoQueryEngine) {
@@ -40,6 +42,7 @@ export function useTeamData({
       setWorkItems([])
       setWorkItemsError(null)
       setWorkItemsLoading(false)
+      setCurrentIterationName(null)
       return
     }
 
@@ -53,11 +56,12 @@ export function useTeamData({
     setWorkItemsError(null)
 
     const loadTeamData = async () => {
-      const [membersResult, workItemsResult] = await Promise.allSettled([
+      const [membersResult, workItemsResult, currentIterationResult] = await Promise.allSettled([
         adoQueryEngine.getTeamMembers(selectedTeam, abortController.signal),
         adoQueryEngine.getWorkItemsForCurrentAndNextIteration(selectedTeam, abortController.signal, {
           forceRefresh,
         }),
+        adoQueryEngine.getCurrentIterationName(selectedTeam, abortController.signal),
       ])
 
       if (abortController.signal.aborted) {
@@ -86,6 +90,12 @@ export function useTeamData({
         )
       }
 
+      if (currentIterationResult.status === 'fulfilled') {
+        setCurrentIterationName(currentIterationResult.value)
+      } else if (!isAbortError(currentIterationResult.reason)) {
+        setCurrentIterationName(null)
+      }
+
       setMembersLoading(false)
       setWorkItemsLoading(false)
     }
@@ -97,6 +107,7 @@ export function useTeamData({
 
       setMembers([])
       setWorkItems([])
+      setCurrentIterationName(null)
       setMembersError(toErrorMessage(error, 'Unknown error while loading team data.'))
       setWorkItemsError(toErrorMessage(error, 'Unknown error while loading team data.'))
       setMembersLoading(false)
@@ -115,5 +126,6 @@ export function useTeamData({
     workItems,
     workItemsLoading,
     workItemsError,
+    currentIterationName,
   }
 }

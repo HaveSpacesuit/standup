@@ -2,6 +2,7 @@ import type { TeamProfile } from '../teamProfiles'
 import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
+import { fetchCurrentIterationName } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
@@ -74,5 +75,12 @@ export class AdoQueryEngine {
     signal?: AbortSignal,
   ): Promise<string | null> {
     return fetchTeamSubjectDescriptor(this.client, team, signal)
+  }
+
+  async getCurrentIterationName(
+    team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    return fetchCurrentIterationName(this.client, team, signal)
   }
 }

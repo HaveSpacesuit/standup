@@ -138,6 +138,7 @@ function App({ patConfigured }: AppProps) {
     workItems,
     workItemsLoading,
     workItemsError,
+    currentIterationName,
   } = useTeamData({
     adoQueryEngine,
     selectedTeam,
@@ -304,6 +305,7 @@ function App({ patConfigured }: AppProps) {
           assigneesError={assigneesError}
           members={members}
           workItems={filteredWorkItems}
+          currentIterationName={currentIterationName}
           workItemAssignees={workItemAssignees}
         />
 
