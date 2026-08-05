@@ -116,6 +116,14 @@ function normalizeQuickFilterText(value: string): string {
   return value.trim().toLowerCase()
 }
 
+function normalizeTeamMemberLabel(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function sortTeamMemberLabels(labels: string[]): string[] {
+  return [...labels].sort((left, right) => left.localeCompare(right))
+}
+
 function matchesQuickFilter(
   item: WorkItemSummary,
   filterText: string,
@@ -145,16 +153,33 @@ function matchesQuickFilter(
   return values.some((value) => value.toLowerCase().includes(filterText))
 }
 
+function matchesTeamMemberFilter(
+  assignee: ResolvedWorkItemAssignee | undefined,
+  selectedMemberLabel: string,
+): boolean {
+  if (!selectedMemberLabel) {
+    return true
+  }
+
+  if (!assignee || assignee.kind !== 'team-member') {
+    return false
+  }
+
+  return normalizeTeamMemberLabel(assignee.label) === normalizeTeamMemberLabel(selectedMemberLabel)
+}
+
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const [selectedTeamId, setSelectedTeamId] = useState(getInitialSelectedTeamId)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [hiddenTagsDialogOpen, setHiddenTagsDialogOpen] = useState(false)
   const [quickFilterInput, setQuickFilterInput] = useState('')
+  const [selectedMemberFilter, setSelectedMemberFilter] = useState('')
   const [teamSubjectDescriptor, setTeamSubjectDescriptor] = useState<string | null>(null)
   const [hiddenTags, setHiddenTags] = useState<string[]>(() =>
     parseStoredHiddenTags(localStorage.getItem(HIDDEN_TAGS_STORAGE_KEY)),
   )
   const forceRefreshRef = useRef(false)
+  const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const selectedTeam =
     teamProfiles.find((team) => team.id === selectedTeamId) ?? teamProfiles[0]
 
@@ -169,6 +194,10 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
 
   const handleTeamChange = (event: SelectChangeEvent<string>) => {
     setSelectedTeamId(event.target.value)
+  }
+
+  const handleMemberFilterChange = (event: SelectChangeEvent<string>) => {
+    setSelectedMemberFilter(event.target.value)
   }
 
   const handleRefresh = () => {
@@ -242,12 +271,32 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     workItemsError,
   })
 
+  const quickFilterMatchedBoardItems = useMemo(
+    () => boardItems.filter((item) => matchesQuickFilter(item, normalizedQuickFilterText, workItemAssignees[item.id])),
+    [boardItems, normalizedQuickFilterText, workItemAssignees],
+  )
+
+  const memberFilterOptions = useMemo(() => {
+    const labels = new Set<string>()
+
+    for (const item of quickFilterMatchedBoardItems) {
+      const assignee = workItemAssignees[item.id]
+      if (!assignee || assignee.kind !== 'team-member') {
+        continue
+      }
+
+      labels.add(assignee.label)
+    }
+
+    return sortTeamMemberLabels([...labels])
+  }, [quickFilterMatchedBoardItems, workItemAssignees])
+
   const visibleBoardItems = useMemo(
     () =>
-      boardItems.filter((item) =>
-        matchesQuickFilter(item, normalizedQuickFilterText, workItemAssignees[item.id]),
+      quickFilterMatchedBoardItems.filter((item) =>
+        matchesTeamMemberFilter(workItemAssignees[item.id], selectedMemberFilter),
       ),
-    [boardItems, normalizedQuickFilterText, workItemAssignees],
+    [quickFilterMatchedBoardItems, selectedMemberFilter, workItemAssignees],
   )
 
   useEffect(() => {
@@ -257,6 +306,38 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   useEffect(() => {
     localStorage.setItem(SELECTED_TEAM_STORAGE_KEY, selectedTeamId)
   }, [selectedTeamId])
+
+  useEffect(() => {
+    if (!selectedMemberFilter) {
+      return
+    }
+
+    const selectedStillExists = memberFilterOptions.some(
+      (memberName) => normalizeTeamMemberLabel(memberName) === normalizeTeamMemberLabel(selectedMemberFilter),
+    )
+
+    if (!selectedStillExists) {
+      setSelectedMemberFilter('')
+    }
+  }, [memberFilterOptions, selectedMemberFilter])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f'
+      if (!isShortcut) {
+        return
+      }
+
+      event.preventDefault()
+      quickFilterInputRef.current?.focus()
+      quickFilterInputRef.current?.select()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
 
   useEffect(() => {
     let isDisposed = false
@@ -324,6 +405,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             placeholder="Quick filter cards"
             value={quickFilterInput}
             onChange={(event) => setQuickFilterInput(event.target.value)}
+            inputRef={quickFilterInputRef}
             disabled={!patConfigured}
             sx={{ minWidth: 230, maxWidth: 320 }}
             slotProps={{
@@ -343,6 +425,25 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
               },
             }}
           />
+
+          <FormControl size="small" sx={{ minWidth: 210, maxWidth: 270 }}>
+            <Select
+              displayEmpty
+              value={selectedMemberFilter}
+              onChange={handleMemberFilterChange}
+              disabled={!patConfigured || memberFilterOptions.length === 0}
+              renderValue={(value) =>
+                value && typeof value === 'string' ? value : 'All team members'
+              }
+            >
+              <MenuItem value="">All team members</MenuItem>
+              {memberFilterOptions.map((memberName) => (
+                <MenuItem key={memberName} value={memberName}>
+                  {memberName}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 420 }}>
             <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
