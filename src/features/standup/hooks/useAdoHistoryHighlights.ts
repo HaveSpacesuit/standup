@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine, WorkItemSummary } from '../../../ado/queryEngine'
-import resolveStatusFromStateAndTags from '../../../ado/workItemStatus'
+import {
+  getRelevantTagRuleSignature,
+  resolveStatusFromStateAndTags,
+  type TagRule,
+} from '../../../ado/workItemStatus'
 
 export type ChangeHighlightState = 'new' | 'stale' | 'none'
 
@@ -18,6 +22,7 @@ type UseAdoHistoryHighlightsArgs = {
     projectName: string
     repoName: string
   }
+  tagRules: TagRule[]
   workItems: WorkItemSummary[]
 }
 
@@ -85,24 +90,6 @@ function resolveUpdateTimestamp(update: WorkItemUpdate, now = Date.now()): strin
   }
 
   return isUsableHistoryTimestamp(update.revisedDate, now) ? update.revisedDate : undefined
-}
-
-function normalizeTags(value: string | undefined): string[] {
-  if (!value) {
-    return []
-  }
-
-  return value
-    .split(';')
-    .map((tag) => tag.trim().toLowerCase())
-    .filter(Boolean)
-    .sort((left, right) => left.localeCompare(right))
-}
-
-function getRelevantTagSignature(tagsValue: string | undefined): string {
-  const tags = normalizeTags(tagsValue)
-  const relevant = tags.filter((tag) => tag === 'pr' || tag.includes('blocked'))
-  return relevant.join(';')
 }
 
 function parseAssignedIdentityKey(value: unknown): string {
@@ -202,12 +189,6 @@ function getHighlightState(referenceAt: string | undefined, baselineAt: string |
   return 'none'
 }
 
-function getItemDebugLabel(item: WorkItemSummary): string {
-  return item.kind === 'pull-request'
-    ? `PR ${item.pullRequest?.id ?? Math.abs(item.id)} ${item.title}`
-    : `WI ${item.id} ${item.title}`
-}
-
 async function fetchPullRequestDetails(
   adoQueryEngine: AdoQueryEngine,
   team: UseAdoHistoryHighlightsArgs['team'],
@@ -261,6 +242,7 @@ async function fetchPullRequestVoteMoments(
 async function computeWorkItemHighlight(
   adoQueryEngine: AdoQueryEngine,
   team: UseAdoHistoryHighlightsArgs['team'],
+  tagRules: TagRule[],
   item: WorkItemSummary,
   signal: AbortSignal,
 ): Promise<HighlightResult> {
@@ -325,8 +307,8 @@ async function computeWorkItemHighlight(
     const beforeState = currentState
     const beforeTags = currentTags
     const beforeAssignee = currentAssignee
-    const beforeColumn = resolveStatusFromStateAndTags(beforeState, beforeTags)
-    const beforeRelevantTags = getRelevantTagSignature(beforeTags)
+    const beforeColumn = resolveStatusFromStateAndTags(beforeState, beforeTags, tagRules)
+    const beforeRelevantTags = getRelevantTagRuleSignature(beforeTags, tagRules)
 
     if (Object.hasOwn(fields, 'System.State')) {
       const value = fields['System.State']?.newValue
@@ -346,8 +328,8 @@ async function computeWorkItemHighlight(
       continue
     }
 
-    const afterColumn = resolveStatusFromStateAndTags(currentState, currentTags)
-    const afterRelevantTags = getRelevantTagSignature(currentTags)
+    const afterColumn = resolveStatusFromStateAndTags(currentState, currentTags, tagRules)
+    const afterRelevantTags = getRelevantTagRuleSignature(currentTags, tagRules)
     const updateReasons: string[] = []
 
     if (beforeState !== currentState) {
@@ -480,7 +462,7 @@ async function computePullRequestHighlight(
   }
 }
 
-export function useAdoHistoryHighlights({ adoQueryEngine, team, workItems }: UseAdoHistoryHighlightsArgs): Record<number, ChangeHighlightState> {
+export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workItems }: UseAdoHistoryHighlightsArgs): Record<number, ChangeHighlightState> {
   const [results, setResults] = useState<Record<number, HighlightResult>>({})
 
   useEffect(() => {
@@ -495,7 +477,7 @@ export function useAdoHistoryHighlights({ adoQueryEngine, team, workItems }: Use
       workItems.map(async (item) => {
         const result = item.kind === 'pull-request'
           ? await computePullRequestHighlight(adoQueryEngine, team, item, abortController.signal)
-          : await computeWorkItemHighlight(adoQueryEngine, team, item, abortController.signal)
+          : await computeWorkItemHighlight(adoQueryEngine, team, tagRules, item, abortController.signal)
 
         return [item.id, result] as const
       }),
@@ -516,45 +498,7 @@ export function useAdoHistoryHighlights({ adoQueryEngine, team, workItems }: Use
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, team, workItems])
-
-  useEffect(() => {
-    if (workItems.length === 0) {
-      return
-    }
-
-    const now = Date.now()
-
-    for (const item of workItems) {
-      const result = results[item.id]
-      if (!result || result.state === 'none') {
-        continue
-      }
-
-      const referenceAt = result.trackedAt ?? result.baselineAt
-      const ageHours = referenceAt
-        && isUsableHistoryTimestamp(referenceAt, now)
-        ? Number((((now - (toTimestamp(referenceAt) ?? now)) / (60 * 60 * 1000))).toFixed(2))
-        : null
-
-      console.debug(`[standup][change-highlight] ${result.state.toUpperCase()} ${getItemDebugLabel(item)}`, {
-        itemId: item.id,
-        kind: item.kind ?? 'work-item',
-        trackedAt: result.trackedAt ?? null,
-        baselineAt: result.baselineAt ?? null,
-        ageHours,
-        justification: result.justification,
-        state: item.state,
-        statusColumn: item.status,
-        assignee: item.assignedTo?.uniqueName ?? item.assignedTo?.displayName ?? null,
-        linkedPullRequestIds: item.activePullRequests?.map((pullRequest) => pullRequest.id) ?? [],
-        reviewState:
-          item.kind === 'pull-request'
-            ? item.pullRequest?.reviewState ?? null
-            : item.activePullRequests?.map((pullRequest) => ({ id: pullRequest.id, reviewState: pullRequest.reviewState ?? null })) ?? [],
-      })
-    }
-  }, [results, workItems])
+  }, [adoQueryEngine, team, tagRules, workItems])
 
   return useMemo(() => {
     const highlights: Record<number, ChangeHighlightState> = {}

@@ -2,7 +2,6 @@ import {
   AppBar,
   Box,
   Button,
-  Chip,
   FormControl,
   IconButton,
   InputAdornment,
@@ -18,8 +17,9 @@ import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
-import svgFilter from '@stratakit/icons/filter.svg'
+import svgTag from '@stratakit/icons/tag.svg'
 import svgAssign from '@stratakit/icons/assign.svg'
+import svgArrowRight from '@stratakit/icons/arrow-right.svg'
 
 type TeamOption = {
   id: string
@@ -40,9 +40,8 @@ type StandupToolbarProps = {
   onTeamChange: (value: string) => void
   teamManagementUrl: string
   onRefresh: () => void
-  onOpenHiddenTagsDialog: () => void
+  onOpenTagRulesDialog: () => void
   isTeamDataLoading: boolean
-  hiddenTagsCount: number
 }
 
 export function StandupToolbar({
@@ -59,9 +58,8 @@ export function StandupToolbar({
   onTeamChange,
   teamManagementUrl,
   onRefresh,
-  onOpenHiddenTagsDialog,
+  onOpenTagRulesDialog,
   isTeamDataLoading,
-  hiddenTagsCount,
 }: StandupToolbarProps) {
   const handleMemberFilterChange = (event: SelectChangeEvent<string>) => {
     onMemberFilterChange(event.target.value)
@@ -69,6 +67,25 @@ export function StandupToolbar({
 
   const handleTeamChange = (event: SelectChangeEvent<string>) => {
     onTeamChange(event.target.value)
+  }
+
+  const handleCycleMemberFilter = () => {
+    if (memberFilterOptions.length === 0) {
+      return
+    }
+
+    if (!selectedMemberFilter) {
+      onMemberFilterChange(memberFilterOptions[0])
+      return
+    }
+
+    const selectedIndex = memberFilterOptions.indexOf(selectedMemberFilter)
+    if (selectedIndex === -1 || selectedIndex === memberFilterOptions.length - 1) {
+      onMemberFilterChange('')
+      return
+    }
+
+    onMemberFilterChange(memberFilterOptions[selectedIndex + 1])
   }
 
   return (
@@ -124,6 +141,15 @@ export function StandupToolbar({
           </Select>
         </FormControl>
 
+        <IconButton
+          size="small"
+          aria-label="Select next team member filter"
+          onClick={handleCycleMemberFilter}
+          disabled={!patConfigured || memberFilterOptions.length === 0}
+        >
+          <Icon href={svgArrowRight} />
+        </IconButton>
+
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 420 }}>
           <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
             Team
@@ -164,26 +190,13 @@ export function StandupToolbar({
           <Button
             size="small"
             variant="outlined"
-            startIcon={<Icon href={svgFilter} />}
-            onClick={onOpenHiddenTagsDialog}
+            startIcon={<Icon href={svgTag} />}
+            onClick={onOpenTagRulesDialog}
             disabled={!patConfigured}
           >
-            Hidden tags
+            Tag rules
           </Button>
         </Box>
-
-        {hiddenTagsCount > 0 ? (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`${hiddenTagsCount} hidden tag${hiddenTagsCount === 1 ? '' : 's'}`}
-            sx={{
-              borderColor: 'warning.main',
-              color: 'warning.main',
-            }}
-          />
-        ) : null}
-
       </Toolbar>
     </AppBar>
   )

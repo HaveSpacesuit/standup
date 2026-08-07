@@ -1,4 +1,11 @@
 import type { ResolvedWorkItemAssignee, WorkItemSummary } from '../../../ado/queryEngine'
+import {
+  DEFAULT_TAG_RULES,
+  resolveStatusFromStateAndTags,
+  shouldHideByTagRules,
+  type TagRule,
+  type TagRuleAction,
+} from '../../../ado/workItemStatus'
 
 function normalizeTag(tag: string): string {
   return tag.trim()
@@ -8,43 +15,93 @@ export function normalizeTagKey(tag: string): string {
   return normalizeTag(tag).toLowerCase()
 }
 
-export function parseStoredHiddenTags(value: string | null): string[] {
-  if (!value) {
-    return []
-  }
+function isTagRuleAction(value: unknown): value is TagRuleAction {
+  return value === 'Blocked' || value === 'New' || value === 'Active' || value === 'Review' || value === 'Done' || value === 'unlisted'
+}
 
-  try {
-    const parsed = JSON.parse(value)
-    if (!Array.isArray(parsed)) {
-      return []
-    }
-
-    const deduped = new Map<string, string>()
-    for (const entry of parsed) {
-      if (typeof entry !== 'string') {
-        continue
-      }
-
-      const normalized = normalizeTag(entry)
-      if (!normalized) {
-        continue
-      }
-
-      deduped.set(normalizeTagKey(normalized), normalized)
-    }
-
-    return [...deduped.values()]
-  } catch {
-    return []
+export function createTagRule(tag = '', action: TagRuleAction = 'unlisted'): TagRule {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    tag,
+    action,
   }
 }
 
-export function shouldHideByTag(item: WorkItemSummary, hiddenTagKeys: Set<string>): boolean {
-  if (hiddenTagKeys.size === 0) {
-    return false
+export function parseStoredTagRules(value: string | null, legacyHiddenTagsValue?: string | null): TagRule[] {
+  if (value) {
+    try {
+      const parsed = JSON.parse(value)
+      if (Array.isArray(parsed)) {
+        const next: TagRule[] = []
+
+        for (const entry of parsed) {
+          if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+            continue
+          }
+
+          const candidate = entry as { id?: unknown; tag?: unknown; action?: unknown }
+          const tag = typeof candidate.tag === 'string' ? normalizeTag(candidate.tag) : ''
+          const action = isTagRuleAction(candidate.action) ? candidate.action : null
+
+          if (!tag || !action) {
+            continue
+          }
+
+          next.push({
+            id: typeof candidate.id === 'string' && candidate.id ? candidate.id : createTagRule().id,
+            tag,
+            action,
+          })
+        }
+
+        if (next.length > 0) {
+          return next
+        }
+      }
+    } catch {
+      // Fall back to defaults below.
+    }
   }
 
-  return (item.tags ?? []).some((tag) => hiddenTagKeys.has(normalizeTagKey(tag)))
+  const rules = [...DEFAULT_TAG_RULES]
+
+  if (legacyHiddenTagsValue) {
+    try {
+      const parsed = JSON.parse(legacyHiddenTagsValue)
+      if (Array.isArray(parsed)) {
+        const legacyRules = parsed
+          .filter((entry): entry is string => typeof entry === 'string')
+          .map((tag) => normalizeTag(tag))
+          .filter(Boolean)
+          .map((tag) => createTagRule(tag, 'unlisted'))
+
+        rules.push(...legacyRules)
+      }
+    } catch {
+      // Ignore legacy hidden tag parse failures.
+    }
+  }
+
+  return rules
+}
+
+export function getTagRuleCountForAction(tagRules: TagRule[], action: TagRuleAction): number {
+  return tagRules.filter((rule) => rule.action === action).length
+}
+
+export function shouldHideByTag(item: WorkItemSummary, tagRules: TagRule[]): boolean {
+  return shouldHideByTagRules(item.tags, tagRules)
+}
+
+export function applyTagRulesToItem(item: WorkItemSummary, tagRules: TagRule[]): WorkItemSummary | null {
+  if (shouldHideByTag(item, tagRules)) {
+    return null
+  }
+
+  return {
+    ...item,
+    status: resolveStatusFromStateAndTags(item.state, item.tags?.join(';'), tagRules),
+  }
 }
 
 export function normalizeQuickFilterText(value: string): string {

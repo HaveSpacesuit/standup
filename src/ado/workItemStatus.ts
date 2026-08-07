@@ -1,4 +1,24 @@
 export type WorkItemStatus = 'Blocked' | 'New' | 'Active' | 'Review' | 'Done'
+export type TagRuleAction = WorkItemStatus | 'unlisted'
+
+export type TagRule = {
+  id: string
+  tag: string
+  action: TagRuleAction
+}
+
+export const DEFAULT_TAG_RULES: TagRule[] = [
+  {
+    id: 'default-blocked',
+    tag: 'blocked',
+    action: 'Blocked',
+  },
+  {
+    id: 'default-pr',
+    tag: 'pr',
+    action: 'Review',
+  },
+]
 
 const blockedStates = new Set(['design', 'in planning', 'inactive', 'on hold'])
 const todoStates = new Set([
@@ -20,6 +40,10 @@ function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
+export function normalizeTagRulePattern(value: string): string {
+  return normalizeText(value)
+}
+
 function parseTags(value: unknown): string[] {
   if (typeof value !== 'string') {
     return []
@@ -31,37 +55,71 @@ function parseTags(value: unknown): string[] {
     .filter((tag) => tag.length > 0)
 }
 
-const resolveStatusFromStateAndTags = (stateValue: unknown, tagsValue: unknown): WorkItemStatus => {
+export function resolveMatchingTagRules(tagsValue: unknown, tagRules: TagRule[] = DEFAULT_TAG_RULES): TagRule[] {
   const tags = parseTags(tagsValue)
+  if (tags.length === 0 || tagRules.length === 0) {
+    return []
+  }
+
   const normalizedTags = tags.map((tag) => normalizeText(tag))
 
-  const hasBlockedTag = normalizedTags.some((tag) => tag.includes('blocked'))
-  if (hasBlockedTag) {
+  return tagRules.filter((rule) => {
+    const normalizedPattern = normalizeTagRulePattern(rule.tag)
+    if (!normalizedPattern) {
+      return false
+    }
+
+    return normalizedTags.some((tag) => tag.includes(normalizedPattern))
+  })
+}
+
+export function shouldHideByTagRules(tagsValue: unknown, tagRules: TagRule[] = DEFAULT_TAG_RULES): boolean {
+  return resolveMatchingTagRules(tagsValue, tagRules).some((rule) => rule.action === 'unlisted')
+}
+
+export function getRelevantTagRuleSignature(tagsValue: unknown, tagRules: TagRule[] = DEFAULT_TAG_RULES): string {
+  return resolveMatchingTagRules(tagsValue, tagRules)
+    .map((rule) => `${normalizeTagRulePattern(rule.tag)}=>${rule.action}`)
+    .join('|')
+}
+
+function resolveBaseStatusFromState(stateValue: unknown): WorkItemStatus {
+  const normalizedState = typeof stateValue === 'string' ? normalizeText(stateValue) : ''
+
+  if (blockedStates.has(normalizedState)) {
     return 'Blocked'
   }
 
-  const normalizedState = typeof stateValue === 'string' ? normalizeText(stateValue) : ''
-
-  let status: WorkItemStatus = 'New'
-
-  if (blockedStates.has(normalizedState)) {
-    status = 'Blocked'
-  } else if (todoStates.has(normalizedState)) {
-    status = 'New'
-  } else if (inProgressStates.has(normalizedState)) {
-    status = 'Active'
-  } else if (reviewStates.has(normalizedState)) {
-    status = 'Review'
-  } else if (doneStates.has(normalizedState)) {
-    status = 'Done'
+  if (todoStates.has(normalizedState)) {
+    return 'New'
   }
 
-  const hasPrTag = normalizedTags.some((tag) => tag === 'pr')
-  if (hasPrTag && status === 'Active') {
+  if (inProgressStates.has(normalizedState)) {
+    return 'Active'
+  }
+
+  if (reviewStates.has(normalizedState)) {
     return 'Review'
   }
 
-  return status
+  if (doneStates.has(normalizedState)) {
+    return 'Done'
+  }
+
+  return 'New'
+}
+
+const resolveStatusFromStateAndTags = (
+  stateValue: unknown,
+  tagsValue: unknown,
+  tagRules: TagRule[] = DEFAULT_TAG_RULES,
+): WorkItemStatus => {
+  const matchingRule = resolveMatchingTagRules(tagsValue, tagRules).find((rule) => rule.action !== 'unlisted')
+  if (matchingRule && matchingRule.action !== 'unlisted') {
+    return matchingRule.action
+  }
+
+  return resolveBaseStatusFromState(stateValue)
 }
 
 export { resolveStatusFromStateAndTags }

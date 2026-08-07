@@ -19,15 +19,15 @@ type AppProps = {
 }
 
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
-  const [hiddenTagsDialogOpen, setHiddenTagsDialogOpen] = useState(false)
+  const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
 
   const {
     selectedTeamId,
     onTeamChange,
     onRefresh,
-    hiddenTags,
-    setHiddenTags,
+    tagRules,
+    setTagRules,
     quickFilterInput,
     setQuickFilterInput,
     selectedMemberFilter,
@@ -47,12 +47,12 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     workItemAssignees,
   } = useBoardViewModel({ patConfigured })
 
-  const handleOpenHiddenTagsDialog = () => {
-    setHiddenTagsDialogOpen(true)
+  const handleOpenTagRulesDialog = () => {
+    setTagRulesDialogOpen(true)
   }
 
-  const handleCloseHiddenTagsDialog = () => {
-    setHiddenTagsDialogOpen(false)
+  const handleCloseTagRulesDialog = () => {
+    setTagRulesDialogOpen(false)
   }
 
   useEffect(() => {
@@ -89,9 +89,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
         onRefresh={onRefresh}
-        onOpenHiddenTagsDialog={handleOpenHiddenTagsDialog}
+        onOpenTagRulesDialog={handleOpenTagRulesDialog}
         isTeamDataLoading={isTeamDataLoading}
-        hiddenTagsCount={hiddenTags.length}
       />
 
       <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
@@ -120,10 +119,10 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         />
 
         <HiddenTagsDialog
-          open={hiddenTagsDialogOpen}
-          hiddenTags={hiddenTags}
-          onChange={setHiddenTags}
-          onClose={handleCloseHiddenTagsDialog}
+          open={tagRulesDialogOpen}
+          tagRules={tagRules}
+          onChange={setTagRules}
+          onClose={handleCloseTagRulesDialog}
         />
 
         {!patConfigured ? (

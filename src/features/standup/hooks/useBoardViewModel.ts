@@ -8,15 +8,15 @@ import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHist
 import { useTeamData } from './useTeamData'
 import { useWorkItemAssignees } from './useWorkItemAssignees'
 import {
+  applyTagRulesToItem,
   matchesQuickFilter,
   matchesTeamMemberFilter,
   normalizeQuickFilterText,
-  normalizeTagKey,
   normalizeTeamMemberLabel,
-  parseStoredHiddenTags,
-  shouldHideByTag,
+  parseStoredTagRules,
   sortTeamMemberLabels,
 } from '../utils/boardFilters'
+import type { TagRule } from '../../../ado/workItemStatus'
 
 type UseBoardViewModelArgs = {
   patConfigured: boolean
@@ -26,8 +26,8 @@ type UseBoardViewModelResult = {
   selectedTeamId: string
   onTeamChange: (teamId: string) => void
   onRefresh: () => void
-  hiddenTags: string[]
-  setHiddenTags: (value: string[] | ((previous: string[]) => string[])) => void
+  tagRules: TagRule[]
+  setTagRules: (value: TagRule[] | ((previous: TagRule[]) => TagRule[])) => void
   quickFilterInput: string
   setQuickFilterInput: (value: string) => void
   selectedMemberFilter: string
@@ -47,7 +47,8 @@ type UseBoardViewModelResult = {
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
-const HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
+const TAG_RULES_STORAGE_KEY = 'standup:tag-rules'
+const LEGACY_HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
 const SELECTED_TEAM_STORAGE_KEY = 'standup:selected-team-id'
 
 function getInitialSelectedTeamId(): string {
@@ -78,8 +79,11 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
   const [quickFilterInput, setQuickFilterInput] = useState('')
   const [selectedMemberFilter, setSelectedMemberFilter] = useState('')
   const [teamSubjectDescriptor, setTeamSubjectDescriptor] = useState<string | null>(null)
-  const [hiddenTags, setHiddenTags] = useState<string[]>(() =>
-    parseStoredHiddenTags(localStorage.getItem(HIDDEN_TAGS_STORAGE_KEY)),
+  const [tagRules, setTagRules] = useState<TagRule[]>(() =>
+    parseStoredTagRules(
+      localStorage.getItem(TAG_RULES_STORAGE_KEY),
+      localStorage.getItem(LEGACY_HIDDEN_TAGS_STORAGE_KEY),
+    ),
   )
 
   const forceRefreshRef = useRef(false)
@@ -128,14 +132,9 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     forceRefreshRef,
   })
 
-  const hiddenTagKeys = useMemo(
-    () => new Set(hiddenTags.map((tag) => normalizeTagKey(tag))),
-    [hiddenTags],
-  )
-
   const filteredWorkItems = useMemo(
-    () => workItems.filter((item) => !shouldHideByTag(item, hiddenTagKeys)),
-    [workItems, hiddenTagKeys],
+    () => workItems.map((item) => applyTagRulesToItem(item, tagRules)).filter((item): item is WorkItemSummary => item !== null),
+    [workItems, tagRules],
   )
 
   const { pullRequestBoardItems, pullRequestBoardItemsLoading } = usePullRequestBoardItems({
@@ -211,12 +210,13 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
   const changeHighlightsByItemId = useAdoHistoryHighlights({
     adoQueryEngine,
     team: historyHighlightTeam,
-    workItems: visibleBoardItems,
+    tagRules,
+    workItems: boardItems,
   })
 
   useEffect(() => {
-    localStorage.setItem(HIDDEN_TAGS_STORAGE_KEY, JSON.stringify(hiddenTags))
-  }, [hiddenTags])
+    localStorage.setItem(TAG_RULES_STORAGE_KEY, JSON.stringify(tagRules))
+  }, [tagRules])
 
   useEffect(() => {
     localStorage.setItem(SELECTED_TEAM_STORAGE_KEY, selectedTeamId)
@@ -292,8 +292,8 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     selectedTeamId,
     onTeamChange,
     onRefresh,
-    hiddenTags,
-    setHiddenTags,
+    tagRules,
+    setTagRules,
     quickFilterInput,
     setQuickFilterInput,
     selectedMemberFilter,
