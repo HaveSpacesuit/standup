@@ -2,14 +2,14 @@ import type { TeamProfile } from '../teamProfiles'
 import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
-import { fetchCurrentIterationInfo } from './teamIterationsApi'
+import { fetchIterationWindowInfo } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
 import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
-import type { CurrentIterationInfo, ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
+import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
 
-export type { CurrentIterationInfo, TeamMember, WorkItemSummary, ResolvedWorkItemAssignee } from './types'
+export type { CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary, ResolvedWorkItemAssignee } from './types'
 
 export class AdoQueryEngine {
   private static readonly DEFAULT_CACHE_TTL_MS = 60_000
@@ -18,7 +18,7 @@ export class AdoQueryEngine {
   private readonly assigneeResolver: WorkItemAssigneeResolver
   private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
   private readonly teamMembersCache = new Map<string, { expiresAt: number; value: TeamMember[] }>()
-  private readonly currentIterationCache = new Map<string, { expiresAt: number; value: CurrentIterationInfo | null }>()
+  private readonly currentIterationCache = new Map<string, { expiresAt: number; value: IterationWindowInfo }>()
   private readonly teamSubjectDescriptorCache = new Map<string, { expiresAt: number; value: string | null }>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
@@ -139,6 +139,15 @@ export class AdoQueryEngine {
     signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
   ): Promise<CurrentIterationInfo | null> {
+    const iterationWindow = await this.getIterationWindowInfo(team, signal, options)
+    return iterationWindow.current
+  }
+
+  async getIterationWindowInfo(
+    team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
+    signal?: AbortSignal,
+    options?: { forceRefresh?: boolean },
+  ): Promise<IterationWindowInfo> {
     const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}:${team.iterationPath.toLowerCase()}`
 
     if (!options?.forceRefresh) {
@@ -148,7 +157,7 @@ export class AdoQueryEngine {
       }
     }
 
-    const currentIterationInfo = await fetchCurrentIterationInfo(this.client, team, signal)
+    const currentIterationInfo = await fetchIterationWindowInfo(this.client, team, signal)
     this.currentIterationCache.set(cacheKey, {
       value: currentIterationInfo,
       expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,

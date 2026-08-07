@@ -10,10 +10,18 @@ export type TeamMember = {
   descriptor?: string
 }
 
-export type CurrentIterationInfo = {
+export type IterationInfo = {
   name: string
+  fullName: string
   startDate?: string
   finishDate?: string
+}
+
+export type CurrentIterationInfo = IterationInfo
+
+export type IterationWindowInfo = {
+  current: IterationInfo | null
+  next: IterationInfo | null
 }
 
 export type WorkItemPullRequestSummary = {

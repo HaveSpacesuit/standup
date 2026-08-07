@@ -1,5 +1,5 @@
 import { useEffect, useState, type MutableRefObject } from 'react'
-import type { AdoQueryEngine, CurrentIterationInfo, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import type { AdoQueryEngine, CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../teamProfiles'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
@@ -17,7 +17,9 @@ type UseTeamDataResult = {
   workItems: WorkItemSummary[]
   workItemsLoading: boolean
   workItemsError: string | null
+  iterationLoading: boolean
   currentIteration: CurrentIterationInfo | null
+  iterationWindow: IterationWindowInfo
 }
 
 export function useTeamData({
@@ -32,7 +34,9 @@ export function useTeamData({
   const [workItems, setWorkItems] = useState<WorkItemSummary[]>([])
   const [workItemsLoading, setWorkItemsLoading] = useState(false)
   const [workItemsError, setWorkItemsError] = useState<string | null>(null)
+  const [iterationLoading, setIterationLoading] = useState(false)
   const [currentIteration, setCurrentIteration] = useState<CurrentIterationInfo | null>(null)
+  const [iterationWindow, setIterationWindow] = useState<IterationWindowInfo>({ current: null, next: null })
 
   useEffect(() => {
     if (!adoQueryEngine) {
@@ -42,7 +46,9 @@ export function useTeamData({
       setWorkItems([])
       setWorkItemsError(null)
       setWorkItemsLoading(false)
+      setIterationLoading(false)
       setCurrentIteration(null)
+      setIterationWindow({ current: null, next: null })
       return
     }
 
@@ -54,16 +60,17 @@ export function useTeamData({
     setMembersError(null)
     setWorkItemsLoading(true)
     setWorkItemsError(null)
+    setIterationLoading(true)
 
     const loadTeamData = async () => {
-      const [membersResult, workItemsResult, currentIterationResult] = await Promise.allSettled([
+      const [membersResult, workItemsResult, iterationWindowResult] = await Promise.allSettled([
         adoQueryEngine.getTeamMembers(selectedTeam, abortController.signal, {
           forceRefresh,
         }),
         adoQueryEngine.getWorkItemsForCurrentAndNextIteration(selectedTeam, abortController.signal, {
           forceRefresh,
         }),
-        adoQueryEngine.getCurrentIterationInfo(selectedTeam, abortController.signal, {
+        adoQueryEngine.getIterationWindowInfo(selectedTeam, abortController.signal, {
           forceRefresh,
         }),
       ])
@@ -94,14 +101,17 @@ export function useTeamData({
         )
       }
 
-      if (currentIterationResult.status === 'fulfilled') {
-        setCurrentIteration(currentIterationResult.value)
-      } else if (!isAbortError(currentIterationResult.reason)) {
+      if (iterationWindowResult.status === 'fulfilled') {
+        setIterationWindow(iterationWindowResult.value)
+        setCurrentIteration(iterationWindowResult.value.current)
+      } else if (!isAbortError(iterationWindowResult.reason)) {
+        setIterationWindow({ current: null, next: null })
         setCurrentIteration(null)
       }
 
       setMembersLoading(false)
       setWorkItemsLoading(false)
+      setIterationLoading(false)
     }
 
     loadTeamData().catch((error: unknown) => {
@@ -111,11 +121,13 @@ export function useTeamData({
 
       setMembers([])
       setWorkItems([])
+      setIterationWindow({ current: null, next: null })
       setCurrentIteration(null)
       setMembersError(toErrorMessage(error, 'Unknown error while loading team data.'))
       setWorkItemsError(toErrorMessage(error, 'Unknown error while loading team data.'))
       setMembersLoading(false)
       setWorkItemsLoading(false)
+      setIterationLoading(false)
     })
 
     return () => {
@@ -130,6 +142,8 @@ export function useTeamData({
     workItems,
     workItemsLoading,
     workItemsError,
+    iterationLoading,
     currentIteration,
+    iterationWindow,
   }
 }

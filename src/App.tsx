@@ -8,6 +8,7 @@ import {
 import { teamProfiles } from './teamProfiles'
 import { KanbanBoard } from './features/standup/components/KanbanBoard'
 import { HiddenTagsDialog } from './features/standup/components/HiddenTagsDialog'
+import { SprintSummaryBar } from './features/standup/components/SprintSummaryBar'
 import { StandupToolbar } from './features/standup/components/StandupToolbar'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 
@@ -40,6 +41,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     members,
     visibleBoardItems,
     currentIterationName,
+    iterationWindow,
+    iterationLoading,
     workItemAssignees,
   } = useBoardViewModel({ patConfigured })
 
@@ -108,6 +111,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             workItemAssignees={workItemAssignees}
           />
         </Box>
+
+        <SprintSummaryBar iterationWindow={iterationWindow} isLoading={iterationLoading} />
 
         <HiddenTagsDialog
           open={hiddenTagsDialogOpen}

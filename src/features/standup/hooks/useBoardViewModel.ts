@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getAppConfig } from '../../../config'
 import { AdoQueryEngine } from '../../../ado/queryEngine'
-import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import { teamProfiles } from '../../../teamProfiles'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
 import { useTeamData } from './useTeamData'
@@ -40,6 +40,8 @@ type UseBoardViewModelResult = {
   members: TeamMember[]
   visibleBoardItems: WorkItemSummary[]
   currentIterationName: string | null
+  iterationWindow: IterationWindowInfo
+  iterationLoading: boolean
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
@@ -114,7 +116,9 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     workItems,
     workItemsLoading,
     workItemsError,
+    iterationLoading,
     currentIteration,
+    iterationWindow,
   } = useTeamData({
     adoQueryEngine,
     selectedTeam,
@@ -286,6 +290,8 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     members,
     visibleBoardItems,
     currentIterationName: currentIteration?.name ?? null,
+    iterationWindow,
+    iterationLoading,
     workItemAssignees,
   }
 }
