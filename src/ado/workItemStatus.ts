@@ -45,14 +45,21 @@ export function normalizeTagRulePattern(value: string): string {
 }
 
 function parseTags(value: unknown): string[] {
-  if (typeof value !== 'string') {
-    return []
+  if (typeof value === 'string') {
+    return value
+      .split(';')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0)
   }
 
-  return value
-    .split(';')
-    .map((tag) => tag.trim())
-    .filter((tag) => tag.length > 0)
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((entry) => (typeof entry === 'string' ? entry.split(';') : []))
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0)
+  }
+
+  return []
 }
 
 export function resolveMatchingTagRules(tagsValue: unknown, tagRules: TagRule[] = DEFAULT_TAG_RULES): TagRule[] {

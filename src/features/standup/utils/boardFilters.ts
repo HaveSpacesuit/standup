@@ -90,7 +90,7 @@ export function getTagRuleCountForAction(tagRules: TagRule[], action: TagRuleAct
 }
 
 export function shouldHideByTag(item: WorkItemSummary, tagRules: TagRule[]): boolean {
-  return shouldHideByTagRules(item.tags, tagRules)
+  return shouldHideByTagRules(item.tags?.join(';') ?? '', tagRules)
 }
 
 export function applyTagRulesToItem(item: WorkItemSummary, tagRules: TagRule[]): WorkItemSummary | null {
