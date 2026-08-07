@@ -4,12 +4,10 @@ import {
   Button,
   Chip,
   FormControl,
-  FormControlLabel,
   IconButton,
   InputAdornment,
   MenuItem,
   Select,
-  Switch,
   TextField,
   Toolbar,
   Typography,
@@ -30,8 +28,6 @@ type TeamOption = {
 
 type StandupToolbarProps = {
   patConfigured: boolean
-  colorScheme: 'light' | 'dark'
-  onToggleColorScheme: () => void
   quickFilterInput: string
   onQuickFilterInputChange: (value: string) => void
   onQuickFilterClear: () => void
@@ -51,8 +47,6 @@ type StandupToolbarProps = {
 
 export function StandupToolbar({
   patConfigured,
-  colorScheme,
-  onToggleColorScheme,
   quickFilterInput,
   onQuickFilterInputChange,
   onQuickFilterClear,
@@ -190,17 +184,6 @@ export function StandupToolbar({
           />
         ) : null}
 
-        <FormControlLabel
-          sx={{ ml: 0.25 }}
-          control={
-            <Switch
-              size="small"
-              checked={colorScheme === 'dark'}
-              onChange={onToggleColorScheme}
-            />
-          }
-          label={<Typography variant="body-sm">Dark mode</Typography>}
-        />
       </Toolbar>
     </AppBar>
   )

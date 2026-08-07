@@ -13,7 +13,10 @@ import {
 
 type WorkItemCardProps = {
   item: WorkItemSummary
+  highlightState?: WorkItemCardHighlightState
 }
+
+export type WorkItemCardHighlightState = 'new' | 'stale' | 'none'
 
 type StatusPaletteKey = 'error' | 'info' | 'primary' | 'warning' | 'success'
 
@@ -109,10 +112,18 @@ function getPullRequestReviewIcon(
   }
 }
 
-export function WorkItemCard({ item }: WorkItemCardProps) {
+export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProps) {
   const theme = useTheme()
   const statusPaletteKey = getStatusPaletteKey(item.status)
   const statusColor = theme.palette[statusPaletteKey].main
+  const isNew = highlightState === 'new'
+  const isStale = highlightState === 'stale'
+  const newGlow = `0 0 0 1px color-mix(in srgb, ${statusColor} 72%, transparent), 0 0 14px color-mix(in srgb, ${statusColor} 42%, transparent)`
+  const newBackground = `color-mix(in srgb, ${statusColor} 8%, ${theme.palette.background.paper})`
+  const cardShadow = isNew ? newGlow : undefined
+  const hoverShadow = isNew
+    ? `0 0 0 1px color-mix(in srgb, ${statusColor} 82%, transparent), 0 0 18px color-mix(in srgb, ${statusColor} 52%, transparent)`
+    : undefined
   const pullRequest = item.kind === 'pull-request' ? item.pullRequest : undefined
   const isPullRequestOnly = Boolean(pullRequest)
   const primaryLinkUrl = pullRequest?.url ?? item.workItemUrl
@@ -137,12 +148,23 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
         border: '1px solid',
         borderColor: statusColor,
         borderRadius: 1,
-        bgcolor: 'background.paper',
+        bgcolor: isNew ? newBackground : 'background.paper',
         overflow: 'visible',
-        transition: 'box-shadow 120ms ease, border-color 120ms ease',
+        transition: 'box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease, filter 120ms ease',
+        boxShadow: cardShadow,
+        opacity: isStale ? 0.68 : 1,
+        filter: isStale ? 'saturate(0.78)' : 'none',
         '&:hover': {
-          boxShadow: 4,
+          boxShadow: hoverShadow ?? 4,
           borderColor: statusColor,
+          opacity: 1,
+          filter: 'none',
+        },
+        '&:focus-within': {
+          boxShadow: hoverShadow ?? 4,
+          borderColor: statusColor,
+          opacity: 1,
+          filter: 'none',
         },
         width: '100%',
         minWidth: 0,

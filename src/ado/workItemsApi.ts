@@ -338,6 +338,7 @@ async function fetchActivePullRequestsByWorkItem(
 
         activePullRequestMap.set(key, {
           id: pullRequest.pullRequestId ?? ref.pullRequestId,
+          repositoryId: ref.repositoryId,
           title: pullRequest.title?.trim() || `Pull Request ${ref.pullRequestId}`,
           url: buildPullRequestWebUrl(team.orgName, team.projectName, pullRequest, ref),
           iconUrl: pullRequestIconUrl,
@@ -505,6 +506,7 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
         id: item.id,
         kind: 'work-item',
         title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+        state: typeof item.fields?.['System.State'] === 'string' ? item.fields?.['System.State'] : undefined,
         recentActivityAt: resolveRecentActivityAt(item.fields),
         tags: resolveTags(item.fields),
         sprintName: resolveSprintName(item.fields),

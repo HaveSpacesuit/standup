@@ -2,6 +2,7 @@ import { Avatar, Badge, Box, Button, Tooltip, Typography } from '@mui/material'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { getStatusBadgeColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { WorkItemCard } from './WorkItemCard'
+import type { WorkItemCardHighlightState } from './WorkItemCard'
 
 export type BoardRowData = {
   key: string
@@ -20,6 +21,7 @@ type KanbanBoardGridProps = {
   statusEffortTotals: Record<StatusColumn, number>
   renderStatusColumnBackground: (status: StatusColumn, columnIndex: number) => string
   onSetCellExpanded: (cellKey: string, expanded: boolean) => void
+  changeHighlightsByItemId: Record<number, WorkItemCardHighlightState>
 }
 
 export function KanbanBoardGrid({
@@ -32,6 +34,7 @@ export function KanbanBoardGrid({
   statusEffortTotals,
   renderStatusColumnBackground,
   onSetCellExpanded,
+  changeHighlightsByItemId,
 }: KanbanBoardGridProps) {
   return (
     <Box sx={{ height: '100%' }}>
@@ -187,7 +190,11 @@ export function KanbanBoardGrid({
                         }}
                       >
                         {visibleItems.map((item) => (
-                          <WorkItemCard key={item.id} item={item} />
+                          <WorkItemCard
+                            key={item.id}
+                            item={item}
+                            highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
+                          />
                         ))}
                       </Box>
 

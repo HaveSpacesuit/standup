@@ -43,6 +43,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     currentIterationName,
     iterationWindow,
     iterationLoading,
+    changeHighlightsByItemId,
     workItemAssignees,
   } = useBoardViewModel({ patConfigured })
 
@@ -76,8 +77,6 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
       <StandupToolbar
         patConfigured={patConfigured}
-        colorScheme={colorScheme}
-        onToggleColorScheme={onToggleColorScheme}
         quickFilterInput={quickFilterInput}
         onQuickFilterInputChange={setQuickFilterInput}
         onQuickFilterClear={() => setQuickFilterInput('')}
@@ -108,11 +107,17 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             members={members}
             workItems={visibleBoardItems}
             currentIterationName={currentIterationName}
+            changeHighlightsByItemId={changeHighlightsByItemId}
             workItemAssignees={workItemAssignees}
           />
         </Box>
 
-        <SprintSummaryBar iterationWindow={iterationWindow} isLoading={iterationLoading} />
+        <SprintSummaryBar
+          iterationWindow={iterationWindow}
+          isLoading={iterationLoading}
+          colorScheme={colorScheme}
+          onToggleColorScheme={onToggleColorScheme}
+        />
 
         <HiddenTagsDialog
           open={hiddenTagsDialogOpen}

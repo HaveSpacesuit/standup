@@ -4,6 +4,7 @@ import { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import { teamProfiles } from '../../../teamProfiles'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
+import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHistoryHighlights'
 import { useTeamData } from './useTeamData'
 import { useWorkItemAssignees } from './useWorkItemAssignees'
 import {
@@ -42,6 +43,7 @@ type UseBoardViewModelResult = {
   currentIterationName: string | null
   iterationWindow: IterationWindowInfo
   iterationLoading: boolean
+  changeHighlightsByItemId: Record<number, ChangeHighlightState>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
@@ -197,6 +199,21 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     [quickFilterMatchedBoardItems, selectedMemberFilter, workItemAssignees],
   )
 
+  const historyHighlightTeam = useMemo(
+    () => ({
+      orgName: selectedTeam.orgName,
+      projectName: selectedTeam.projectName,
+      repoName: selectedTeam.repoName,
+    }),
+    [selectedTeam.orgName, selectedTeam.projectName, selectedTeam.repoName],
+  )
+
+  const changeHighlightsByItemId = useAdoHistoryHighlights({
+    adoQueryEngine,
+    team: historyHighlightTeam,
+    workItems: visibleBoardItems,
+  })
+
   useEffect(() => {
     localStorage.setItem(HIDDEN_TAGS_STORAGE_KEY, JSON.stringify(hiddenTags))
   }, [hiddenTags])
@@ -292,6 +309,7 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     currentIterationName: currentIteration?.name ?? null,
     iterationWindow,
     iterationLoading,
+    changeHighlightsByItemId,
     workItemAssignees,
   }
 }

@@ -9,6 +9,7 @@ import {
 } from '../utils/statusColumnStyles'
 import { KanbanBoardGrid, type BoardRowData } from './KanbanBoardGrid'
 import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
+import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 
 const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
 const COLLAPSED_CELL_CARD_LIMIT = 3
@@ -23,6 +24,7 @@ type KanbanBoardProps = {
   members: TeamMember[]
   workItems: WorkItemSummary[]
   currentIterationName: string | null
+  changeHighlightsByItemId: Record<number, ChangeHighlightState>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
@@ -58,6 +60,7 @@ export function KanbanBoard({
   members,
   workItems,
   currentIterationName,
+  changeHighlightsByItemId,
   workItemAssignees,
 }: KanbanBoardProps) {
   const theme = useTheme()
@@ -214,6 +217,7 @@ export function KanbanBoard({
         statusEffortTotals={statusEffortTotals}
         renderStatusColumnBackground={renderStatusColumnBackground}
         onSetCellExpanded={setCellExpanded}
+        changeHighlightsByItemId={changeHighlightsByItemId}
       />
     )
   }

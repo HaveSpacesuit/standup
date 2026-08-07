@@ -26,6 +26,7 @@ export type IterationWindowInfo = {
 
 export type WorkItemPullRequestSummary = {
   id: number
+  repositoryId?: string
   title: string
   url: string
   iconUrl?: string
@@ -36,6 +37,7 @@ export type WorkItemSummary = {
   id: number
   kind?: 'work-item' | 'pull-request'
   title: string
+  state?: string
   recentActivityAt?: string
   tags?: string[]
   sprintName?: string

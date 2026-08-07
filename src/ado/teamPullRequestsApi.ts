@@ -263,6 +263,7 @@ export async function fetchUnlinkedActivePullRequestItems(
 
       const pullRequestSummary: WorkItemPullRequestSummary = {
         id: pullRequestId,
+        repositoryId: pullRequest.repository?.id,
         title: pullRequest.title?.trim() || `Pull Request ${pullRequestId}`,
         url: buildPullRequestWebUrl(
           team.orgName,

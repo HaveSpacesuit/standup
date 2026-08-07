@@ -1,9 +1,11 @@
-import { Box, Chip, Skeleton, Typography } from '@mui/material'
+import { Box, Chip, FormControlLabel, Skeleton, Switch, Typography } from '@mui/material'
 import type { IterationWindowInfo } from '../../../ado/queryEngine'
 
 type SprintSummaryBarProps = {
   iterationWindow: IterationWindowInfo
   isLoading?: boolean
+  colorScheme: 'light' | 'dark'
+  onToggleColorScheme: () => void
 }
 
 function parseDateOnly(value?: string): Date | null {
@@ -71,7 +73,12 @@ function getDaysRemainingInSprint(finishDate?: string): number | null {
   return Math.floor(diff / millisPerDay) + 1
 }
 
-export function SprintSummaryBar({ iterationWindow, isLoading = false }: SprintSummaryBarProps) {
+export function SprintSummaryBar({
+  iterationWindow,
+  isLoading = false,
+  colorScheme,
+  onToggleColorScheme,
+}: SprintSummaryBarProps) {
   const current = iterationWindow.current
   const next = iterationWindow.next
   const daysRemaining = getDaysRemainingInSprint(current?.finishDate)
@@ -85,6 +92,10 @@ export function SprintSummaryBar({ iterationWindow, isLoading = false }: SprintS
           borderBottom: '1px solid',
           borderColor: 'divider',
           bgcolor: 'background.default',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -93,6 +104,19 @@ export function SprintSummaryBar({ iterationWindow, isLoading = false }: SprintS
           </Typography>
           <Skeleton variant="text" width={220} />
           <Skeleton variant="rounded" width={150} height={24} />
+        </Box>
+        <Box sx={{ ml: 'auto', display: 'flex', justifyContent: 'flex-end' }}>
+          <FormControlLabel
+            sx={{ m: 0 }}
+            control={
+              <Switch
+                size="small"
+                checked={colorScheme === 'dark'}
+                onChange={onToggleColorScheme}
+              />
+            }
+            label={<Typography variant="body-sm">Dark mode</Typography>}
+          />
         </Box>
       </Box>
     )
@@ -128,7 +152,7 @@ export function SprintSummaryBar({ iterationWindow, isLoading = false }: SprintS
               Current sprint: {current ? formatDateRange(current.startDate, current.finishDate) : 'Dates unavailable'}
             </Typography>
           </Box>
-          <Typography variant="body-sm" color="text.secondary">
+          <Typography variant="caption-sm" color="text.secondary">
             {current?.fullName ?? 'Unavailable'}
           </Typography>
         </Box>
@@ -147,9 +171,23 @@ export function SprintSummaryBar({ iterationWindow, isLoading = false }: SprintS
         <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
           Next sprint: {next ? formatDateRange(next.startDate, next.finishDate) : 'Dates unavailable'}
         </Typography>
-        <Typography variant="body-sm" color="text.secondary">
+        <Typography variant="caption-sm" color="text.secondary">
           {next?.fullName ?? 'Unavailable'}
         </Typography>
+      </Box>
+
+      <Box sx={{ ml: 'auto', display: 'flex', justifyContent: 'flex-end', alignSelf: 'center' }}>
+        <FormControlLabel
+          sx={{ m: 0 }}
+          control={
+            <Switch
+              size="small"
+              checked={colorScheme === 'dark'}
+              onChange={onToggleColorScheme}
+            />
+          }
+          label={<Typography variant="body-sm">Dark mode</Typography>}
+        />
       </Box>
     </Box>
   )
