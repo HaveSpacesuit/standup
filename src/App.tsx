@@ -55,10 +55,37 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     setTagRulesDialogOpen(false)
   }
 
+  const handleCycleMemberFilter = (direction: -1 | 1) => {
+    if (!patConfigured || memberFilterOptions.length === 0) {
+      return
+    }
+
+    const cycleValues = ['', ...memberFilterOptions]
+    const currentIndex = cycleValues.indexOf(selectedMemberFilter)
+    const safeCurrentIndex = currentIndex === -1 ? 0 : currentIndex
+    const nextIndex = (safeCurrentIndex + direction + cycleValues.length) % cycleValues.length
+    onMemberFilterChange(cycleValues[nextIndex])
+  }
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName?.toLowerCase()
+      const isTypingTarget =
+        tagName === 'input'
+        || tagName === 'textarea'
+        || target?.isContentEditable === true
+
       const isShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f'
       if (!isShortcut) {
+        const isCycleUpShortcut = event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'ArrowUp'
+        const isCycleDownShortcut = event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'ArrowDown'
+
+        if (!isTypingTarget && (isCycleUpShortcut || isCycleDownShortcut)) {
+          event.preventDefault()
+          handleCycleMemberFilter(isCycleUpShortcut ? -1 : 1)
+        }
+
         return
       }
 
@@ -71,7 +98,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [])
+  }, [handleCycleMemberFilter])
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
@@ -84,6 +111,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         selectedMemberFilter={selectedMemberFilter}
         memberFilterOptions={memberFilterOptions}
         onMemberFilterChange={onMemberFilterChange}
+        onMemberFilterCycle={handleCycleMemberFilter}
         teamOptions={teamProfiles}
         selectedTeamId={selectedTeamId}
         onTeamChange={onTeamChange}

@@ -19,7 +19,8 @@ import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgTag from '@stratakit/icons/tag.svg'
 import svgAssign from '@stratakit/icons/assign.svg'
-import svgArrowRight from '@stratakit/icons/arrow-right.svg'
+import svgArrowUp from '@stratakit/icons/arrow-up.svg'
+import svgArrowDown from '@stratakit/icons/arrow-down.svg'
 
 type TeamOption = {
   id: string
@@ -35,6 +36,7 @@ type StandupToolbarProps = {
   selectedMemberFilter: string
   memberFilterOptions: string[]
   onMemberFilterChange: (value: string) => void
+  onMemberFilterCycle: (direction: -1 | 1) => void
   teamOptions: TeamOption[]
   selectedTeamId: string
   onTeamChange: (value: string) => void
@@ -53,6 +55,7 @@ export function StandupToolbar({
   selectedMemberFilter,
   memberFilterOptions,
   onMemberFilterChange,
+  onMemberFilterCycle,
   teamOptions,
   selectedTeamId,
   onTeamChange,
@@ -67,25 +70,6 @@ export function StandupToolbar({
 
   const handleTeamChange = (event: SelectChangeEvent<string>) => {
     onTeamChange(event.target.value)
-  }
-
-  const handleCycleMemberFilter = () => {
-    if (memberFilterOptions.length === 0) {
-      return
-    }
-
-    if (!selectedMemberFilter) {
-      onMemberFilterChange(memberFilterOptions[0])
-      return
-    }
-
-    const selectedIndex = memberFilterOptions.indexOf(selectedMemberFilter)
-    if (selectedIndex === -1 || selectedIndex === memberFilterOptions.length - 1) {
-      onMemberFilterChange('')
-      return
-    }
-
-    onMemberFilterChange(memberFilterOptions[selectedIndex + 1])
   }
 
   return (
@@ -141,14 +125,27 @@ export function StandupToolbar({
           </Select>
         </FormControl>
 
-        <IconButton
-          size="small"
-          aria-label="Select next team member filter"
-          onClick={handleCycleMemberFilter}
-          disabled={!patConfigured || memberFilterOptions.length === 0}
-        >
-          <Icon href={svgArrowRight} />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          <IconButton
+            size="small"
+            aria-label="Select previous team member filter"
+            aria-keyshortcuts="Ctrl+ArrowUp"
+            onClick={() => onMemberFilterCycle(-1)}
+            disabled={!patConfigured || memberFilterOptions.length === 0}
+          >
+            <Icon href={svgArrowUp} />
+          </IconButton>
+
+          <IconButton
+            size="small"
+            aria-label="Select next team member filter"
+            aria-keyshortcuts="Ctrl+ArrowDown"
+            onClick={() => onMemberFilterCycle(1)}
+            disabled={!patConfigured || memberFilterOptions.length === 0}
+          >
+            <Icon href={svgArrowDown} />
+          </IconButton>
+        </Box>
 
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 420 }}>
           <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
