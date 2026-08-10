@@ -5,12 +5,23 @@ import {
   CardContent,
   Typography,
 } from '@mui/material'
+import { Icon } from '@stratakit/mui'
+import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
+import svgUsers from '@stratakit/icons/users.svg'
+import svgGitBranch from '@stratakit/icons/git-branch.svg'
+import svgCalendar from '@stratakit/icons/calendar.svg'
 import { teamProfiles } from './teamProfiles'
 import { KanbanBoard } from './features/standup/components/KanbanBoard'
 import { HiddenTagsDialog } from './features/standup/components/HiddenTagsDialog'
 import { SprintSummaryBar } from './features/standup/components/SprintSummaryBar'
 import { StandupToolbar } from './features/standup/components/StandupToolbar'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
+
+type AppView = 'standup' | 'pull-requests'
+
+function getViewFromHash(hash: string): AppView {
+  return hash === '#pull-requests' ? 'pull-requests' : 'standup'
+}
 
 type AppProps = {
   patConfigured: boolean
@@ -20,6 +31,7 @@ type AppProps = {
 
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
+  const [activeView, setActiveView] = useState<AppView>(() => getViewFromHash(window.location.hash))
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
 
   const {
@@ -68,6 +80,23 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   }
 
   useEffect(() => {
+    const handleHashChange = () => {
+      setActiveView(getViewFromHash(window.location.hash))
+    }
+
+    handleHashChange()
+    window.addEventListener('hashchange', handleHashChange)
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    document.title = activeView === 'pull-requests' ? 'Pull Requests' : 'Standup'
+  }, [activeView])
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       const tagName = target?.tagName?.toLowerCase()
@@ -90,6 +119,9 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
       }
 
       event.preventDefault()
+      if (activeView !== 'standup') {
+        window.location.hash = '#standup'
+      }
       quickFilterInputRef.current?.focus()
       quickFilterInputRef.current?.select()
     }
@@ -98,81 +130,116 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [handleCycleMemberFilter])
+  }, [activeView, handleCycleMemberFilter])
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
-      <StandupToolbar
-        patConfigured={patConfigured}
-        quickFilterInput={quickFilterInput}
-        onQuickFilterInputChange={setQuickFilterInput}
-        onQuickFilterClear={() => setQuickFilterInput('')}
-        quickFilterInputRef={quickFilterInputRef}
-        selectedMemberFilter={selectedMemberFilter}
-        memberFilterOptions={memberFilterOptions}
-        onMemberFilterChange={onMemberFilterChange}
-        onMemberFilterCycle={handleCycleMemberFilter}
-        teamOptions={teamProfiles}
-        selectedTeamId={selectedTeamId}
-        onTeamChange={onTeamChange}
-        teamManagementUrl={teamManagementUrl}
-        onRefresh={onRefresh}
-        onOpenTagRulesDialog={handleOpenTagRulesDialog}
-        isTeamDataLoading={isTeamDataLoading}
-      />
+    <Box sx={{ height: '100vh', display: 'flex', bgcolor: 'background.paper' }}>
+      <NavigationRail.Root>
+        <NavigationRail.Header>
+          <Icon href={svgCalendar} alt="Standup app" size="large" />
+          <NavigationRail.ToggleButton />
+        </NavigationRail.Header>
 
-      <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
+        <NavigationRail.Content>
+          <NavigationRail.List>
+            <NavigationRail.ListItem>
+              <NavigationRail.Anchor
+                href="#standup"
+                label="Standup"
+                icon={svgUsers}
+                active={activeView === 'standup'}
+              />
+            </NavigationRail.ListItem>
+            <NavigationRail.ListItem>
+              <NavigationRail.Anchor
+                href="#pull-requests"
+                label="Pull requests"
+                icon={svgGitBranch}
+                active={activeView === 'pull-requests'}
+              />
+            </NavigationRail.ListItem>
+          </NavigationRail.List>
+          <NavigationRail.Footer />
+        </NavigationRail.Content>
+      </NavigationRail.Root>
 
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <KanbanBoard
-            patConfigured={patConfigured}
-            isLoading={isTeamDataLoading}
-            colorScheme={colorScheme}
-            membersError={membersError}
-            workItemsError={workItemsError}
-            assigneesError={assigneesError}
-            members={members}
-            workItems={visibleBoardItems}
-            currentIterationName={currentIterationName}
-            changeHighlightsByItemId={changeHighlightsByItemId}
-            workItemAssignees={workItemAssignees}
-          />
-        </Box>
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {activeView === 'standup' ? (
+          <>
+            <StandupToolbar
+              patConfigured={patConfigured}
+              quickFilterInput={quickFilterInput}
+              onQuickFilterInputChange={setQuickFilterInput}
+              onQuickFilterClear={() => setQuickFilterInput('')}
+              quickFilterInputRef={quickFilterInputRef}
+              selectedMemberFilter={selectedMemberFilter}
+              memberFilterOptions={memberFilterOptions}
+              onMemberFilterChange={onMemberFilterChange}
+              onMemberFilterCycle={handleCycleMemberFilter}
+              teamOptions={teamProfiles}
+              selectedTeamId={selectedTeamId}
+              onTeamChange={onTeamChange}
+              teamManagementUrl={teamManagementUrl}
+              onRefresh={onRefresh}
+              onOpenTagRulesDialog={handleOpenTagRulesDialog}
+              isTeamDataLoading={isTeamDataLoading}
+            />
 
-        <SprintSummaryBar
-          iterationWindow={iterationWindow}
-          isLoading={iterationLoading}
-          colorScheme={colorScheme}
-          onToggleColorScheme={onToggleColorScheme}
-        />
+            <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ flex: 1, minHeight: 0 }}>
+                <KanbanBoard
+                  patConfigured={patConfigured}
+                  isLoading={isTeamDataLoading}
+                  colorScheme={colorScheme}
+                  membersError={membersError}
+                  workItemsError={workItemsError}
+                  assigneesError={assigneesError}
+                  members={members}
+                  workItems={visibleBoardItems}
+                  currentIterationName={currentIterationName}
+                  changeHighlightsByItemId={changeHighlightsByItemId}
+                  workItemAssignees={workItemAssignees}
+                />
+              </Box>
 
-        <HiddenTagsDialog
-          open={tagRulesDialogOpen}
-          tagRules={tagRules}
-          onChange={setTagRules}
-          onClose={handleCloseTagRulesDialog}
-        />
+              <SprintSummaryBar
+                iterationWindow={iterationWindow}
+                isLoading={iterationLoading}
+                colorScheme={colorScheme}
+                onToggleColorScheme={onToggleColorScheme}
+              />
 
-        {!patConfigured ? (
-          <Card
-            sx={{
-              mb: 2,
-              border: '1px solid',
-              borderColor: 'warning.outline',
-              bgcolor: 'warning.background',
-            }}
-          >
-            <CardContent>
-              <Typography variant="body-md" sx={{ fontWeight: 700 }}>
-                Azure DevOps PAT: Missing
-              </Typography>
-              <Typography variant="body-sm" color="text.secondary">
-                Update AZDO_PAT in .env.local, then restart npm run dev.
-              </Typography>
-            </CardContent>
-          </Card>
-        ) : null}
+              <HiddenTagsDialog
+                open={tagRulesDialogOpen}
+                tagRules={tagRules}
+                onChange={setTagRules}
+                onClose={handleCloseTagRulesDialog}
+              />
 
+              {!patConfigured ? (
+                <Card
+                  sx={{
+                    mb: 2,
+                    border: '1px solid',
+                    borderColor: 'warning.outline',
+                    bgcolor: 'warning.background',
+                  }}
+                >
+                  <CardContent>
+                    <Typography variant="body-md" sx={{ fontWeight: 700 }}>
+                      Azure DevOps PAT: Missing
+                    </Typography>
+                    <Typography variant="body-sm" color="text.secondary">
+                      Update AZDO_PAT in .env.local, then restart npm run dev.
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </Box>
+          </>
+        ) : (
+          <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }} />
+        )}
       </Box>
     </Box>
   )

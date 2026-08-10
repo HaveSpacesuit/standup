@@ -14,7 +14,7 @@ import {
 } from '@mui/material'
 import type { RefObject } from 'react'
 import { Icon } from '@stratakit/mui'
-import svgCalendar from '@stratakit/icons/calendar.svg'
+import svgUsers from '@stratakit/icons/users.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgTag from '@stratakit/icons/tag.svg'
@@ -75,7 +75,7 @@ export function StandupToolbar({
   return (
     <AppBar position="static">
       <Toolbar sx={{ gap: 1.5 }}>
-        <Icon href={svgCalendar} size="large" />
+        <Icon href={svgUsers} size="large" />
         <Typography variant="body-lg" sx={{ fontWeight: 700 }}>
           Team Standup
         </Typography>
