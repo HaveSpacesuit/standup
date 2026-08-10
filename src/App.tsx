@@ -13,6 +13,8 @@ import svgCalendar from '@stratakit/icons/calendar.svg'
 import { teamProfiles } from './teamProfiles'
 import { KanbanBoard } from './features/standup/components/KanbanBoard'
 import { HiddenTagsDialog } from './features/standup/components/HiddenTagsDialog'
+import { PullRequestsPlaceholder } from './features/standup/components/PullRequestsPlaceholder'
+import { PullRequestsToolbar } from './features/standup/components/PullRequestsToolbar'
 import { SprintSummaryBar } from './features/standup/components/SprintSummaryBar'
 import { StandupToolbar } from './features/standup/components/StandupToolbar'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
@@ -238,7 +240,16 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             </Box>
           </>
         ) : (
-          <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }} />
+          <>
+            <PullRequestsToolbar
+              teamOptions={teamProfiles}
+              selectedTeamId={selectedTeamId}
+              onTeamChange={onTeamChange}
+              teamManagementUrl={teamManagementUrl}
+            />
+
+            <PullRequestsPlaceholder />
+          </>
         )}
       </Box>
     </Box>
