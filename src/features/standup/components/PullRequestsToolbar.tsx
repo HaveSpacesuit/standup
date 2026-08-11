@@ -1,7 +1,7 @@
 import { Button } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
-import svgGitBranch from '@stratakit/icons/git-branch.svg'
+import svgGitMerge from '@stratakit/icons/git-merge.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
 
@@ -25,7 +25,7 @@ export function PullRequestsToolbar({
   isPullRequestsLoading,
 }: PullRequestsToolbarProps) {
   return (
-    <PageToolbar iconHref={svgGitBranch} title="Pull Requests">
+    <PageToolbar iconHref={svgGitMerge} title="Pull Requests">
       <TeamToolbarControls
         teamOptions={teamOptions}
         selectedTeamId={selectedTeamId}

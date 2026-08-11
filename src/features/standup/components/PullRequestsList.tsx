@@ -66,72 +66,72 @@ function getAuthorLabel(item: WorkItemSummary): string {
     || 'Unknown author'
 }
 
+function formatCheckName(item: { name: string, expired: boolean }): string {
+  return item.expired ? `${item.name} (expired)` : item.name
+}
+
+function formatCheckList(names: string[]): string {
+  return names.join(', ')
+}
+
 function getChecksPresentation(item: WorkItemSummary): {
   iconHref: string
   color: string
   text: string
 } {
   const checks = item.pullRequest?.checks
-  const expiredCount = checks?.checks.filter((check) => check.expired).length ?? 0
-  const expiredSuffix = expiredCount > 0 ? `, ${expiredCount} expired` : ''
-
-  if (!checks || checks.state === 'pending') {
-    const pendingText = checks
-      ? `Checks pending (${checks.passing} passing, ${checks.pending} pending${checks.total > 0 ? ` of ${checks.total}` : ''}${expiredSuffix})`
-      : 'Checks pending'
-
+  if (!checks || checks.checks.length === 0) {
     return {
       iconHref: svgStopwatch,
       color: 'warning.main',
-      text: pendingText,
+      text: 'Checks pending',
     }
   }
 
-  if (checks.state === 'failing') {
-    const detail = checks.failingNames.length > 0
-      ? `: ${checks.failingNames.slice(0, 2).join(', ')}${checks.failingNames.length > 2 ? '…' : ''}`
-      : ''
+  const requiredChecks = checks.checks.filter((check) => !check.optional)
+  const optionalChecks = checks.checks.filter((check) => check.optional)
 
+  const requiredFailing = requiredChecks.filter((check) => check.state === 'failing').map(formatCheckName)
+  if (requiredFailing.length > 0) {
     return {
       iconHref: svgError,
       color: 'error.main',
-      text: `Checks failing (${checks.failing} failing${detail}${expiredSuffix})`,
+      text: `Failing: ${formatCheckList(requiredFailing)}`,
     }
   }
 
-  return {
-    iconHref: svgValidate,
-    color: 'success.main',
-    text: `Checks passing (${checks.passing}/${checks.total}${expiredSuffix})`,
-  }
-}
-
-function getCheckStatePresentation(state: 'passing' | 'pending' | 'failing'): {
-  iconHref: string
-  color: string
-  label: string
-} {
-  if (state === 'failing') {
-    return {
-      iconHref: svgError,
-      color: 'error.main',
-      label: 'Failing',
-    }
-  }
-
-  if (state === 'pending') {
+  const requiredPending = requiredChecks.filter((check) => check.state === 'pending').map(formatCheckName)
+  if (requiredPending.length > 0) {
     return {
       iconHref: svgStopwatch,
       color: 'warning.main',
-      label: 'Pending',
+      text: `Pending: ${formatCheckList(requiredPending)}`,
     }
   }
 
-  return {
-    iconHref: svgValidate,
-    color: 'success.main',
-    label: 'Passing',
+  const optionalFailing = optionalChecks.filter((check) => check.state === 'failing').map(formatCheckName)
+  if (optionalFailing.length > 0) {
+    return {
+      iconHref: svgValidate,
+      color: 'success.main',
+      text: `Passing: optional failures in ${formatCheckList(optionalFailing)}`,
+    }
   }
+
+  const optionalPending = optionalChecks.filter((check) => check.state === 'pending').map(formatCheckName)
+  if (optionalPending.length > 0) {
+    return {
+      iconHref: svgValidate,
+      color: 'success.main',
+      text: `Passing: optional checks pending in ${formatCheckList(optionalPending)}`,
+    }
+  }
+
+    return {
+      iconHref: svgValidate,
+      color: 'success.main',
+      text: 'Passing',
+    }
 }
 
 function createSections(pullRequests: WorkItemSummary[]): PullRequestSection[] {
@@ -238,31 +238,6 @@ export function PullRequestsList({ isLoading, pullRequests }: PullRequestsListPr
                     <Typography variant="body-sm" color="text.secondary">
                       {getAuthorLabel(pullRequest)} • Opened {formatOpenedDate(pullRequest.recentActivityAt)} ({formatAge(pullRequest.recentActivityAt)})
                     </Typography>
-                      {(pullRequest.pullRequest?.checks?.checks?.length ?? 0) > 0 ? (
-                        <Box sx={{ display: 'grid', gap: 0.3, pl: 0.25 }}>
-                          {pullRequest.pullRequest?.checks?.checks.map((check) => {
-                            const checkPresentation = getCheckStatePresentation(check.state)
-                            const checkLabel = check.expired
-                              ? `${checkPresentation.label} (expired)`
-                              : checkPresentation.label
-
-                            return (
-                              <Box key={`${pullRequest.id}:${check.name}:${check.source}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, color: checkPresentation.color, minWidth: 90 }}>
-                                  <Icon href={checkPresentation.iconHref} size="regular" />
-                                  <Typography variant="body-sm" color="inherit" sx={{ fontSize: 11, fontWeight: 700 }}>
-                                    {checkLabel}
-                                  </Typography>
-                                </Box>
-                                <Typography variant="body-sm" sx={{ fontSize: 11 }}>
-                                  {check.name}
-                                  {check.optional ? ' (optional)' : ''}
-                                </Typography>
-                              </Box>
-                            )
-                          })}
-                        </Box>
-                      ) : null}
                     <WorkItemCard item={pullRequest} />
                   </Box>
                 )

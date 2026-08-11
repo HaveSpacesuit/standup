@@ -8,7 +8,7 @@ import {
 import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
 import svgUsers from '@stratakit/icons/users.svg'
-import svgGitBranch from '@stratakit/icons/git-branch.svg'
+import svgGitMerge from '@stratakit/icons/git-merge.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import { teamProfiles } from './teamProfiles'
 import { KanbanBoard } from './features/standup/components/KanbanBoard'
@@ -158,7 +158,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
               <NavigationRail.Anchor
                 href="#pull-requests"
                 label="Pull requests"
-                icon={svgGitBranch}
+                icon={svgGitMerge}
                 active={activeView === 'pull-requests'}
               />
             </NavigationRail.ListItem>
