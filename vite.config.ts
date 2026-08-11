@@ -6,6 +6,9 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 export default defineConfig({
   envPrefix: ['VITE_', 'AZDO_'],
   base: './',
+  server: {
+    open: true,
+  },
   plugins: [react(), viteSingleFile()],
   build: {
     assetsInlineLimit: Number.MAX_SAFE_INTEGER,
