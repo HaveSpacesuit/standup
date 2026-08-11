@@ -24,12 +24,18 @@ export function useActiveTeamPullRequests({
   membersError,
 }: UseActiveTeamPullRequestsArgs): UseActiveTeamPullRequestsResult {
   const [pullRequests, setPullRequests] = useState<WorkItemSummary[]>([])
-  const [pullRequestsLoading, setPullRequestsLoading] = useState(false)
+  const [pullRequestsLoading, setPullRequestsLoading] = useState(() => Boolean(adoQueryEngine))
 
   useEffect(() => {
-    if (!adoQueryEngine || membersLoading) {
+    if (!adoQueryEngine) {
       setPullRequests([])
       setPullRequestsLoading(false)
+      return
+    }
+
+    if (membersLoading) {
+      setPullRequests([])
+      setPullRequestsLoading(true)
       return
     }
 
