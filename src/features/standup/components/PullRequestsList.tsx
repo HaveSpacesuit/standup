@@ -133,14 +133,18 @@ export function PullRequestsList({ isLoading, pullRequests, fullApprovalThreshol
                       )}
                     </Box>
                     {checks.optionalItems.map((optionalItem) => (
-                      <Box key={`${pullRequest.id}:${optionalItem.text}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: optionalItem.color, minWidth: 0, pl: 2.5 }}>
-                        <Icon href={optionalItem.iconHref} size="regular" />
+                      <Box
+                        key={`${pullRequest.id}:${optionalItem.text}`}
+                        sx={{
+                          minWidth: 0,
+                          pl: 2.4,
+                        }}
+                      >
                         <Typography
                           variant="body-sm"
-                          color="inherit"
+                          color={optionalItem.color}
                           sx={{
                             fontSize: 11,
-                            fontWeight: 700,
                             lineHeight: 1.2,
                             minWidth: 0,
                             overflow: 'hidden',

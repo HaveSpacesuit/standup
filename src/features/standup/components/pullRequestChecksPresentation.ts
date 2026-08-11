@@ -68,14 +68,14 @@ export function getChecksPresentation(item: WorkItemSummary): PullRequestChecksP
         ? [{
             iconHref: svgError,
             color: 'error.main',
-            text: `Optional failing: ${formatCheckList(optionalFailing)}`,
+            text: `Optional checks failing: ${formatCheckList(optionalFailing)}`,
           }]
         : []),
       ...(optionalPending.length > 0
         ? [{
             iconHref: svgStopwatch,
             color: 'warning.main',
-            text: `Optional pending: ${formatCheckList(optionalPending)}`,
+            text: `Optional checks pending: ${formatCheckList(optionalPending)}`,
           }]
         : []),
     ],
