@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Box,
   Card,
@@ -44,6 +44,7 @@ type AppProps = {
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
   const [activeView, setActiveView] = useState<AppView>(() => getViewFromHash(window.location.hash))
+  const [selectedPullRequestAuthorFilter, setSelectedPullRequestAuthorFilter] = useState('')
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
 
   const {
@@ -92,6 +93,54 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     const nextIndex = (safeCurrentIndex + direction + cycleValues.length) % cycleValues.length
     onMemberFilterChange(cycleValues[nextIndex])
   }
+
+  const normalizeDisplayName = (name: string) => name.trim().toLowerCase()
+
+  const pullRequestAuthorFilterOptions = useMemo(() => {
+    const labels = new Set<string>()
+
+    for (const pullRequest of activeTeamPullRequests) {
+      const authorName = pullRequest.assignedTo?.displayName?.trim()
+      if (!authorName) {
+        continue
+      }
+
+      labels.add(authorName)
+    }
+
+    return [...labels].sort((left, right) => left.localeCompare(right))
+  }, [activeTeamPullRequests])
+
+  const filteredPullRequests = useMemo(() => {
+    if (!selectedPullRequestAuthorFilter) {
+      return activeTeamPullRequests
+    }
+
+    const normalizedSelectedAuthor = normalizeDisplayName(selectedPullRequestAuthorFilter)
+
+    return activeTeamPullRequests.filter((pullRequest) => {
+      const authorName = pullRequest.assignedTo?.displayName
+      if (!authorName) {
+        return false
+      }
+
+      return normalizeDisplayName(authorName) === normalizedSelectedAuthor
+    })
+  }, [activeTeamPullRequests, selectedPullRequestAuthorFilter])
+
+  useEffect(() => {
+    if (!selectedPullRequestAuthorFilter) {
+      return
+    }
+
+    const selectedStillExists = pullRequestAuthorFilterOptions.some(
+      (authorName) => normalizeDisplayName(authorName) === normalizeDisplayName(selectedPullRequestAuthorFilter),
+    )
+
+    if (!selectedStillExists) {
+      setSelectedPullRequestAuthorFilter('')
+    }
+  }, [pullRequestAuthorFilterOptions, selectedPullRequestAuthorFilter])
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -259,13 +308,16 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
               selectedTeamId={selectedTeamId}
               onTeamChange={onTeamChange}
               teamManagementUrl={teamManagementUrl}
+              selectedAuthorFilter={selectedPullRequestAuthorFilter}
+              authorFilterOptions={pullRequestAuthorFilterOptions}
+              onAuthorFilterChange={setSelectedPullRequestAuthorFilter}
               onRefresh={onRefresh}
               isPullRequestsLoading={activeTeamPullRequestsLoading}
             />
 
             <PullRequestsList
               isLoading={activeTeamPullRequestsLoading}
-              pullRequests={activeTeamPullRequests}
+              pullRequests={filteredPullRequests}
             />
 
             <Box
