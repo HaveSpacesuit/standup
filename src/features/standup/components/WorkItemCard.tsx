@@ -2,6 +2,7 @@ import { Badge, Card, Chip, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
+import type { ReactNode } from 'react'
 import svgStatusPending from '@stratakit/icons/status-pending.svg'
 import svgStatusRejected from '@stratakit/icons/status-rejected.svg'
 import svgStatusSuccess from '@stratakit/icons/status-success.svg'
@@ -14,6 +15,7 @@ import {
 type WorkItemCardProps = {
   item: WorkItemSummary
   highlightState?: WorkItemCardHighlightState
+  footer?: ReactNode
 }
 
 export type WorkItemCardHighlightState = 'new' | 'stale' | 'none'
@@ -112,7 +114,7 @@ function getPullRequestReviewIcon(
   }
 }
 
-export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProps) {
+export function WorkItemCard({ item, highlightState = 'none', footer }: WorkItemCardProps) {
   const theme = useTheme()
   const statusPaletteKey = getStatusPaletteKey(item.status)
   const statusColor = theme.palette[statusPaletteKey].main
@@ -452,6 +454,20 @@ export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProp
                 Sprint {item.sprintName}
               </Typography>
             ) : null}
+          </Box>
+        ) : null}
+
+        {footer ? (
+          <Box
+            sx={{
+              mt: 0.7,
+              pt: 0.6,
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              clear: 'both',
+            }}
+          >
+            {footer}
           </Box>
         ) : null}
       </Box>

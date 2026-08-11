@@ -77,7 +77,12 @@ function formatCheckList(names: string[]): string {
 function getChecksPresentation(item: WorkItemSummary): {
   iconHref: string
   color: string
-  text: string
+  text?: string
+  optionalItems: Array<{
+    iconHref: string
+    color: string
+    text: string
+  }>
 } {
   const checks = item.pullRequest?.checks
   if (!checks || checks.checks.length === 0) {
@@ -85,6 +90,7 @@ function getChecksPresentation(item: WorkItemSummary): {
       iconHref: svgStopwatch,
       color: 'warning.main',
       text: 'Checks pending',
+      optionalItems: [],
     }
   }
 
@@ -96,7 +102,8 @@ function getChecksPresentation(item: WorkItemSummary): {
     return {
       iconHref: svgError,
       color: 'error.main',
-      text: `Failing: ${formatCheckList(requiredFailing)}`,
+      text: formatCheckList(requiredFailing),
+      optionalItems: [],
     }
   }
 
@@ -105,33 +112,35 @@ function getChecksPresentation(item: WorkItemSummary): {
     return {
       iconHref: svgStopwatch,
       color: 'warning.main',
-      text: `Pending: ${formatCheckList(requiredPending)}`,
+      text: formatCheckList(requiredPending),
+      optionalItems: [],
     }
   }
 
   const optionalFailing = optionalChecks.filter((check) => check.state === 'failing').map(formatCheckName)
-  if (optionalFailing.length > 0) {
-    return {
-      iconHref: svgValidate,
-      color: 'success.main',
-      text: `Passing: optional failures in ${formatCheckList(optionalFailing)}`,
-    }
-  }
-
   const optionalPending = optionalChecks.filter((check) => check.state === 'pending').map(formatCheckName)
-  if (optionalPending.length > 0) {
-    return {
-      iconHref: svgValidate,
-      color: 'success.main',
-      text: `Passing: optional checks pending in ${formatCheckList(optionalPending)}`,
-    }
-  }
 
-    return {
-      iconHref: svgValidate,
-      color: 'success.main',
-      text: 'Passing',
-    }
+  return {
+    iconHref: svgValidate,
+    color: 'success.main',
+    text: undefined,
+    optionalItems: [
+      ...(optionalFailing.length > 0
+        ? [{
+            iconHref: svgError,
+            color: 'error.main',
+            text: `Optional failing: ${formatCheckList(optionalFailing)}`,
+          }]
+        : []),
+      ...(optionalPending.length > 0
+        ? [{
+            iconHref: svgStopwatch,
+            color: 'warning.main',
+            text: `Optional pending: ${formatCheckList(optionalPending)}`,
+          }]
+        : []),
+    ],
+  }
 }
 
 function createSections(pullRequests: WorkItemSummary[]): PullRequestSection[] {
@@ -226,19 +235,65 @@ export function PullRequestsList({ isLoading, pullRequests }: PullRequestsListPr
             <Box sx={{ display: 'grid', gap: 1 }}>
               {section.items.map((pullRequest) => {
                 const checks = getChecksPresentation(pullRequest)
+                const checksFooter = (
+                  <Box sx={{ display: 'grid', gap: 0.35, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: checks.color, minWidth: 0 }}>
+                      <Icon href={checks.iconHref} size="regular" />
+                      {checks.text ? (
+                        <Typography
+                          variant="body-sm"
+                          color="inherit"
+                          sx={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {checks.text}
+                        </Typography>
+                      ) : (
+                        <Typography
+                          variant="body-sm"
+                          color="inherit"
+                          sx={{ fontSize: 11, fontWeight: 700, lineHeight: 1.2 }}
+                        >
+                          Required checks passing
+                        </Typography>
+                      )}
+                    </Box>
+                    {checks.optionalItems.map((optionalItem) => (
+                      <Box key={`${pullRequest.id}:${optionalItem.text}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: optionalItem.color, minWidth: 0, pl: 2.5 }}>
+                        <Icon href={optionalItem.iconHref} size="regular" />
+                        <Typography
+                          variant="body-sm"
+                          color="inherit"
+                          sx={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {optionalItem.text}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )
 
                 return (
                   <Box key={pullRequest.id} sx={{ display: 'grid', gap: 0.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: checks.color }}>
-                      <Icon href={checks.iconHref} size="regular" />
-                      <Typography variant="body-sm" color="inherit" sx={{ fontWeight: 700 }}>
-                        {checks.text}
-                      </Typography>
-                    </Box>
                     <Typography variant="body-sm" color="text.secondary">
                       {getAuthorLabel(pullRequest)} • Opened {formatOpenedDate(pullRequest.recentActivityAt)} ({formatAge(pullRequest.recentActivityAt)})
                     </Typography>
-                    <WorkItemCard item={pullRequest} />
+                    <WorkItemCard item={pullRequest} footer={checksFooter} />
                   </Box>
                 )
               })}
