@@ -23,6 +23,10 @@ function formatAge(value: string | undefined): string {
   }
 
   const elapsedHours = Math.floor(Math.max(Date.now() - openedAt, 0) / (1000 * 60 * 60))
+  if (elapsedHours === 0) {
+    return 'Just now'
+  }
+
   if (elapsedHours < 24) {
     return `${elapsedHours}h old`
   }

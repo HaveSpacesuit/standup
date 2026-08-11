@@ -36,6 +36,26 @@ type PullRequestApiResponse = {
   }
 }
 
+type PullRequestThreadListResponse = {
+  value?: PullRequestThreadApiResponse[]
+}
+
+type PullRequestThreadApiResponse = {
+  publishedDate?: string
+  properties?: {
+    CodeReviewThreadType?: {
+      $value?: string
+    }
+  }
+  comments?: Array<{
+    publishedDate?: string
+    content?: string
+    author?: {
+      displayName?: string
+    }
+  }>
+}
+
 type PullRequestFilterMode = 'unlinked-board-items' | 'active-team-items'
 
 function parseIsoDate(value: string | undefined): number | null {
@@ -147,12 +167,83 @@ function buildPullRequestWebUrl(
   return `https://dev.azure.com/${encodeURIComponent(orgName)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repositoryName)}/pullrequest/${pullRequestId}`
 }
 
+function resolveLastReadyForReviewAtFromThreads(threads: PullRequestThreadApiResponse[]): string | undefined {
+  const readyForReviewEvents: string[] = []
+
+  for (const thread of threads) {
+    const threadType = thread.properties?.CodeReviewThreadType?.$value?.trim()
+    if (threadType !== 'IsDraftUpdate') {
+      continue
+    }
+
+    for (const comment of thread.comments ?? []) {
+      const content = comment.content?.trim()
+      if (!content) {
+        continue
+      }
+
+      if (/published the pull request\.?$/i.test(content)) {
+        const eventDate = comment.publishedDate ?? thread.publishedDate
+        if (eventDate) {
+          readyForReviewEvents.push(eventDate)
+        }
+      }
+    }
+  }
+
+  if (readyForReviewEvents.length === 0) {
+    return undefined
+  }
+
+  return readyForReviewEvents
+    .sort((left, right) => {
+      const leftAt = parseIsoDate(left) ?? Number.NEGATIVE_INFINITY
+      const rightAt = parseIsoDate(right) ?? Number.NEGATIVE_INFINITY
+      return leftAt - rightAt
+    })
+    .at(-1)
+}
+
+async function fetchLastReadyForReviewAt(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,
+  pullRequest: PullRequestApiResponse,
+  signal?: AbortSignal,
+): Promise<string | undefined> {
+  const pullRequestId = pullRequest.pullRequestId
+  if (typeof pullRequestId !== 'number') {
+    return undefined
+  }
+
+  const repositoryId = pullRequest.repository?.id?.trim()
+  if (!repositoryId) {
+    return undefined
+  }
+
+  try {
+    const threadsResponse = await client.request<PullRequestThreadListResponse>({
+      method: 'GET',
+      orgName: team.orgName,
+      path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${pullRequestId}/threads`,
+      params: {
+        'api-version': '7.1',
+      },
+      signal,
+    })
+
+    return resolveLastReadyForReviewAtFromThreads(threadsResponse.value ?? [])
+  } catch {
+    return undefined
+  }
+}
+
 
 function mapPullRequestToWorkItemSummary(
   pullRequest: PullRequestApiResponse,
   team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,
   pullRequestIconUrl: string | undefined,
   checks: WorkItemPullRequestSummary['checks'],
+  readyForReviewAt?: string,
 ): WorkItemSummary | null {
   const pullRequestId = pullRequest.pullRequestId
   if (typeof pullRequestId !== 'number') {
@@ -188,7 +279,7 @@ function mapPullRequestToWorkItemSummary(
     recentActivityAt:
       pullRequest.status?.trim().toLowerCase() === 'completed'
         ? pullRequest.closedDate ?? pullRequest.creationDate
-        : pullRequest.creationDate,
+        : readyForReviewAt ?? pullRequest.creationDate,
     pullRequest: pullRequestSummary,
     assignedTo: creator,
     status: pullRequest.status?.trim().toLowerCase() === 'completed' ? 'Done' : 'Review',
@@ -271,6 +362,9 @@ async function fetchPullRequestItems(
   const mappedItems = await Promise.all(
     filteredPullRequests.map(async (pullRequest) => {
       const pullRequestId = pullRequest.pullRequestId
+      const readyForReviewAt = includeChecks
+        ? await fetchLastReadyForReviewAt(client, team, pullRequest, signal)
+        : undefined
       const checks = includeChecks
         ? (projectId && typeof pullRequestId === 'number'
           ? await fetchPolicyEvaluationChecksSummary(
@@ -283,7 +377,13 @@ async function fetchPullRequestItems(
           : undefined)
         : undefined
 
-      return mapPullRequestToWorkItemSummary(pullRequest, team, pullRequestIconUrl, checks)
+      return mapPullRequestToWorkItemSummary(
+        pullRequest,
+        team,
+        pullRequestIconUrl,
+        checks,
+        readyForReviewAt,
+      )
     }),
   )
 
