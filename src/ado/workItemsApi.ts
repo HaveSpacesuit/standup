@@ -3,7 +3,7 @@ import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
-import { buildIterationScopedWiql } from './wiql'
+import { buildIterationScopedWiql, buildQaNewItemsWiql } from './wiql'
 import resolveStatusFromStateAndTags from './workItemStatus'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
 
@@ -369,13 +369,12 @@ async function fetchPullRequestRefsByWorkItem(
   return refsByWorkItem
 }
 
-export async function fetchWorkItemsForCurrentAndNextIteration(
+async function fetchWorkItemsByWiql(
   client: AdoRequestClient,
-  team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath' | 'iterationPath'>,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  wiqlQuery: string,
   signal?: AbortSignal,
 ): Promise<WorkItemSummary[]> {
-  const wiqlQuery = buildIterationScopedWiql(team.projectName, team.areaPath, team.iterationPath)
-
   const wiqlResponse = await client.request<WiqlResponse>({
     method: 'POST',
     orgName: team.orgName,
@@ -478,4 +477,24 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
       }
     })
     .filter((item): item is WorkItemSummary => item !== null)
+}
+
+export async function fetchWorkItemsForCurrentAndNextIteration(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath' | 'iterationPath'>,
+  signal?: AbortSignal,
+): Promise<WorkItemSummary[]> {
+  const wiqlQuery = buildIterationScopedWiql(team.projectName, team.areaPath, team.iterationPath)
+
+  return fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
+}
+
+export async function fetchQaNewWorkItems(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+  signal?: AbortSignal,
+): Promise<WorkItemSummary[]> {
+  const wiqlQuery = buildQaNewItemsWiql(team.projectName, team.areaPath)
+
+  return fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
 }

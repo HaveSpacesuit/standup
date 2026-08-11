@@ -6,6 +6,7 @@ import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 import { usePullRequestsPageModel } from './features/standup/hooks/usePullRequestsPageModel'
 import { PullRequestsPage } from './features/standup/pages/PullRequestsPage'
+import { QualityAssurancePage } from './features/standup/pages/QualityAssurancePage'
 import { TeamAssignmentsPage } from './features/standup/pages/TeamAssignmentsPage'
 
 type AppProps = {
@@ -42,6 +43,9 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     iterationLoading,
     changeHighlightsByItemId,
     workItemAssignees,
+    qaNewItems,
+    qaNewItemsLoading,
+    qaNewItemsError,
   } = useBoardViewModel({ patConfigured })
 
   const {
@@ -101,7 +105,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             tagRules={tagRules}
             onTagRulesChange={(nextRules) => setTagRules(nextRules)}
           />
-        ) : (
+        ) : activeView === 'pull-requests' ? (
           <PullRequestsPage
             patConfigured={patConfigured}
             teamOptions={teamProfiles}
@@ -116,6 +120,18 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             onRefresh={onRefresh}
             isPullRequestsLoading={activeTeamPullRequestsLoading}
             pullRequests={filteredPullRequests}
+          />
+        ) : (
+          <QualityAssurancePage
+            patConfigured={patConfigured}
+            teamOptions={teamProfiles}
+            selectedTeamId={selectedTeamId}
+            onTeamChange={onTeamChange}
+            teamManagementUrl={teamManagementUrl}
+            onRefresh={onRefresh}
+            isLoading={qaNewItemsLoading}
+            newItems={qaNewItems}
+            newItemsError={qaNewItemsError}
           />
         )}
       </Box>

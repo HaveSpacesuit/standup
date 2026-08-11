@@ -8,7 +8,6 @@ import {
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
-import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgGitMerge from '@stratakit/icons/git-merge.svg'
 import svgUserSettings from '@stratakit/icons/user-settings.svg'
 import { PullRequestsOptionsDialog } from './PullRequestsOptionsDialog'

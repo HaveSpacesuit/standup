@@ -11,6 +11,7 @@ import { useWorkItemAssignees } from './useWorkItemAssignees'
 import { useBoardPreferences } from './useBoardPreferences'
 import { useTeamManagementUrl } from './useTeamManagementUrl'
 import { useVisibleBoardItems } from './useVisibleBoardItems'
+import { useQaNewWorkItems } from './useQaNewWorkItems'
 import {
   applyTagRulesToItem,
   normalizeTeamMemberLabel,
@@ -46,6 +47,9 @@ type UseBoardViewModelResult = {
   iterationLoading: boolean
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
+  qaNewItems: WorkItemSummary[]
+  qaNewItemsLoading: boolean
+  qaNewItemsError: string | null
 }
 
 export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): UseBoardViewModelResult {
@@ -142,6 +146,12 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     membersError,
   })
 
+  const { qaNewItems, qaNewItemsLoading, qaNewItemsError } = useQaNewWorkItems({
+    adoQueryEngine,
+    selectedTeam,
+    reloadNonce,
+  })
+
   const { memberFilterOptions, visibleBoardItems } = useVisibleBoardItems({
     boardItems,
     quickFilterInput,
@@ -212,5 +222,8 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     iterationLoading,
     changeHighlightsByItemId,
     workItemAssignees,
+    qaNewItems,
+    qaNewItemsLoading,
+    qaNewItemsError,
   }
 }

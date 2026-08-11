@@ -21,3 +21,24 @@ export function buildIterationScopedWiql(
     'ORDER BY [System.ChangedDate] DESC',
   ].join('\n')
 }
+
+export function buildQaNewItemsWiql(
+  projectName: string,
+  areaPath: string,
+): string {
+  const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
+
+  return [
+    'SELECT [System.Id]',
+    'FROM WorkItems',
+    `WHERE [System.TeamProject] = ${quote(projectName)}`,
+    `  AND [System.AreaPath] UNDER ${quote(areaPath)}`,
+    `  AND [System.CreatedDate] >= @StartOfDay('-7')`,
+    `  AND (`,
+    `    [System.State] = 'New'`,
+    `    OR [System.State] = 'Approved'`,
+    `    OR [System.Tags] CONTAINS WORDS 'Triage'`,
+    `  )`,
+    'ORDER BY [System.CreatedDate] DESC',
+  ].join('\n')
+}
