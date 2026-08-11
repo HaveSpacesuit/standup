@@ -9,6 +9,7 @@ import { WorkItemCard } from './WorkItemCard'
 type PullRequestsListProps = {
   isLoading: boolean
   pullRequests: WorkItemSummary[]
+  fullApprovalThreshold: number
 }
 
 type PullRequestSection = {
@@ -65,8 +66,9 @@ function getRequiredChecksState(item: WorkItemSummary): 'passing' | 'pending' | 
   return 'passing'
 }
 
-function getMergeReadiness(item: WorkItemSummary): MergeReadiness {
+function getMergeReadiness(item: WorkItemSummary, fullApprovalThreshold: number): MergeReadiness {
   const reviewState = item.pullRequest?.reviewState
+  const approvalCount = item.pullRequest?.approvalCount ?? 0
   const requiredChecksState = getRequiredChecksState(item)
 
   if (
@@ -81,7 +83,7 @@ function getMergeReadiness(item: WorkItemSummary): MergeReadiness {
     return 'waiting-on-checks'
   }
 
-  if (reviewState !== 'fully-approved') {
+  if (approvalCount < fullApprovalThreshold) {
     return 'waiting-on-reviewers'
   }
 
@@ -157,11 +159,11 @@ function getChecksPresentation(item: WorkItemSummary): {
   }
 }
 
-function createSections(pullRequests: WorkItemSummary[]): PullRequestSection[] {
-  const readyToMerge = pullRequests.filter((item) => getMergeReadiness(item) === 'ready-to-merge')
-  const waitingOnChecks = pullRequests.filter((item) => getMergeReadiness(item) === 'waiting-on-checks')
-  const waitingOnReviewers = pullRequests.filter((item) => getMergeReadiness(item) === 'waiting-on-reviewers')
-  const blocked = pullRequests.filter((item) => getMergeReadiness(item) === 'blocked')
+function createSections(pullRequests: WorkItemSummary[], fullApprovalThreshold: number): PullRequestSection[] {
+  const readyToMerge = pullRequests.filter((item) => getMergeReadiness(item, fullApprovalThreshold) === 'ready-to-merge')
+  const waitingOnChecks = pullRequests.filter((item) => getMergeReadiness(item, fullApprovalThreshold) === 'waiting-on-checks')
+  const waitingOnReviewers = pullRequests.filter((item) => getMergeReadiness(item, fullApprovalThreshold) === 'waiting-on-reviewers')
+  const blocked = pullRequests.filter((item) => getMergeReadiness(item, fullApprovalThreshold) === 'blocked')
 
   return [
     { key: 'ready-to-merge', title: 'Ready to merge', items: readyToMerge },
@@ -171,7 +173,7 @@ function createSections(pullRequests: WorkItemSummary[]): PullRequestSection[] {
   ].filter((section) => section.items.length > 0)
 }
 
-export function PullRequestsList({ isLoading, pullRequests }: PullRequestsListProps) {
+export function PullRequestsList({ isLoading, pullRequests, fullApprovalThreshold }: PullRequestsListProps) {
   if (isLoading) {
     return (
       <Box
@@ -288,7 +290,7 @@ export function PullRequestsList({ isLoading, pullRequests }: PullRequestsListPr
     )
   }
 
-  const sections = createSections(pullRequests)
+  const sections = createSections(pullRequests, fullApprovalThreshold)
 
   return (
     <Box

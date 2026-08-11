@@ -292,6 +292,35 @@ function resolvePullRequestReviewState(
   return undefined
 }
 
+function resolvePullRequestApprovalCount(
+  reviewers: PullRequestApiResponse['reviewers'],
+): number {
+  const dedupedReviewerVotes = new Map<string, number>()
+
+  for (const reviewer of reviewers ?? []) {
+    if (!reviewer || reviewer.isContainer === true) {
+      continue
+    }
+
+    const vote = reviewer.vote
+    if (typeof vote !== 'number') {
+      continue
+    }
+
+    const reviewerKey = reviewer.id ?? reviewer.uniqueName ?? reviewer.displayName
+    if (!reviewerKey) {
+      continue
+    }
+
+    const previousVote = dedupedReviewerVotes.get(reviewerKey)
+    if (previousVote === undefined || Math.abs(vote) > Math.abs(previousVote)) {
+      dedupedReviewerVotes.set(reviewerKey, vote)
+    }
+  }
+
+  return [...dedupedReviewerVotes.values()].filter((vote) => vote >= 5).length
+}
+
 async function fetchActivePullRequestsByWorkItem(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
@@ -342,6 +371,7 @@ async function fetchActivePullRequestsByWorkItem(
           title: pullRequest.title?.trim() || `Pull Request ${ref.pullRequestId}`,
           url: buildPullRequestWebUrl(team.orgName, team.projectName, pullRequest, ref),
           iconUrl: pullRequestIconUrl,
+          approvalCount: resolvePullRequestApprovalCount(pullRequest.reviewers),
           reviewState: resolvePullRequestReviewState(pullRequest.reviewers),
         })
       } catch {

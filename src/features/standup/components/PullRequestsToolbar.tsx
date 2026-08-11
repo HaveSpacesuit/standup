@@ -1,6 +1,19 @@
-import { Button, FormControl, MenuItem, Select, type SelectChangeEvent } from '@mui/material'
+import { useState } from 'react'
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  MenuItem,
+  Select,
+  Typography,
+  type SelectChangeEvent,
+} from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
+import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgGitMerge from '@stratakit/icons/git-merge.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
@@ -14,6 +27,8 @@ type PullRequestsToolbarProps = {
   selectedAuthorFilter: string
   authorFilterOptions: string[]
   onAuthorFilterChange: (value: string) => void
+  fullApprovalThreshold: number
+  onFullApprovalThresholdChange: (value: number) => void
   onRefresh: () => void
   isPullRequestsLoading: boolean
 }
@@ -27,11 +42,27 @@ export function PullRequestsToolbar({
   selectedAuthorFilter,
   authorFilterOptions,
   onAuthorFilterChange,
+  fullApprovalThreshold,
+  onFullApprovalThresholdChange,
   onRefresh,
   isPullRequestsLoading,
 }: PullRequestsToolbarProps) {
+  const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false)
+
   const handleAuthorFilterChange = (event: SelectChangeEvent<string>) => {
     onAuthorFilterChange(event.target.value)
+  }
+
+  const handleOpenOptions = () => {
+    setIsOptionsDialogOpen(true)
+  }
+
+  const handleCloseOptions = () => {
+    setIsOptionsDialogOpen(false)
+  }
+
+  const handleFullApprovalThresholdChange = (event: SelectChangeEvent<number>) => {
+    onFullApprovalThresholdChange(Number(event.target.value))
   }
 
   return (
@@ -70,6 +101,41 @@ export function PullRequestsToolbar({
         >
           Refresh
         </Button>
+
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<Icon href={svgConfiguration} />}
+          onClick={handleOpenOptions}
+          disabled={!patConfigured}
+        >
+          Options
+        </Button>
+
+        <Dialog open={isOptionsDialogOpen} onClose={handleCloseOptions} fullWidth maxWidth="xs">
+          <DialogTitle>Pull request options</DialogTitle>
+          <DialogContent>
+            <Typography variant="body-sm" sx={{ fontWeight: 700, mb: 0.75 }}>
+              Approvals for full approval
+            </Typography>
+
+            <FormControl size="small" fullWidth>
+              <Select<number>
+                value={fullApprovalThreshold}
+                onChange={handleFullApprovalThresholdChange}
+              >
+                {[0, 1, 2, 3, 4, 5].map((value) => (
+                  <MenuItem key={`approvals-threshold-${value}`} value={value}>
+                    {value}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button size="small" onClick={handleCloseOptions}>Close</Button>
+          </DialogActions>
+        </Dialog>
       </TeamToolbarControls>
     </PageToolbar>
   )

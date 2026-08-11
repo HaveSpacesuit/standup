@@ -30,6 +30,7 @@ export type WorkItemPullRequestSummary = {
   title: string
   url: string
   iconUrl?: string
+  approvalCount?: number
   reviewState?: 'rejected' | 'waiting-for-author' | 'partially-approved' | 'fully-approved'
   checks?: PullRequestChecksSummary
 }

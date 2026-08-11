@@ -22,6 +22,21 @@ import { StandupToolbar } from './features/standup/components/StandupToolbar'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 
 type AppView = 'team-assignments' | 'pull-requests'
+const PULL_REQUEST_FULL_APPROVAL_THRESHOLD_STORAGE_KEY = 'standup:pull-requests-full-approval-threshold'
+
+function getInitialPullRequestFullApprovalThreshold(): number {
+  const rawValue = localStorage.getItem(PULL_REQUEST_FULL_APPROVAL_THRESHOLD_STORAGE_KEY)
+  if (!rawValue) {
+    return 2
+  }
+
+  const parsed = Number.parseInt(rawValue, 10)
+  if (!Number.isFinite(parsed)) {
+    return 2
+  }
+
+  return Math.min(Math.max(parsed, 0), 10)
+}
 
 function getViewFromHash(hash: string): AppView {
   if (hash === '#pull-requests') {
@@ -45,6 +60,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
   const [activeView, setActiveView] = useState<AppView>(() => getViewFromHash(window.location.hash))
   const [selectedPullRequestAuthorFilter, setSelectedPullRequestAuthorFilter] = useState('')
+  const [pullRequestFullApprovalThreshold, setPullRequestFullApprovalThreshold] = useState(getInitialPullRequestFullApprovalThreshold)
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
 
   const {
@@ -141,6 +157,13 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
       setSelectedPullRequestAuthorFilter('')
     }
   }, [pullRequestAuthorFilterOptions, selectedPullRequestAuthorFilter])
+
+  useEffect(() => {
+    localStorage.setItem(
+      PULL_REQUEST_FULL_APPROVAL_THRESHOLD_STORAGE_KEY,
+      String(pullRequestFullApprovalThreshold),
+    )
+  }, [pullRequestFullApprovalThreshold])
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -311,6 +334,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
               selectedAuthorFilter={selectedPullRequestAuthorFilter}
               authorFilterOptions={pullRequestAuthorFilterOptions}
               onAuthorFilterChange={setSelectedPullRequestAuthorFilter}
+              fullApprovalThreshold={pullRequestFullApprovalThreshold}
+              onFullApprovalThresholdChange={setPullRequestFullApprovalThreshold}
               onRefresh={onRefresh}
               isPullRequestsLoading={activeTeamPullRequestsLoading}
             />
@@ -318,6 +343,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             <PullRequestsList
               isLoading={activeTeamPullRequestsLoading}
               pullRequests={filteredPullRequests}
+              fullApprovalThreshold={pullRequestFullApprovalThreshold}
             />
 
             <Box
