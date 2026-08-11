@@ -31,6 +31,29 @@ export type WorkItemPullRequestSummary = {
   url: string
   iconUrl?: string
   reviewState?: 'rejected' | 'waiting-for-author' | 'partially-approved' | 'fully-approved'
+  checks?: PullRequestChecksSummary
+}
+
+export type PullRequestChecksAggregateState = 'passing' | 'pending' | 'failing'
+
+export type PullRequestCheckState = PullRequestChecksAggregateState
+
+export type PullRequestCheckDetail = {
+  name: string
+  state: PullRequestCheckState
+  optional: boolean
+  expired: boolean
+  source: 'status' | 'build' | 'policy-derived'
+}
+
+export type PullRequestChecksSummary = {
+  state: PullRequestChecksAggregateState
+  total: number
+  passing: number
+  pending: number
+  failing: number
+  failingNames: string[]
+  checks: PullRequestCheckDetail[]
 }
 
 export type WorkItemSummary = {

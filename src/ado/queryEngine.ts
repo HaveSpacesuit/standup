@@ -4,7 +4,7 @@ import { AdoHttpClient } from './httpClient'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
 import { fetchIterationWindowInfo } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
-import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
+import { fetchActiveTeamPullRequestItems, fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
 import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
@@ -179,6 +179,19 @@ export class AdoQueryEngine {
       members,
       visibleWorkItems,
       currentIteration,
+      signal,
+    )
+  }
+
+  async getActiveTeamPullRequestItems(
+    team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,
+    members: TeamMember[],
+    signal?: AbortSignal,
+  ): Promise<WorkItemSummary[]> {
+    return fetchActiveTeamPullRequestItems(
+      this.client,
+      team,
+      members,
       signal,
     )
   }

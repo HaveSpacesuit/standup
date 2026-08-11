@@ -13,7 +13,7 @@ import svgCalendar from '@stratakit/icons/calendar.svg'
 import { teamProfiles } from './teamProfiles'
 import { KanbanBoard } from './features/standup/components/KanbanBoard'
 import { HiddenTagsDialog } from './features/standup/components/HiddenTagsDialog'
-import { PullRequestsPlaceholder } from './features/standup/components/PullRequestsPlaceholder'
+import { PullRequestsList } from './features/standup/components/PullRequestsList'
 import { PullRequestsToolbar } from './features/standup/components/PullRequestsToolbar'
 import { SprintSummaryBar } from './features/standup/components/SprintSummaryBar'
 import { StandupToolbar } from './features/standup/components/StandupToolbar'
@@ -53,6 +53,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     workItemsError,
     assigneesError,
     members,
+    activeTeamPullRequests,
+    activeTeamPullRequestsLoading,
     visibleBoardItems,
     currentIterationName,
     iterationWindow,
@@ -242,13 +244,19 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         ) : (
           <>
             <PullRequestsToolbar
+              patConfigured={patConfigured}
               teamOptions={teamProfiles}
               selectedTeamId={selectedTeamId}
               onTeamChange={onTeamChange}
               teamManagementUrl={teamManagementUrl}
+              onRefresh={onRefresh}
+              isPullRequestsLoading={activeTeamPullRequestsLoading}
             />
 
-            <PullRequestsPlaceholder />
+            <PullRequestsList
+              isLoading={activeTeamPullRequestsLoading}
+              pullRequests={activeTeamPullRequests}
+            />
           </>
         )}
       </Box>

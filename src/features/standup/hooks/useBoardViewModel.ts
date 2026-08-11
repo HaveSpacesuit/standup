@@ -5,6 +5,7 @@ import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, WorkIte
 import { teamProfiles } from '../../../teamProfiles'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
 import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHistoryHighlights'
+import { useActiveTeamPullRequests } from './useActiveTeamPullRequests'
 import { useTeamData } from './useTeamData'
 import { useWorkItemAssignees } from './useWorkItemAssignees'
 import {
@@ -39,6 +40,8 @@ type UseBoardViewModelResult = {
   workItemsError: string | null
   assigneesError: string | null
   members: TeamMember[]
+  activeTeamPullRequests: WorkItemSummary[]
+  activeTeamPullRequestsLoading: boolean
   visibleBoardItems: WorkItemSummary[]
   currentIterationName: string | null
   iterationWindow: IterationWindowInfo
@@ -168,6 +171,14 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     workItems: boardItems,
     workItemsLoading: workItemsLoading || pullRequestBoardItemsLoading,
     workItemsError,
+  })
+
+  const { pullRequests: activeTeamPullRequests, pullRequestsLoading: activeTeamPullRequestsLoading } = useActiveTeamPullRequests({
+    adoQueryEngine,
+    selectedTeam,
+    members,
+    membersLoading,
+    membersError,
   })
 
   const quickFilterMatchedBoardItems = useMemo(
@@ -305,6 +316,8 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     workItemsError,
     assigneesError,
     members,
+    activeTeamPullRequests,
+    activeTeamPullRequestsLoading,
     visibleBoardItems,
     currentIterationName: currentIteration?.name ?? null,
     iterationWindow,
