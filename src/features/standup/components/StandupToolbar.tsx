@@ -62,7 +62,7 @@ export function StandupToolbar({
   }
 
   return (
-    <PageToolbar iconHref={svgUsers} title="Team Standup">
+    <PageToolbar iconHref={svgUsers} title="Team Assignments">
         <TextField
           size="small"
           placeholder="Quick filter cards"

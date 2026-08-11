@@ -21,10 +21,18 @@ import { SprintSummaryBar } from './features/standup/components/SprintSummaryBar
 import { StandupToolbar } from './features/standup/components/StandupToolbar'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 
-type AppView = 'standup' | 'pull-requests'
+type AppView = 'team-assignments' | 'pull-requests'
 
 function getViewFromHash(hash: string): AppView {
-  return hash === '#pull-requests' ? 'pull-requests' : 'standup'
+  if (hash === '#pull-requests') {
+    return 'pull-requests'
+  }
+
+  if (hash === '#team-assignments' || !hash) {
+    return 'team-assignments'
+  }
+
+  return 'team-assignments'
 }
 
 type AppProps = {
@@ -99,7 +107,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   }, [])
 
   useEffect(() => {
-    document.title = activeView === 'pull-requests' ? 'Pull Requests' : 'Standup'
+    document.title = activeView === 'pull-requests' ? 'Pull Requests' : 'Team Assignments'
   }, [activeView])
 
   useEffect(() => {
@@ -125,8 +133,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
       }
 
       event.preventDefault()
-      if (activeView !== 'standup') {
-        window.location.hash = '#standup'
+      if (activeView !== 'team-assignments') {
+        window.location.hash = '#team-assignments'
       }
       quickFilterInputRef.current?.focus()
       quickFilterInputRef.current?.select()
@@ -150,10 +158,10 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
           <NavigationRail.List>
             <NavigationRail.ListItem>
               <NavigationRail.Anchor
-                href="#standup"
-                label="Standup"
+                href="#team-assignments"
+                label="Team assignments"
                 icon={svgUsers}
-                active={activeView === 'standup'}
+                active={activeView === 'team-assignments'}
               />
             </NavigationRail.ListItem>
             <NavigationRail.ListItem>
@@ -170,7 +178,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
       </NavigationRail.Root>
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {activeView === 'standup' ? (
+        {activeView === 'team-assignments' ? (
           <>
             <StandupToolbar
               patConfigured={patConfigured}
