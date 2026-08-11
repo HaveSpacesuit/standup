@@ -17,6 +17,8 @@ type PullRequestSection = {
   items: WorkItemSummary[]
 }
 
+type MergeReadiness = 'blocked' | 'waiting-on-checks' | 'waiting-on-reviewers' | 'ready-to-merge'
+
 function formatOpenedDate(value: string | undefined): string {
   if (!value) {
     return 'Unknown date'
@@ -72,6 +74,44 @@ function formatCheckName(item: { name: string, expired: boolean }): string {
 
 function formatCheckList(names: string[]): string {
   return names.join(', ')
+}
+
+function getRequiredChecksState(item: WorkItemSummary): 'passing' | 'pending' | 'failing' {
+  const checks = item.pullRequest?.checks?.checks ?? []
+  const requiredChecks = checks.filter((check) => !check.optional)
+
+  if (requiredChecks.some((check) => check.state === 'failing')) {
+    return 'failing'
+  }
+
+  if (requiredChecks.some((check) => check.state === 'pending')) {
+    return 'pending'
+  }
+
+  return 'passing'
+}
+
+function getMergeReadiness(item: WorkItemSummary): MergeReadiness {
+  const reviewState = item.pullRequest?.reviewState
+  const requiredChecksState = getRequiredChecksState(item)
+
+  if (
+    requiredChecksState === 'failing'
+    || reviewState === 'rejected'
+    || reviewState === 'waiting-for-author'
+  ) {
+    return 'blocked'
+  }
+
+  if (requiredChecksState === 'pending') {
+    return 'waiting-on-checks'
+  }
+
+  if (reviewState !== 'fully-approved') {
+    return 'waiting-on-reviewers'
+  }
+
+  return 'ready-to-merge'
 }
 
 function getChecksPresentation(item: WorkItemSummary): {
@@ -144,18 +184,16 @@ function getChecksPresentation(item: WorkItemSummary): {
 }
 
 function createSections(pullRequests: WorkItemSummary[]): PullRequestSection[] {
-  const approved = pullRequests.filter((item) => item.pullRequest?.reviewState === 'fully-approved')
-  const partiallyApproved = pullRequests.filter((item) => item.pullRequest?.reviewState === 'partially-approved')
-  const waitingForAuthor = pullRequests.filter((item) => item.pullRequest?.reviewState === 'waiting-for-author')
-  const rejected = pullRequests.filter((item) => item.pullRequest?.reviewState === 'rejected')
-  const other = pullRequests.filter((item) => !item.pullRequest?.reviewState)
+  const readyToMerge = pullRequests.filter((item) => getMergeReadiness(item) === 'ready-to-merge')
+  const waitingOnChecks = pullRequests.filter((item) => getMergeReadiness(item) === 'waiting-on-checks')
+  const waitingOnReviewers = pullRequests.filter((item) => getMergeReadiness(item) === 'waiting-on-reviewers')
+  const blocked = pullRequests.filter((item) => getMergeReadiness(item) === 'blocked')
 
   return [
-    { key: 'approved', title: 'Approved', items: approved },
-    { key: 'partially-approved', title: 'Partially approved', items: partiallyApproved },
-    { key: 'waiting-for-author', title: 'Waiting for author', items: waitingForAuthor },
-    { key: 'rejected', title: 'Rejected', items: rejected },
-    { key: 'open', title: 'Open', items: other },
+    { key: 'ready-to-merge', title: 'Ready to merge', items: readyToMerge },
+    { key: 'waiting-on-checks', title: 'Waiting on checks', items: waitingOnChecks },
+    { key: 'waiting-on-reviewers', title: 'Waiting on reviewers', items: waitingOnReviewers },
+    { key: 'blocked', title: 'Blocked', items: blocked },
   ].filter((section) => section.items.length > 0)
 }
 
