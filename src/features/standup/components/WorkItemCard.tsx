@@ -1,4 +1,4 @@
-import { Badge, Card, Chip, Typography } from '@mui/material'
+import { Avatar, Badge, Card, Chip, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
@@ -209,7 +209,7 @@ export function WorkItemCard({ item, highlightState = 'none', footer }: WorkItem
           sx={{
             display: 'block',
             minWidth: 0,
-            mb: isPullRequestOnly ? 0 : 1.2,
+            mb: 'calc(1.2 * var(--stratakit-mui-spacing))',
             color: 'text.primary',
             textDecoration: 'none',
             '&:hover': {
@@ -362,6 +362,39 @@ export function WorkItemCard({ item, highlightState = 'none', footer }: WorkItem
                 </Box>
               )
             })}
+          </Box>
+        ) : null}
+
+        {isPullRequestOnly ? (
+          <Box
+            sx={{
+              mt: 0.8,
+              clear: 'both',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              minWidth: 0,
+            }}
+          >
+            <Avatar
+              alt={item.assignedTo?.displayName ?? ''}
+              src={item.assignedTo?.imageUrl}
+              sx={{ width: 16, height: 16, fontSize: 8 }}
+            />
+            <Typography
+              variant="body-sm"
+              sx={{
+                fontSize: 10,
+                lineHeight: 1.1,
+                color: 'text.secondary',
+                opacity: 0.85,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {item.assignedTo?.displayName ?? item.assignedTo?.uniqueName ?? ''}
+            </Typography>
           </Box>
         ) : null}
 

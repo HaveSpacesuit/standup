@@ -1,6 +1,7 @@
 export type IdentityRef = {
   displayName?: string
   uniqueName?: string
+  imageUrl?: string
 }
 
 export function parseAssignedTo(value: unknown): IdentityRef | undefined {
@@ -9,7 +10,7 @@ export function parseAssignedTo(value: unknown): IdentityRef | undefined {
   }
 
   if (typeof value === 'object') {
-    const candidate = value as { displayName?: unknown; uniqueName?: unknown; name?: unknown }
+    const candidate = value as { displayName?: unknown; uniqueName?: unknown; name?: unknown; imageUrl?: unknown }
     const displayName =
       typeof candidate.displayName === 'string'
         ? candidate.displayName
@@ -17,9 +18,10 @@ export function parseAssignedTo(value: unknown): IdentityRef | undefined {
           ? candidate.name
           : undefined
     const uniqueName = typeof candidate.uniqueName === 'string' ? candidate.uniqueName : undefined
+    const imageUrl = typeof candidate.imageUrl === 'string' ? candidate.imageUrl : undefined
 
     if (displayName || uniqueName) {
-      return { displayName, uniqueName }
+      return { displayName, uniqueName, imageUrl }
     }
 
     return undefined

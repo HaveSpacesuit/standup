@@ -19,36 +19,21 @@ type PullRequestSection = {
 
 type MergeReadiness = 'blocked' | 'waiting-on-checks' | 'waiting-on-reviewers' | 'ready-to-merge'
 
-function formatOpenedDate(value: string | undefined): string {
-  if (!value) {
-    return 'Unknown date'
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return 'Unknown date'
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(parsed)
+function formatCheckName(item: { name: string, expired: boolean }): string {
+  return item.expired ? `${item.name} (expired)` : item.name
 }
 
 function formatAge(value: string | undefined): string {
   if (!value) {
-    return 'unknown age'
+    return ''
   }
 
   const openedAt = Date.parse(value)
   if (Number.isNaN(openedAt)) {
-    return 'unknown age'
+    return ''
   }
 
-  const elapsedMs = Math.max(Date.now() - openedAt, 0)
-  const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60))
-
+  const elapsedHours = Math.floor(Math.max(Date.now() - openedAt, 0) / (1000 * 60 * 60))
   if (elapsedHours < 24) {
     return `${elapsedHours}h old`
   }
@@ -58,18 +43,7 @@ function formatAge(value: string | undefined): string {
     return `${elapsedDays}d old`
   }
 
-  const elapsedWeeks = Math.floor(elapsedDays / 7)
-  return `${elapsedWeeks}w old`
-}
-
-function getAuthorLabel(item: WorkItemSummary): string {
-  return item.assignedTo?.displayName?.trim()
-    || item.assignedTo?.uniqueName?.trim()
-    || 'Unknown author'
-}
-
-function formatCheckName(item: { name: string, expired: boolean }): string {
-  return item.expired ? `${item.name} (expired)` : item.name
+  return `${Math.floor(elapsedDays / 7)}w old`
 }
 
 function formatCheckList(names: string[]): string {
@@ -273,8 +247,10 @@ export function PullRequestsList({ isLoading, pullRequests }: PullRequestsListPr
             <Box sx={{ display: 'grid', gap: 1 }}>
               {section.items.map((pullRequest) => {
                 const checks = getChecksPresentation(pullRequest)
+                const age = formatAge(pullRequest.recentActivityAt)
                 const checksFooter = (
-                  <Box sx={{ display: 'grid', gap: 0.35, minWidth: 0 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'grid', gap: 0.35, minWidth: 0, flex: '1 1 auto' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: checks.color, minWidth: 0 }}>
                       <Icon href={checks.iconHref} size="regular" />
                       {checks.text ? (
@@ -323,14 +299,28 @@ export function PullRequestsList({ isLoading, pullRequests }: PullRequestsListPr
                         </Typography>
                       </Box>
                     ))}
+                    </Box>
+                    {age ? (
+                      <Typography
+                        variant="body-sm"
+                        sx={{
+                          flex: '0 0 auto',
+                          fontSize: 10,
+                          lineHeight: 1.1,
+                          color: 'text.secondary',
+                          opacity: 0.85,
+                          whiteSpace: 'nowrap',
+                          alignSelf: 'center',
+                        }}
+                      >
+                        {age}
+                      </Typography>
+                    ) : null}
                   </Box>
                 )
 
                 return (
-                  <Box key={pullRequest.id} sx={{ display: 'grid', gap: 0.5 }}>
-                    <Typography variant="body-sm" color="text.secondary">
-                      {getAuthorLabel(pullRequest)} • Opened {formatOpenedDate(pullRequest.recentActivityAt)} ({formatAge(pullRequest.recentActivityAt)})
-                    </Typography>
+                  <Box key={pullRequest.id}>
                     <WorkItemCard item={pullRequest} footer={checksFooter} />
                   </Box>
                 )
