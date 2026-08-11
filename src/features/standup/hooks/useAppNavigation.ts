@@ -7,7 +7,7 @@ type UseAppNavigationArgs = {
   memberFilterOptions: string[]
   selectedMemberFilter: string
   onMemberFilterChange: (memberLabel: string) => void
-  quickFilterInputRef: RefObject<HTMLInputElement | null>
+  quickFilterInputRefs: Partial<Record<AppView, RefObject<HTMLInputElement | null>>>
 }
 
 type UseAppNavigationResult = {
@@ -36,7 +36,7 @@ export function useAppNavigation({
   memberFilterOptions,
   selectedMemberFilter,
   onMemberFilterChange,
-  quickFilterInputRef,
+  quickFilterInputRefs,
 }: UseAppNavigationArgs): UseAppNavigationResult {
   const [activeView, setActiveView] = useState<AppView>(() => getViewFromHash(window.location.hash))
 
@@ -97,18 +97,16 @@ export function useAppNavigation({
       }
 
       event.preventDefault()
-      if (activeView !== 'team-assignments') {
-        window.location.hash = '#team-assignments'
-      }
-      quickFilterInputRef.current?.focus()
-      quickFilterInputRef.current?.select()
+      const quickFilterInputRef = quickFilterInputRefs[activeView] ?? quickFilterInputRefs['team-assignments']
+      quickFilterInputRef?.current?.focus()
+      quickFilterInputRef?.current?.select()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [activeView, onMemberFilterCycle, quickFilterInputRef])
+  }, [activeView, onMemberFilterCycle, quickFilterInputRefs])
 
   return {
     activeView,

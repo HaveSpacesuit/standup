@@ -1,7 +1,9 @@
-import { FormControl, IconButton, MenuItem, Select, type SelectChangeEvent } from '@mui/material'
+import { type RefObject } from 'react'
+import { Box, IconButton, InputAdornment, TextField } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
+import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgUserSettings from '@stratakit/icons/user-settings.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
@@ -12,9 +14,10 @@ type QualityAssuranceToolbarProps = {
   selectedTeamId: string
   onTeamChange: (value: string) => void
   teamManagementUrl: string
-  selectedActivityFilter: string
-  activityFilterOptions: string[]
-  onActivityFilterChange: (value: string) => void
+  quickFilterInput: string
+  onQuickFilterInputChange: (value: string) => void
+  onQuickFilterClear: () => void
+  quickFilterInputRef: RefObject<HTMLInputElement | null>
   onRefresh: () => void
   isLoading: boolean
 }
@@ -25,36 +28,42 @@ export function QualityAssuranceToolbar({
   selectedTeamId,
   onTeamChange,
   teamManagementUrl,
-  selectedActivityFilter,
-  activityFilterOptions,
-  onActivityFilterChange,
+  quickFilterInput,
+  onQuickFilterInputChange,
+  onQuickFilterClear,
+  quickFilterInputRef,
   onRefresh,
   isLoading,
 }: QualityAssuranceToolbarProps) {
-  const handleActivityFilterChange = (event: SelectChangeEvent<string>) => {
-    onActivityFilterChange(event.target.value)
-  }
-
   return (
     <PageToolbar iconHref={svgClipboard} title="Quality Assurance">
-      <FormControl size="small" sx={{ minWidth: 230, maxWidth: 300 }}>
-        <Select
-          displayEmpty
-          value={selectedActivityFilter}
-          onChange={handleActivityFilterChange}
-          disabled={!patConfigured || activityFilterOptions.length === 0}
-          renderValue={(value) =>
-            value && typeof value === 'string' ? value : 'All QA activity'
-          }
-        >
-          <MenuItem value="">All QA activity</MenuItem>
-          {activityFilterOptions.map((option) => (
-            <MenuItem key={option} value={option}>
-              {option}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+        <TextField
+          size="small"
+          placeholder="Quick filter cards"
+          value={quickFilterInput}
+          onChange={(event) => onQuickFilterInputChange(event.target.value)}
+          inputRef={quickFilterInputRef}
+          disabled={!patConfigured}
+          sx={{ minWidth: 230, maxWidth: 320 }}
+          slotProps={{
+            input: {
+              endAdornment: quickFilterInput ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    edge="end"
+                    aria-label="Clear quick filter"
+                    onClick={onQuickFilterClear}
+                  >
+                    <Icon href={svgDismiss} />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            },
+          }}
+        />
+      </Box>
 
       <TeamToolbarControls
         teamOptions={teamOptions}

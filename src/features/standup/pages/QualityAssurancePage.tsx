@@ -1,4 +1,5 @@
 import type { WorkItemSummary } from '../../../ado/queryEngine'
+import type { RefObject } from 'react'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { QualityAssuranceList } from '../components/QualityAssuranceList'
 import { QualityAssuranceToolbar } from '../components/QualityAssuranceToolbar'
@@ -9,6 +10,10 @@ type QualityAssurancePageProps = {
   selectedTeamId: string
   onTeamChange: (value: string) => void
   teamManagementUrl: string
+  quickFilterInput: string
+  onQuickFilterInputChange: (value: string) => void
+  onQuickFilterClear: () => void
+  quickFilterInputRef: RefObject<HTMLInputElement | null>
   onRefresh: () => void
   isLoading: boolean
   newItems: WorkItemSummary[]
@@ -21,6 +26,10 @@ export function QualityAssurancePage({
   selectedTeamId,
   onTeamChange,
   teamManagementUrl,
+  quickFilterInput,
+  onQuickFilterInputChange,
+  onQuickFilterClear,
+  quickFilterInputRef,
   onRefresh,
   isLoading,
   newItems,
@@ -34,9 +43,10 @@ export function QualityAssurancePage({
         selectedTeamId={selectedTeamId}
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
-        selectedActivityFilter=""
-        activityFilterOptions={[]}
-        onActivityFilterChange={() => {}}
+        quickFilterInput={quickFilterInput}
+        onQuickFilterInputChange={onQuickFilterInputChange}
+        onQuickFilterClear={onQuickFilterClear}
+        quickFilterInputRef={quickFilterInputRef}
         onRefresh={onRefresh}
         isLoading={isLoading}
       />

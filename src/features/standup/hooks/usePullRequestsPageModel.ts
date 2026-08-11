@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
+import { matchesQuickFilter, normalizeQuickFilterText } from '../utils/boardFilters'
 
 type UsePullRequestsPageModelArgs = {
   activeTeamPullRequests: WorkItemSummary[]
 }
 
 type UsePullRequestsPageModelResult = {
+  quickFilterInput: string
+  onQuickFilterInputChange: (value: string) => void
+  onQuickFilterClear: () => void
   selectedAuthorFilter: string
   authorFilterOptions: string[]
   onAuthorFilterChange: (value: string) => void
@@ -37,13 +41,30 @@ function normalizeDisplayName(name: string): string {
 export function usePullRequestsPageModel({
   activeTeamPullRequests,
 }: UsePullRequestsPageModelArgs): UsePullRequestsPageModelResult {
+  const [quickFilterInput, setQuickFilterInput] = useState('')
   const [selectedAuthorFilter, setSelectedAuthorFilter] = useState('')
   const [fullApprovalThreshold, setFullApprovalThreshold] = useState(getInitialFullApprovalThreshold)
+
+  const normalizedQuickFilterText = useMemo(
+    () => normalizeQuickFilterText(quickFilterInput),
+    [quickFilterInput],
+  )
+
+  const quickFilterMatchedPullRequests = useMemo(
+    () => activeTeamPullRequests.filter((pullRequest) => {
+      const assignee = pullRequest.assignedTo?.displayName
+        ? { kind: 'team-member' as const, label: pullRequest.assignedTo.displayName }
+        : undefined
+
+      return matchesQuickFilter(pullRequest, normalizedQuickFilterText, assignee)
+    }),
+    [activeTeamPullRequests, normalizedQuickFilterText],
+  )
 
   const authorFilterOptions = useMemo(() => {
     const labels = new Set<string>()
 
-    for (const pullRequest of activeTeamPullRequests) {
+    for (const pullRequest of quickFilterMatchedPullRequests) {
       const authorName = pullRequest.assignedTo?.displayName?.trim()
       if (!authorName) {
         continue
@@ -53,16 +74,16 @@ export function usePullRequestsPageModel({
     }
 
     return [...labels].sort((left, right) => left.localeCompare(right))
-  }, [activeTeamPullRequests])
+  }, [quickFilterMatchedPullRequests])
 
   const filteredPullRequests = useMemo(() => {
     if (!selectedAuthorFilter) {
-      return activeTeamPullRequests
+      return quickFilterMatchedPullRequests
     }
 
     const normalizedSelectedAuthor = normalizeDisplayName(selectedAuthorFilter)
 
-    return activeTeamPullRequests.filter((pullRequest) => {
+    return quickFilterMatchedPullRequests.filter((pullRequest) => {
       const authorName = pullRequest.assignedTo?.displayName
       if (!authorName) {
         return false
@@ -70,7 +91,7 @@ export function usePullRequestsPageModel({
 
       return normalizeDisplayName(authorName) === normalizedSelectedAuthor
     })
-  }, [activeTeamPullRequests, selectedAuthorFilter])
+  }, [quickFilterMatchedPullRequests, selectedAuthorFilter])
 
   useEffect(() => {
     if (!selectedAuthorFilter) {
@@ -94,6 +115,9 @@ export function usePullRequestsPageModel({
   }, [fullApprovalThreshold])
 
   return {
+    quickFilterInput,
+    onQuickFilterInputChange: setQuickFilterInput,
+    onQuickFilterClear: () => setQuickFilterInput(''),
     selectedAuthorFilter,
     authorFilterOptions,
     onAuthorFilterChange: setSelectedAuthorFilter,

@@ -5,6 +5,7 @@ import { AppNavigationRail } from './features/standup/components/AppNavigationRa
 import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 import { usePullRequestsPageModel } from './features/standup/hooks/usePullRequestsPageModel'
+import { useQualityAssurancePageModel } from './features/standup/hooks/useQualityAssurancePageModel'
 import { PullRequestsPage } from './features/standup/pages/PullRequestsPage'
 import { QualityAssurancePage } from './features/standup/pages/QualityAssurancePage'
 import { TeamAssignmentsPage } from './features/standup/pages/TeamAssignmentsPage'
@@ -17,6 +18,8 @@ type AppProps = {
 
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
+  const pullRequestsQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
+  const qualityAssuranceQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
 
   const {
     selectedTeamId,
@@ -49,6 +52,9 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   } = useBoardViewModel({ patConfigured })
 
   const {
+    quickFilterInput: pullRequestsQuickFilterInput,
+    onQuickFilterInputChange: onPullRequestsQuickFilterInputChange,
+    onQuickFilterClear: onPullRequestsQuickFilterClear,
     selectedAuthorFilter,
     authorFilterOptions,
     onAuthorFilterChange,
@@ -57,12 +63,23 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     filteredPullRequests,
   } = usePullRequestsPageModel({ activeTeamPullRequests })
 
+  const {
+    quickFilterInput: qualityAssuranceQuickFilterInput,
+    onQuickFilterInputChange: onQualityAssuranceQuickFilterInputChange,
+    onQuickFilterClear: onQualityAssuranceQuickFilterClear,
+    filteredNewItems: filteredQaNewItems,
+  } = useQualityAssurancePageModel({ newItems: qaNewItems })
+
   const { activeView, onMemberFilterCycle } = useAppNavigation({
     patConfigured,
     memberFilterOptions,
     selectedMemberFilter,
     onMemberFilterChange,
-    quickFilterInputRef,
+    quickFilterInputRefs: {
+      'team-assignments': quickFilterInputRef,
+      'pull-requests': pullRequestsQuickFilterInputRef,
+      'qa-activity': qualityAssuranceQuickFilterInputRef,
+    },
   })
 
   return (
@@ -112,6 +129,10 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             selectedTeamId={selectedTeamId}
             onTeamChange={onTeamChange}
             teamManagementUrl={teamManagementUrl}
+            quickFilterInput={pullRequestsQuickFilterInput}
+            onQuickFilterInputChange={onPullRequestsQuickFilterInputChange}
+            onQuickFilterClear={onPullRequestsQuickFilterClear}
+            quickFilterInputRef={pullRequestsQuickFilterInputRef}
             selectedAuthorFilter={selectedAuthorFilter}
             authorFilterOptions={authorFilterOptions}
             onAuthorFilterChange={onAuthorFilterChange}
@@ -128,9 +149,13 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             selectedTeamId={selectedTeamId}
             onTeamChange={onTeamChange}
             teamManagementUrl={teamManagementUrl}
+            quickFilterInput={qualityAssuranceQuickFilterInput}
+            onQuickFilterInputChange={onQualityAssuranceQuickFilterInputChange}
+            onQuickFilterClear={onQualityAssuranceQuickFilterClear}
+            quickFilterInputRef={qualityAssuranceQuickFilterInputRef}
             onRefresh={onRefresh}
             isLoading={qaNewItemsLoading}
-            newItems={qaNewItems}
+            newItems={filteredQaNewItems}
             newItemsError={qaNewItemsError}
           />
         )}

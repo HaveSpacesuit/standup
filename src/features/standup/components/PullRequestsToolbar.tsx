@@ -1,14 +1,18 @@
-import { useState } from 'react'
+import { useState, type RefObject } from 'react'
 import {
+  Box,
   FormControl,
   IconButton,
+  InputAdornment,
   MenuItem,
   Select,
+  TextField,
   type SelectChangeEvent,
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgGitMerge from '@stratakit/icons/git-merge.svg'
+import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgUserSettings from '@stratakit/icons/user-settings.svg'
 import { PullRequestsOptionsDialog } from './PullRequestsOptionsDialog'
 import { PageToolbar } from './PageToolbar'
@@ -20,6 +24,10 @@ type PullRequestsToolbarProps = {
   selectedTeamId: string
   onTeamChange: (value: string) => void
   teamManagementUrl: string
+  quickFilterInput: string
+  onQuickFilterInputChange: (value: string) => void
+  onQuickFilterClear: () => void
+  quickFilterInputRef: RefObject<HTMLInputElement | null>
   selectedAuthorFilter: string
   authorFilterOptions: string[]
   onAuthorFilterChange: (value: string) => void
@@ -35,6 +43,10 @@ export function PullRequestsToolbar({
   selectedTeamId,
   onTeamChange,
   teamManagementUrl,
+  quickFilterInput,
+  onQuickFilterInputChange,
+  onQuickFilterClear,
+  quickFilterInputRef,
   selectedAuthorFilter,
   authorFilterOptions,
   onAuthorFilterChange,
@@ -59,24 +71,52 @@ export function PullRequestsToolbar({
 
   return (
     <PageToolbar iconHref={svgGitMerge} title="Pull Requests">
-      <FormControl size="small" sx={{ minWidth: 210, maxWidth: 270 }}>
-        <Select
-          displayEmpty
-          value={selectedAuthorFilter}
-          onChange={handleAuthorFilterChange}
-          disabled={!patConfigured || authorFilterOptions.length === 0}
-          renderValue={(value) =>
-            value && typeof value === 'string' ? value : 'All team members'
-          }
-        >
-          <MenuItem value="">All team members</MenuItem>
-          {authorFilterOptions.map((authorName) => (
-            <MenuItem key={authorName} value={authorName}>
-              {authorName}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+        <TextField
+          size="small"
+          placeholder="Quick filter cards"
+          value={quickFilterInput}
+          onChange={(event) => onQuickFilterInputChange(event.target.value)}
+          inputRef={quickFilterInputRef}
+          disabled={!patConfigured}
+          sx={{ minWidth: 230, maxWidth: 320 }}
+          slotProps={{
+            input: {
+              endAdornment: quickFilterInput ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    edge="end"
+                    aria-label="Clear quick filter"
+                    onClick={onQuickFilterClear}
+                  >
+                    <Icon href={svgDismiss} />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            },
+          }}
+        />
+
+        <FormControl size="small" sx={{ minWidth: 210, maxWidth: 270 }}>
+          <Select
+            displayEmpty
+            value={selectedAuthorFilter}
+            onChange={handleAuthorFilterChange}
+            disabled={!patConfigured || authorFilterOptions.length === 0}
+            renderValue={(value) =>
+              value && typeof value === 'string' ? value : 'All team members'
+            }
+          >
+            <MenuItem value="">All team members</MenuItem>
+            {authorFilterOptions.map((authorName) => (
+              <MenuItem key={authorName} value={authorName}>
+                {authorName}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
 
       <TeamToolbarControls
         teamOptions={teamOptions}

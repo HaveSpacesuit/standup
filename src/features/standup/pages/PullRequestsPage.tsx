@@ -2,6 +2,7 @@ import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { PullRequestsList } from '../components/PullRequestsList'
 import { PullRequestsToolbar } from '../components/PullRequestsToolbar'
+import type { RefObject } from 'react'
 
 type PullRequestsPageProps = {
   patConfigured: boolean
@@ -9,6 +10,10 @@ type PullRequestsPageProps = {
   selectedTeamId: string
   onTeamChange: (value: string) => void
   teamManagementUrl: string
+  quickFilterInput: string
+  onQuickFilterInputChange: (value: string) => void
+  onQuickFilterClear: () => void
+  quickFilterInputRef: RefObject<HTMLInputElement | null>
   selectedAuthorFilter: string
   authorFilterOptions: string[]
   onAuthorFilterChange: (value: string) => void
@@ -25,6 +30,10 @@ export function PullRequestsPage({
   selectedTeamId,
   onTeamChange,
   teamManagementUrl,
+  quickFilterInput,
+  onQuickFilterInputChange,
+  onQuickFilterClear,
+  quickFilterInputRef,
   selectedAuthorFilter,
   authorFilterOptions,
   onAuthorFilterChange,
@@ -42,6 +51,10 @@ export function PullRequestsPage({
         selectedTeamId={selectedTeamId}
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
+        quickFilterInput={quickFilterInput}
+        onQuickFilterInputChange={onQuickFilterInputChange}
+        onQuickFilterClear={onQuickFilterClear}
+        quickFilterInputRef={quickFilterInputRef}
         selectedAuthorFilter={selectedAuthorFilter}
         authorFilterOptions={authorFilterOptions}
         onAuthorFilterChange={onAuthorFilterChange}
