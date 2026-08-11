@@ -1,4 +1,4 @@
-import { Box, Button, FormControl, MenuItem, Select, Typography, type SelectChangeEvent } from '@mui/material'
+import { Box, Divider, FormControl, IconButton, MenuItem, Select, Tooltip, Typography, type SelectChangeEvent } from '@mui/material'
 import type { ReactNode } from 'react'
 import { Icon } from '@stratakit/mui'
 import svgAssign from '@stratakit/icons/assign.svg'
@@ -43,17 +43,19 @@ export function TeamToolbarControls({
         </Select>
       </FormControl>
 
-      <Button
-        size="small"
-        variant="outlined"
-        component="a"
-        href={teamManagementUrl}
-        target="_blank"
-        rel="noreferrer noopener"
-        startIcon={<Icon href={svgAssign} />}
-      >
-        Manage team
-      </Button>
+      <Tooltip title="Manage team">
+        <IconButton
+          size="small"
+          aria-label="Manage team"
+          component="a"
+          href={teamManagementUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          <Icon href={`${svgAssign}#icon-large`} size="large" />
+        </IconButton>
+      </Tooltip>
+      <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider' }} />
 
       {children}
     </Box>

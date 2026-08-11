@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
-  Button,
   FormControl,
+  IconButton,
   MenuItem,
   Select,
   type SelectChangeEvent,
@@ -10,6 +10,7 @@ import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgGitMerge from '@stratakit/icons/git-merge.svg'
+import svgUserSettings from '@stratakit/icons/user-settings.svg'
 import { PullRequestsOptionsDialog } from './PullRequestsOptionsDialog'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
@@ -84,25 +85,23 @@ export function PullRequestsToolbar({
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
       >
-        <Button
+        <IconButton
           size="small"
-          variant="outlined"
-          startIcon={<Icon href={svgCloudSync} />}
-          onClick={onRefresh}
-          disabled={!patConfigured || isPullRequestsLoading}
-        >
-          Refresh
-        </Button>
-
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<Icon href={svgConfiguration} />}
+          label="PR options"
           onClick={handleOpenOptions}
           disabled={!patConfigured}
         >
-          Options
-        </Button>
+          <Icon href={`${svgUserSettings}#icon-large`} size="large" />
+        </IconButton>
+
+        <IconButton
+          size="small"
+          label="Refresh"
+          onClick={onRefresh}
+          disabled={!patConfigured || isPullRequestsLoading}
+        >
+          <Icon href={`${svgCloudSync}#icon-large`} size="large" />
+        </IconButton>
 
         <PullRequestsOptionsDialog
           open={isOptionsDialogOpen}

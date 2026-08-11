@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   FormControl,
   IconButton,
   InputAdornment,
@@ -116,7 +115,7 @@ export function StandupToolbar({
             onClick={() => onMemberFilterCycle(-1)}
             disabled={!patConfigured || memberFilterOptions.length === 0}
           >
-            <Icon href={svgArrowUp} />
+            <Icon href={`${svgArrowUp}#icon-large`} size="large" />
           </IconButton>
 
           <IconButton
@@ -126,7 +125,7 @@ export function StandupToolbar({
             onClick={() => onMemberFilterCycle(1)}
             disabled={!patConfigured || memberFilterOptions.length === 0}
           >
-            <Icon href={svgArrowDown} />
+            <Icon href={`${svgArrowDown}#icon-large`} size="large" />
           </IconButton>
         </Box>
 
@@ -136,25 +135,22 @@ export function StandupToolbar({
           onTeamChange={onTeamChange}
           teamManagementUrl={teamManagementUrl}
         >
-          <Button
+          <IconButton
             size="small"
-            variant="outlined"
-            startIcon={<Icon href={svgCloudSync} />}
-            onClick={onRefresh}
-            disabled={!patConfigured || isTeamDataLoading}
-          >
-            Refresh
-          </Button>
-
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<Icon href={svgTag} />}
+            label="Tag rules"
             onClick={onOpenTagRulesDialog}
             disabled={!patConfigured}
           >
-            Tag rules
-          </Button>
+            <Icon href={`${svgTag}#icon-large`} size="large" />
+          </IconButton>
+          <IconButton
+            size="small"
+            label="Refresh"
+            onClick={onRefresh}
+            disabled={!patConfigured || isTeamDataLoading}
+          >
+            <Icon href={`${svgCloudSync}#icon-large`} size="large" />
+          </IconButton>
         </TeamToolbarControls>
     </PageToolbar>
   )
