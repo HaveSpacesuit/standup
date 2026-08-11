@@ -18,7 +18,6 @@ import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 type TeamAssignmentsPageProps = {
   patConfigured: boolean
   colorScheme: 'light' | 'dark'
-  onToggleColorScheme: () => void
   quickFilterInput: string
   onQuickFilterInputChange: (value: string) => void
   onQuickFilterClear: () => void
@@ -50,7 +49,6 @@ type TeamAssignmentsPageProps = {
 export function TeamAssignmentsPage({
   patConfigured,
   colorScheme,
-  onToggleColorScheme,
   quickFilterInput,
   onQuickFilterInputChange,
   onQuickFilterClear,
@@ -121,8 +119,6 @@ export function TeamAssignmentsPage({
         <SprintSummaryBar
           iterationWindow={iterationWindow}
           isLoading={iterationLoading}
-          colorScheme={colorScheme}
-          onToggleColorScheme={onToggleColorScheme}
         />
 
         <HiddenTagsDialog

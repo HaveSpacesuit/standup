@@ -63,14 +63,17 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', bgcolor: 'background.paper' }}>
-      <AppNavigationRail activeView={activeView} />
+      <AppNavigationRail
+        activeView={activeView}
+        colorScheme={colorScheme}
+        onToggleColorScheme={onToggleColorScheme}
+      />
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {activeView === 'team-assignments' ? (
           <TeamAssignmentsPage
             patConfigured={patConfigured}
             colorScheme={colorScheme}
-            onToggleColorScheme={onToggleColorScheme}
             quickFilterInput={quickFilterInput}
             onQuickFilterInputChange={setQuickFilterInput}
             onQuickFilterClear={() => setQuickFilterInput('')}
@@ -101,8 +104,6 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         ) : (
           <PullRequestsPage
             patConfigured={patConfigured}
-            colorScheme={colorScheme}
-            onToggleColorScheme={onToggleColorScheme}
             teamOptions={teamProfiles}
             selectedTeamId={selectedTeamId}
             onTeamChange={onTeamChange}

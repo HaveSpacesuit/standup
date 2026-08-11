@@ -1,11 +1,9 @@
-import { Box, Chip, FormControlLabel, Skeleton, Switch, Typography } from '@mui/material'
+import { Box, Chip, Skeleton, Typography } from '@mui/material'
 import type { IterationWindowInfo } from '../../../ado/queryEngine'
 
 type SprintSummaryBarProps = {
   iterationWindow: IterationWindowInfo
   isLoading?: boolean
-  colorScheme: 'light' | 'dark'
-  onToggleColorScheme: () => void
 }
 
 function parseDateOnly(value?: string): Date | null {
@@ -76,8 +74,6 @@ function getDaysRemainingInSprint(finishDate?: string): number | null {
 export function SprintSummaryBar({
   iterationWindow,
   isLoading = false,
-  colorScheme,
-  onToggleColorScheme,
 }: SprintSummaryBarProps) {
   const current = iterationWindow.current
   const next = iterationWindow.next
@@ -106,19 +102,6 @@ export function SprintSummaryBar({
           </Typography>
           <Skeleton variant="text" width={220} />
           <Skeleton variant="rounded" width={150} height={24} />
-        </Box>
-        <Box sx={{ ml: 'auto', display: 'flex', justifyContent: 'flex-end' }}>
-          <FormControlLabel
-            sx={{ m: 0 }}
-            control={
-              <Switch
-                size="small"
-                checked={colorScheme === 'dark'}
-                onChange={onToggleColorScheme}
-              />
-            }
-            label={<Typography variant="body-sm">Dark mode</Typography>}
-          />
         </Box>
       </Box>
     )
@@ -178,20 +161,6 @@ export function SprintSummaryBar({
         <Typography variant="caption-sm" color="text.secondary">
           {next?.fullName ?? 'Unavailable'}
         </Typography>
-      </Box>
-
-      <Box sx={{ ml: 'auto', display: 'flex', justifyContent: 'flex-end', alignSelf: 'center' }}>
-        <FormControlLabel
-          sx={{ m: 0 }}
-          control={
-            <Switch
-              size="small"
-              checked={colorScheme === 'dark'}
-              onChange={onToggleColorScheme}
-            />
-          }
-          label={<Typography variant="body-sm">Dark mode</Typography>}
-        />
       </Box>
     </Box>
   )
