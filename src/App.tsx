@@ -1,54 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Box,
-  Card,
-  CardContent,
-  FormControlLabel,
-  Switch,
-  Typography,
-} from '@mui/material'
-import { Icon } from '@stratakit/mui'
-import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
-import svgUsers from '@stratakit/icons/users.svg'
-import svgGitMerge from '@stratakit/icons/git-merge.svg'
-import svgCalendar from '@stratakit/icons/calendar.svg'
+import { useRef } from 'react'
+import { Box } from '@mui/material'
 import { teamProfiles } from './teamProfiles'
-import { KanbanBoard } from './features/standup/components/KanbanBoard'
-import { HiddenTagsDialog } from './features/standup/components/HiddenTagsDialog'
-import { PullRequestsList } from './features/standup/components/PullRequestsList'
-import { PullRequestsToolbar } from './features/standup/components/PullRequestsToolbar'
-import { SprintSummaryBar } from './features/standup/components/SprintSummaryBar'
-import { StandupToolbar } from './features/standup/components/StandupToolbar'
+import { AppNavigationRail } from './features/standup/components/AppNavigationRail'
+import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
-
-type AppView = 'team-assignments' | 'pull-requests'
-const PULL_REQUEST_FULL_APPROVAL_THRESHOLD_STORAGE_KEY = 'standup:pull-requests-full-approval-threshold'
-
-function getInitialPullRequestFullApprovalThreshold(): number {
-  const rawValue = localStorage.getItem(PULL_REQUEST_FULL_APPROVAL_THRESHOLD_STORAGE_KEY)
-  if (!rawValue) {
-    return 2
-  }
-
-  const parsed = Number.parseInt(rawValue, 10)
-  if (!Number.isFinite(parsed)) {
-    return 2
-  }
-
-  return Math.min(Math.max(parsed, 0), 10)
-}
-
-function getViewFromHash(hash: string): AppView {
-  if (hash === '#pull-requests') {
-    return 'pull-requests'
-  }
-
-  if (hash === '#team-assignments' || !hash) {
-    return 'team-assignments'
-  }
-
-  return 'team-assignments'
-}
+import { usePullRequestsPageModel } from './features/standup/hooks/usePullRequestsPageModel'
+import { PullRequestsPage } from './features/standup/pages/PullRequestsPage'
+import { TeamAssignmentsPage } from './features/standup/pages/TeamAssignmentsPage'
 
 type AppProps = {
   patConfigured: boolean
@@ -57,10 +15,6 @@ type AppProps = {
 }
 
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
-  const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
-  const [activeView, setActiveView] = useState<AppView>(() => getViewFromHash(window.location.hash))
-  const [selectedPullRequestAuthorFilter, setSelectedPullRequestAuthorFilter] = useState('')
-  const [pullRequestFullApprovalThreshold, setPullRequestFullApprovalThreshold] = useState(getInitialPullRequestFullApprovalThreshold)
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
 
   const {
@@ -90,289 +44,78 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     workItemAssignees,
   } = useBoardViewModel({ patConfigured })
 
-  const handleOpenTagRulesDialog = () => {
-    setTagRulesDialogOpen(true)
-  }
+  const {
+    selectedAuthorFilter,
+    authorFilterOptions,
+    onAuthorFilterChange,
+    fullApprovalThreshold,
+    onFullApprovalThresholdChange,
+    filteredPullRequests,
+  } = usePullRequestsPageModel({ activeTeamPullRequests })
 
-  const handleCloseTagRulesDialog = () => {
-    setTagRulesDialogOpen(false)
-  }
-
-  const handleCycleMemberFilter = (direction: -1 | 1) => {
-    if (!patConfigured || memberFilterOptions.length === 0) {
-      return
-    }
-
-    const cycleValues = ['', ...memberFilterOptions]
-    const currentIndex = cycleValues.indexOf(selectedMemberFilter)
-    const safeCurrentIndex = currentIndex === -1 ? 0 : currentIndex
-    const nextIndex = (safeCurrentIndex + direction + cycleValues.length) % cycleValues.length
-    onMemberFilterChange(cycleValues[nextIndex])
-  }
-
-  const normalizeDisplayName = (name: string) => name.trim().toLowerCase()
-
-  const pullRequestAuthorFilterOptions = useMemo(() => {
-    const labels = new Set<string>()
-
-    for (const pullRequest of activeTeamPullRequests) {
-      const authorName = pullRequest.assignedTo?.displayName?.trim()
-      if (!authorName) {
-        continue
-      }
-
-      labels.add(authorName)
-    }
-
-    return [...labels].sort((left, right) => left.localeCompare(right))
-  }, [activeTeamPullRequests])
-
-  const filteredPullRequests = useMemo(() => {
-    if (!selectedPullRequestAuthorFilter) {
-      return activeTeamPullRequests
-    }
-
-    const normalizedSelectedAuthor = normalizeDisplayName(selectedPullRequestAuthorFilter)
-
-    return activeTeamPullRequests.filter((pullRequest) => {
-      const authorName = pullRequest.assignedTo?.displayName
-      if (!authorName) {
-        return false
-      }
-
-      return normalizeDisplayName(authorName) === normalizedSelectedAuthor
-    })
-  }, [activeTeamPullRequests, selectedPullRequestAuthorFilter])
-
-  useEffect(() => {
-    if (!selectedPullRequestAuthorFilter) {
-      return
-    }
-
-    const selectedStillExists = pullRequestAuthorFilterOptions.some(
-      (authorName) => normalizeDisplayName(authorName) === normalizeDisplayName(selectedPullRequestAuthorFilter),
-    )
-
-    if (!selectedStillExists) {
-      setSelectedPullRequestAuthorFilter('')
-    }
-  }, [pullRequestAuthorFilterOptions, selectedPullRequestAuthorFilter])
-
-  useEffect(() => {
-    localStorage.setItem(
-      PULL_REQUEST_FULL_APPROVAL_THRESHOLD_STORAGE_KEY,
-      String(pullRequestFullApprovalThreshold),
-    )
-  }, [pullRequestFullApprovalThreshold])
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      setActiveView(getViewFromHash(window.location.hash))
-    }
-
-    handleHashChange()
-    window.addEventListener('hashchange', handleHashChange)
-
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange)
-    }
-  }, [])
-
-  useEffect(() => {
-    document.title = activeView === 'pull-requests' ? 'Pull Requests' : 'Team Assignments'
-  }, [activeView])
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      const tagName = target?.tagName?.toLowerCase()
-      const isTypingTarget =
-        tagName === 'input'
-        || tagName === 'textarea'
-        || target?.isContentEditable === true
-
-      const isShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f'
-      if (!isShortcut) {
-        const isCycleUpShortcut = event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'ArrowUp'
-        const isCycleDownShortcut = event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'ArrowDown'
-
-        if (!isTypingTarget && (isCycleUpShortcut || isCycleDownShortcut)) {
-          event.preventDefault()
-          handleCycleMemberFilter(isCycleUpShortcut ? -1 : 1)
-        }
-
-        return
-      }
-
-      event.preventDefault()
-      if (activeView !== 'team-assignments') {
-        window.location.hash = '#team-assignments'
-      }
-      quickFilterInputRef.current?.focus()
-      quickFilterInputRef.current?.select()
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [activeView, handleCycleMemberFilter])
+  const { activeView, onMemberFilterCycle } = useAppNavigation({
+    patConfigured,
+    memberFilterOptions,
+    selectedMemberFilter,
+    onMemberFilterChange,
+    quickFilterInputRef,
+  })
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', bgcolor: 'background.paper' }}>
-      <NavigationRail.Root>
-        <NavigationRail.Header>
-          <Icon href={svgCalendar} alt="Standup app" size="large" />
-          <NavigationRail.ToggleButton />
-        </NavigationRail.Header>
-
-        <NavigationRail.Content>
-          <NavigationRail.List>
-            <NavigationRail.ListItem>
-              <NavigationRail.Anchor
-                href="#team-assignments"
-                label="Team assignments"
-                icon={svgUsers}
-                active={activeView === 'team-assignments'}
-              />
-            </NavigationRail.ListItem>
-            <NavigationRail.ListItem>
-              <NavigationRail.Anchor
-                href="#pull-requests"
-                label="Pull requests"
-                icon={svgGitMerge}
-                active={activeView === 'pull-requests'}
-              />
-            </NavigationRail.ListItem>
-          </NavigationRail.List>
-          <NavigationRail.Footer />
-        </NavigationRail.Content>
-      </NavigationRail.Root>
+      <AppNavigationRail activeView={activeView} />
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {activeView === 'team-assignments' ? (
-          <>
-            <StandupToolbar
-              patConfigured={patConfigured}
-              quickFilterInput={quickFilterInput}
-              onQuickFilterInputChange={setQuickFilterInput}
-              onQuickFilterClear={() => setQuickFilterInput('')}
-              quickFilterInputRef={quickFilterInputRef}
-              selectedMemberFilter={selectedMemberFilter}
-              memberFilterOptions={memberFilterOptions}
-              onMemberFilterChange={onMemberFilterChange}
-              onMemberFilterCycle={handleCycleMemberFilter}
-              teamOptions={teamProfiles}
-              selectedTeamId={selectedTeamId}
-              onTeamChange={onTeamChange}
-              teamManagementUrl={teamManagementUrl}
-              onRefresh={onRefresh}
-              onOpenTagRulesDialog={handleOpenTagRulesDialog}
-              isTeamDataLoading={isTeamDataLoading}
-            />
-
-            <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ flex: 1, minHeight: 0 }}>
-                <KanbanBoard
-                  patConfigured={patConfigured}
-                  isLoading={isTeamDataLoading}
-                  colorScheme={colorScheme}
-                  membersError={membersError}
-                  workItemsError={workItemsError}
-                  assigneesError={assigneesError}
-                  members={members}
-                  workItems={visibleBoardItems}
-                  currentIterationName={currentIterationName}
-                  changeHighlightsByItemId={changeHighlightsByItemId}
-                  workItemAssignees={workItemAssignees}
-                />
-              </Box>
-
-              <SprintSummaryBar
-                iterationWindow={iterationWindow}
-                isLoading={iterationLoading}
-                colorScheme={colorScheme}
-                onToggleColorScheme={onToggleColorScheme}
-              />
-
-              <HiddenTagsDialog
-                open={tagRulesDialogOpen}
-                tagRules={tagRules}
-                onChange={setTagRules}
-                onClose={handleCloseTagRulesDialog}
-              />
-
-              {!patConfigured ? (
-                <Card
-                  sx={{
-                    mb: 2,
-                    border: '1px solid',
-                    borderColor: 'warning.outline',
-                    bgcolor: 'warning.background',
-                  }}
-                >
-                  <CardContent>
-                    <Typography variant="body-md" sx={{ fontWeight: 700 }}>
-                      Azure DevOps PAT: Missing
-                    </Typography>
-                    <Typography variant="body-sm" color="text.secondary">
-                      Update AZDO_PAT in .env.local, then restart npm run dev.
-                    </Typography>
-                  </CardContent>
-                </Card>
-              ) : null}
-            </Box>
-          </>
+          <TeamAssignmentsPage
+            patConfigured={patConfigured}
+            colorScheme={colorScheme}
+            onToggleColorScheme={onToggleColorScheme}
+            quickFilterInput={quickFilterInput}
+            onQuickFilterInputChange={setQuickFilterInput}
+            onQuickFilterClear={() => setQuickFilterInput('')}
+            quickFilterInputRef={quickFilterInputRef}
+            selectedMemberFilter={selectedMemberFilter}
+            memberFilterOptions={memberFilterOptions}
+            onMemberFilterChange={onMemberFilterChange}
+            onMemberFilterCycle={onMemberFilterCycle}
+            teamOptions={teamProfiles}
+            selectedTeamId={selectedTeamId}
+            onTeamChange={onTeamChange}
+            teamManagementUrl={teamManagementUrl}
+            onRefresh={onRefresh}
+            isTeamDataLoading={isTeamDataLoading}
+            membersError={membersError}
+            workItemsError={workItemsError}
+            assigneesError={assigneesError}
+            members={members}
+            workItems={visibleBoardItems}
+            currentIterationName={currentIterationName}
+            changeHighlightsByItemId={changeHighlightsByItemId}
+            workItemAssignees={workItemAssignees}
+            iterationWindow={iterationWindow}
+            iterationLoading={iterationLoading}
+            tagRules={tagRules}
+            onTagRulesChange={(nextRules) => setTagRules(nextRules)}
+          />
         ) : (
-          <>
-            <PullRequestsToolbar
-              patConfigured={patConfigured}
-              teamOptions={teamProfiles}
-              selectedTeamId={selectedTeamId}
-              onTeamChange={onTeamChange}
-              teamManagementUrl={teamManagementUrl}
-              selectedAuthorFilter={selectedPullRequestAuthorFilter}
-              authorFilterOptions={pullRequestAuthorFilterOptions}
-              onAuthorFilterChange={setSelectedPullRequestAuthorFilter}
-              fullApprovalThreshold={pullRequestFullApprovalThreshold}
-              onFullApprovalThresholdChange={setPullRequestFullApprovalThreshold}
-              onRefresh={onRefresh}
-              isPullRequestsLoading={activeTeamPullRequestsLoading}
-            />
-
-            <PullRequestsList
-              isLoading={activeTeamPullRequestsLoading}
-              pullRequests={filteredPullRequests}
-              fullApprovalThreshold={pullRequestFullApprovalThreshold}
-            />
-
-            <Box
-              sx={{
-                px: 2,
-                py: 1,
-                minHeight: 52,
-                flexShrink: 0,
-                borderTop: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.default',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                alignItems: 'center',
-              }}
-            >
-              <FormControlLabel
-                sx={{ m: 0 }}
-                control={
-                  <Switch
-                    size="small"
-                    checked={colorScheme === 'dark'}
-                    onChange={onToggleColorScheme}
-                  />
-                }
-                label={<Typography variant="body-sm">Dark mode</Typography>}
-              />
-            </Box>
-          </>
+          <PullRequestsPage
+            patConfigured={patConfigured}
+            colorScheme={colorScheme}
+            onToggleColorScheme={onToggleColorScheme}
+            teamOptions={teamProfiles}
+            selectedTeamId={selectedTeamId}
+            onTeamChange={onTeamChange}
+            teamManagementUrl={teamManagementUrl}
+            selectedAuthorFilter={selectedAuthorFilter}
+            authorFilterOptions={authorFilterOptions}
+            onAuthorFilterChange={onAuthorFilterChange}
+            fullApprovalThreshold={fullApprovalThreshold}
+            onFullApprovalThresholdChange={onFullApprovalThresholdChange}
+            onRefresh={onRefresh}
+            isPullRequestsLoading={activeTeamPullRequestsLoading}
+            pullRequests={filteredPullRequests}
+          />
         )}
       </Box>
     </Box>

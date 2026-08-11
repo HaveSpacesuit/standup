@@ -8,14 +8,12 @@ import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHist
 import { useActiveTeamPullRequests } from './useActiveTeamPullRequests'
 import { useTeamData } from './useTeamData'
 import { useWorkItemAssignees } from './useWorkItemAssignees'
+import { useBoardPreferences } from './useBoardPreferences'
+import { useTeamManagementUrl } from './useTeamManagementUrl'
+import { useVisibleBoardItems } from './useVisibleBoardItems'
 import {
   applyTagRulesToItem,
-  matchesQuickFilter,
-  matchesTeamMemberFilter,
-  normalizeQuickFilterText,
   normalizeTeamMemberLabel,
-  parseStoredTagRules,
-  sortTeamMemberLabels,
 } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 
@@ -50,44 +48,20 @@ type UseBoardViewModelResult = {
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
-const TAG_RULES_STORAGE_KEY = 'standup:tag-rules'
-const LEGACY_HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
-const SELECTED_TEAM_STORAGE_KEY = 'standup:selected-team-id'
-
-function getInitialSelectedTeamId(): string {
-  const storedTeamId = localStorage.getItem(SELECTED_TEAM_STORAGE_KEY)
-  if (storedTeamId && teamProfiles.some((team) => team.id === storedTeamId)) {
-    return storedTeamId
-  }
-
-  return teamProfiles[0].id
-}
-
-function buildTeamManagementUrl(
-  orgName: string,
-  projectName: string,
-  teamName: string,
-  subjectDescriptor?: string | null,
-): string {
-  const baseUrl = `https://dev.azure.com/${encodeURIComponent(orgName)}/${encodeURIComponent(projectName)}/_settings/teams`
-  const params = new URLSearchParams(
-    subjectDescriptor ? { subjectDescriptor } : { team: teamName },
-  )
-  return `${baseUrl}?${params.toString()}`
-}
-
 export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): UseBoardViewModelResult {
-  const [selectedTeamId, setSelectedTeamId] = useState(getInitialSelectedTeamId)
   const [reloadNonce, setReloadNonce] = useState(0)
-  const [quickFilterInput, setQuickFilterInput] = useState('')
-  const [selectedMemberFilter, setSelectedMemberFilter] = useState('')
-  const [teamSubjectDescriptor, setTeamSubjectDescriptor] = useState<string | null>(null)
-  const [tagRules, setTagRules] = useState<TagRule[]>(() =>
-    parseStoredTagRules(
-      localStorage.getItem(TAG_RULES_STORAGE_KEY),
-      localStorage.getItem(LEGACY_HIDDEN_TAGS_STORAGE_KEY),
-    ),
-  )
+
+  const {
+    selectedTeamId,
+    onTeamChange,
+    quickFilterInput,
+    setQuickFilterInput,
+    selectedMemberFilter,
+    onMemberFilterChange,
+    setSelectedMemberFilter,
+    tagRules,
+    setTagRules,
+  } = useBoardPreferences()
 
   const forceRefreshRef = useRef(false)
 
@@ -102,14 +76,6 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     const config = getAppConfig()
     return new AdoQueryEngine(config.azdoPat, config.azdoApiVersion)
   }, [patConfigured])
-
-  const onTeamChange = (teamId: string) => {
-    setSelectedTeamId(teamId)
-  }
-
-  const onMemberFilterChange = (memberLabel: string) => {
-    setSelectedMemberFilter(memberLabel)
-  }
 
   const onRefresh = () => {
     adoQueryEngine?.clearTeamWorkItemsCache(selectedTeam.id)
@@ -157,11 +123,6 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     [filteredWorkItems, pullRequestBoardItems],
   )
 
-  const normalizedQuickFilterText = useMemo(
-    () => normalizeQuickFilterText(quickFilterInput),
-    [quickFilterInput],
-  )
-
   const { workItemAssignees, assigneesLoading, assigneesError } = useWorkItemAssignees({
     adoQueryEngine,
     orgName: selectedTeam.orgName,
@@ -181,33 +142,12 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     membersError,
   })
 
-  const quickFilterMatchedBoardItems = useMemo(
-    () => boardItems.filter((item) => matchesQuickFilter(item, normalizedQuickFilterText, workItemAssignees[item.id])),
-    [boardItems, normalizedQuickFilterText, workItemAssignees],
-  )
-
-  const memberFilterOptions = useMemo(() => {
-    const labels = new Set<string>()
-
-    for (const item of quickFilterMatchedBoardItems) {
-      const assignee = workItemAssignees[item.id]
-      if (!assignee || assignee.kind !== 'team-member') {
-        continue
-      }
-
-      labels.add(assignee.label)
-    }
-
-    return sortTeamMemberLabels([...labels])
-  }, [quickFilterMatchedBoardItems, workItemAssignees])
-
-  const visibleBoardItems = useMemo(
-    () =>
-      quickFilterMatchedBoardItems.filter((item) =>
-        matchesTeamMemberFilter(workItemAssignees[item.id], selectedMemberFilter),
-      ),
-    [quickFilterMatchedBoardItems, selectedMemberFilter, workItemAssignees],
-  )
+  const { memberFilterOptions, visibleBoardItems } = useVisibleBoardItems({
+    boardItems,
+    quickFilterInput,
+    selectedMemberFilter,
+    workItemAssignees,
+  })
 
   const historyHighlightTeam = useMemo(
     () => ({
@@ -226,14 +166,6 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
   })
 
   useEffect(() => {
-    localStorage.setItem(TAG_RULES_STORAGE_KEY, JSON.stringify(tagRules))
-  }, [tagRules])
-
-  useEffect(() => {
-    localStorage.setItem(SELECTED_TEAM_STORAGE_KEY, selectedTeamId)
-  }, [selectedTeamId])
-
-  useEffect(() => {
     if (!selectedMemberFilter) {
       return
     }
@@ -245,57 +177,13 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     if (!selectedStillExists) {
       setSelectedMemberFilter('')
     }
-  }, [memberFilterOptions, selectedMemberFilter])
+  }, [memberFilterOptions, selectedMemberFilter, setSelectedMemberFilter])
 
-  useEffect(() => {
-    let isDisposed = false
-    const abortController = new AbortController()
-
-    setTeamSubjectDescriptor(null)
-
-    if (!adoQueryEngine || !patConfigured) {
-      return () => {
-        isDisposed = true
-        abortController.abort()
-      }
-    }
-
-    adoQueryEngine
-      .getTeamSubjectDescriptor(
-        {
-          orgName: selectedTeam.orgName,
-          projectName: selectedTeam.projectName,
-          teamName: selectedTeam.teamName,
-        },
-        abortController.signal,
-      )
-      .then((descriptor) => {
-        if (!isDisposed) {
-          setTeamSubjectDescriptor(descriptor)
-        }
-      })
-      .catch(() => {
-        if (!isDisposed) {
-          setTeamSubjectDescriptor(null)
-        }
-      })
-
-    return () => {
-      isDisposed = true
-      abortController.abort()
-    }
-  }, [adoQueryEngine, patConfigured, selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName])
-
-  const teamManagementUrl = useMemo(
-    () =>
-      buildTeamManagementUrl(
-        selectedTeam.orgName,
-        selectedTeam.projectName,
-        selectedTeam.teamName,
-        teamSubjectDescriptor,
-      ),
-    [selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName, teamSubjectDescriptor],
-  )
+  const teamManagementUrl = useTeamManagementUrl({
+    adoQueryEngine,
+    patConfigured,
+    selectedTeam,
+  })
 
   const isTeamDataLoading = membersLoading || workItemsLoading || pullRequestBoardItemsLoading || assigneesLoading
 

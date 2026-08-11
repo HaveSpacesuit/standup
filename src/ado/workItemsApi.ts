@@ -2,6 +2,7 @@ import type { TeamProfile } from '../teamProfiles'
 import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from './types'
+import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
 import { buildIterationScopedWiql } from './wiql'
 import resolveStatusFromStateAndTags from './workItemStatus'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
@@ -242,83 +243,6 @@ function buildPullRequestWebUrl(
   }
 
   return `https://dev.azure.com/${encodeURIComponent(orgName)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(fallback.repositoryId)}/pullrequest/${fallback.pullRequestId}`
-}
-
-function resolvePullRequestReviewState(
-  reviewers: PullRequestApiResponse['reviewers'],
-): WorkItemPullRequestSummary['reviewState'] {
-  const dedupedReviewerVotes = new Map<string, number>()
-
-  for (const reviewer of reviewers ?? []) {
-    if (!reviewer || reviewer.isContainer === true) {
-      continue
-    }
-
-    const vote = reviewer.vote
-    if (typeof vote !== 'number') {
-      continue
-    }
-
-    const reviewerKey = reviewer.id ?? reviewer.uniqueName ?? reviewer.displayName
-    if (!reviewerKey) {
-      continue
-    }
-
-    const previousVote = dedupedReviewerVotes.get(reviewerKey)
-    if (previousVote === undefined || Math.abs(vote) > Math.abs(previousVote)) {
-      dedupedReviewerVotes.set(reviewerKey, vote)
-    }
-  }
-
-  const votes = [...dedupedReviewerVotes.values()]
-
-  if (votes.some((vote) => vote <= -10)) {
-    return 'rejected'
-  }
-
-  if (votes.some((vote) => vote === -5)) {
-    return 'waiting-for-author'
-  }
-
-  const approvalCount = votes.filter((vote) => vote >= 5).length
-  if (approvalCount === 1) {
-    return 'partially-approved'
-  }
-
-  if (approvalCount >= 2) {
-    return 'fully-approved'
-  }
-
-  return undefined
-}
-
-function resolvePullRequestApprovalCount(
-  reviewers: PullRequestApiResponse['reviewers'],
-): number {
-  const dedupedReviewerVotes = new Map<string, number>()
-
-  for (const reviewer of reviewers ?? []) {
-    if (!reviewer || reviewer.isContainer === true) {
-      continue
-    }
-
-    const vote = reviewer.vote
-    if (typeof vote !== 'number') {
-      continue
-    }
-
-    const reviewerKey = reviewer.id ?? reviewer.uniqueName ?? reviewer.displayName
-    if (!reviewerKey) {
-      continue
-    }
-
-    const previousVote = dedupedReviewerVotes.get(reviewerKey)
-    if (previousVote === undefined || Math.abs(vote) > Math.abs(previousVote)) {
-      dedupedReviewerVotes.set(reviewerKey, vote)
-    }
-  }
-
-  return [...dedupedReviewerVotes.values()].filter((vote) => vote >= 5).length
 }
 
 async function fetchActivePullRequestsByWorkItem(

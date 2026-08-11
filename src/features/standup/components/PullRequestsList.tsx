@@ -1,27 +1,15 @@
-import { Box, Card, CardContent, CircularProgress, Skeleton, Typography } from '@mui/material'
+import { Box, Card, CardContent, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
-import svgValidate from '@stratakit/icons/validate.svg'
-import svgStopwatch from '@stratakit/icons/stopwatch.svg'
-import svgError from '@stratakit/icons/error.svg'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
+import { getPullRequestSections } from '../hooks/pullRequestSections'
+import { PullRequestsLoadingState } from './PullRequestsLoadingState'
+import { getChecksPresentation } from './pullRequestChecksPresentation'
 import { WorkItemCard } from './WorkItemCard'
 
 type PullRequestsListProps = {
   isLoading: boolean
   pullRequests: WorkItemSummary[]
   fullApprovalThreshold: number
-}
-
-type PullRequestSection = {
-  key: string
-  title: string
-  items: WorkItemSummary[]
-}
-
-type MergeReadiness = 'blocked' | 'waiting-on-checks' | 'waiting-on-reviewers' | 'ready-to-merge'
-
-function formatCheckName(item: { name: string, expired: boolean }): string {
-  return item.expired ? `${item.name} (expired)` : item.name
 }
 
 function formatAge(value: string | undefined): string {
@@ -47,219 +35,9 @@ function formatAge(value: string | undefined): string {
   return `${Math.floor(elapsedDays / 7)}w old`
 }
 
-function formatCheckList(names: string[]): string {
-  return names.join(', ')
-}
-
-function getRequiredChecksState(item: WorkItemSummary): 'passing' | 'pending' | 'failing' {
-  const checks = item.pullRequest?.checks?.checks ?? []
-  const requiredChecks = checks.filter((check) => !check.optional)
-
-  if (requiredChecks.some((check) => check.state === 'failing')) {
-    return 'failing'
-  }
-
-  if (requiredChecks.some((check) => check.state === 'pending')) {
-    return 'pending'
-  }
-
-  return 'passing'
-}
-
-function getMergeReadiness(item: WorkItemSummary, fullApprovalThreshold: number): MergeReadiness {
-  const reviewState = item.pullRequest?.reviewState
-  const approvalCount = item.pullRequest?.approvalCount ?? 0
-  const requiredChecksState = getRequiredChecksState(item)
-
-  if (
-    requiredChecksState === 'failing'
-    || reviewState === 'rejected'
-    || reviewState === 'waiting-for-author'
-  ) {
-    return 'blocked'
-  }
-
-  if (requiredChecksState === 'pending') {
-    return 'waiting-on-checks'
-  }
-
-  if (approvalCount < fullApprovalThreshold) {
-    return 'waiting-on-reviewers'
-  }
-
-  return 'ready-to-merge'
-}
-
-function getChecksPresentation(item: WorkItemSummary): {
-  iconHref: string
-  color: string
-  text?: string
-  optionalItems: Array<{
-    iconHref: string
-    color: string
-    text: string
-  }>
-} {
-  const checks = item.pullRequest?.checks
-  if (!checks || checks.checks.length === 0) {
-    return {
-      iconHref: svgStopwatch,
-      color: 'warning.main',
-      text: 'Checks pending',
-      optionalItems: [],
-    }
-  }
-
-  const requiredChecks = checks.checks.filter((check) => !check.optional)
-  const optionalChecks = checks.checks.filter((check) => check.optional)
-
-  const requiredFailing = requiredChecks.filter((check) => check.state === 'failing').map(formatCheckName)
-  if (requiredFailing.length > 0) {
-    return {
-      iconHref: svgError,
-      color: 'error.main',
-      text: formatCheckList(requiredFailing),
-      optionalItems: [],
-    }
-  }
-
-  const requiredPending = requiredChecks.filter((check) => check.state === 'pending').map(formatCheckName)
-  if (requiredPending.length > 0) {
-    return {
-      iconHref: svgStopwatch,
-      color: 'warning.main',
-      text: formatCheckList(requiredPending),
-      optionalItems: [],
-    }
-  }
-
-  const optionalFailing = optionalChecks.filter((check) => check.state === 'failing').map(formatCheckName)
-  const optionalPending = optionalChecks.filter((check) => check.state === 'pending').map(formatCheckName)
-
-  return {
-    iconHref: svgValidate,
-    color: 'success.main',
-    text: undefined,
-    optionalItems: [
-      ...(optionalFailing.length > 0
-        ? [{
-            iconHref: svgError,
-            color: 'error.main',
-            text: `Optional failing: ${formatCheckList(optionalFailing)}`,
-          }]
-        : []),
-      ...(optionalPending.length > 0
-        ? [{
-            iconHref: svgStopwatch,
-            color: 'warning.main',
-            text: `Optional pending: ${formatCheckList(optionalPending)}`,
-          }]
-        : []),
-    ],
-  }
-}
-
-function createSections(pullRequests: WorkItemSummary[], fullApprovalThreshold: number): PullRequestSection[] {
-  const readyToMerge = pullRequests.filter((item) => getMergeReadiness(item, fullApprovalThreshold) === 'ready-to-merge')
-  const waitingOnChecks = pullRequests.filter((item) => getMergeReadiness(item, fullApprovalThreshold) === 'waiting-on-checks')
-  const waitingOnReviewers = pullRequests.filter((item) => getMergeReadiness(item, fullApprovalThreshold) === 'waiting-on-reviewers')
-  const blocked = pullRequests.filter((item) => getMergeReadiness(item, fullApprovalThreshold) === 'blocked')
-
-  return [
-    { key: 'ready-to-merge', title: 'Ready to merge', items: readyToMerge },
-    { key: 'waiting-on-checks', title: 'Waiting on checks', items: waitingOnChecks },
-    { key: 'waiting-on-reviewers', title: 'Waiting on reviewers', items: waitingOnReviewers },
-    { key: 'blocked', title: 'Blocked', items: blocked },
-  ].filter((section) => section.items.length > 0)
-}
-
 export function PullRequestsList({ isLoading, pullRequests, fullApprovalThreshold }: PullRequestsListProps) {
   if (isLoading) {
-    return (
-      <Box
-        component="main"
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          bgcolor: 'background.default',
-        }}
-      >
-        <Box
-          sx={{
-            px: 2,
-            py: 1.25,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-          }}
-        >
-          <CircularProgress size={18} />
-          <Box>
-            <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-              Loading pull requests...
-            </Typography>
-            <Typography variant="body-sm" color="text.secondary">
-              Fetching active PRs, reviews, and policy checks.
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
-          <Box sx={{ maxWidth: 640, mx: 'auto', display: 'grid', gap: 3, alignContent: 'start' }}>
-            {['Ready to merge', 'Waiting on checks', 'Waiting on reviewers', 'Blocked'].map((title, sectionIndex) => (
-              <Box key={`loading-section-${title}`}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
-                  <Typography variant="body-md" sx={{ fontWeight: 700 }}>
-                    {title}
-                  </Typography>
-                  <Skeleton variant="rounded" width={18} height={16} />
-                </Box>
-
-                <Box sx={{ display: 'grid', gap: 1 }}>
-                  {Array.from({ length: 1 }).map((_, rowIndex) => (
-                    <Card key={`loading-card-${sectionIndex}-${rowIndex}`} sx={{ borderRadius: 2 }}>
-                      <CardContent sx={{ p: 1.5 }}>
-                        <Box sx={{ display: 'grid', gap: 0.9 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                            <Skeleton variant="text" width="66%" height={22} />
-                            <Skeleton variant="rounded" width={54} height={18} />
-                          </Box>
-                          <Skeleton variant="text" width="92%" height={16} />
-                          <Skeleton variant="text" width="40%" height={16} />
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
-                            <Skeleton variant="circular" width={16} height={16} />
-                            <Skeleton variant="text" width={120} height={16} />
-                          </Box>
-                        </Box>
-                      </CardContent>
-                      <Box
-                        sx={{
-                          px: 1.5,
-                          py: 0.9,
-                          borderTop: '1px solid',
-                          borderColor: 'divider',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Skeleton variant="text" width="55%" height={14} />
-                        <Skeleton variant="text" width={52} height={14} />
-                      </Box>
-                    </Card>
-                  ))}
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      </Box>
-    )
+    return <PullRequestsLoadingState />
   }
 
   if (pullRequests.length === 0) {
@@ -290,7 +68,7 @@ export function PullRequestsList({ isLoading, pullRequests, fullApprovalThreshol
     )
   }
 
-  const sections = createSections(pullRequests, fullApprovalThreshold)
+  const sections = getPullRequestSections(pullRequests, fullApprovalThreshold)
 
   return (
     <Box
