@@ -89,6 +89,8 @@ export function SprintSummaryBar({
         sx={{
           px: 2,
           py: 1,
+          minHeight: 52,
+          flexShrink: 0,
           borderBottom: '1px solid',
           borderColor: 'divider',
           bgcolor: 'background.default',
@@ -127,6 +129,8 @@ export function SprintSummaryBar({
       sx={{
         px: 2,
         py: 1,
+        minHeight: 52,
+        flexShrink: 0,
         borderBottom: '1px solid',
         borderColor: 'divider',
         bgcolor: 'background.default',
