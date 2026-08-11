@@ -1,8 +1,8 @@
-import type { WorkItemSummary } from '../../../ado/queryEngine'
-import type { RefObject } from 'react'
+import { type RefObject } from 'react'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { QualityAssuranceList } from '../components/QualityAssuranceList'
 import { QualityAssuranceToolbar } from '../components/QualityAssuranceToolbar'
+import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 
 type QualityAssurancePageProps = {
   patConfigured: boolean
@@ -14,9 +14,9 @@ type QualityAssurancePageProps = {
   onQuickFilterInputChange: (value: string) => void
   onQuickFilterClear: () => void
   quickFilterInputRef: RefObject<HTMLInputElement | null>
+  buckets: QualityAssuranceBucket[]
   onRefresh: () => void
   isLoading: boolean
-  newItems: WorkItemSummary[]
   newItemsError: string | null
 }
 
@@ -30,9 +30,9 @@ export function QualityAssurancePage({
   onQuickFilterInputChange,
   onQuickFilterClear,
   quickFilterInputRef,
+  buckets,
   onRefresh,
   isLoading,
-  newItems,
   newItemsError,
 }: QualityAssurancePageProps) {
   return (
@@ -54,7 +54,7 @@ export function QualityAssurancePage({
       <QualityAssuranceList
         isLoading={isLoading}
         error={newItemsError}
-        newItems={newItems}
+        buckets={buckets}
       />
     </>
   )

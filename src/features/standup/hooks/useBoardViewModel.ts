@@ -47,9 +47,9 @@ type UseBoardViewModelResult = {
   iterationLoading: boolean
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
-  qaNewItems: WorkItemSummary[]
-  qaNewItemsLoading: boolean
-  qaNewItemsError: string | null
+  qaBuckets: import('../utils/qualityAssuranceBuckets').QualityAssuranceBucket[]
+  qaBucketsLoading: boolean
+  qaBucketsError: string | null
 }
 
 export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): UseBoardViewModelResult {
@@ -146,7 +146,7 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     membersError,
   })
 
-  const { qaNewItems, qaNewItemsLoading, qaNewItemsError } = useQaNewWorkItems({
+  const { qaBuckets, qaBucketsLoading, qaBucketsError } = useQaNewWorkItems({
     adoQueryEngine,
     selectedTeam,
     reloadNonce,
@@ -222,8 +222,8 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     iterationLoading,
     changeHighlightsByItemId,
     workItemAssignees,
-    qaNewItems,
-    qaNewItemsLoading,
-    qaNewItemsError,
+    qaBuckets,
+    qaBucketsLoading,
+    qaBucketsError,
   }
 }

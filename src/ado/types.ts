@@ -61,6 +61,7 @@ export type WorkItemSummary = {
   id: number
   kind?: 'work-item' | 'pull-request'
   title: string
+  createdAt?: string
   state?: string
   recentActivityAt?: string
   tags?: string[]

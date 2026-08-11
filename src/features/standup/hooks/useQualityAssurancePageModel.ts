@@ -1,19 +1,34 @@
 import { useMemo, useState } from 'react'
-import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { matchesQuickFilter, normalizeQuickFilterText } from '../utils/boardFilters'
+import type { QualityAssuranceBucket, QualityAssuranceBucketId } from '../utils/qualityAssuranceBuckets'
 
 type UseQualityAssurancePageModelArgs = {
-  newItems: WorkItemSummary[]
+  buckets: QualityAssuranceBucket[]
 }
 
 type UseQualityAssurancePageModelResult = {
   quickFilterInput: string
   onQuickFilterInputChange: (value: string) => void
   onQuickFilterClear: () => void
-  filteredNewItems: WorkItemSummary[]
+  filteredBuckets: QualityAssuranceBucket[]
 }
 
-export function useQualityAssurancePageModel({ newItems }: UseQualityAssurancePageModelArgs): UseQualityAssurancePageModelResult {
+function sortBucketsByPriority(bucketId: QualityAssuranceBucketId): number {
+  switch (bucketId) {
+    case 'new':
+      return 0
+    case 'needs-testing':
+      return 1
+    case 'needs-development':
+      return 2
+    case 'done':
+      return 3
+    default:
+      return 99
+  }
+}
+
+export function useQualityAssurancePageModel({ buckets }: UseQualityAssurancePageModelArgs): UseQualityAssurancePageModelResult {
   const [quickFilterInput, setQuickFilterInput] = useState('')
 
   const normalizedQuickFilterText = useMemo(
@@ -21,21 +36,27 @@ export function useQualityAssurancePageModel({ newItems }: UseQualityAssurancePa
     [quickFilterInput],
   )
 
-  const quickFilterMatchedItems = useMemo(
-    () => newItems.filter((item) => {
-      const assignee = item.assignedTo?.displayName
-        ? { kind: 'team-member' as const, label: item.assignedTo.displayName }
-        : undefined
+  const filteredBuckets = useMemo(
+    () => buckets
+      .map((bucket) => ({
+        ...bucket,
+        items: bucket.items.filter((item) => {
+          const assignee = item.assignedTo?.displayName
+            ? { kind: 'team-member' as const, label: item.assignedTo.displayName }
+            : undefined
 
-      return matchesQuickFilter(item, normalizedQuickFilterText, assignee)
-    }),
-    [newItems, normalizedQuickFilterText],
+          return matchesQuickFilter(item, normalizedQuickFilterText, assignee)
+        }),
+      }))
+      .filter((bucket) => bucket.items.length > 0)
+      .sort((left, right) => sortBucketsByPriority(left.id) - sortBucketsByPriority(right.id)),
+    [buckets, normalizedQuickFilterText],
   )
 
   return {
     quickFilterInput,
     onQuickFilterInputChange: setQuickFilterInput,
     onQuickFilterClear: () => setQuickFilterInput(''),
-    filteredNewItems: quickFilterMatchedItems,
+    filteredBuckets,
   }
 }

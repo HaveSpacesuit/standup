@@ -4,7 +4,6 @@ import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
-import svgUserSettings from '@stratakit/icons/user-settings.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
 
@@ -71,14 +70,6 @@ export function QualityAssuranceToolbar({
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
       >
-        <IconButton
-          size="small"
-          label="QA options"
-          disabled
-        >
-          <Icon href={`${svgUserSettings}#icon-large`} size="large" />
-        </IconButton>
-
         <IconButton
           size="small"
           label="Refresh"

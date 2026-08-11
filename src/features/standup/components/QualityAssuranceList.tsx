@@ -1,15 +1,15 @@
 import { Box, Card, CardContent, Typography } from '@mui/material'
-import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { PullRequestsLoadingState } from './PullRequestsLoadingState'
 import { WorkItemCard } from './WorkItemCard'
+import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 
 type QualityAssuranceListProps = {
   isLoading: boolean
   error: string | null
-  newItems: WorkItemSummary[]
+  buckets: QualityAssuranceBucket[]
 }
 
-export function QualityAssuranceList({ isLoading, error, newItems }: QualityAssuranceListProps) {
+export function QualityAssuranceList({ isLoading, error, buckets }: QualityAssuranceListProps) {
   if (isLoading) {
     return <PullRequestsLoadingState />
   }
@@ -42,7 +42,9 @@ export function QualityAssuranceList({ isLoading, error, newItems }: QualityAssu
     )
   }
 
-  if (newItems.length === 0) {
+  const totalItems = buckets.reduce((count, bucket) => count + bucket.items.length, 0)
+
+  if (totalItems === 0) {
     return (
       <Box
         component="main"
@@ -59,10 +61,10 @@ export function QualityAssuranceList({ isLoading, error, newItems }: QualityAssu
         <Card sx={{ width: '100%', maxWidth: 560 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography variant="headline-sm" render={<h1 />} sx={{ fontWeight: 700, mb: 1 }}>
-              No new QA items
+              No QA items
             </Typography>
             <Typography variant="body-sm" color="text.secondary">
-              No recently added work items matched the New, Approved, or Triage criteria for this team.
+              No recently discovered items matched the QA buckets for this team.
             </Typography>
           </CardContent>
         </Card>
@@ -81,25 +83,27 @@ export function QualityAssuranceList({ isLoading, error, newItems }: QualityAssu
         bgcolor: 'background.default',
       }}
     >
-      <Box sx={{ maxWidth: 640, mx: 'auto', display: 'grid', gap: 3, alignContent: 'start' }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
-            <Typography variant="body-md" sx={{ fontWeight: 700 }}>
-              New
-            </Typography>
-            <Typography variant="body-sm" color="text.secondary" sx={{ fontWeight: 700, flex: '0 0 auto' }}>
-              {newItems.length}
-            </Typography>
-          </Box>
+      <Box sx={{ maxWidth: 760, mx: 'auto', display: 'grid', gap: 3, alignContent: 'start' }}>
+        {buckets.map((bucket) => (
+          <Box key={bucket.id}>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
+              <Typography variant="body-md" sx={{ fontWeight: 700 }}>
+                {bucket.title}
+              </Typography>
+              <Typography variant="body-sm" color="text.secondary" sx={{ fontWeight: 700, flex: '0 0 auto' }}>
+                {bucket.items.length}
+              </Typography>
+            </Box>
 
-          <Box sx={{ display: 'grid', gap: 1 }}>
-            {newItems.map((item) => (
-              <Box key={item.id}>
-                <WorkItemCard item={item} />
-              </Box>
-            ))}
+            <Box sx={{ display: 'grid', gap: 1 }}>
+              {bucket.items.map((item) => (
+                <Box key={item.id}>
+                  <WorkItemCard item={item} />
+                </Box>
+              ))}
+            </Box>
           </Box>
-        </Box>
+        ))}
       </Box>
     </Box>
   )

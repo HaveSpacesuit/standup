@@ -46,9 +46,9 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     iterationLoading,
     changeHighlightsByItemId,
     workItemAssignees,
-    qaNewItems,
-    qaNewItemsLoading,
-    qaNewItemsError,
+    qaBuckets,
+    qaBucketsLoading,
+    qaBucketsError,
   } = useBoardViewModel({ patConfigured })
 
   const {
@@ -67,8 +67,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     quickFilterInput: qualityAssuranceQuickFilterInput,
     onQuickFilterInputChange: onQualityAssuranceQuickFilterInputChange,
     onQuickFilterClear: onQualityAssuranceQuickFilterClear,
-    filteredNewItems: filteredQaNewItems,
-  } = useQualityAssurancePageModel({ newItems: qaNewItems })
+    filteredBuckets: filteredQaBuckets,
+  } = useQualityAssurancePageModel({ buckets: qaBuckets })
 
   const { activeView, onMemberFilterCycle } = useAppNavigation({
     patConfigured,
@@ -153,10 +153,10 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             onQuickFilterInputChange={onQualityAssuranceQuickFilterInputChange}
             onQuickFilterClear={onQualityAssuranceQuickFilterClear}
             quickFilterInputRef={qualityAssuranceQuickFilterInputRef}
+            buckets={filteredQaBuckets}
             onRefresh={onRefresh}
-            isLoading={qaNewItemsLoading}
-            newItems={filteredQaNewItems}
-            newItemsError={qaNewItemsError}
+            isLoading={qaBucketsLoading}
+            newItemsError={qaBucketsError}
           />
         )}
       </Box>

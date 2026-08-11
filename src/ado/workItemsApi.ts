@@ -3,9 +3,14 @@ import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
-import { buildIterationScopedWiql, buildQaNewItemsWiql } from './wiql'
+import { buildIterationScopedWiql, buildQaBucketCandidatesWiql, buildQaNewItemsWiql } from './wiql'
 import resolveStatusFromStateAndTags from './workItemStatus'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
+import {
+  bucketQualityAssuranceItems,
+  resolveQualityAssuranceProjectConfig,
+  type WorkItemUpdatesResponse,
+} from '../features/standup/utils/qualityAssuranceBuckets'
 
 const WORK_ITEM_TYPE_ICON_IDS: Record<string, string> = {
   bug: 'icon_insect',
@@ -43,6 +48,7 @@ type WorkItemApiItem = {
   id?: number
   fields?: {
     'System.Title'?: string
+    'System.CreatedDate'?: unknown
     'System.ChangedDate'?: unknown
     'System.IterationPath'?: unknown
     'System.WorkItemType'?: unknown
@@ -97,6 +103,7 @@ type PullRequestRef = {
 
 const PULL_REQUEST_ARTIFACT_PREFIX = 'vstfs:///Git/PullRequestId/'
 const PULL_REQUEST_LOOKUP_CONCURRENCY = 8
+const WORK_ITEM_BATCH_LIMIT = 200
 
 async function mapWithConcurrency<TInput, TOutput>(
   items: TInput[],
@@ -126,6 +133,19 @@ async function mapWithConcurrency<TInput, TOutput>(
   const workerCount = Math.min(concurrency, items.length)
   await Promise.all(Array.from({ length: workerCount }, () => worker()))
   return outputs
+}
+
+function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+  if (chunkSize <= 0) {
+    return [items]
+  }
+
+  const chunks: T[][] = []
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize))
+  }
+
+  return chunks
 }
 
 function getPullRequestIconUrl(iconMap: Record<string, string>): string | undefined {
@@ -197,6 +217,11 @@ function resolveTags(fields: WorkItemApiItem['fields']): string[] {
 function resolveRecentActivityAt(fields: WorkItemApiItem['fields']): string | undefined {
   const changedDate = fields?.['System.ChangedDate']
   return typeof changedDate === 'string' && changedDate.trim() ? changedDate : undefined
+}
+
+function resolveCreatedAt(fields: WorkItemApiItem['fields']): string | undefined {
+  const createdDate = fields?.['System.CreatedDate']
+  return typeof createdDate === 'string' && createdDate.trim() ? createdDate : undefined
 }
 
 function parsePullRequestArtifactLink(url: string): PullRequestRef | null {
@@ -332,38 +357,39 @@ async function fetchPullRequestRefsByWorkItem(
     return new Map()
   }
 
-  const relationsResponse = await client.request<WorkItemRelationsBatchResponse>({
-    method: 'GET',
-    orgName: team.orgName,
-    path: '/_apis/wit/workitems',
-    params: {
-      'api-version': '7.1',
-      ids: workItemIds.join(','),
-      '$expand': 'Relations',
-    },
-    signal,
-  })
-
   const refsByWorkItem = new Map<number, PullRequestRef[]>()
+  for (const workItemIdsChunk of chunkArray(workItemIds, WORK_ITEM_BATCH_LIMIT)) {
+    const relationsResponse = await client.request<WorkItemRelationsBatchResponse>({
+      method: 'GET',
+      orgName: team.orgName,
+      path: '/_apis/wit/workitems',
+      params: {
+        'api-version': '7.1',
+        ids: workItemIdsChunk.join(','),
+        '$expand': 'Relations',
+      },
+      signal,
+    })
 
-  for (const item of relationsResponse.value ?? []) {
-    if (typeof item.id !== 'number') {
-      continue
-    }
-
-    const refs: PullRequestRef[] = []
-    for (const relation of item.relations ?? []) {
-      if (relation.rel !== 'ArtifactLink' || typeof relation.url !== 'string') {
+    for (const item of relationsResponse.value ?? []) {
+      if (typeof item.id !== 'number') {
         continue
       }
 
-      const parsed = parsePullRequestArtifactLink(relation.url)
-      if (parsed) {
-        refs.push(parsed)
-      }
-    }
+      const refs: PullRequestRef[] = []
+      for (const relation of item.relations ?? []) {
+        if (relation.rel !== 'ArtifactLink' || typeof relation.url !== 'string') {
+          continue
+        }
 
-    refsByWorkItem.set(item.id, refs)
+        const parsed = parsePullRequestArtifactLink(relation.url)
+        if (parsed) {
+          refs.push(parsed)
+        }
+      }
+
+      refsByWorkItem.set(item.id, refs)
+    }
   }
 
   return refsByWorkItem
@@ -395,30 +421,33 @@ async function fetchWorkItemsByWiql(
 
   const workItemIconMapPromise = fetchWorkItemIconMap(client, team.orgName, signal)
 
-  const batchResponse = await client.request<WorkItemsBatchResponse>({
-    method: 'POST',
-    orgName: team.orgName,
-    path: '/_apis/wit/workitemsbatch',
-    params: {
-      'api-version': '7.1',
-    },
-    body: {
-      ids,
-      fields: [
-        'System.Title',
-        'System.ChangedDate',
-        'System.IterationPath',
-        'System.WorkItemType',
-        'System.AssignedTo',
-        'System.State',
-        'System.Tags',
-        'Microsoft.VSTS.Scheduling.Effort',
-        'Microsoft.VSTS.Scheduling.StoryPoints',
-        'Microsoft.VSTS.Scheduling.Size',
-      ],
-    },
-    signal,
-  })
+  const batchResponses = await Promise.all(
+    chunkArray(ids, WORK_ITEM_BATCH_LIMIT).map((idsChunk) => client.request<WorkItemsBatchResponse>({
+      method: 'POST',
+      orgName: team.orgName,
+      path: '/_apis/wit/workitemsbatch',
+      params: {
+        'api-version': '7.1',
+      },
+      body: {
+        ids: idsChunk,
+        fields: [
+          'System.Title',
+          'System.CreatedDate',
+          'System.ChangedDate',
+          'System.IterationPath',
+          'System.WorkItemType',
+          'System.AssignedTo',
+          'System.State',
+          'System.Tags',
+          'Microsoft.VSTS.Scheduling.Effort',
+          'Microsoft.VSTS.Scheduling.StoryPoints',
+          'Microsoft.VSTS.Scheduling.Size',
+        ],
+      },
+      signal,
+    })),
+  )
 
   const workItemIconMap = await workItemIconMapPromise
   const pullRequestIconUrl = getPullRequestIconUrl(workItemIconMap)
@@ -443,7 +472,7 @@ async function fetchWorkItemsByWiql(
     }
   })()
 
-  return (batchResponse.value ?? [])
+  return batchResponses.flatMap((batchResponse) => batchResponse.value ?? [])
     .map((item): WorkItemSummary | null => {
       if (typeof item.id !== 'number') {
         return null
@@ -459,6 +488,7 @@ async function fetchWorkItemsByWiql(
         id: item.id,
         kind: 'work-item',
         title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+        createdAt: resolveCreatedAt(item.fields),
         state: typeof item.fields?.['System.State'] === 'string' ? item.fields?.['System.State'] : undefined,
         recentActivityAt: resolveRecentActivityAt(item.fields),
         tags: resolveTags(item.fields),
@@ -497,4 +527,61 @@ export async function fetchQaNewWorkItems(
   const wiqlQuery = buildQaNewItemsWiql(team.projectName, team.areaPath)
 
   return fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
+}
+
+async function fetchWorkItemUpdatesById(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  workItemId: number,
+  signal?: AbortSignal,
+): Promise<WorkItemUpdatesResponse> {
+  return client.request<WorkItemUpdatesResponse>({
+    method: 'GET',
+    orgName: team.orgName,
+    path: `/${encodeURIComponent(team.projectName)}/_apis/wit/workItems/${workItemId}/updates`,
+    params: {
+      'api-version': '7.1',
+    },
+    signal,
+  })
+}
+
+async function fetchQualityAssuranceWorkItemUpdates(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  workItemIds: number[],
+  signal?: AbortSignal,
+): Promise<Record<number, ReturnType<typeof normalizeUpdates>>> {
+  const result: Record<number, ReturnType<typeof normalizeUpdates>> = {}
+
+  await mapWithConcurrency(workItemIds, 6, async (workItemId) => {
+    try {
+      const response = await fetchWorkItemUpdatesById(client, team, workItemId, signal)
+      result[workItemId] = normalizeUpdates(response)
+    } catch {
+      result[workItemId] = []
+    }
+  })
+
+  return result
+}
+
+function normalizeUpdates(response: WorkItemUpdatesResponse) {
+  return [...(response.value ?? [])].sort((left, right) => {
+    const leftAt = Date.parse(left.revisedDate ?? '') || 0
+    const rightAt = Date.parse(right.revisedDate ?? '') || 0
+    return leftAt - rightAt
+  })
+}
+
+export async function fetchQualityAssuranceBuckets(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+  signal?: AbortSignal,
+): Promise<ReturnType<typeof bucketQualityAssuranceItems>> {
+  const wiqlQuery = buildQaBucketCandidatesWiql(team.projectName, team.areaPath)
+  const candidates = await fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
+  const updatesByItemId = await fetchQualityAssuranceWorkItemUpdates(client, team, candidates.map((item) => item.id), signal)
+
+  return bucketQualityAssuranceItems(candidates, updatesByItemId, resolveQualityAssuranceProjectConfig(team))
 }

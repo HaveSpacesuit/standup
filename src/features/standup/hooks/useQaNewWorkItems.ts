@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { AdoQueryEngine, WorkItemSummary } from '../../../ado/queryEngine'
+import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../teamProfiles'
+import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
 type UseQaNewWorkItemsArgs = {
@@ -10,9 +11,9 @@ type UseQaNewWorkItemsArgs = {
 }
 
 type UseQaNewWorkItemsResult = {
-  qaNewItems: WorkItemSummary[]
-  qaNewItemsLoading: boolean
-  qaNewItemsError: string | null
+  qaBuckets: QualityAssuranceBucket[]
+  qaBucketsLoading: boolean
+  qaBucketsError: string | null
 }
 
 export function useQaNewWorkItems({
@@ -20,38 +21,38 @@ export function useQaNewWorkItems({
   selectedTeam,
   reloadNonce,
 }: UseQaNewWorkItemsArgs): UseQaNewWorkItemsResult {
-  const [qaNewItems, setQaNewItems] = useState<WorkItemSummary[]>([])
-  const [qaNewItemsLoading, setQaNewItemsLoading] = useState(false)
-  const [qaNewItemsError, setQaNewItemsError] = useState<string | null>(null)
+  const [qaBuckets, setQaBuckets] = useState<QualityAssuranceBucket[]>([])
+  const [qaBucketsLoading, setQaBucketsLoading] = useState(false)
+  const [qaBucketsError, setQaBucketsError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!adoQueryEngine) {
-      setQaNewItems([])
-      setQaNewItemsLoading(false)
-      setQaNewItemsError(null)
+      setQaBuckets([])
+      setQaBucketsLoading(false)
+      setQaBucketsError(null)
       return
     }
 
     const abortController = new AbortController()
-    setQaNewItemsLoading(true)
-    setQaNewItemsError(null)
+    setQaBucketsLoading(true)
+    setQaBucketsError(null)
 
     adoQueryEngine
-      .getQaNewWorkItems(selectedTeam, abortController.signal)
-      .then((items) => {
+      .getQualityAssuranceBuckets(selectedTeam, abortController.signal)
+      .then((buckets) => {
         if (!abortController.signal.aborted) {
-          setQaNewItems(items)
+          setQaBuckets(buckets)
         }
       })
       .catch((error: unknown) => {
         if (!abortController.signal.aborted && !isAbortError(error)) {
-          setQaNewItems([])
-          setQaNewItemsError(toErrorMessage(error, 'Unknown error while loading QA New items.'))
+          setQaBuckets([])
+          setQaBucketsError(toErrorMessage(error, 'Unknown error while loading QA items.'))
         }
       })
       .finally(() => {
         if (!abortController.signal.aborted) {
-          setQaNewItemsLoading(false)
+          setQaBucketsLoading(false)
         }
       })
 
@@ -61,8 +62,8 @@ export function useQaNewWorkItems({
   }, [adoQueryEngine, reloadNonce, selectedTeam])
 
   return {
-    qaNewItems,
-    qaNewItemsLoading,
-    qaNewItemsError,
+    qaBuckets,
+    qaBucketsLoading,
+    qaBucketsError,
   }
 }

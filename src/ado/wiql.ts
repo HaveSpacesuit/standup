@@ -42,3 +42,24 @@ export function buildQaNewItemsWiql(
     'ORDER BY [System.CreatedDate] DESC',
   ].join('\n')
 }
+
+export function buildQaBucketCandidatesWiql(
+  projectName: string,
+  areaPath: string,
+  lookbackDays = 21,
+): string {
+  const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
+  const startOfWindow = `@StartOfDay('-${lookbackDays}')`
+
+  return [
+    'SELECT [System.Id]',
+    'FROM WorkItems',
+    `WHERE [System.TeamProject] = ${quote(projectName)}`,
+    `  AND [System.AreaPath] UNDER ${quote(areaPath)}`,
+    '  AND (',
+    `    [System.CreatedDate] >= ${startOfWindow}`,
+    `    OR [System.ChangedDate] >= ${startOfWindow}`,
+    '  )',
+    'ORDER BY [System.ChangedDate] DESC',
+  ].join('\n')
+}

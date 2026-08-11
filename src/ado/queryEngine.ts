@@ -6,8 +6,9 @@ import { fetchIterationWindowInfo } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
 import { fetchActiveTeamPullRequestItems, fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
-import { fetchQaNewWorkItems, fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
+import { fetchQualityAssuranceBuckets, fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
 import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
+import type { QualityAssuranceBucket } from '../features/standup/utils/qualityAssuranceBuckets'
 
 export type { CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary, ResolvedWorkItemAssignee } from './types'
 
@@ -17,7 +18,7 @@ export class AdoQueryEngine {
   private readonly client: AdoHttpClient
   private readonly assigneeResolver: WorkItemAssigneeResolver
   private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
-  private readonly qaNewWorkItemsCache = new Map<string, WorkItemSummary[]>()
+  private readonly qaBucketsCache = new Map<string, QualityAssuranceBucket[]>()
   private readonly teamMembersCache = new Map<string, { expiresAt: number; value: TeamMember[] }>()
   private readonly currentIterationCache = new Map<string, { expiresAt: number; value: IterationWindowInfo }>()
   private readonly teamSubjectDescriptorCache = new Map<string, { expiresAt: number; value: string | null }>()
@@ -71,22 +72,22 @@ export class AdoQueryEngine {
     return items
   }
 
-  async getQaNewWorkItems(
+  async getQualityAssuranceBuckets(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
-  ): Promise<WorkItemSummary[]> {
+  ): Promise<QualityAssuranceBucket[]> {
     const cacheKey = team.id
 
     if (!options?.forceRefresh) {
-      const cachedItems = this.qaNewWorkItemsCache.get(cacheKey)
+      const cachedItems = this.qaBucketsCache.get(cacheKey)
       if (cachedItems) {
         return cachedItems
       }
     }
 
-    const items = await fetchQaNewWorkItems(this.client, team, signal)
-    this.qaNewWorkItemsCache.set(cacheKey, items)
+    const items = await fetchQualityAssuranceBuckets(this.client, team, signal)
+    this.qaBucketsCache.set(cacheKey, items)
 
     return items
   }
@@ -94,12 +95,12 @@ export class AdoQueryEngine {
   clearTeamWorkItemsCache(teamId?: string): void {
     if (teamId) {
       this.teamWorkItemsCache.delete(teamId)
-      this.qaNewWorkItemsCache.delete(teamId)
+      this.qaBucketsCache.delete(teamId)
       return
     }
 
     this.teamWorkItemsCache.clear()
-    this.qaNewWorkItemsCache.clear()
+    this.qaBucketsCache.clear()
   }
 
   clearTeamMetadataCaches(

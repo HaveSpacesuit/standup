@@ -24,9 +24,12 @@ type HiddenTagsDialogProps = {
   tagRules: TagRule[]
   onClose: () => void
   onChange: (nextRules: TagRule[]) => void
+  title?: string
+  description?: string
+  actionOptions?: TagRuleAction[]
 }
 
-const TAG_RULE_ACTION_OPTIONS: TagRuleAction[] = ['Blocked', 'New', 'Active', 'Review', 'Done', 'unlisted']
+const DEFAULT_TAG_RULE_ACTION_OPTIONS: TagRuleAction[] = ['Blocked', 'New', 'Active', 'Review', 'Done', 'unlisted']
 
 function moveRule(tagRules: TagRule[], index: number, direction: -1 | 1): TagRule[] {
   const targetIndex = index + direction
@@ -40,16 +43,24 @@ function moveRule(tagRules: TagRule[], index: number, direction: -1 | 1): TagRul
   return nextRules
 }
 
-export function HiddenTagsDialog({ open, tagRules, onClose, onChange }: HiddenTagsDialogProps) {
+export function HiddenTagsDialog({
+  open,
+  tagRules,
+  onClose,
+  onChange,
+  title = 'Tag Rules',
+  description = 'Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.',
+  actionOptions = DEFAULT_TAG_RULE_ACTION_OPTIONS,
+}: HiddenTagsDialogProps) {
   const orderedRules = useMemo(() => tagRules, [tagRules])
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Tag Rules</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
 
       <DialogContent sx={{ pt: 1 }}>
         <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.25 }}>
-          Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.
+          {description}
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -76,7 +87,7 @@ export function HiddenTagsDialog({ open, tagRules, onClose, onChange }: HiddenTa
                     onChange(nextRules)
                   }}
                 >
-                  {TAG_RULE_ACTION_OPTIONS.map((action) => (
+                  {actionOptions.map((action) => (
                     <MenuItem key={action} value={action}>
                       {action === 'unlisted' ? 'Unlisted' : action}
                     </MenuItem>
