@@ -1,7 +1,7 @@
 import { Box, Divider, FormControl, IconButton, MenuItem, Select, Tooltip, Typography, type SelectChangeEvent } from '@mui/material'
 import type { ReactNode } from 'react'
 import { Icon } from '@stratakit/mui'
-import svgAssign from '@stratakit/icons/assign.svg'
+import svgUserAdd from '@stratakit/icons/user-add.svg'
 
 export type TeamOption = {
   id: string
@@ -52,7 +52,7 @@ export function TeamToolbarControls({
           target="_blank"
           rel="noreferrer noopener"
         >
-          <Icon href={`${svgAssign}#icon-large`} size="large" />
+          <Icon href={`${svgUserAdd}#icon-large`} size="large" />
         </IconButton>
       </Tooltip>
       <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider' }} />
