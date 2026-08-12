@@ -52,6 +52,8 @@ export function KanbanBoardGrid({
             overflowX: 'hidden',
             scrollbarGutter: 'stable',
             bgcolor: 'background.default',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           <Box
@@ -128,14 +130,45 @@ export function KanbanBoardGrid({
 
           <Box
             sx={{
-              display: 'grid',
-              gridTemplateColumns: boardGridTemplate,
+              position: 'relative',
+              flex: '1 1 auto',
+              minHeight: 0,
               minWidth: 1220,
               bgcolor: 'background.default',
             }}
           >
-            {rows.map((row) => (
-              <Box key={row.key} sx={{ display: 'contents' }}>
+            <Box
+              aria-hidden="true"
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                minWidth: 1220,
+                display: 'grid',
+                gridTemplateColumns: boardGridTemplate,
+                pointerEvents: 'none',
+              }}
+            >
+              <Box sx={{ bgcolor: 'background.paper' }} />
+              {STATUS_COLUMNS.map((status, columnIndex) => (
+                <Box
+                  key={`background-${status}`}
+                  sx={{ backgroundImage: renderStatusColumnBackground(status, columnIndex) }}
+                />
+              ))}
+            </Box>
+
+            <Box
+              sx={{
+                position: 'relative',
+                zIndex: 1,
+                display: 'grid',
+                gridTemplateColumns: boardGridTemplate,
+                gridAutoRows: 'max-content',
+                minWidth: 1220,
+              }}
+            >
+              {rows.map((row) => (
+                <Box key={row.key} sx={{ display: 'contents' }}>
                 <Box
                   sx={{
                     px: 1.5,
@@ -222,8 +255,9 @@ export function KanbanBoardGrid({
                     </Box>
                   )
                 })}
-              </Box>
-            ))}
+                </Box>
+              ))}
+            </Box>
           </Box>
         </Box>
       </Box>
