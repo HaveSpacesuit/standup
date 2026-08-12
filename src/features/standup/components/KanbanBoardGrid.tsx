@@ -227,6 +227,8 @@ export function KanbanBoardGrid({
                             key={item.id}
                             item={item}
                             highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
+                            showPullRequestReviewIcons={false}
+                            showPullRequestMeta={false}
                           />
                         ))}
                       </Box>

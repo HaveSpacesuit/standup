@@ -21,11 +21,19 @@ type WorkItemCardProps = {
   item: WorkItemSummary
   highlightState?: WorkItemCardHighlightState
   footer?: ReactNode
+  showPullRequestReviewIcons?: boolean
+  showPullRequestMeta?: boolean
 }
 
 export type WorkItemCardHighlightState = 'new' | 'stale' | 'none'
 
-export function WorkItemCard({ item, highlightState = 'none', footer }: WorkItemCardProps) {
+export function WorkItemCard({
+  item,
+  highlightState = 'none',
+  footer,
+  showPullRequestReviewIcons = true,
+  showPullRequestMeta = true,
+}: WorkItemCardProps) {
   const theme = useTheme()
   const statusPaletteKey = getStatusPaletteKey(item.status)
   const statusColor = theme.palette[statusPaletteKey].main
@@ -120,7 +128,9 @@ export function WorkItemCard({ item, highlightState = 'none', footer }: WorkItem
           sx={{
             display: 'block',
             minWidth: 0,
-            mb: 'calc(1.2 * var(--stratakit-mui-spacing))',
+            mb: isPullRequestOnly && !showPullRequestMeta
+              ? 0
+              : 'calc(1.2 * var(--stratakit-mui-spacing))',
             color: 'text.primary',
             textDecoration: 'none',
             '&:hover': {
@@ -128,7 +138,7 @@ export function WorkItemCard({ item, highlightState = 'none', footer }: WorkItem
             },
           }}
         >
-          {primaryReviewIcon ? (
+          {showPullRequestReviewIcons && primaryReviewIcon ? (
             <Box
               component="span"
               sx={{
@@ -220,7 +230,7 @@ export function WorkItemCard({ item, highlightState = 'none', footer }: WorkItem
                     },
                   }}
                 >
-                  {reviewIcon ? (
+                  {showPullRequestReviewIcons && reviewIcon ? (
                     <Box
                       component="span"
                       sx={{
@@ -276,9 +286,11 @@ export function WorkItemCard({ item, highlightState = 'none', footer }: WorkItem
           </Box>
         ) : null}
 
-        {isPullRequestOnly ? <PullRequestMetaRow item={item} /> : null}
+        {isPullRequestOnly && showPullRequestMeta ? <PullRequestMetaRow item={item} /> : null}
 
-        <WorkItemTags tagLayout={tagLayout} sprintName={item.sprintName} />
+        {!isPullRequestOnly || showPullRequestMeta ? (
+          <WorkItemTags tagLayout={tagLayout} sprintName={item.sprintName} />
+        ) : null}
 
         {footer ? (
           <Box
