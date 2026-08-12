@@ -48,7 +48,6 @@ export function useQualityAssurancePageModel({ buckets }: UseQualityAssurancePag
           return matchesQuickFilter(item, normalizedQuickFilterText, assignee)
         }),
       }))
-      .filter((bucket) => bucket.items.length > 0)
       .sort((left, right) => sortBucketsByPriority(left.id) - sortBucketsByPriority(right.id)),
     [buckets, normalizedQuickFilterText],
   )

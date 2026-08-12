@@ -232,9 +232,9 @@ export function bucketQualityAssuranceItems(
   }
 
   return [
-    { id: 'new', title: 'New', items: buckets.new },
-    { id: 'needs-testing', title: 'Needs testing', items: buckets['needs-testing'] },
-    { id: 'needs-development', title: 'Needs development', items: buckets['needs-development'] },
-    { id: 'done', title: 'Done', items: buckets.done },
+    { id: 'new', title: 'Newly added', items: buckets.new },
+    { id: 'needs-testing', title: 'Ready for QA', items: buckets['needs-testing'] },
+    { id: 'needs-development', title: 'Needs follow-up', items: buckets['needs-development'] },
+    { id: 'done', title: 'Recently completed', items: buckets.done },
   ]
 }

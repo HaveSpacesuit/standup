@@ -83,26 +83,68 @@ export function QualityAssuranceList({ isLoading, error, buckets }: QualityAssur
         bgcolor: 'background.default',
       }}
     >
-      <Box sx={{ maxWidth: 760, mx: 'auto', display: 'grid', gap: 3, alignContent: 'start' }}>
+      <Box
+        sx={{
+          maxWidth: 1600,
+          mx: 'auto',
+          display: 'grid',
+          gap: 1.5,
+          alignContent: 'start',
+          gridTemplateColumns: {
+            xs: '1fr',
+            md: 'repeat(2, minmax(0, 1fr))',
+            xl: 'repeat(4, minmax(0, 1fr))',
+          },
+        }}
+      >
         {buckets.map((bucket) => (
-          <Box key={bucket.id}>
-            <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
-              <Typography variant="body-md" sx={{ fontWeight: 700 }}>
-                {bucket.title}
-              </Typography>
-              <Typography variant="body-sm" color="text.secondary" sx={{ fontWeight: 700, flex: '0 0 auto' }}>
-                {bucket.items.length}
-              </Typography>
-            </Box>
+          <Card
+            key={bucket.id}
+            sx={{
+              minWidth: 0,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <CardContent
+              sx={{
+                p: 1.5,
+                pb: 1.25,
+                flex: '0 0 auto',
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1 }}>
+                <Typography variant="body-md" sx={{ fontWeight: 700 }}>
+                  {bucket.title}
+                </Typography>
+                <Typography variant="body-sm" color="text.secondary" sx={{ fontWeight: 700, flex: '0 0 auto' }}>
+                  {bucket.items.length}
+                </Typography>
+              </Box>
+            </CardContent>
 
-            <Box sx={{ display: 'grid', gap: 1 }}>
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                p: 1.25,
+                display: 'grid',
+                gap: 1,
+                alignContent: 'start',
+                bgcolor: 'background.default',
+              }}
+            >
               {bucket.items.map((item) => (
                 <Box key={item.id}>
                   <WorkItemCard item={item} />
                 </Box>
               ))}
             </Box>
-          </Box>
+          </Card>
         ))}
       </Box>
     </Box>
