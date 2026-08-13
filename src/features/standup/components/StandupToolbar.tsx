@@ -115,7 +115,7 @@ export function StandupToolbar({
             onClick={() => onMemberFilterCycle(-1)}
             disabled={!patConfigured || memberFilterOptions.length === 0}
           >
-            <Icon href={`${svgArrowUp}#icon-large`} size="large" />
+            <Icon href={svgArrowUp} />
           </IconButton>
 
           <IconButton
@@ -125,7 +125,7 @@ export function StandupToolbar({
             onClick={() => onMemberFilterCycle(1)}
             disabled={!patConfigured || memberFilterOptions.length === 0}
           >
-            <Icon href={`${svgArrowDown}#icon-large`} size="large" />
+            <Icon href={svgArrowDown} />
           </IconButton>
         </Box>
 
@@ -141,7 +141,7 @@ export function StandupToolbar({
             onClick={onOpenTagRulesDialog}
             disabled={!patConfigured}
           >
-            <Icon href={`${svgTag}#icon-large`} size="large" />
+            <Icon href={svgTag} />
           </IconButton>
           <IconButton
             size="small"
@@ -149,7 +149,7 @@ export function StandupToolbar({
             onClick={onRefresh}
             disabled={!patConfigured || isTeamDataLoading}
           >
-            <Icon href={`${svgCloudSync}#icon-large`} size="large" />
+            <Icon href={svgCloudSync} />
           </IconButton>
         </TeamToolbarControls>
     </PageToolbar>

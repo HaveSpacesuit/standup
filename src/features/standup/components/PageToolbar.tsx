@@ -12,7 +12,7 @@ export function PageToolbar({ iconHref, title, children }: PageToolbarProps) {
   return (
     <AppBar position="static">
       <Toolbar sx={{ gap: 1.5 }}>
-        <Icon href={iconHref} size="large" />
+        <Icon href={`${iconHref}#icon-large`} size="large" />
         <Typography variant="body-lg" sx={{ fontWeight: 700 }}>
           {title}
         </Typography>

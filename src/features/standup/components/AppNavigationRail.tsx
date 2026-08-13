@@ -30,7 +30,7 @@ export function AppNavigationRail({ activeView, colorScheme, onToggleColorScheme
   return (
     <NavigationRail.Root>
       <NavigationRail.Header>
-        <Icon href={svgCalendar} alt="Standup app" size="large" />
+        <Icon href={`${svgCalendar}#icon-large`} alt="Standup app" size="large" />
         <NavigationRail.ToggleButton />
       </NavigationRail.Header>
 
@@ -40,7 +40,7 @@ export function AppNavigationRail({ activeView, colorScheme, onToggleColorScheme
             <NavigationRail.Anchor
               href="#team-assignments"
               label="Team assignments"
-              icon={svgUsers}
+              icon={`${svgUsers}#icon-large`}
               active={activeView === 'team-assignments'}
             />
           </NavigationRail.ListItem>
@@ -48,7 +48,7 @@ export function AppNavigationRail({ activeView, colorScheme, onToggleColorScheme
             <NavigationRail.Anchor
               href="#pull-requests"
               label="Pull requests"
-              icon={svgGitMerge}
+              icon={`${svgGitMerge}#icon-large`}
               active={activeView === 'pull-requests'}
             />
           </NavigationRail.ListItem>
@@ -56,7 +56,7 @@ export function AppNavigationRail({ activeView, colorScheme, onToggleColorScheme
             <NavigationRail.Anchor
               href="#qa-activity"
               label="Quality assurance"
-              icon={svgClipboard}
+              icon={`${svgClipboard}#icon-large`}
               active={activeView === 'qa-activity'}
             />
           </NavigationRail.ListItem>
@@ -64,7 +64,7 @@ export function AppNavigationRail({ activeView, colorScheme, onToggleColorScheme
         <NavigationRail.Footer>
           <NavigationRail.ListItem>
             <NavigationRail.Button
-              icon={svgConfiguration}
+              icon={`${svgConfiguration}#icon-large`}
               label="Settings"
               onClick={() => setIsSettingsDialogOpen(true)}
             />

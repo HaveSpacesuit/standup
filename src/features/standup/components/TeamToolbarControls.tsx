@@ -52,7 +52,7 @@ export function TeamToolbarControls({
           target="_blank"
           rel="noreferrer noopener"
         >
-          <Icon href={`${svgUserAdd}#icon-large`} size="large" />
+          <Icon href={svgUserAdd} />
         </IconButton>
       </Tooltip>
       <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider' }} />

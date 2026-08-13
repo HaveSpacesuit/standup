@@ -130,7 +130,7 @@ export function PullRequestsToolbar({
           onClick={handleOpenOptions}
           disabled={!patConfigured}
         >
-          <Icon href={`${svgUserSettings}#icon-large`} size="large" />
+          <Icon href={svgUserSettings} />
         </IconButton>
 
         <IconButton
@@ -139,7 +139,7 @@ export function PullRequestsToolbar({
           onClick={onRefresh}
           disabled={!patConfigured || isPullRequestsLoading}
         >
-          <Icon href={`${svgCloudSync}#icon-large`} size="large" />
+          <Icon href={svgCloudSync} />
         </IconButton>
 
         <PullRequestsOptionsDialog

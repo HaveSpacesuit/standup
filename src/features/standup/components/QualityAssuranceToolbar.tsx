@@ -76,7 +76,7 @@ export function QualityAssuranceToolbar({
           onClick={onRefresh}
           disabled={!patConfigured || isLoading}
         >
-          <Icon href={`${svgCloudSync}#icon-large`} size="large" />
+          <Icon href={svgCloudSync}  />
         </IconButton>
       </TeamToolbarControls>
     </PageToolbar>
