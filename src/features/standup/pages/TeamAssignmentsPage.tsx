@@ -88,6 +88,7 @@ export function TeamAssignmentsPage({
         quickFilterInputRef={quickFilterInputRef}
         selectedMemberFilter={selectedMemberFilter}
         memberFilterOptions={memberFilterOptions}
+        members={members}
         onMemberFilterChange={onMemberFilterChange}
         onMemberFilterCycle={onMemberFilterCycle}
         teamOptions={teamOptions}

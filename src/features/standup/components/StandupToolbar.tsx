@@ -1,4 +1,5 @@
 import {
+  Avatar,
   Box,
   FormControl,
   IconButton,
@@ -10,6 +11,7 @@ import {
 } from '@mui/material'
 import type { RefObject } from 'react'
 import { Icon } from '@stratakit/mui'
+import type { TeamMember } from '../../../ado/queryEngine'
 import svgUsers from '@stratakit/icons/users.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
@@ -27,6 +29,7 @@ type StandupToolbarProps = {
   quickFilterInputRef: RefObject<HTMLInputElement | null>
   selectedMemberFilter: string
   memberFilterOptions: string[]
+  members: TeamMember[]
   onMemberFilterChange: (value: string) => void
   onMemberFilterCycle: (direction: -1 | 1) => void
   teamOptions: TeamOption[]
@@ -46,6 +49,7 @@ export function StandupToolbar({
   quickFilterInputRef,
   selectedMemberFilter,
   memberFilterOptions,
+  members,
   onMemberFilterChange,
   onMemberFilterCycle,
   teamOptions,
@@ -59,6 +63,9 @@ export function StandupToolbar({
   const handleMemberFilterChange = (event: SelectChangeEvent<string>) => {
     onMemberFilterChange(event.target.value)
   }
+
+  const getMember = (memberName: string) =>
+    members.find((member) => member.displayName.localeCompare(memberName, undefined, { sensitivity: 'accent' }) === 0)
 
   return (
     <PageToolbar iconHref={svgUsers} title="Team Assignments">
@@ -94,16 +101,49 @@ export function StandupToolbar({
             value={selectedMemberFilter}
             onChange={handleMemberFilterChange}
             disabled={!patConfigured || memberFilterOptions.length === 0}
-            renderValue={(value) =>
-              value && typeof value === 'string' ? value : 'All team members'
-            }
+            renderValue={(value) => {
+              if (!value || typeof value !== 'string') {
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <Avatar alt="" src={svgUsers} sx={{ width: 20, height: 20 }} />
+                    All team members
+                  </Box>
+                )
+              }
+
+              const member = getMember(value)
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                  <Avatar
+                    alt=""
+                    src={member?.imageUrl}
+                    sx={{ width: 20, height: 20, fontSize: 10 }}
+                  />
+                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {value}
+                  </Box>
+                </Box>
+              )
+            }}
           >
-            <MenuItem value="">All team members</MenuItem>
-            {memberFilterOptions.map((memberName) => (
-              <MenuItem key={memberName} value={memberName}>
-                {memberName}
-              </MenuItem>
-            ))}
+            <MenuItem value="">
+              <Avatar alt="" src={svgUsers} sx={{ width: 24, height: 24, mr: 1 }} />
+              All team members
+            </MenuItem>
+            {memberFilterOptions.map((memberName) => {
+              const member = getMember(memberName)
+
+              return (
+                <MenuItem key={memberName} value={memberName}>
+                  <Avatar
+                    alt=""
+                    src={member?.imageUrl}
+                    sx={{ width: 24, height: 24, mr: 1, fontSize: 10 }}
+                  />
+                  {memberName}
+                </MenuItem>
+              )
+            })}
           </Select>
         </FormControl>
 
