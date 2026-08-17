@@ -7,7 +7,6 @@ import {
   MenuItem,
   Select,
   TextField,
-  Tooltip,
   type SelectChangeEvent,
 } from '@mui/material'
 import type { RefObject } from 'react'
@@ -68,14 +67,6 @@ export function StandupToolbar({
   const getMember = (memberName: string) =>
     members.find((member) => member.displayName.localeCompare(memberName, undefined, { sensitivity: 'accent' }) === 0)
 
-  const getCycleTarget = (direction: -1 | 1): string => {
-    const cycleValues = ['', ...memberFilterOptions]
-    const currentIndex = cycleValues.indexOf(selectedMemberFilter)
-    const safeCurrentIndex = currentIndex === -1 ? 0 : currentIndex
-    const nextIndex = (safeCurrentIndex + direction + cycleValues.length) % cycleValues.length
-    return cycleValues[nextIndex]
-  }
-
   const renderMemberFilterOption = (memberName: string, size: number) => {
     const member = getMember(memberName)
     const isAllMembers = !memberName
@@ -93,10 +84,6 @@ export function StandupToolbar({
       </Box>
     )
   }
-
-  const previousMemberFilter = getCycleTarget(-1)
-  const nextMemberFilter = getCycleTarget(1)
-  const isMemberCycleDisabled = !patConfigured || memberFilterOptions.length === 0
 
   return (
     <PageToolbar iconHref={svgUsers} title="Team Assignments">
@@ -152,33 +139,25 @@ export function StandupToolbar({
         </FormControl>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <Tooltip title={renderMemberFilterOption(previousMemberFilter, 24)}>
-            <Box component="span">
-              <IconButton
-                size="small"
-                aria-label="Select previous team member filter"
-                aria-keyshortcuts="Ctrl+ArrowUp"
-                onClick={() => onMemberFilterCycle(-1)}
-                disabled={isMemberCycleDisabled}
-              >
-                <Icon href={svgArrowUp} />
-              </IconButton>
-            </Box>
-          </Tooltip>
+          <IconButton
+            size="small"
+            aria-label="Select previous team member filter"
+            aria-keyshortcuts="Ctrl+ArrowUp"
+            onClick={() => onMemberFilterCycle(-1)}
+            disabled={!patConfigured || memberFilterOptions.length === 0}
+          >
+            <Icon href={svgArrowUp} />
+          </IconButton>
 
-          <Tooltip title={renderMemberFilterOption(nextMemberFilter, 24)}>
-            <Box component="span">
-              <IconButton
-                size="small"
-                aria-label="Select next team member filter"
-                aria-keyshortcuts="Ctrl+ArrowDown"
-                onClick={() => onMemberFilterCycle(1)}
-                disabled={isMemberCycleDisabled}
-              >
-                <Icon href={svgArrowDown} />
-              </IconButton>
-            </Box>
-          </Tooltip>
+          <IconButton
+            size="small"
+            aria-label="Select next team member filter"
+            aria-keyshortcuts="Ctrl+ArrowDown"
+            onClick={() => onMemberFilterCycle(1)}
+            disabled={!patConfigured || memberFilterOptions.length === 0}
+          >
+            <Icon href={svgArrowDown} />
+          </IconButton>
         </Box>
 
         <TeamToolbarControls
