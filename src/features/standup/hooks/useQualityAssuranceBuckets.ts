@@ -4,23 +4,23 @@ import type { TeamProfile } from '../../../teamProfiles'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
-type UseQaNewWorkItemsArgs = {
+type UseQualityAssuranceBucketsArgs = {
   adoQueryEngine: AdoQueryEngine | null
   selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>
   reloadNonce: number
 }
 
-type UseQaNewWorkItemsResult = {
+type UseQualityAssuranceBucketsResult = {
   qaBuckets: QualityAssuranceBucket[]
   qaBucketsLoading: boolean
   qaBucketsError: string | null
 }
 
-export function useQaNewWorkItems({
+export function useQualityAssuranceBuckets({
   adoQueryEngine,
   selectedTeam,
   reloadNonce,
-}: UseQaNewWorkItemsArgs): UseQaNewWorkItemsResult {
+}: UseQualityAssuranceBucketsArgs): UseQualityAssuranceBucketsResult {
   const [qaBuckets, setQaBuckets] = useState<QualityAssuranceBucket[]>([])
   const [qaBucketsLoading, setQaBucketsLoading] = useState(false)
   const [qaBucketsError, setQaBucketsError] = useState<string | null>(null)

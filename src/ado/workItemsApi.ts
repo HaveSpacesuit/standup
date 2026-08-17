@@ -3,9 +3,10 @@ import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
-import { buildIterationScopedWiql, buildQaBucketCandidatesWiql, buildQaNewItemsWiql } from './wiql'
+import { buildIterationScopedWiql, buildQaBucketCandidatesWiql } from './wiql'
 import { fetchPolicyEvaluationChecksSummary, fetchProjectId } from './policyEvaluationChecksApi'
 import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
+import { getPullRequestIconUrl } from './adoShared'
 import resolveStatusFromStateAndTags from './workItemStatus'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
 import {
@@ -149,22 +150,6 @@ function chunkArray<T>(items: T[], chunkSize: number): T[][] {
   }
 
   return chunks
-}
-
-function getPullRequestIconUrl(iconMap: Record<string, string>): string | undefined {
-  const direct = iconMap['icon_pull_request']
-  if (direct) {
-    return direct
-  }
-
-  for (const [iconId, iconUrl] of Object.entries(iconMap)) {
-    const normalized = iconId.trim().toLowerCase()
-    if (normalized.includes('pull') && normalized.includes('request')) {
-      return iconUrl
-    }
-  }
-
-  return undefined
 }
 
 function parseEffort(value: unknown): number | undefined {
@@ -530,16 +515,6 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
   signal?: AbortSignal,
 ): Promise<WorkItemSummary[]> {
   const wiqlQuery = buildIterationScopedWiql(team.projectName, team.areaPath, team.iterationPath)
-
-  return fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
-}
-
-export async function fetchQaNewWorkItems(
-  client: AdoRequestClient,
-  team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
-  signal?: AbortSignal,
-): Promise<WorkItemSummary[]> {
-  const wiqlQuery = buildQaNewItemsWiql(team.projectName, team.areaPath)
 
   return fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
 }

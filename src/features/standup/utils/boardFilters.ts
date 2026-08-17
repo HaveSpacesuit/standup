@@ -11,10 +11,6 @@ function normalizeTag(tag: string): string {
   return tag.trim()
 }
 
-export function normalizeTagKey(tag: string): string {
-  return normalizeTag(tag).toLowerCase()
-}
-
 function isTagRuleAction(value: unknown): value is TagRuleAction {
   return value === 'Blocked' || value === 'New' || value === 'Active' || value === 'Review' || value === 'Done' || value === 'unlisted'
 }
@@ -83,10 +79,6 @@ export function parseStoredTagRules(value: string | null, legacyHiddenTagsValue?
   }
 
   return rules
-}
-
-export function getTagRuleCountForAction(tagRules: TagRule[], action: TagRuleAction): number {
-  return tagRules.filter((rule) => rule.action === action).length
 }
 
 export function shouldHideByTag(item: WorkItemSummary, tagRules: TagRule[]): boolean {

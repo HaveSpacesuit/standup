@@ -1,5 +1,5 @@
 import { Box, Card, CardContent, Typography } from '@mui/material'
-import { PullRequestsLoadingState } from './PullRequestsLoadingState'
+import { CardListLoadingState } from './CardListLoadingState'
 import { WorkItemCard } from './WorkItemCard'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 
@@ -11,7 +11,7 @@ type QualityAssuranceListProps = {
 
 export function QualityAssuranceList({ isLoading, error, buckets }: QualityAssuranceListProps) {
   if (isLoading) {
-    return <PullRequestsLoadingState />
+    return <CardListLoadingState />
   }
 
   if (error) {

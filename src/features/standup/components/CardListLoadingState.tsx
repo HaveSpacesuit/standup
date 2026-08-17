@@ -1,6 +1,6 @@
 import { Box, Card, CardContent, CircularProgress, Skeleton, Typography } from '@mui/material'
 
-export function PullRequestsLoadingState() {
+export function CardListLoadingState() {
   return (
     <Box
       component="main"
@@ -27,22 +27,20 @@ export function PullRequestsLoadingState() {
         <CircularProgress size={18} />
         <Box>
           <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-            Loading pull requests...
+            Loading...
           </Typography>
           <Typography variant="body-sm" color="text.secondary">
-            Fetching active PRs, reviews, and policy checks.
+            Fetching the latest items.
           </Typography>
         </Box>
       </Box>
 
       <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
         <Box sx={{ maxWidth: 640, mx: 'auto', display: 'grid', gap: 3, alignContent: 'start' }}>
-          {['Ready to merge', 'Waiting on checks', 'Waiting on reviewers', 'Blocked'].map((title, sectionIndex) => (
-            <Box key={`loading-section-${title}`}>
+          {Array.from({ length: 4 }).map((_, sectionIndex) => (
+            <Box key={`loading-section-${sectionIndex}`}>
               <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
-                <Typography variant="body-md" sx={{ fontWeight: 700 }}>
-                  {title}
-                </Typography>
+                <Skeleton variant="text" width={140} height={22} />
                 <Skeleton variant="rounded" width={18} height={16} />
               </Box>
 

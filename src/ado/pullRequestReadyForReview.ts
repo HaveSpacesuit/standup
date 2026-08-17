@@ -1,5 +1,6 @@
 import type { TeamProfile } from '../teamProfiles'
 import type { AdoRequestClient } from './httpClient'
+import { parseIsoDate } from './adoShared'
 
 type PullRequestThreadListResponse = {
   value?: PullRequestThreadApiResponse[]
@@ -16,15 +17,6 @@ type PullRequestThreadApiResponse = {
     publishedDate?: string
     content?: string
   }>
-}
-
-function parseIsoDate(value: string | undefined): number | null {
-  if (!value) {
-    return null
-  }
-
-  const time = Date.parse(value)
-  return Number.isNaN(time) ? null : time
 }
 
 export function resolveLastReadyForReviewAtFromThreads(threads: PullRequestThreadApiResponse[]): string | undefined {

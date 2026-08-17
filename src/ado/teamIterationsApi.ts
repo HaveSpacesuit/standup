@@ -1,6 +1,7 @@
 import type { TeamProfile } from '../teamProfiles'
 import type { AdoRequestClient } from './httpClient'
 import type { CurrentIterationInfo, IterationInfo, IterationWindowInfo } from './types'
+import { parseIsoDate } from './adoShared'
 
 type TeamIterationsResponse = {
   values?: Array<{
@@ -83,15 +84,6 @@ function resolveCurrentIterationInfo(
     startDate,
     finishDate,
   }
-}
-
-function parseIsoDate(value: string | undefined): number | null {
-  if (!value) {
-    return null
-  }
-
-  const parsed = Date.parse(value)
-  return Number.isNaN(parsed) ? null : parsed
 }
 
 function resolveNextIterationInfo(

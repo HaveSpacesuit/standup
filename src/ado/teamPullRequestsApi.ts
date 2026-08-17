@@ -4,6 +4,8 @@ import type { AdoRequestClient } from './httpClient'
 import type { CurrentIterationInfo, TeamMember, WorkItemPullRequestSummary, WorkItemSummary } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
 import { fetchPolicyEvaluationChecksSummary, fetchProjectId } from './policyEvaluationChecksApi'
+import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
+import { getPullRequestIconUrl, parseIsoDate } from './adoShared'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
 
 type PullRequestListResponse = {
@@ -36,37 +38,6 @@ type PullRequestApiResponse = {
   }
 }
 
-type PullRequestThreadListResponse = {
-  value?: PullRequestThreadApiResponse[]
-}
-
-type PullRequestThreadApiResponse = {
-  publishedDate?: string
-  properties?: {
-    CodeReviewThreadType?: {
-      $value?: string
-    }
-  }
-  comments?: Array<{
-    publishedDate?: string
-    content?: string
-    author?: {
-      displayName?: string
-    }
-  }>
-}
-
-type PullRequestFilterMode = 'unlinked-board-items' | 'active-team-items'
-
-function parseIsoDate(value: string | undefined): number | null {
-  if (!value) {
-    return null
-  }
-
-  const time = Date.parse(value)
-  return Number.isNaN(time) ? null : time
-}
-
 function addDays(timestamp: number, days: number): number {
   return timestamp + days * 24 * 60 * 60 * 1000
 }
@@ -94,7 +65,6 @@ function shouldIncludePullRequest(
   linkedPullRequestIds: Set<number>,
   memberKeys: Set<string>,
   currentIteration: CurrentIterationInfo | null,
-  mode: PullRequestFilterMode,
 ): boolean {
   const pullRequestId = pullRequest.pullRequestId
   if (typeof pullRequestId !== 'number') {
@@ -105,7 +75,7 @@ function shouldIncludePullRequest(
     return false
   }
 
-  if (mode === 'unlinked-board-items' && linkedPullRequestIds.has(pullRequestId)) {
+  if (linkedPullRequestIds.has(pullRequestId)) {
     return false
   }
 
@@ -120,10 +90,6 @@ function shouldIncludePullRequest(
   }
 
   const status = pullRequest.status?.trim().toLowerCase()
-  if (mode === 'active-team-items') {
-    return status === 'active'
-  }
-
   if (status === 'active') {
     return true
   }
@@ -133,22 +99,6 @@ function shouldIncludePullRequest(
   }
 
   return false
-}
-
-function getPullRequestIconUrl(iconMap: Record<string, string>): string | undefined {
-  const direct = iconMap['icon_pull_request']
-  if (direct) {
-    return direct
-  }
-
-  for (const [iconId, iconUrl] of Object.entries(iconMap)) {
-    const normalized = iconId.trim().toLowerCase()
-    if (normalized.includes('pull') && normalized.includes('request')) {
-      return iconUrl
-    }
-  }
-
-  return undefined
 }
 
 function buildPullRequestWebUrl(
@@ -165,76 +115,6 @@ function buildPullRequestWebUrl(
 
   const repositoryName = pullRequest.repository?.name?.trim() || repoName
   return `https://dev.azure.com/${encodeURIComponent(orgName)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repositoryName)}/pullrequest/${pullRequestId}`
-}
-
-function resolveLastReadyForReviewAtFromThreads(threads: PullRequestThreadApiResponse[]): string | undefined {
-  const readyForReviewEvents: string[] = []
-
-  for (const thread of threads) {
-    const threadType = thread.properties?.CodeReviewThreadType?.$value?.trim()
-    if (threadType !== 'IsDraftUpdate') {
-      continue
-    }
-
-    for (const comment of thread.comments ?? []) {
-      const content = comment.content?.trim()
-      if (!content) {
-        continue
-      }
-
-      if (/published the pull request\.?$/i.test(content)) {
-        const eventDate = comment.publishedDate ?? thread.publishedDate
-        if (eventDate) {
-          readyForReviewEvents.push(eventDate)
-        }
-      }
-    }
-  }
-
-  if (readyForReviewEvents.length === 0) {
-    return undefined
-  }
-
-  return readyForReviewEvents
-    .sort((left, right) => {
-      const leftAt = parseIsoDate(left) ?? Number.NEGATIVE_INFINITY
-      const rightAt = parseIsoDate(right) ?? Number.NEGATIVE_INFINITY
-      return leftAt - rightAt
-    })
-    .at(-1)
-}
-
-async function fetchLastReadyForReviewAt(
-  client: AdoRequestClient,
-  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,
-  pullRequest: PullRequestApiResponse,
-  signal?: AbortSignal,
-): Promise<string | undefined> {
-  const pullRequestId = pullRequest.pullRequestId
-  if (typeof pullRequestId !== 'number') {
-    return undefined
-  }
-
-  const repositoryId = pullRequest.repository?.id?.trim()
-  if (!repositoryId) {
-    return undefined
-  }
-
-  try {
-    const threadsResponse = await client.request<PullRequestThreadListResponse>({
-      method: 'GET',
-      orgName: team.orgName,
-      path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${pullRequestId}/threads`,
-      params: {
-        'api-version': '7.1',
-      },
-      signal,
-    })
-
-    return resolveLastReadyForReviewAtFromThreads(threadsResponse.value ?? [])
-  } catch {
-    return undefined
-  }
 }
 
 
@@ -293,7 +173,6 @@ async function fetchPullRequestItems(
   members: TeamMember[],
   linkedPullRequestIds: Set<number>,
   currentIteration: CurrentIterationInfo | null,
-  mode: PullRequestFilterMode,
   signal?: AbortSignal,
 ): Promise<WorkItemSummary[]> {
   const memberKeys = new Set(
@@ -323,28 +202,23 @@ async function fetchPullRequestItems(
     }),
   ]
 
-  if (mode === 'unlinked-board-items') {
-    requests.push(
-      client.request<PullRequestListResponse>({
-        method: 'GET',
-        orgName: team.orgName,
-        path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(team.repoName)}/pullrequests`,
-        params: {
-          'api-version': '7.1',
-          'searchCriteria.status': 'completed',
-        },
-        signal,
-      }),
-    )
-  }
+  requests.push(
+    client.request<PullRequestListResponse>({
+      method: 'GET',
+      orgName: team.orgName,
+      path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(team.repoName)}/pullrequests`,
+      params: {
+        'api-version': '7.1',
+        'searchCriteria.status': 'completed',
+      },
+      signal,
+    }),
+  )
 
   const responses = await Promise.all(requests)
   const workItemIconMap = await workItemIconMapPromise
   const pullRequestIconUrl = getPullRequestIconUrl(workItemIconMap)
-  const includeChecks = true
-  const projectId = includeChecks
-    ? await fetchProjectId(client, team.orgName, team.projectName, signal)
-    : null
+  const projectId = await fetchProjectId(client, team.orgName, team.projectName, signal)
 
   const pullRequestsById = new Map<number, PullRequestApiResponse>()
   for (const response of responses) {
@@ -357,25 +231,17 @@ async function fetchPullRequestItems(
   }
 
   const filteredPullRequests = [...pullRequestsById.values()].filter((pullRequest) =>
-    shouldIncludePullRequest(pullRequest, linkedPullRequestIds, memberKeys, currentIteration, mode),
+    shouldIncludePullRequest(pullRequest, linkedPullRequestIds, memberKeys, currentIteration),
   )
 
   const mappedItems = await Promise.all(
     filteredPullRequests.map(async (pullRequest) => {
       const pullRequestId = pullRequest.pullRequestId
-      const readyForReviewAt = includeChecks
-        ? await fetchLastReadyForReviewAt(client, team, pullRequest, signal)
+      const readyForReviewAt = typeof pullRequestId === 'number'
+        ? await fetchPullRequestReadyForReviewAt(client, team, pullRequest.repository?.id?.trim(), pullRequestId, signal)
         : undefined
-      const checks = includeChecks
-        ? (projectId && typeof pullRequestId === 'number'
-          ? await fetchPolicyEvaluationChecksSummary(
-            client,
-            team,
-            pullRequestId,
-            projectId,
-            signal,
-          ) ?? undefined
-          : undefined)
+      const checks = projectId && typeof pullRequestId === 'number'
+        ? await fetchPolicyEvaluationChecksSummary(client, team, pullRequestId, projectId, signal).then((value) => value ?? undefined)
         : undefined
 
       return mapPullRequestToWorkItemSummary(
@@ -409,30 +275,6 @@ export async function fetchUnlinkedActivePullRequestItems(
     members,
     linkedPullRequestIds,
     currentIteration,
-    'unlinked-board-items',
     signal,
   )
-}
-
-export async function fetchActiveTeamPullRequestItems(
-  client: AdoRequestClient,
-  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,
-  members: TeamMember[],
-  signal?: AbortSignal,
-): Promise<WorkItemSummary[]> {
-  const items = await fetchPullRequestItems(
-    client,
-    team,
-    members,
-    new Set<number>(),
-    null,
-    'active-team-items',
-    signal,
-  )
-
-  return [...items].sort((left, right) => {
-    const leftAt = parseIsoDate(left.recentActivityAt) ?? Number.NEGATIVE_INFINITY
-    const rightAt = parseIsoDate(right.recentActivityAt) ?? Number.NEGATIVE_INFINITY
-    return leftAt - rightAt
-  })
 }

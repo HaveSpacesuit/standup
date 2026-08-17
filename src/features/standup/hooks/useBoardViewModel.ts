@@ -10,7 +10,7 @@ import { useWorkItemAssignees } from './useWorkItemAssignees'
 import { useBoardPreferences } from './useBoardPreferences'
 import { useTeamManagementUrl } from './useTeamManagementUrl'
 import { useVisibleBoardItems } from './useVisibleBoardItems'
-import { useQaNewWorkItems } from './useQaNewWorkItems'
+import { useQualityAssuranceBuckets } from './useQualityAssuranceBuckets'
 import {
   applyTagRulesToItem,
   normalizeTeamMemberLabel,
@@ -135,7 +135,7 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     workItemsError,
   })
 
-  const { qaBuckets, qaBucketsLoading, qaBucketsError } = useQaNewWorkItems({
+  const { qaBuckets, qaBucketsLoading, qaBucketsError } = useQualityAssuranceBuckets({
     adoQueryEngine,
     selectedTeam,
     reloadNonce,
