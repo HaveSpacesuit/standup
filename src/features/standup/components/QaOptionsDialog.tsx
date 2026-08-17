@@ -28,23 +28,13 @@ type QaOptionsDialogProps = {
   onClose: () => void
   onChange: (next: QaOptions) => void
   projectWorkItemStates: ProjectWorkItemState[]
+  projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
 }
 
 const RULE_TYPE_OPTIONS: Array<{ value: QaFilterRuleType; label: string }> = [
   { value: 'work-item-type', label: 'Work item type' },
   { value: 'tag', label: 'Tag' },
-]
-
-// Canonical ADO work item type display names, ordered from broadest to most specific.
-const WORK_ITEM_TYPES = [
-  'Epic',
-  'Feature',
-  'User Story',
-  'Product Backlog Item',
-  'Bug',
-  'Task',
-  'Issue',
 ]
 
 type StateGroupKey = keyof QaStateGroupOverrides
@@ -76,6 +66,7 @@ export function QaOptionsDialog({
   onClose,
   onChange,
   projectWorkItemStates,
+  projectWorkItemTypes,
   projectWorkItemStatesLoading,
 }: QaOptionsDialogProps) {
   const { generalFilters } = options
@@ -138,7 +129,7 @@ export function QaOptionsDialog({
                       }
                       renderValue={(value) => value || <span style={{ opacity: 0.5 }}>Select type…</span>}
                     >
-                      {WORK_ITEM_TYPES.map((type) => (
+                      {projectWorkItemTypes.map((type) => (
                         <MenuItem key={type} value={type}>
                           {type}
                         </MenuItem>

@@ -52,6 +52,7 @@ type UseBoardViewModelResult = {
   qaBucketsLoading: boolean
   qaBucketsError: string | null
   projectWorkItemStates: ProjectWorkItemState[]
+  projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
 }
 
@@ -145,10 +146,11 @@ export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardVi
     adoQueryEngine,
     selectedTeam,
     reloadNonce,
+    generalFilters: qaOptionsByTeam?.[selectedTeam.id]?.generalFilters,
     stateGroupOverrides: qaOptionsByTeam?.[selectedTeam.id]?.stateGroups,
   })
 
-  const { workItemStates: projectWorkItemStates, workItemStatesLoading: projectWorkItemStatesLoading } = useProjectWorkItemStates({
+  const { workItemStates: projectWorkItemStates, workItemTypes: projectWorkItemTypes, workItemStatesLoading: projectWorkItemStatesLoading } = useProjectWorkItemStates({
     adoQueryEngine,
     selectedTeam,
   })
@@ -225,6 +227,7 @@ export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardVi
     qaBucketsLoading,
     qaBucketsError,
     projectWorkItemStates,
+    projectWorkItemTypes,
     projectWorkItemStatesLoading,
   }
 }

@@ -10,6 +10,7 @@ type UseProjectWorkItemStatesArgs = {
 
 type UseProjectWorkItemStatesResult = {
   workItemStates: ProjectWorkItemState[]
+  workItemTypes: string[]
   workItemStatesLoading: boolean
 }
 
@@ -18,11 +19,13 @@ export function useProjectWorkItemStates({
   selectedTeam,
 }: UseProjectWorkItemStatesArgs): UseProjectWorkItemStatesResult {
   const [workItemStates, setWorkItemStates] = useState<ProjectWorkItemState[]>([])
+  const [workItemTypes, setWorkItemTypes] = useState<string[]>([])
   const [workItemStatesLoading, setWorkItemStatesLoading] = useState(false)
 
   useEffect(() => {
     if (!adoQueryEngine) {
       setWorkItemStates([])
+      setWorkItemTypes([])
       setWorkItemStatesLoading(false)
       return
     }
@@ -30,16 +33,20 @@ export function useProjectWorkItemStates({
     const abortController = new AbortController()
     setWorkItemStatesLoading(true)
 
-    adoQueryEngine
-      .getProjectWorkItemStates(selectedTeam, abortController.signal)
-      .then((states) => {
+    Promise.all([
+      adoQueryEngine.getProjectWorkItemStates(selectedTeam, abortController.signal),
+      adoQueryEngine.getProjectWorkItemTypes(selectedTeam, abortController.signal),
+    ])
+      .then(([states, types]) => {
         if (!abortController.signal.aborted) {
           setWorkItemStates(states)
+          setWorkItemTypes(types)
         }
       })
       .catch((error: unknown) => {
         if (!abortController.signal.aborted && !isAbortError(error)) {
           setWorkItemStates([])
+          setWorkItemTypes([])
         }
       })
       .finally(() => {
@@ -53,5 +60,5 @@ export function useProjectWorkItemStates({
     }
   }, [adoQueryEngine, selectedTeam])
 
-  return { workItemStates, workItemStatesLoading }
+  return { workItemStates, workItemTypes, workItemStatesLoading }
 }

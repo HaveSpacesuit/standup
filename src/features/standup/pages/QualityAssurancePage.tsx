@@ -25,6 +25,7 @@ type QualityAssurancePageProps = {
   qaOptions: QaOptions
   onQaOptionsChange: (next: QaOptions) => void
   projectWorkItemStates: ProjectWorkItemState[]
+  projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
 }
 
@@ -46,6 +47,7 @@ export function QualityAssurancePage({
   qaOptions,
   onQaOptionsChange,
   projectWorkItemStates,
+  projectWorkItemTypes,
   projectWorkItemStatesLoading,
 }: QualityAssurancePageProps) {
   const [optionsOpen, setOptionsOpen] = useState(false)
@@ -80,6 +82,7 @@ export function QualityAssurancePage({
         onClose={() => setOptionsOpen(false)}
         onChange={onQaOptionsChange}
         projectWorkItemStates={projectWorkItemStates}
+        projectWorkItemTypes={projectWorkItemTypes}
         projectWorkItemStatesLoading={projectWorkItemStatesLoading}
       />
     </>

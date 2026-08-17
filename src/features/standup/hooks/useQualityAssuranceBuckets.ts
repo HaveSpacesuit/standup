@@ -3,7 +3,7 @@ import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../teamProfiles'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../utils/qualityAssuranceBuckets'
-import type { QaStateGroupOverrides } from '../utils/qaOptions'
+import type { QaFilterRule, QaStateGroupOverrides } from '../utils/qaOptions'
 import { isAbortError, toErrorMessage } from './queryErrors'
 import type { QualityAssuranceRawData } from '../../../ado/workItemsApi'
 
@@ -11,6 +11,7 @@ type UseQualityAssuranceBucketsArgs = {
   adoQueryEngine: AdoQueryEngine | null
   selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>
   reloadNonce: number
+  generalFilters?: QaFilterRule[]
   stateGroupOverrides?: QaStateGroupOverrides | null
 }
 
@@ -24,11 +25,22 @@ export function useQualityAssuranceBuckets({
   adoQueryEngine,
   selectedTeam,
   reloadNonce,
+  generalFilters,
   stateGroupOverrides,
 }: UseQualityAssuranceBucketsArgs): UseQualityAssuranceBucketsResult {
   const [rawData, setRawData] = useState<QualityAssuranceRawData | null>(null)
   const [qaBucketsLoading, setQaBucketsLoading] = useState(false)
   const [qaBucketsError, setQaBucketsError] = useState<string | null>(null)
+
+  // Derive excluded work item types from general filters as a stable string key for the fetch effect.
+  const excludeWorkItemTypesKey = useMemo(() => {
+    return (generalFilters ?? [])
+      .filter((r): r is Extract<QaFilterRule, { type: 'work-item-type' }> => r.type === 'work-item-type')
+      .map((r) => r.workItemType.trim().toLowerCase())
+      .filter(Boolean)
+      .sort()
+      .join(',')
+  }, [generalFilters])
 
   useEffect(() => {
     if (!adoQueryEngine) {
@@ -42,8 +54,10 @@ export function useQualityAssuranceBuckets({
     setQaBucketsLoading(true)
     setQaBucketsError(null)
 
+    const excludeWorkItemTypes = excludeWorkItemTypesKey ? excludeWorkItemTypesKey.split(',') : []
+
     adoQueryEngine
-      .getQualityAssuranceRawData(selectedTeam, abortController.signal)
+      .getQualityAssuranceRawData(selectedTeam, abortController.signal, { excludeWorkItemTypes })
       .then((data) => {
         if (!abortController.signal.aborted) {
           setRawData(data)
@@ -64,7 +78,7 @@ export function useQualityAssuranceBuckets({
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, reloadNonce, selectedTeam])
+  }, [adoQueryEngine, reloadNonce, selectedTeam, excludeWorkItemTypesKey])
 
   const qaBuckets = useMemo<QualityAssuranceBucket[]>(() => {
     if (!rawData) {

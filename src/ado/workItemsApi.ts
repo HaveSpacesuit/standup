@@ -572,8 +572,9 @@ export async function fetchQualityAssuranceRawData(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
   signal?: AbortSignal,
+  options?: { excludeWorkItemTypes?: string[] },
 ): Promise<QualityAssuranceRawData> {
-  const wiqlQuery = buildQaBucketCandidatesWiql(team.projectName, team.areaPath)
+  const wiqlQuery = buildQaBucketCandidatesWiql(team.projectName, team.areaPath, 21, options?.excludeWorkItemTypes)
   const candidates = await fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
   const updatesByItemId = await fetchQualityAssuranceWorkItemUpdates(client, team, candidates.map((item) => item.id), signal)
 

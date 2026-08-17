@@ -62,6 +62,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     qaBucketsLoading,
     qaBucketsError,
     projectWorkItemStates,
+    projectWorkItemTypes,
     projectWorkItemStatesLoading,
   } = useBoardViewModel({ patConfigured, qaOptionsByTeam })
 
@@ -149,6 +150,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             qaOptions={qaOptions}
             onQaOptionsChange={handleQaOptionsChange}
             projectWorkItemStates={projectWorkItemStates}
+            projectWorkItemTypes={projectWorkItemTypes}
             projectWorkItemStatesLoading={projectWorkItemStatesLoading}
           />
         )}
