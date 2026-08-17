@@ -4,6 +4,7 @@ import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
+import svgFilter from '@stratakit/icons/filter.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
 
@@ -18,6 +19,7 @@ type QualityAssuranceToolbarProps = {
   onQuickFilterClear: () => void
   quickFilterInputRef: RefObject<HTMLInputElement | null>
   onRefresh: () => void
+  onOpenOptions: () => void
   isLoading: boolean
 }
 
@@ -32,6 +34,7 @@ export function QualityAssuranceToolbar({
   onQuickFilterClear,
   quickFilterInputRef,
   onRefresh,
+  onOpenOptions,
   isLoading,
 }: QualityAssuranceToolbarProps) {
   return (
@@ -70,6 +73,14 @@ export function QualityAssuranceToolbar({
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
       >
+        <IconButton
+          size="small"
+          label="QA options"
+          onClick={onOpenOptions}
+          disabled={!patConfigured}
+        >
+          <Icon href={svgFilter} />
+        </IconButton>
         <IconButton
           size="small"
           label="Refresh"

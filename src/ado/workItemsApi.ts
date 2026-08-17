@@ -10,9 +10,8 @@ import { getPullRequestIconUrl } from './adoShared'
 import resolveStatusFromStateAndTags from './workItemStatus'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
 import {
-  bucketQualityAssuranceItems,
-  resolveQualityAssuranceProjectConfig,
   type WorkItemUpdatesResponse,
+  type WorkItemUpdate,
 } from '../features/standup/utils/qualityAssuranceBuckets'
 
 const WORK_ITEM_TYPE_ICON_IDS: Record<string, string> = {
@@ -564,14 +563,19 @@ function normalizeUpdates(response: WorkItemUpdatesResponse) {
   })
 }
 
-export async function fetchQualityAssuranceBuckets(
+export type QualityAssuranceRawData = {
+  candidates: WorkItemSummary[]
+  updatesByItemId: Record<number, WorkItemUpdate[]>
+}
+
+export async function fetchQualityAssuranceRawData(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
   signal?: AbortSignal,
-): Promise<ReturnType<typeof bucketQualityAssuranceItems>> {
+): Promise<QualityAssuranceRawData> {
   const wiqlQuery = buildQaBucketCandidatesWiql(team.projectName, team.areaPath)
   const candidates = await fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
   const updatesByItemId = await fetchQualityAssuranceWorkItemUpdates(client, team, candidates.map((item) => item.id), signal)
 
-  return bucketQualityAssuranceItems(candidates, updatesByItemId, resolveQualityAssuranceProjectConfig(team))
+  return { candidates, updatesByItemId }
 }

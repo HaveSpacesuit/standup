@@ -1,5 +1,6 @@
 import type { TeamProfile } from '../../../teamProfiles'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
+import type { QaStateGroupOverrides } from './qaOptions'
 
 export type QualityAssuranceBucketId = 'new' | 'needs-testing' | 'needs-development' | 'done'
 
@@ -13,6 +14,7 @@ export type QualityAssuranceStateGroups = {
   testing: string[]
   development: string[]
   done: string[]
+  new: string[]
 }
 
 export type QualityAssuranceProjectConfig = {
@@ -25,7 +27,7 @@ type WorkItemFieldUpdate = {
   newValue?: unknown
 }
 
-type WorkItemUpdate = {
+export type WorkItemUpdate = {
   revisedDate?: string
   fields?: Record<string, WorkItemFieldUpdate>
 }
@@ -40,6 +42,7 @@ const DEFAULT_CONFIG: QualityAssuranceProjectConfig = {
     testing: ['available for testing', 'ready for testing', 'aft'],
     development: ['committed', 'active', 'in progress'],
     done: ['done', 'closed', 'completed'],
+    new: ['new', 'proposed'],
   },
 }
 
@@ -49,6 +52,7 @@ const PROJECT_CONFIGS: Record<string, Partial<QualityAssuranceProjectConfig>> = 
       testing: ['available for testing', 'ready for testing', 'aft'],
       development: ['committed', 'active', 'in progress'],
       done: ['done', 'closed', 'completed'],
+      new: ['new', 'proposed'],
     },
   },
   'projectwise explorer': {
@@ -56,6 +60,7 @@ const PROJECT_CONFIGS: Record<string, Partial<QualityAssuranceProjectConfig>> = 
       testing: ['available for testing', 'ready for testing', 'aft'],
       development: ['committed', 'active', 'in progress'],
       done: ['done', 'closed', 'completed'],
+      new: ['new', 'proposed'],
     },
   },
 }
@@ -77,14 +82,31 @@ function normalizeState(state: string | undefined): string {
   return normalizeText(state ?? '')
 }
 
-export function resolveQualityAssuranceProjectConfig(team: Pick<TeamProfile, 'id' | 'projectName'>): QualityAssuranceProjectConfig {
+export function resolveQualityAssuranceProjectConfig(
+  team: Pick<TeamProfile, 'id' | 'projectName'>,
+  stateGroupOverrides?: QaStateGroupOverrides | null,
+): QualityAssuranceProjectConfig {
   const overrides = PROJECT_CONFIGS[normalizeText(team.projectName)]
-  return {
+  const base: QualityAssuranceProjectConfig = {
     ...DEFAULT_CONFIG,
     ...overrides,
     stateGroups: {
       ...DEFAULT_CONFIG.stateGroups,
       ...overrides?.stateGroups,
+    },
+  }
+
+  if (!stateGroupOverrides) {
+    return base
+  }
+
+  return {
+    ...base,
+    stateGroups: {
+      testing: stateGroupOverrides.testing.length > 0 ? stateGroupOverrides.testing : base.stateGroups.testing,
+      development: stateGroupOverrides.development.length > 0 ? stateGroupOverrides.development : base.stateGroups.development,
+      done: stateGroupOverrides.done.length > 0 ? stateGroupOverrides.done : base.stateGroups.done,
+      new: stateGroupOverrides.new.length > 0 ? stateGroupOverrides.new : base.stateGroups.new,
     },
   }
 }
@@ -98,17 +120,21 @@ function matchesStateGroup(state: string | undefined, candidates: string[]): boo
   return candidates.some((candidate) => normalizedState === normalizeText(candidate))
 }
 
-function resolveStateGroup(state: string | undefined, config: QualityAssuranceProjectConfig): 'testing' | 'development' | 'done' | 'other' {
+function resolveStateGroup(state: string | undefined, config: QualityAssuranceProjectConfig): 'testing' | 'development' | 'done' | 'new' | 'other' {
   if (matchesStateGroup(state, config.stateGroups.testing)) {
     return 'testing'
+  }
+
+  if (matchesStateGroup(state, config.stateGroups.done)) {
+    return 'done'
   }
 
   if (matchesStateGroup(state, config.stateGroups.development)) {
     return 'development'
   }
 
-  if (matchesStateGroup(state, config.stateGroups.done)) {
-    return 'done'
+  if (config.stateGroups.new.length > 0 && matchesStateGroup(state, config.stateGroups.new)) {
+    return 'new'
   }
 
   return 'other'
@@ -179,7 +205,11 @@ export function classifyQualityAssuranceItem(
     return 'done'
   }
 
-  if (currentStateGroup === 'other' && isNewCandidate(item, config)) {
+  if ((currentStateGroup === 'other' || currentStateGroup === 'new') && isNewCandidate(item, config)) {
+    return 'new'
+  }
+
+  if (currentStateGroup === 'new') {
     return 'new'
   }
 

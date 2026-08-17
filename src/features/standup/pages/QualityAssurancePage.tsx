@@ -1,8 +1,11 @@
-import { type RefObject } from 'react'
+import { useState, type RefObject } from 'react'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { QualityAssuranceList } from '../components/QualityAssuranceList'
 import { QualityAssuranceToolbar } from '../components/QualityAssuranceToolbar'
+import { QaOptionsDialog } from '../components/QaOptionsDialog'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
+import type { QaOptions } from '../utils/qaOptions'
+import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 
 type QualityAssurancePageProps = {
   patConfigured: boolean
@@ -19,6 +22,10 @@ type QualityAssurancePageProps = {
   onRefresh: () => void
   isLoading: boolean
   newItemsError: string | null
+  qaOptions: QaOptions
+  onQaOptionsChange: (next: QaOptions) => void
+  projectWorkItemStates: ProjectWorkItemState[]
+  projectWorkItemStatesLoading: boolean
 }
 
 export function QualityAssurancePage({
@@ -36,7 +43,13 @@ export function QualityAssurancePage({
   onRefresh,
   isLoading,
   newItemsError,
+  qaOptions,
+  onQaOptionsChange,
+  projectWorkItemStates,
+  projectWorkItemStatesLoading,
 }: QualityAssurancePageProps) {
+  const [optionsOpen, setOptionsOpen] = useState(false)
+
   return (
     <>
       <QualityAssuranceToolbar
@@ -50,6 +63,7 @@ export function QualityAssurancePage({
         onQuickFilterClear={onQuickFilterClear}
         quickFilterInputRef={quickFilterInputRef}
         onRefresh={onRefresh}
+        onOpenOptions={() => setOptionsOpen(true)}
         isLoading={isLoading}
       />
 
@@ -58,6 +72,15 @@ export function QualityAssurancePage({
         error={newItemsError}
         buckets={buckets}
         colorScheme={colorScheme}
+      />
+
+      <QaOptionsDialog
+        open={optionsOpen}
+        options={qaOptions}
+        onClose={() => setOptionsOpen(false)}
+        onChange={onQaOptionsChange}
+        projectWorkItemStates={projectWorkItemStates}
+        projectWorkItemStatesLoading={projectWorkItemStatesLoading}
       />
     </>
   )

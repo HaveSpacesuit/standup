@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { matchesQuickFilter, normalizeQuickFilterText } from '../utils/boardFilters'
 import type { QualityAssuranceBucket, QualityAssuranceBucketId } from '../utils/qualityAssuranceBuckets'
+import { applyQaGeneralFilters, type QaOptions } from '../utils/qaOptions'
 
 type UseQualityAssurancePageModelArgs = {
   buckets: QualityAssuranceBucket[]
+  qaOptions: QaOptions
 }
 
 type UseQualityAssurancePageModelResult = {
@@ -28,7 +30,7 @@ function sortBucketsByPriority(bucketId: QualityAssuranceBucketId): number {
   }
 }
 
-export function useQualityAssurancePageModel({ buckets }: UseQualityAssurancePageModelArgs): UseQualityAssurancePageModelResult {
+export function useQualityAssurancePageModel({ buckets, qaOptions }: UseQualityAssurancePageModelArgs): UseQualityAssurancePageModelResult {
   const [quickFilterInput, setQuickFilterInput] = useState('')
 
   const normalizedQuickFilterText = useMemo(
@@ -40,7 +42,7 @@ export function useQualityAssurancePageModel({ buckets }: UseQualityAssurancePag
     () => buckets
       .map((bucket) => ({
         ...bucket,
-        items: bucket.items.filter((item) => {
+        items: applyQaGeneralFilters(bucket.items, qaOptions.generalFilters).filter((item) => {
           const assignee = item.assignedTo?.displayName
             ? { kind: 'team-member' as const, label: item.assignedTo.displayName }
             : undefined
@@ -49,7 +51,7 @@ export function useQualityAssurancePageModel({ buckets }: UseQualityAssurancePag
         }),
       }))
       .sort((left, right) => sortBucketsByPriority(left.id) - sortBucketsByPriority(right.id)),
-    [buckets, normalizedQuickFilterText],
+    [buckets, normalizedQuickFilterText, qaOptions],
   )
 
   return {

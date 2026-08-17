@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../teamProfiles'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
+import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../utils/qualityAssuranceBuckets'
+import type { QaStateGroupOverrides } from '../utils/qaOptions'
 import { isAbortError, toErrorMessage } from './queryErrors'
+import type { QualityAssuranceRawData } from '../../../ado/workItemsApi'
 
 type UseQualityAssuranceBucketsArgs = {
   adoQueryEngine: AdoQueryEngine | null
   selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>
   reloadNonce: number
+  stateGroupOverrides?: QaStateGroupOverrides | null
 }
 
 type UseQualityAssuranceBucketsResult = {
@@ -20,14 +24,15 @@ export function useQualityAssuranceBuckets({
   adoQueryEngine,
   selectedTeam,
   reloadNonce,
+  stateGroupOverrides,
 }: UseQualityAssuranceBucketsArgs): UseQualityAssuranceBucketsResult {
-  const [qaBuckets, setQaBuckets] = useState<QualityAssuranceBucket[]>([])
+  const [rawData, setRawData] = useState<QualityAssuranceRawData | null>(null)
   const [qaBucketsLoading, setQaBucketsLoading] = useState(false)
   const [qaBucketsError, setQaBucketsError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!adoQueryEngine) {
-      setQaBuckets([])
+      setRawData(null)
       setQaBucketsLoading(false)
       setQaBucketsError(null)
       return
@@ -38,15 +43,15 @@ export function useQualityAssuranceBuckets({
     setQaBucketsError(null)
 
     adoQueryEngine
-      .getQualityAssuranceBuckets(selectedTeam, abortController.signal)
-      .then((buckets) => {
+      .getQualityAssuranceRawData(selectedTeam, abortController.signal)
+      .then((data) => {
         if (!abortController.signal.aborted) {
-          setQaBuckets(buckets)
+          setRawData(data)
         }
       })
       .catch((error: unknown) => {
         if (!abortController.signal.aborted && !isAbortError(error)) {
-          setQaBuckets([])
+          setRawData(null)
           setQaBucketsError(toErrorMessage(error, 'Unknown error while loading QA items.'))
         }
       })
@@ -60,6 +65,15 @@ export function useQualityAssuranceBuckets({
       abortController.abort()
     }
   }, [adoQueryEngine, reloadNonce, selectedTeam])
+
+  const qaBuckets = useMemo<QualityAssuranceBucket[]>(() => {
+    if (!rawData) {
+      return []
+    }
+
+    const config = resolveQualityAssuranceProjectConfig(selectedTeam, stateGroupOverrides)
+    return bucketQualityAssuranceItems(rawData.candidates, rawData.updatesByItemId, config)
+  }, [rawData, selectedTeam, stateGroupOverrides])
 
   return {
     qaBuckets,

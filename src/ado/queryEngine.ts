@@ -6,11 +6,15 @@ import { fetchIterationWindowInfo } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
 import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
-import { fetchQualityAssuranceBuckets, fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
+import { fetchQualityAssuranceRawData, fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
+import { fetchProjectWorkItemStates, type ProjectWorkItemState } from './workItemTypesApi'
 import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
 import type { QualityAssuranceBucket } from '../features/standup/utils/qualityAssuranceBuckets'
+import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../features/standup/utils/qualityAssuranceBuckets'
+import type { QualityAssuranceRawData } from './workItemsApi'
 
 export type { CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee } from './types'
+export type { ProjectWorkItemState } from './workItemTypesApi'
 
 export class AdoQueryEngine {
   private static readonly DEFAULT_CACHE_TTL_MS = 60_000
@@ -18,14 +22,33 @@ export class AdoQueryEngine {
   private readonly client: AdoHttpClient
   private readonly assigneeResolver: WorkItemAssigneeResolver
   private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
-  private readonly qaBucketsCache = new Map<string, QualityAssuranceBucket[]>()
+  private readonly qaRawDataCache = new Map<string, QualityAssuranceRawData>()
   private readonly teamMembersCache = new Map<string, { expiresAt: number; value: TeamMember[] }>()
   private readonly currentIterationCache = new Map<string, { expiresAt: number; value: IterationWindowInfo }>()
   private readonly teamSubjectDescriptorCache = new Map<string, { expiresAt: number; value: string | null }>()
+  private readonly projectWorkItemStatesCache = new Map<string, { expiresAt: number; value: ProjectWorkItemState[] }>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
     this.assigneeResolver = new WorkItemAssigneeResolver(this.client)
+  }
+
+  async getProjectWorkItemStates(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
+    signal?: AbortSignal,
+  ): Promise<ProjectWorkItemState[]> {
+    const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}`
+    const cached = this.projectWorkItemStatesCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value
+    }
+
+    const states = await fetchProjectWorkItemStates(this.client, team, signal)
+    this.projectWorkItemStatesCache.set(cacheKey, {
+      value: states,
+      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS * 60, // 1 hour — rarely changes
+    })
+    return states
   }
 
   async getTeamMembers(
@@ -72,35 +95,44 @@ export class AdoQueryEngine {
     return items
   }
 
-  async getQualityAssuranceBuckets(
+  async getQualityAssuranceRawData(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
-  ): Promise<QualityAssuranceBucket[]> {
+  ): Promise<QualityAssuranceRawData> {
     const cacheKey = team.id
 
     if (!options?.forceRefresh) {
-      const cachedItems = this.qaBucketsCache.get(cacheKey)
-      if (cachedItems) {
-        return cachedItems
+      const cached = this.qaRawDataCache.get(cacheKey)
+      if (cached) {
+        return cached
       }
     }
 
-    const items = await fetchQualityAssuranceBuckets(this.client, team, signal)
-    this.qaBucketsCache.set(cacheKey, items)
+    const raw = await fetchQualityAssuranceRawData(this.client, team, signal)
+    this.qaRawDataCache.set(cacheKey, raw)
+    return raw
+  }
 
-    return items
+  async getQualityAssuranceBuckets(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+    signal?: AbortSignal,
+    options?: { forceRefresh?: boolean; stateGroupOverrides?: import('../features/standup/utils/qaOptions').QaStateGroupOverrides | null },
+  ): Promise<QualityAssuranceBucket[]> {
+    const raw = await this.getQualityAssuranceRawData(team, signal, { forceRefresh: options?.forceRefresh })
+    const config = resolveQualityAssuranceProjectConfig(team, options?.stateGroupOverrides)
+    return bucketQualityAssuranceItems(raw.candidates, raw.updatesByItemId, config)
   }
 
   clearTeamWorkItemsCache(teamId?: string): void {
     if (teamId) {
       this.teamWorkItemsCache.delete(teamId)
-      this.qaBucketsCache.delete(teamId)
+      this.qaRawDataCache.delete(teamId)
       return
     }
 
     this.teamWorkItemsCache.clear()
-    this.qaBucketsCache.clear()
+    this.qaRawDataCache.clear()
   }
 
   clearTeamMetadataCaches(

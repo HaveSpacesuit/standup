@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Box } from '@mui/material'
 import { teamProfiles } from './teamProfiles'
 import { AppNavigationRail } from './features/standup/components/AppNavigationRail'
@@ -7,6 +7,12 @@ import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 import { useQualityAssurancePageModel } from './features/standup/hooks/useQualityAssurancePageModel'
 import { QualityAssurancePage } from './features/standup/pages/QualityAssurancePage'
 import { TeamAssignmentsPage } from './features/standup/pages/TeamAssignmentsPage'
+import {
+  type QaOptions,
+  parseStoredQaOptions,
+  serializeQaOptions,
+  qaOptionsStorageKey,
+} from './features/standup/utils/qaOptions'
 
 type AppProps = {
   patConfigured: boolean
@@ -17,6 +23,17 @@ type AppProps = {
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const qualityAssuranceQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Per-team qaOptions — keyed by teamId so each team's state groups persist independently.
+  // Eagerly initialized from localStorage so it's available before useBoardViewModel runs.
+  const [qaOptionsByTeam, setQaOptionsByTeam] = useState<Record<string, QaOptions>>(() =>
+    Object.fromEntries(
+      teamProfiles.map((team) => [
+        team.id,
+        parseStoredQaOptions(localStorage.getItem(qaOptionsStorageKey(team.id))),
+      ]),
+    ),
+  )
 
   const {
     selectedTeamId,
@@ -44,14 +61,23 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     qaBuckets,
     qaBucketsLoading,
     qaBucketsError,
-  } = useBoardViewModel({ patConfigured })
+    projectWorkItemStates,
+    projectWorkItemStatesLoading,
+  } = useBoardViewModel({ patConfigured, qaOptionsByTeam })
+
+  const qaOptions = qaOptionsByTeam[selectedTeamId] ?? { generalFilters: [], stateGroups: null }
+
+  const handleQaOptionsChange = (next: QaOptions) => {
+    setQaOptionsByTeam((prev) => ({ ...prev, [selectedTeamId]: next }))
+    localStorage.setItem(qaOptionsStorageKey(selectedTeamId), serializeQaOptions(next))
+  }
 
   const {
     quickFilterInput: qualityAssuranceQuickFilterInput,
     onQuickFilterInputChange: onQualityAssuranceQuickFilterInputChange,
     onQuickFilterClear: onQualityAssuranceQuickFilterClear,
     filteredBuckets: filteredQaBuckets,
-  } = useQualityAssurancePageModel({ buckets: qaBuckets })
+  } = useQualityAssurancePageModel({ buckets: qaBuckets, qaOptions })
 
   const { activeView, onMemberFilterCycle } = useAppNavigation({
     patConfigured,
@@ -120,6 +146,10 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             onRefresh={onRefresh}
             isLoading={qaBucketsLoading}
             newItemsError={qaBucketsError}
+            qaOptions={qaOptions}
+            onQaOptionsChange={handleQaOptionsChange}
+            projectWorkItemStates={projectWorkItemStates}
+            projectWorkItemStatesLoading={projectWorkItemStatesLoading}
           />
         )}
       </Box>

@@ -11,14 +11,18 @@ import { useBoardPreferences } from './useBoardPreferences'
 import { useTeamManagementUrl } from './useTeamManagementUrl'
 import { useVisibleBoardItems } from './useVisibleBoardItems'
 import { useQualityAssuranceBuckets } from './useQualityAssuranceBuckets'
+import { useProjectWorkItemStates } from './useProjectWorkItemStates'
 import {
   applyTagRulesToItem,
   normalizeTeamMemberLabel,
 } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
+import type { QaOptions } from '../utils/qaOptions'
+import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 
 type UseBoardViewModelArgs = {
   patConfigured: boolean
+  qaOptionsByTeam?: Record<string, QaOptions>
 }
 
 type UseBoardViewModelResult = {
@@ -47,9 +51,11 @@ type UseBoardViewModelResult = {
   qaBuckets: import('../utils/qualityAssuranceBuckets').QualityAssuranceBucket[]
   qaBucketsLoading: boolean
   qaBucketsError: string | null
+  projectWorkItemStates: ProjectWorkItemState[]
+  projectWorkItemStatesLoading: boolean
 }
 
-export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): UseBoardViewModelResult {
+export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardViewModelArgs): UseBoardViewModelResult {
   const [reloadNonce, setReloadNonce] = useState(0)
 
   const {
@@ -139,6 +145,12 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     adoQueryEngine,
     selectedTeam,
     reloadNonce,
+    stateGroupOverrides: qaOptionsByTeam?.[selectedTeam.id]?.stateGroups,
+  })
+
+  const { workItemStates: projectWorkItemStates, workItemStatesLoading: projectWorkItemStatesLoading } = useProjectWorkItemStates({
+    adoQueryEngine,
+    selectedTeam,
   })
 
   const { memberFilterOptions, visibleBoardItems } = useVisibleBoardItems({
@@ -212,5 +224,7 @@ export function useBoardViewModel({ patConfigured }: UseBoardViewModelArgs): Use
     qaBuckets,
     qaBucketsLoading,
     qaBucketsError,
+    projectWorkItemStates,
+    projectWorkItemStatesLoading,
   }
 }
