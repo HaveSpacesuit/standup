@@ -270,6 +270,7 @@ function mapPullRequestToWorkItemSummary(
     approvalCount: resolvePullRequestApprovalCount(pullRequest.reviewers),
     reviewState: resolvePullRequestReviewState(pullRequest.reviewers),
     checks,
+    recentActivityAt: readyForReviewAt ?? pullRequest.creationDate,
   }
 
   return {
@@ -340,7 +341,7 @@ async function fetchPullRequestItems(
   const responses = await Promise.all(requests)
   const workItemIconMap = await workItemIconMapPromise
   const pullRequestIconUrl = getPullRequestIconUrl(workItemIconMap)
-  const includeChecks = mode === 'active-team-items'
+  const includeChecks = true
   const projectId = includeChecks
     ? await fetchProjectId(client, team.orgName, team.projectName, signal)
     : null

@@ -1,18 +1,12 @@
 import { Badge, Card, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
-import { Icon } from '@stratakit/mui'
-import type { ReactNode } from 'react'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
-import {
-  getIconUrlWithThemeColorValue,
-  getWorkItemIconUrlWithThemeColor,
-} from '../utils/workItemIconColor'
-import { PullRequestMetaRow } from './PullRequestMetaRow'
+import { getWorkItemIconUrlWithThemeColor } from '../utils/workItemIconColor'
 import { WorkItemTags } from './WorkItemTags'
+import { PullRequestSection } from './PullRequestSection'
 import {
   buildTagLayout,
-  getPullRequestReviewIcon,
   getStatusPaletteKey,
   getTagBudget,
 } from './workItemCardDisplay'
@@ -20,20 +14,11 @@ import {
 type WorkItemCardProps = {
   item: WorkItemSummary
   highlightState?: WorkItemCardHighlightState
-  footer?: ReactNode
-  showPullRequestReviewIcons?: boolean
-  showPullRequestMeta?: boolean
 }
 
 export type WorkItemCardHighlightState = 'new' | 'stale' | 'none'
 
-export function WorkItemCard({
-  item,
-  highlightState = 'none',
-  footer,
-  showPullRequestReviewIcons = true,
-  showPullRequestMeta = true,
-}: WorkItemCardProps) {
+export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProps) {
   const theme = useTheme()
   const statusPaletteKey = getStatusPaletteKey(item.status)
   const statusColor = theme.palette[statusPaletteKey].main
@@ -45,15 +30,12 @@ export function WorkItemCard({
   const hoverShadow = isNew
     ? `0 0 0 1px color-mix(in srgb, ${statusColor} 82%, transparent), 0 0 18px color-mix(in srgb, ${statusColor} 52%, transparent)`
     : undefined
-  const pullRequest = item.kind === 'pull-request' ? item.pullRequest : undefined
-  const isPullRequestOnly = Boolean(pullRequest)
-  const primaryLinkUrl = pullRequest?.url ?? item.workItemUrl
-  const primaryLinkLabel = pullRequest?.title ?? item.title
-  const primaryLinkNumber = pullRequest?.id ?? item.id
-  const primaryIconUrl = pullRequest?.iconUrl ?? item.workItemIconUrl
-  const primaryReviewIcon = pullRequest
-    ? getPullRequestReviewIcon(pullRequest.reviewState)
-    : undefined
+
+  const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
+  const isPullRequestOnly = Boolean(pullRequestOnly)
+  const linkedPullRequests = isPullRequestOnly ? [] : (item.activePullRequests ?? [])
+  const hasLinkedPullRequests = linkedPullRequests.length > 0
+
   const sortedTags = [...(item.tags ?? [])].sort((left, right) =>
     left.localeCompare(right, undefined, { sensitivity: 'base' }),
   )
@@ -97,7 +79,7 @@ export function WorkItemCard({
           zIndex: 1,
         }}
       >
-        {typeof item.effort === 'number' ? (
+        {typeof item.effort === 'number' && !isPullRequestOnly ? (
           <Box
             component="span"
             sx={{
@@ -120,191 +102,95 @@ export function WorkItemCard({
           </Box>
         ) : null}
 
-        <Box
-          component="a"
-          href={primaryLinkUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          sx={{
-            display: 'block',
-            minWidth: 0,
-            mb: isPullRequestOnly && !showPullRequestMeta
-              ? 0
-              : 'calc(1.2 * var(--stratakit-mui-spacing))',
-            color: 'text.primary',
-            textDecoration: 'none',
-            '&:hover': {
-              textDecoration: 'underline',
-            },
-          }}
-        >
-          {showPullRequestReviewIcons && primaryReviewIcon ? (
+        {isPullRequestOnly && pullRequestOnly ? (
+          <PullRequestSection pullRequest={pullRequestOnly} statusColor={statusColor} emphasizeTitle />
+        ) : (
+          <>
             <Box
-              component="span"
+              component="a"
+              href={item.workItemUrl}
+              target="_blank"
+              rel="noreferrer noopener"
               sx={{
-                float: 'right',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.2,
-                ml: 0.5,
-                mt: 0.1,
-                lineHeight: 0,
-                color: primaryReviewIcon.color,
+                display: 'block',
+                minWidth: 0,
+                color: 'text.primary',
+                textDecoration: 'none',
+                '&:hover': {
+                  textDecoration: 'underline',
+                },
               }}
-              aria-label={primaryReviewIcon.label}
             >
-              {Array.from({ length: Math.min(primaryReviewIcon.count ?? 1, 2) }).map((_, index) => (
-                <Icon key={`${primaryReviewIcon.label}-${index}`} href={primaryReviewIcon.href} size="regular" />
-              ))}
-            </Box>
-          ) : null}
-
-          <Typography
-            variant="body-sm"
-            sx={{
-              lineHeight: 1.25,
-              display: '-webkit-box',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: 3,
-              overflow: 'hidden',
-              wordBreak: 'break-word',
-            }}
-          >
-            {primaryIconUrl ? (
-              <Box
-                component="img"
-                src={
-                  isPullRequestOnly
-                    ? getIconUrlWithThemeColorValue(primaryIconUrl, statusColor)
-                    : getWorkItemIconUrlWithThemeColor(
-                        primaryIconUrl,
-                        item.workItemType,
-                        theme.palette,
-                      )
-                }
-                alt=""
+              <Typography
+                variant="body-sm"
                 sx={{
-                  width: 14,
-                  height: 14,
-                  display: 'inline-block',
-                  verticalAlign: 'text-bottom',
-                  mr: 0.5,
+                  lineHeight: 1.25,
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: 3,
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
                 }}
-              />
-            ) : null}
-            <Box
-              component="span"
-              sx={{
-                fontWeight: 700,
-                color: statusColor,
-                mr: 0.5,
-              }}
-            >
-              {primaryLinkNumber}
-            </Box>
-            <Box component="span" sx={{ fontWeight: 400 }}>
-              {primaryLinkLabel}
-            </Box>
-          </Typography>
-        </Box>
-
-        {!isPullRequestOnly && (item.activePullRequests?.length ?? 0) > 0 ? (
-          <Box sx={{ clear: 'both' }}>
-            {item.activePullRequests?.map((pullRequest) => {
-              const reviewIcon = getPullRequestReviewIcon(pullRequest.reviewState)
-
-              return (
+              >
+                {item.workItemIconUrl ? (
+                  <Box
+                    component="img"
+                    src={getWorkItemIconUrlWithThemeColor(
+                      item.workItemIconUrl,
+                      item.workItemType,
+                      theme.palette,
+                    )}
+                    alt=""
+                    sx={{
+                      width: 14,
+                      height: 14,
+                      display: 'inline-block',
+                      verticalAlign: 'text-bottom',
+                      mr: 0.5,
+                    }}
+                  />
+                ) : null}
                 <Box
-                  key={pullRequest.id}
-                  component="a"
-                  href={pullRequest.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
+                  component="span"
                   sx={{
-                    display: 'block',
-                    mt: 0.2,
-                    color: 'text.secondary',
-                    textDecoration: 'none',
-                    '&:hover': {
-                      textDecoration: 'underline',
-                    },
+                    fontWeight: 700,
+                    color: statusColor,
+                    mr: 0.5,
                   }}
                 >
-                  {showPullRequestReviewIcons && reviewIcon ? (
-                    <Box
-                      component="span"
-                      sx={{
-                        float: 'right',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 0.2,
-                        ml: 0.5,
-                        mt: 0.1,
-                        lineHeight: 0,
-                        color: reviewIcon.color,
-                      }}
-                      aria-label={reviewIcon.label}
-                    >
-                      {Array.from({ length: Math.min(reviewIcon.count ?? 1, 2) }).map((_, index) => (
-                        <Icon key={`${reviewIcon.label}-${index}`} href={reviewIcon.href} size="regular" />
-                      ))}
-                    </Box>
-                  ) : null}
-
-                  <Typography
-                    component="span"
-                    variant="body-sm"
-                    sx={{
-                      fontSize: 10,
-                      lineHeight: 1.2,
-                      display: '-webkit-box',
-                      WebkitBoxOrient: 'vertical',
-                      WebkitLineClamp: 2,
-                      overflow: 'hidden',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {pullRequest.iconUrl ? (
-                      <Box
-                        component="img"
-                        src={getIconUrlWithThemeColorValue(pullRequest.iconUrl, statusColor)}
-                        alt="PR"
-                        sx={{
-                          width: 12,
-                          height: 12,
-                          display: 'inline-block',
-                          verticalAlign: 'text-bottom',
-                          mr: 0.5,
-                        }}
-                      />
-                    ) : null}
-                    {pullRequest.id} {pullRequest.title}
-                  </Typography>
+                  {item.id}
                 </Box>
-              )
-            })}
-          </Box>
-        ) : null}
+                <Box component="span" sx={{ fontWeight: 400 }}>
+                  {item.title}
+                </Box>
+              </Typography>
+            </Box>
 
-        {isPullRequestOnly && showPullRequestMeta ? <PullRequestMetaRow item={item} /> : null}
+            {hasLinkedPullRequests ? (
+              <Box
+                sx={{
+                  clear: 'both',
+                  mt: 0.7,
+                  pt: 0.6,
+                  borderTop: '1px solid',
+                  borderColor: 'divider',
+                  display: 'grid',
+                  gap: 0.8,
+                }}
+              >
+                {linkedPullRequests.map((pullRequest) => (
+                  <PullRequestSection
+                    key={pullRequest.id}
+                    pullRequest={pullRequest}
+                    statusColor={statusColor}
+                  />
+                ))}
+              </Box>
+            ) : null}
 
-        {!isPullRequestOnly || showPullRequestMeta ? (
-          <WorkItemTags tagLayout={tagLayout} sprintName={item.sprintName} />
-        ) : null}
-
-        {footer ? (
-          <Box
-            sx={{
-              mt: 0.7,
-              pt: 0.6,
-              borderTop: '1px solid',
-              borderColor: 'divider',
-              clear: 'both',
-            }}
-          >
-            {footer}
-          </Box>
-        ) : null}
+            <WorkItemTags tagLayout={tagLayout} sprintName={item.sprintName} />
+          </>
+        )}
       </Box>
     </Card>
   )

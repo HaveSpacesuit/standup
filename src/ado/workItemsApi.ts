@@ -4,6 +4,8 @@ import type { AdoRequestClient } from './httpClient'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
 import { buildIterationScopedWiql, buildQaBucketCandidatesWiql, buildQaNewItemsWiql } from './wiql'
+import { fetchPolicyEvaluationChecksSummary, fetchProjectId } from './policyEvaluationChecksApi'
+import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
 import resolveStatusFromStateAndTags from './workItemStatus'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
 import {
@@ -78,6 +80,7 @@ type PullRequestApiResponse = {
   title?: string
   status?: string
   isDraft?: boolean
+  creationDate?: string
   reviewers?: Array<{
     id?: string
     uniqueName?: string
@@ -292,6 +295,8 @@ async function fetchActivePullRequestsByWorkItem(
     return {}
   }
 
+  const projectId = await fetchProjectId(client, team.orgName, team.projectName, signal)
+
   const activePullRequestMap = new Map<string, WorkItemPullRequestSummary>()
 
   await mapWithConcurrency(
@@ -314,14 +319,24 @@ async function fetchActivePullRequestsByWorkItem(
           return
         }
 
+        const pullRequestId = pullRequest.pullRequestId ?? ref.pullRequestId
+        const [checks, readyForReviewAt] = await Promise.all([
+          projectId
+            ? fetchPolicyEvaluationChecksSummary(client, team, pullRequestId, projectId, signal).then((value) => value ?? undefined)
+            : Promise.resolve(undefined),
+          fetchPullRequestReadyForReviewAt(client, team, ref.repositoryId, pullRequestId, signal),
+        ])
+
         activePullRequestMap.set(key, {
-          id: pullRequest.pullRequestId ?? ref.pullRequestId,
+          id: pullRequestId,
           repositoryId: ref.repositoryId,
           title: pullRequest.title?.trim() || `Pull Request ${ref.pullRequestId}`,
           url: buildPullRequestWebUrl(team.orgName, team.projectName, pullRequest, ref),
           iconUrl: pullRequestIconUrl,
           approvalCount: resolvePullRequestApprovalCount(pullRequest.reviewers),
           reviewState: resolvePullRequestReviewState(pullRequest.reviewers),
+          checks,
+          recentActivityAt: readyForReviewAt ?? pullRequest.creationDate,
         })
       } catch {
         // Ignore PR lookup failures so work item rendering still succeeds.

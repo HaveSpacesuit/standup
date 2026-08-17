@@ -4,9 +4,7 @@ import { teamProfiles } from './teamProfiles'
 import { AppNavigationRail } from './features/standup/components/AppNavigationRail'
 import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
-import { usePullRequestsPageModel } from './features/standup/hooks/usePullRequestsPageModel'
 import { useQualityAssurancePageModel } from './features/standup/hooks/useQualityAssurancePageModel'
-import { PullRequestsPage } from './features/standup/pages/PullRequestsPage'
 import { QualityAssurancePage } from './features/standup/pages/QualityAssurancePage'
 import { TeamAssignmentsPage } from './features/standup/pages/TeamAssignmentsPage'
 
@@ -18,7 +16,6 @@ type AppProps = {
 
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
-  const pullRequestsQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const qualityAssuranceQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
 
   const {
@@ -38,8 +35,6 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     workItemsError,
     assigneesError,
     members,
-    activeTeamPullRequests,
-    activeTeamPullRequestsLoading,
     visibleBoardItems,
     currentIterationName,
     iterationWindow,
@@ -50,18 +45,6 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     qaBucketsLoading,
     qaBucketsError,
   } = useBoardViewModel({ patConfigured })
-
-  const {
-    quickFilterInput: pullRequestsQuickFilterInput,
-    onQuickFilterInputChange: onPullRequestsQuickFilterInputChange,
-    onQuickFilterClear: onPullRequestsQuickFilterClear,
-    selectedAuthorFilter,
-    authorFilterOptions,
-    onAuthorFilterChange,
-    fullApprovalThreshold,
-    onFullApprovalThresholdChange,
-    filteredPullRequests,
-  } = usePullRequestsPageModel({ activeTeamPullRequests })
 
   const {
     quickFilterInput: qualityAssuranceQuickFilterInput,
@@ -77,7 +60,6 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     onMemberFilterChange,
     quickFilterInputRefs: {
       'team-assignments': quickFilterInputRef,
-      'pull-requests': pullRequestsQuickFilterInputRef,
       'qa-activity': qualityAssuranceQuickFilterInputRef,
     },
   })
@@ -121,26 +103,6 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             iterationLoading={iterationLoading}
             tagRules={tagRules}
             onTagRulesChange={(nextRules) => setTagRules(nextRules)}
-          />
-        ) : activeView === 'pull-requests' ? (
-          <PullRequestsPage
-            patConfigured={patConfigured}
-            teamOptions={teamProfiles}
-            selectedTeamId={selectedTeamId}
-            onTeamChange={onTeamChange}
-            teamManagementUrl={teamManagementUrl}
-            quickFilterInput={pullRequestsQuickFilterInput}
-            onQuickFilterInputChange={onPullRequestsQuickFilterInputChange}
-            onQuickFilterClear={onPullRequestsQuickFilterClear}
-            quickFilterInputRef={pullRequestsQuickFilterInputRef}
-            selectedAuthorFilter={selectedAuthorFilter}
-            authorFilterOptions={authorFilterOptions}
-            onAuthorFilterChange={onAuthorFilterChange}
-            fullApprovalThreshold={fullApprovalThreshold}
-            onFullApprovalThresholdChange={onFullApprovalThresholdChange}
-            onRefresh={onRefresh}
-            isPullRequestsLoading={activeTeamPullRequestsLoading}
-            pullRequests={filteredPullRequests}
           />
         ) : (
           <QualityAssurancePage

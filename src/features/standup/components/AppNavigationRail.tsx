@@ -12,7 +12,6 @@ import {
 import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
 import svgUsers from '@stratakit/icons/users.svg'
-import svgGitMerge from '@stratakit/icons/git-merge.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
@@ -42,14 +41,6 @@ export function AppNavigationRail({ activeView, colorScheme, onToggleColorScheme
               label="Team assignments"
               icon={`${svgUsers}#icon-large`}
               active={activeView === 'team-assignments'}
-            />
-          </NavigationRail.ListItem>
-          <NavigationRail.ListItem>
-            <NavigationRail.Anchor
-              href="#pull-requests"
-              label="Pull requests"
-              icon={`${svgGitMerge}#icon-large`}
-              active={activeView === 'pull-requests'}
             />
           </NavigationRail.ListItem>
           <NavigationRail.ListItem>

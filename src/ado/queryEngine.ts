@@ -10,7 +10,7 @@ import { fetchQualityAssuranceBuckets, fetchWorkItemsForCurrentAndNextIteration 
 import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
 import type { QualityAssuranceBucket } from '../features/standup/utils/qualityAssuranceBuckets'
 
-export type { CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary, ResolvedWorkItemAssignee } from './types'
+export type { CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee } from './types'
 
 export class AdoQueryEngine {
   private static readonly DEFAULT_CACHE_TTL_MS = 60_000

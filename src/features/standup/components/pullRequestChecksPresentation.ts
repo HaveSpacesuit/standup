@@ -1,7 +1,7 @@
 import svgValidate from '@stratakit/icons/validate.svg'
 import svgStopwatch from '@stratakit/icons/stopwatch.svg'
 import svgError from '@stratakit/icons/error.svg'
-import type { WorkItemSummary } from '../../../ado/queryEngine'
+import type { WorkItemPullRequestSummary } from '../../../ado/queryEngine'
 
 export type PullRequestChecksPresentation = {
   iconHref: string
@@ -22,8 +22,7 @@ function formatCheckList(names: string[]): string {
   return names.join(', ')
 }
 
-export function getChecksPresentation(item: WorkItemSummary): PullRequestChecksPresentation {
-  const checks = item.pullRequest?.checks
+export function getChecksPresentation(checks: WorkItemPullRequestSummary['checks']): PullRequestChecksPresentation {
   if (!checks || checks.checks.length === 0) {
     return {
       iconHref: svgStopwatch,

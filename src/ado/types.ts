@@ -33,6 +33,7 @@ export type WorkItemPullRequestSummary = {
   approvalCount?: number
   reviewState?: 'rejected' | 'waiting-for-author' | 'partially-approved' | 'fully-approved'
   checks?: PullRequestChecksSummary
+  recentActivityAt?: string
 }
 
 export type PullRequestChecksAggregateState = 'passing' | 'pending' | 'failing'
