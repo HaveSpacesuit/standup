@@ -17,9 +17,9 @@ function sortBucketsByPriority(bucketId: QualityAssuranceBucketId): number {
   switch (bucketId) {
     case 'new':
       return 0
-    case 'needs-testing':
-      return 1
     case 'needs-development':
+      return 1
+    case 'needs-testing':
       return 2
     case 'done':
       return 3

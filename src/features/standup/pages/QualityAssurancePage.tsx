@@ -6,6 +6,7 @@ import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 
 type QualityAssurancePageProps = {
   patConfigured: boolean
+  colorScheme: 'light' | 'dark'
   teamOptions: TeamOption[]
   selectedTeamId: string
   onTeamChange: (value: string) => void
@@ -22,6 +23,7 @@ type QualityAssurancePageProps = {
 
 export function QualityAssurancePage({
   patConfigured,
+  colorScheme,
   teamOptions,
   selectedTeamId,
   onTeamChange,
@@ -55,6 +57,7 @@ export function QualityAssurancePage({
         isLoading={isLoading}
         error={newItemsError}
         buckets={buckets}
+        colorScheme={colorScheme}
       />
     </>
   )

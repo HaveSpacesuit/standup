@@ -1,17 +1,31 @@
-import { Box, Card, CardContent, Typography } from '@mui/material'
-import { CardListLoadingState } from './CardListLoadingState'
+import { Box, Button, Card, CardContent, Typography } from '@mui/material'
+import { useState } from 'react'
+import { useTheme } from '@mui/material/styles'
+import { QualityAssuranceLoadingState } from './QualityAssuranceLoadingState'
 import { WorkItemCard } from './WorkItemCard'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
+import {
+  getQaBucketAccentColor,
+  getQaColumnBackground,
+  getQaColumnBorderColor,
+  getQaHeaderBackground,
+} from '../utils/qualityAssuranceColumnStyles'
+
+const COLLAPSED_ITEM_LIMIT = 8
 
 type QualityAssuranceListProps = {
   isLoading: boolean
   error: string | null
   buckets: QualityAssuranceBucket[]
+  colorScheme: 'light' | 'dark'
 }
 
-export function QualityAssuranceList({ isLoading, error, buckets }: QualityAssuranceListProps) {
+export function QualityAssuranceList({ isLoading, error, buckets, colorScheme }: QualityAssuranceListProps) {
+  const theme = useTheme()
+  const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({})
+
   if (isLoading) {
-    return <CardListLoadingState />
+    return <QualityAssuranceLoadingState colorScheme={colorScheme} />
   }
 
   if (error) {
@@ -97,55 +111,99 @@ export function QualityAssuranceList({ isLoading, error, buckets }: QualityAssur
           },
         }}
       >
-        {buckets.map((bucket) => (
-          <Card
-            key={bucket.id}
-            sx={{
-              minWidth: 0,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <CardContent
-              sx={{
-                p: 1.5,
-                pb: 1.25,
-                flex: '0 0 auto',
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1 }}>
-                <Typography variant="body-md" sx={{ fontWeight: 700 }}>
-                  {bucket.title}
-                </Typography>
-                <Typography variant="body-sm" color="text.secondary" sx={{ fontWeight: 700, flex: '0 0 auto' }}>
-                  {bucket.items.length}
-                </Typography>
-              </Box>
-            </CardContent>
+        {buckets.map((bucket) => {
+          const accentColor = getQaBucketAccentColor(bucket.id, theme.palette)
+          const isExpanded = expandedColumns[bucket.id] === true
+          const visibleItems = isExpanded ? bucket.items : bucket.items.slice(0, COLLAPSED_ITEM_LIMIT)
+          const hiddenCount = Math.max(bucket.items.length - visibleItems.length, 0)
 
-            <Box
+          return (
+            <Card
+              key={bucket.id}
               sx={{
-                flex: 1,
-                minHeight: 0,
-                overflowY: 'auto',
-                p: 1.25,
-                display: 'grid',
-                gap: 1,
-                alignContent: 'start',
-                bgcolor: 'background.default',
+                minWidth: 0,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                border: '1px solid',
+                borderColor: getQaColumnBorderColor(accentColor, colorScheme),
               }}
             >
-              {bucket.items.map((item) => (
-                <Box key={item.id}>
-                  <WorkItemCard item={item} />
+              <CardContent
+                sx={{
+                  p: 1.5,
+                  pb: 1.25,
+                  flex: '0 0 auto',
+                  borderBottom: '1px solid',
+                  borderColor: getQaColumnBorderColor(accentColor, colorScheme),
+                  bgcolor: getQaHeaderBackground(accentColor, colorScheme),
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    sx={{
+                      width: 4,
+                      alignSelf: 'stretch',
+                      minHeight: 18,
+                      borderRadius: 999,
+                      bgcolor: accentColor,
+                      flex: '0 0 auto',
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, flex: 1, minWidth: 0 }}>
+                    <Typography variant="body-md" sx={{ fontWeight: 700 }}>
+                      {bucket.title}
+                    </Typography>
+                    <Typography variant="body-sm" sx={{ fontWeight: 700, color: accentColor, flex: '0 0 auto' }}>
+                      {bucket.items.length}
+                    </Typography>
+                  </Box>
                 </Box>
-              ))}
-            </Box>
-          </Card>
-        ))}
+              </CardContent>
+
+              <Box
+                sx={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: 'auto',
+                  p: 1.25,
+                  display: 'grid',
+                  gap: 1,
+                  alignContent: 'start',
+                  bgcolor: getQaColumnBackground(accentColor, colorScheme),
+                }}
+              >
+                {visibleItems.map((item) => (
+                  <Box key={item.id}>
+                    <WorkItemCard item={item} />
+                  </Box>
+                ))}
+
+                {hiddenCount > 0 ? (
+                  <Button
+                    size="small"
+                    variant="text"
+                    sx={{ justifySelf: 'start', px: 0.5, minWidth: 0 }}
+                    onClick={() => setExpandedColumns((current) => ({ ...current, [bucket.id]: true }))}
+                  >
+                    Show {hiddenCount} more
+                  </Button>
+                ) : null}
+
+                {isExpanded && bucket.items.length > COLLAPSED_ITEM_LIMIT ? (
+                  <Button
+                    size="small"
+                    variant="text"
+                    sx={{ justifySelf: 'start', px: 0.5, minWidth: 0 }}
+                    onClick={() => setExpandedColumns((current) => ({ ...current, [bucket.id]: false }))}
+                  >
+                    Show less
+                  </Button>
+                ) : null}
+              </Box>
+            </Card>
+          )
+        })}
       </Box>
     </Box>
   )

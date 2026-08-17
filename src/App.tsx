@@ -107,6 +107,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         ) : (
           <QualityAssurancePage
             patConfigured={patConfigured}
+            colorScheme={colorScheme}
             teamOptions={teamProfiles}
             selectedTeamId={selectedTeamId}
             onTeamChange={onTeamChange}

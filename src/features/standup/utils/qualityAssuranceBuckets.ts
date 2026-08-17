@@ -18,7 +18,6 @@ export type QualityAssuranceStateGroups = {
 export type QualityAssuranceProjectConfig = {
   lookbackDays: number
   stateGroups: QualityAssuranceStateGroups
-  maxItemsPerBucket: number
 }
 
 type WorkItemFieldUpdate = {
@@ -42,7 +41,6 @@ const DEFAULT_CONFIG: QualityAssuranceProjectConfig = {
     development: ['committed', 'active', 'in progress'],
     done: ['done', 'closed', 'completed'],
   },
-  maxItemsPerBucket: 10,
 }
 
 const PROJECT_CONFIGS: Record<string, Partial<QualityAssuranceProjectConfig>> = {
@@ -222,19 +220,17 @@ export function bucketQualityAssuranceItems(
   }
 
   for (const key of Object.keys(buckets) as QualityAssuranceBucketId[]) {
-    buckets[key] = buckets[key]
-      .sort((left, right) => {
-        const leftAt = toTimestamp(left.createdAt ?? left.recentActivityAt) ?? 0
-        const rightAt = toTimestamp(right.createdAt ?? right.recentActivityAt) ?? 0
-        return rightAt - leftAt
-      })
-      .slice(0, config.maxItemsPerBucket)
+    buckets[key] = buckets[key].sort((left, right) => {
+      const leftAt = toTimestamp(left.createdAt ?? left.recentActivityAt) ?? 0
+      const rightAt = toTimestamp(right.createdAt ?? right.recentActivityAt) ?? 0
+      return rightAt - leftAt
+    })
   }
 
   return [
     { id: 'new', title: 'Newly added', items: buckets.new },
-    { id: 'needs-testing', title: 'Ready for QA', items: buckets['needs-testing'] },
     { id: 'needs-development', title: 'Needs follow-up', items: buckets['needs-development'] },
+    { id: 'needs-testing', title: 'Ready for QA', items: buckets['needs-testing'] },
     { id: 'done', title: 'Recently completed', items: buckets.done },
   ]
 }
