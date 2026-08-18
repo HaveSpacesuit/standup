@@ -18,8 +18,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagFilterRule } from '../utils/qaOptions'
-import { createTagFilterRule } from '../utils/qaOptions'
+import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagFilterRule, QaTagGroups } from '../utils/qaOptions'
+import { createTagFilterRule, DEFAULT_QA_TAG_GROUPS } from '../utils/qaOptions'
 import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
 
 type QaOptionsDialogProps = {
@@ -65,6 +65,11 @@ function getStateGroups(options: QaOptions): QaStateGroupOverrides {
   return options.stateGroups ?? { testing: [], done: [], development: [], new: [] }
 }
 
+/** Effective tag groups for editing — falls back to the built-in defaults (Triage → Newly added). */
+function getTagGroups(options: QaOptions): QaTagGroups {
+  return options.tagGroups ?? DEFAULT_QA_TAG_GROUPS
+}
+
 export function QaOptionsDialog({
   open,
   options,
@@ -81,11 +86,15 @@ export function QaOptionsDialog({
   // when the dialog closes.
   const [draft, setDraft] = useState<QaOptions>(options)
   const [newTagInput, setNewTagInput] = useState('')
+  const [tagGroupInputs, setTagGroupInputs] = useState<Record<StateGroupKey, string>>({
+    testing: '', done: '', development: '', new: '',
+  })
 
   useEffect(() => {
     if (open) {
       setDraft(options)
       setNewTagInput('')
+      setTagGroupInputs({ testing: '', done: '', development: '', new: '' })
     }
     // Only re-sync the draft when the dialog is (re)opened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,6 +102,7 @@ export function QaOptionsDialog({
 
   const { generalFilters, includeWorkItemTypes, sprintFilter } = draft
   const stateGroups = getStateGroups(draft)
+  const tagGroups = getTagGroups(draft)
   const tagFilters = generalFilters.filter((r): r is QaTagFilterRule => r.type === 'tag')
 
   const relativeSprintLabels = useMemo(() => ({
@@ -121,6 +131,32 @@ export function QaOptionsDialog({
       return { ...current, generalFilters: [...current.generalFilters, createTagFilterRule(value)] }
     })
     setNewTagInput('')
+  }
+
+  const handleAddTagToGroup = (key: StateGroupKey) => {
+    const value = tagGroupInputs[key].trim()
+    if (!value) {
+      return
+    }
+    setDraft((current) => {
+      // Materialize the effective tag groups (capturing the default Triage) before editing, so
+      // that later removals stick instead of reverting to the built-in default.
+      const groups = getTagGroups(current)
+      if (groups[key].some((tag) => tag.toLowerCase() === value.toLowerCase())) {
+        return current
+      }
+      const nextGroups: QaTagGroups = { ...groups, [key]: [...groups[key], value] }
+      return { ...current, tagGroups: nextGroups }
+    })
+    setTagGroupInputs((current) => ({ ...current, [key]: '' }))
+  }
+
+  const handleRemoveTagFromGroup = (key: StateGroupKey, tag: string) => {
+    setDraft((current) => {
+      const groups = getTagGroups(current)
+      const nextGroups: QaTagGroups = { ...groups, [key]: groups[key].filter((t) => t !== tag) }
+      return { ...current, tagGroups: nextGroups }
+    })
   }
 
   const handleToggleRelativeSprint = (key: RelativeSprintKey, checked: boolean) => {
@@ -338,42 +374,45 @@ export function QaOptionsDialog({
 
         <Divider />
 
-        {/* ── Column state classification ── */}
+        {/* ── Column classification (states + tags per column) ── */}
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
             Column classification
           </Typography>
           <Typography variant="body-sm" color="text.secondary" sx={{ mb: 2 }}>
-            Select which work item states map to each column. When left empty, built-in defaults for this project are used.
+            Map work item states and tags to each column. A matching tag takes precedence and routes the item directly to that column. Columns are evaluated top to bottom. When a state list is left empty, built-in defaults for this project are used.
           </Typography>
 
-          {projectWorkItemStatesLoading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={16} />
-              <Typography variant="body-sm" color="text.secondary">Loading states…</Typography>
-            </Box>
-          ) : projectWorkItemStates.length === 0 ? (
-            <Typography variant="body-sm" color="text.secondary">
-              No states found for this project.
-            </Typography>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {STATE_GROUP_SECTIONS.map(({ key, label, description }) => {
-                const selected = stateGroups[key]
-                return (
-                  <Box key={key}>
-                    <Typography variant="body-sm" sx={{ fontWeight: 600, mb: 0.25 }}>
-                      {label}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {STATE_GROUP_SECTIONS.map(({ key, label, description }) => {
+              const selectedStates = stateGroups[key]
+              const groupTags = tagGroups[key]
+              return (
+                <Box key={key}>
+                  <Typography variant="body-sm" sx={{ fontWeight: 600, mb: 0.25 }}>
+                    {label}
+                  </Typography>
+                  <Typography variant="body-sm" color="text.secondary" sx={{ mb: 0.75 }}>
+                    {description}
+                  </Typography>
+
+                  {/* States */}
+                  {projectWorkItemStatesLoading ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body-sm" color="text.secondary">Loading states…</Typography>
+                    </Box>
+                  ) : projectWorkItemStates.length === 0 ? (
+                    <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1 }}>
+                      No states found for this project.
                     </Typography>
-                    <Typography variant="body-sm" color="text.secondary" sx={{ mb: 0.75 }}>
-                      {description}
-                    </Typography>
+                  ) : (
                     <Select
                       multiple
                       size="small"
                       fullWidth
                       displayEmpty
-                      value={selected}
+                      value={selectedStates}
                       input={<OutlinedInput />}
                       onChange={(event) => {
                         const nextValue = typeof event.target.value === 'string'
@@ -385,23 +424,57 @@ export function QaOptionsDialog({
                       }}
                       renderValue={(values) =>
                         values.length === 0
-                          ? <span style={{ opacity: 0.5 }}>Using defaults…</span>
-                          : values.join(', ')
+                          ? <span style={{ opacity: 0.5 }}>States: using defaults…</span>
+                          : `States: ${values.join(', ')}`
                       }
                       MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
                     >
                       {projectWorkItemStates.map((state) => (
                         <MenuItem key={state.name} value={state.name} dense>
-                          <Checkbox checked={selected.includes(state.name)} />
+                          <Checkbox checked={selectedStates.includes(state.name)} />
                           <ListItemText primary={state.name} />
                         </MenuItem>
                       ))}
                     </Select>
+                  )}
+
+                  {/* Tags */}
+                  {groupTags.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1, mb: 1 }}>
+                      {groupTags.map((tag) => (
+                        <Chip
+                          key={tag}
+                          label={tag}
+                          size="small"
+                          variant="outlined"
+                          onDelete={() => handleRemoveTagFromGroup(key, tag)}
+                        />
+                      ))}
+                    </Box>
+                  ) : null}
+
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      placeholder="Add tag…"
+                      value={tagGroupInputs[key]}
+                      onChange={(event) => setTagGroupInputs((current) => ({ ...current, [key]: event.target.value }))}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          handleAddTagToGroup(key)
+                        }
+                      }}
+                    />
+                    <Button size="small" variant="outlined" onClick={() => handleAddTagToGroup(key)} disabled={!tagGroupInputs[key].trim()}>
+                      Add
+                    </Button>
                   </Box>
-                )
-              })}
-            </Box>
-          )}
+                </Box>
+              )
+            })}
+          </Box>
         </Box>
 
       </DialogContent>

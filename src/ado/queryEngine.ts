@@ -156,10 +156,10 @@ export class AdoQueryEngine {
   async getQualityAssuranceBuckets(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     signal?: AbortSignal,
-    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; includeIterationPaths?: string[]; stateGroupOverrides?: import('../features/standup/utils/qaOptions').QaStateGroupOverrides | null },
+    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; includeIterationPaths?: string[]; stateGroupOverrides?: import('../features/standup/utils/qaOptions').QaStateGroupOverrides | null; tagGroups?: import('../features/standup/utils/qaOptions').QaTagGroups | null },
   ): Promise<QualityAssuranceBucket[]> {
     const raw = await this.getQualityAssuranceRawData(team, signal, { forceRefresh: options?.forceRefresh, includeWorkItemTypes: options?.includeWorkItemTypes, includeIterationPaths: options?.includeIterationPaths })
-    const config = resolveQualityAssuranceProjectConfig(team, options?.stateGroupOverrides)
+    const config = resolveQualityAssuranceProjectConfig(team, options?.stateGroupOverrides, options?.tagGroups)
     return bucketQualityAssuranceItems(raw.candidates, raw.updatesByItemId, config)
   }
 

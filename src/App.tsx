@@ -69,7 +69,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     teamIterationsLoading,
   } = useBoardViewModel({ patConfigured, qaOptionsByTeam })
 
-  const qaOptions = qaOptionsByTeam[selectedTeamId] ?? { generalFilters: [], includeWorkItemTypes: [], sprintFilter: { ...EMPTY_SPRINT_FILTER }, stateGroups: null }
+  const qaOptions = qaOptionsByTeam[selectedTeamId] ?? { generalFilters: [], includeWorkItemTypes: [], sprintFilter: { ...EMPTY_SPRINT_FILTER }, stateGroups: null, tagGroups: null }
 
   const handleQaOptionsChange = (next: QaOptions) => {
     setQaOptionsByTeam((prev) => ({ ...prev, [selectedTeamId]: next }))

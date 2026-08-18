@@ -1,6 +1,7 @@
 import type { TeamProfile } from '../../../teamProfiles'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
-import type { QaStateGroupOverrides } from './qaOptions'
+import type { QaStateGroupOverrides, QaTagGroups } from './qaOptions'
+import { DEFAULT_QA_TAG_GROUPS } from './qaOptions'
 
 export type QualityAssuranceBucketId = 'new' | 'needs-testing' | 'needs-development' | 'done'
 
@@ -20,6 +21,14 @@ export type QualityAssuranceStateGroups = {
 export type QualityAssuranceProjectConfig = {
   lookbackDays: number
   stateGroups: QualityAssuranceStateGroups
+  tagGroups: QaTagGroups
+  /**
+   * When true, the user has explicitly configured the "Newly added" states, so an item only
+   * reaches that column via a new-group state or a new-group tag — the freshness catch-all for
+   * unclassified ('other') states is disabled. When false (default), fresh unclassified items
+   * still fall into "Newly added" as a sensible catch-all.
+   */
+  strictNewStates: boolean
 }
 
 type WorkItemFieldUpdate = {
@@ -44,6 +53,8 @@ const DEFAULT_CONFIG: QualityAssuranceProjectConfig = {
     done: ['done', 'closed', 'completed'],
     new: ['new', 'proposed'],
   },
+  tagGroups: DEFAULT_QA_TAG_GROUPS,
+  strictNewStates: false,
 }
 
 const PROJECT_CONFIGS: Record<string, Partial<QualityAssuranceProjectConfig>> = {
@@ -85,6 +96,7 @@ function normalizeState(state: string | undefined): string {
 export function resolveQualityAssuranceProjectConfig(
   team: Pick<TeamProfile, 'id' | 'projectName'>,
   stateGroupOverrides?: QaStateGroupOverrides | null,
+  tagGroupsOverride?: QaTagGroups | null,
 ): QualityAssuranceProjectConfig {
   const overrides = PROJECT_CONFIGS[normalizeText(team.projectName)]
   const base: QualityAssuranceProjectConfig = {
@@ -94,6 +106,9 @@ export function resolveQualityAssuranceProjectConfig(
       ...DEFAULT_CONFIG.stateGroups,
       ...overrides?.stateGroups,
     },
+    // Tag groups: an explicit (non-null) override replaces the built-in default entirely, so
+    // clearing a group (e.g. removing the default Triage tag) sticks instead of reverting.
+    tagGroups: tagGroupsOverride ?? DEFAULT_QA_TAG_GROUPS,
   }
 
   if (!stateGroupOverrides) {
@@ -102,6 +117,9 @@ export function resolveQualityAssuranceProjectConfig(
 
   return {
     ...base,
+    // The user explicitly configured the new-column states → route to "Newly added" only by those
+    // states or a new-group tag (disables the unclassified-state freshness catch-all).
+    strictNewStates: stateGroupOverrides.new.length > 0,
     stateGroups: {
       testing: stateGroupOverrides.testing.length > 0 ? stateGroupOverrides.testing : base.stateGroups.testing,
       development: stateGroupOverrides.development.length > 0 ? stateGroupOverrides.development : base.stateGroups.development,
@@ -158,6 +176,30 @@ function parseHistoryStateTransition(updates: WorkItemUpdate[]): { enteredStateA
   return { enteredStateAt, previousState }
 }
 
+/**
+ * Returns true if the item entered a "ready for QA" (testing-group) state within the lookback
+ * window at any point in its history — not just as the immediately preceding state. This lets an
+ * item that moved testing → done → development still be recognized as "was recently ready for QA",
+ * so it can be routed to Needs follow-up / Recently completed after multi-hop transitions.
+ */
+function wasReadyForQaRecently(
+  updates: WorkItemUpdate[],
+  config: QualityAssuranceProjectConfig,
+  now = Date.now(),
+): boolean {
+  for (const update of updates) {
+    const nextState = update.fields?.['System.State']?.newValue
+    if (
+      typeof nextState === 'string' &&
+      matchesStateGroup(nextState, config.stateGroups.testing) &&
+      isFresh(update.revisedDate, now, config.lookbackDays)
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 function isFresh(timestamp: string | undefined, now = Date.now(), lookbackDays = 21): boolean {
   const time = toTimestamp(timestamp)
   if (time === null) {
@@ -172,16 +214,96 @@ function collectTags(item: WorkItemSummary): string[] {
   return (item.tags ?? []).map((tag) => normalizeText(tag))
 }
 
-function isTriaged(item: WorkItemSummary): boolean {
-  return collectTags(item).includes('triage')
+/**
+ * Maps a group key to its board bucket id. Shared by tag-group classification.
+ */
+const GROUP_TO_BUCKET: Record<'testing' | 'done' | 'development' | 'new', QualityAssuranceBucketId> = {
+  testing: 'needs-testing',
+  done: 'done',
+  development: 'needs-development',
+  new: 'new',
+}
+
+/**
+ * If any of the item's tags matches a configured column tag group, returns that column's bucket.
+ * Groups are checked in precedence order (testing → done → development → new) — the first match
+ * wins. Matching is case-insensitive and exact against each tag. Returns null when no tag matches.
+ */
+function resolveTagBucket(item: WorkItemSummary, config: QualityAssuranceProjectConfig): QualityAssuranceBucketId | null {
+  const itemTags = new Set(collectTags(item))
+  if (itemTags.size === 0) {
+    return null
+  }
+
+  const groupOrder: Array<'testing' | 'done' | 'development' | 'new'> = ['testing', 'done', 'development', 'new']
+  for (const group of groupOrder) {
+    const configuredTags = config.tagGroups[group]
+    if (configuredTags.some((tag) => itemTags.has(normalizeText(tag)))) {
+      return GROUP_TO_BUCKET[group]
+    }
+  }
+
+  return null
 }
 
 function isNewCandidate(item: WorkItemSummary, config: QualityAssuranceProjectConfig): boolean {
-  return isFresh(item.createdAt, Date.now(), config.lookbackDays) || isTriaged(item)
+  return isFresh(item.createdAt, Date.now(), config.lookbackDays)
 }
 
 function isTransitionedRecently(enteredStateAt: string | undefined, config: QualityAssuranceProjectConfig): boolean {
   return isFresh(enteredStateAt, Date.now(), config.lookbackDays)
+}
+
+/**
+ * Work item update fields that represent meaningful QA-relevant activity. A candidate is only
+ * surfaced on the board if it had a change to one of these fields within the lookback window
+ * (or was created in-window, or has related PRs). This filters out noise like Backlog Priority
+ * reordering, board-column recalcs, and description tweaks that bump System.ChangedDate without
+ * representing real QA progress.
+ *
+ * Iteration/scheduling changes are intentionally excluded — merely (re)scheduling an old item
+ * into a sprint doesn't make it newly added or actively worked on.
+ */
+const HIGH_IMPACT_UPDATE_FIELDS = [
+  'System.State',
+  'System.AreaPath',
+  'System.Tags',
+] as const
+
+function hasRecentHighImpactActivity(
+  item: WorkItemSummary,
+  updates: WorkItemUpdate[],
+  config: QualityAssuranceProjectConfig,
+): boolean {
+  const now = Date.now()
+
+  // Newly created items are inherently meaningful.
+  if (isFresh(item.createdAt, now, config.lookbackDays)) {
+    return true
+  }
+
+  // Related/active pull requests make an item worth surfacing.
+  if ((item.activePullRequests?.length ?? 0) > 0) {
+    return true
+  }
+
+  // A change to a high-impact field within the window counts as meaningful activity.
+  for (const update of updates) {
+    if (!isFresh(update.revisedDate, now, config.lookbackDays)) {
+      continue
+    }
+    const fields = update.fields
+    if (!fields) {
+      continue
+    }
+    for (const field of HIGH_IMPACT_UPDATE_FIELDS) {
+      if (fields[field] !== undefined) {
+        return true
+      }
+    }
+  }
+
+  return false
 }
 
 export function classifyQualityAssuranceItem(
@@ -189,41 +311,48 @@ export function classifyQualityAssuranceItem(
   updates: WorkItemUpdate[],
   config: QualityAssuranceProjectConfig,
 ): QualityAssuranceBucketId | null {
+  // Tag-based classification takes precedence over state heuristics: a configured column tag is
+  // an explicit signal for where the item belongs (checked testing → done → development → new).
+  const tagBucket = resolveTagBucket(item, config)
+  if (tagBucket) {
+    return tagBucket
+  }
+
   const currentStateGroup = resolveStateGroup(item.state, config)
   const transition = parseHistoryStateTransition(updates)
-  const previousStateGroup = resolveStateGroup(transition.previousState, config)
+  const readyForQaRecently = wasReadyForQaRecently(updates, config)
 
   if (currentStateGroup === 'testing' && isTransitionedRecently(transition.enteredStateAt, config)) {
     return 'needs-testing'
   }
 
-  if (currentStateGroup === 'development' && previousStateGroup === 'testing' && isTransitionedRecently(transition.enteredStateAt, config)) {
+  // An item that was ready for QA within the window and has since moved to a development state is
+  // "Needs follow-up" — regardless of how many state hops happened in between (e.g. testing → done
+  // → development). We scan the full recent history rather than only the immediately prior state.
+  if (currentStateGroup === 'development' && readyForQaRecently) {
     return 'needs-development'
   }
 
-  if (currentStateGroup === 'done' && previousStateGroup === 'testing' && isTransitionedRecently(transition.enteredStateAt, config)) {
+  // Likewise, an item that was ready for QA within the window and is now in a done state is
+  // "Recently completed", even after intermediate transitions.
+  if (currentStateGroup === 'done' && readyForQaRecently) {
     return 'done'
-  }
-
-  if ((currentStateGroup === 'other' || currentStateGroup === 'new') && isNewCandidate(item, config)) {
-    return 'new'
   }
 
   if (currentStateGroup === 'new') {
     return 'new'
   }
 
-  if (currentStateGroup === 'testing' && isNewCandidate(item, config)) {
+  // Fresh items in an unclassified ('other') state fall into "Newly added" as a catch-all — but
+  // only when the user hasn't explicitly configured the new-column states. Once configured, we
+  // trust that list exactly (an item then reaches "Newly added" only via a new state or new tag).
+  if (currentStateGroup === 'other' && !config.strictNewStates && isNewCandidate(item, config)) {
     return 'new'
   }
 
-  if (currentStateGroup === 'development' && isNewCandidate(item, config)) {
-    return 'new'
-  }
-
-  if (currentStateGroup === 'done' && isNewCandidate(item, config)) {
-    return 'new'
-  }
+  // Items in a recognized workflow state (testing / development / done) are intentionally NOT
+  // routed to "Newly added" on freshness alone — that would override the configured state groups.
+  // Such items only reach "Newly added" via a new-group state or a new-group tag.
 
   return null
 }
@@ -241,8 +370,14 @@ export function bucketQualityAssuranceItems(
   }
 
   for (const item of items) {
-    const bucketId = classifyQualityAssuranceItem(item, updatesByItemId[item.id] ?? [], config)
+    const updates = updatesByItemId[item.id] ?? []
+    const bucketId = classifyQualityAssuranceItem(item, updates, config)
     if (!bucketId) {
+      continue
+    }
+
+    // Skip items whose only recent activity is low-impact noise (e.g. Backlog Priority reorder).
+    if (!hasRecentHighImpactActivity(item, updates, config)) {
       continue
     }
 

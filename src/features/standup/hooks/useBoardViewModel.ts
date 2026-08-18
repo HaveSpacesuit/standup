@@ -164,6 +164,7 @@ export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardVi
     includeWorkItemTypes: qaOptionsByTeam?.[selectedTeam.id]?.includeWorkItemTypes,
     includeIterationPaths: selectedIterationPaths,
     stateGroupOverrides: qaOptionsByTeam?.[selectedTeam.id]?.stateGroups,
+    tagGroups: qaOptionsByTeam?.[selectedTeam.id]?.tagGroups,
   })
 
   const { workItemStates: projectWorkItemStates, workItemTypes: projectWorkItemTypes, workItemStatesLoading: projectWorkItemStatesLoading } = useProjectWorkItemStates({

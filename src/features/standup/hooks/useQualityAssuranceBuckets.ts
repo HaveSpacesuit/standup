@@ -3,7 +3,7 @@ import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../teamProfiles'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../utils/qualityAssuranceBuckets'
-import type { QaStateGroupOverrides } from '../utils/qaOptions'
+import type { QaStateGroupOverrides, QaTagGroups } from '../utils/qaOptions'
 import { isAbortError, toErrorMessage } from './queryErrors'
 import type { QualityAssuranceRawData } from '../../../ado/workItemsApi'
 
@@ -14,6 +14,7 @@ type UseQualityAssuranceBucketsArgs = {
   includeWorkItemTypes?: string[]
   includeIterationPaths?: string[]
   stateGroupOverrides?: QaStateGroupOverrides | null
+  tagGroups?: QaTagGroups | null
 }
 
 type UseQualityAssuranceBucketsResult = {
@@ -29,6 +30,7 @@ export function useQualityAssuranceBuckets({
   includeWorkItemTypes,
   includeIterationPaths,
   stateGroupOverrides,
+  tagGroups,
 }: UseQualityAssuranceBucketsArgs): UseQualityAssuranceBucketsResult {
   const [rawData, setRawData] = useState<QualityAssuranceRawData | null>(null)
   const [qaBucketsLoading, setQaBucketsLoading] = useState(false)
@@ -97,9 +99,9 @@ export function useQualityAssuranceBuckets({
       return []
     }
 
-    const config = resolveQualityAssuranceProjectConfig(selectedTeam, stateGroupOverrides)
+    const config = resolveQualityAssuranceProjectConfig(selectedTeam, stateGroupOverrides, tagGroups)
     return bucketQualityAssuranceItems(rawData.candidates, rawData.updatesByItemId, config)
-  }, [rawData, selectedTeam, stateGroupOverrides])
+  }, [rawData, selectedTeam, stateGroupOverrides, tagGroups])
 
   return {
     qaBuckets,

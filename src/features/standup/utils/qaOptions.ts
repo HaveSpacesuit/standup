@@ -35,6 +35,33 @@ export type QaStateGroupOverrides = {
 }
 
 /**
+ * Per-column tag classifiers. A work item carrying any of these tags is routed to the matching
+ * column, taking precedence over state-based classification. Precedence between columns follows
+ * the field order below (testing → done → development → new); the first matching column wins.
+ */
+export type QaTagGroups = {
+  /** Tags that route an item to the Ready for QA column. */
+  testing: string[]
+  /** Tags that route an item to the Recently completed column. */
+  done: string[]
+  /** Tags that route an item to the Needs follow-up column. */
+  development: string[]
+  /** Tags that route an item to the Newly added column. */
+  new: string[]
+}
+
+/**
+ * Built-in default tag classifiers. "Triage" routes to Newly added out of the box.
+ * Used when QaOptions.tagGroups is null (the user has not customized the tag groups).
+ */
+export const DEFAULT_QA_TAG_GROUPS: QaTagGroups = {
+  testing: [],
+  done: [],
+  development: [],
+  new: ['Triage'],
+}
+
+/**
  * Sprint (iteration) filter. Relative flags resolve against the live iteration list at query
  * time (so "current" always tracks the team's current sprint). Explicit iterationPaths come from
  * the registered-sprints dropdown. When nothing is selected, all sprints are shown.
@@ -58,6 +85,8 @@ export type QaOptions = {
   sprintFilter: QaSprintFilter
   /** When set, overrides the built-in project state group defaults */
   stateGroups: QaStateGroupOverrides | null
+  /** Per-column tag classifiers. null = use DEFAULT_QA_TAG_GROUPS (Triage → Newly added). */
+  tagGroups: QaTagGroups | null
 }
 
 export const EMPTY_SPRINT_FILTER: QaSprintFilter = {
@@ -160,12 +189,24 @@ function parseSprintFilter(value: unknown): QaSprintFilter {
   }
 }
 
+function parseTagGroups(value: unknown): QaTagGroups | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const obj = value as Record<string, unknown>
+  return {
+    testing: parseStringArray(obj.testing),
+    done: parseStringArray(obj.done),
+    development: parseStringArray(obj.development),
+    new: parseStringArray(obj.new),
+  }
+}
+
 export function parseStoredQaOptions(value: string | null): QaOptions {
   const empty: QaOptions = {
     generalFilters: [],
     includeWorkItemTypes: [],
     sprintFilter: { ...EMPTY_SPRINT_FILTER },
     stateGroups: null,
+    tagGroups: null,
   }
 
   if (!value) {
@@ -192,6 +233,7 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
       includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
       sprintFilter: parseSprintFilter(parsed.sprintFilter),
       stateGroups: parseStateGroups(parsed.stateGroups),
+      tagGroups: parseTagGroups(parsed.tagGroups),
     }
   } catch {
     return empty
