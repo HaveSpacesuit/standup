@@ -26,7 +26,7 @@ export function buildQaBucketCandidatesWiql(
   projectName: string,
   areaPath: string,
   lookbackDays = 21,
-  excludeWorkItemTypes: string[] = [],
+  includeWorkItemTypes: string[] = [],
 ): string {
   const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
   const startOfWindow = `@StartOfDay('-${lookbackDays}')`
@@ -42,9 +42,9 @@ export function buildQaBucketCandidatesWiql(
     '  )',
   ]
 
-  if (excludeWorkItemTypes.length > 0) {
-    const typeList = excludeWorkItemTypes.map(quote).join(', ')
-    clauses.push(`  AND [System.WorkItemType] NOT IN (${typeList})`)
+  if (includeWorkItemTypes.length > 0) {
+    const typeList = includeWorkItemTypes.map(quote).join(', ')
+    clauses.push(`  AND [System.WorkItemType] IN (${typeList})`)
   }
 
   clauses.push('ORDER BY [System.ChangedDate] DESC')

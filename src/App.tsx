@@ -66,7 +66,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     projectWorkItemStatesLoading,
   } = useBoardViewModel({ patConfigured, qaOptionsByTeam })
 
-  const qaOptions = qaOptionsByTeam[selectedTeamId] ?? { generalFilters: [], stateGroups: null }
+  const qaOptions = qaOptionsByTeam[selectedTeamId] ?? { generalFilters: [], includeWorkItemTypes: [], stateGroups: null }
 
   const handleQaOptionsChange = (next: QaOptions) => {
     setQaOptionsByTeam((prev) => ({ ...prev, [selectedTeamId]: next }))

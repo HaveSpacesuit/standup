@@ -1,14 +1,15 @@
+import { useEffect, useState } from 'react'
 import {
   Box,
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  IconButton,
   ListItemText,
   MenuItem,
   OutlinedInput,
@@ -16,10 +17,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Icon } from '@stratakit/mui'
-import svgDismiss from '@stratakit/icons/dismiss.svg'
-import type { QaFilterRule, QaFilterRuleType, QaOptions, QaStateGroupOverrides } from '../utils/qaOptions'
-import { createQaFilterRule } from '../utils/qaOptions'
+import type { QaOptions, QaStateGroupOverrides, QaTagFilterRule } from '../utils/qaOptions'
+import { createTagFilterRule } from '../utils/qaOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 
 type QaOptionsDialogProps = {
@@ -32,11 +31,6 @@ type QaOptionsDialogProps = {
   projectWorkItemStatesLoading: boolean
 }
 
-const RULE_TYPE_OPTIONS: Array<{ value: QaFilterRuleType; label: string }> = [
-  { value: 'work-item-type', label: 'Work item type' },
-  { value: 'tag', label: 'Tag' },
-]
-
 type StateGroupKey = keyof QaStateGroupOverrides
 
 const STATE_GROUP_SECTIONS: Array<{ key: StateGroupKey; label: string; description: string }> = [
@@ -45,12 +39,6 @@ const STATE_GROUP_SECTIONS: Array<{ key: StateGroupKey; label: string; descripti
   { key: 'development', label: 'Needs follow-up', description: 'Items that returned to these states after being in Ready for QA will appear in the Needs follow-up column.' },
   { key: 'new', label: 'Newly added', description: 'Items in these states that were created recently will always appear in the Newly added column.' },
 ]
-
-function updateGeneralFilter(options: QaOptions, index: number, next: QaFilterRule): QaOptions {
-  const filters = [...options.generalFilters]
-  filters[index] = next
-  return { ...options, generalFilters: filters }
-}
 
 function removeGeneralFilter(options: QaOptions, id: string): QaOptions {
   return { ...options, generalFilters: options.generalFilters.filter((r) => r.id !== id) }
@@ -69,104 +57,147 @@ export function QaOptionsDialog({
   projectWorkItemTypes,
   projectWorkItemStatesLoading,
 }: QaOptionsDialogProps) {
-  const { generalFilters } = options
-  const stateGroups = getStateGroups(options)
+  // Edit against a local draft so expensive query-affecting changes (the work item type
+  // allow-list) are only committed — and the data reload only triggered — when the dialog closes.
+  const [draft, setDraft] = useState<QaOptions>(options)
+  const [newTagInput, setNewTagInput] = useState('')
 
-  const handleAddRule = () => {
-    onChange({
-      ...options,
-      generalFilters: [...generalFilters, createQaFilterRule('tag')],
-    })
+  useEffect(() => {
+    if (open) {
+      setDraft(options)
+      setNewTagInput('')
+    }
+    // Only re-sync the draft when the dialog is (re)opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const { generalFilters, includeWorkItemTypes } = draft
+  const stateGroups = getStateGroups(draft)
+  const tagFilters = generalFilters.filter((r): r is QaTagFilterRule => r.type === 'tag')
+
+  const handleClose = () => {
+    onChange(draft)
+    onClose()
   }
 
-  const handleRuleTypeChange = (index: number, nextType: QaFilterRuleType) => {
-    onChange(updateGeneralFilter(options, index, createQaFilterRule(nextType)))
+  const handleAddTag = () => {
+    const value = newTagInput.trim()
+    if (!value) {
+      return
+    }
+    setDraft((current) => {
+      const alreadyExists = current.generalFilters.some(
+        (r) => r.type === 'tag' && r.tagMatch.trim().toLowerCase() === value.toLowerCase(),
+      )
+      if (alreadyExists) {
+        return current
+      }
+      return { ...current, generalFilters: [...current.generalFilters, createTagFilterRule(value)] }
+    })
+    setNewTagInput('')
   }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>QA Options</DialogTitle>
 
       <DialogContent sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
 
-        {/* ── General filters ── */}
+        {/* ── Work item types to display (opt-in allow-list) ── */}
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
-            General filters
+            Work item types
           </Typography>
           <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.5 }}>
-            Items matching any of these rules will be hidden from all columns.
+            Select which work item types to display. When left empty, all types are shown.
           </Typography>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {generalFilters.length > 0 ? (
-              generalFilters.map((rule, index) => (
-                <Box
-                  key={rule.id}
-                  sx={{ display: 'grid', gridTemplateColumns: '140px 1fr auto', gap: 1, alignItems: 'center' }}
-                >
-                  {/* Rule type selector */}
-                  <Select
-                    size="small"
-                    value={rule.type}
-                    onChange={(event) => handleRuleTypeChange(index, event.target.value as QaFilterRuleType)}
-                  >
-                    {RULE_TYPE_OPTIONS.map((opt) => (
-                      <MenuItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-
-                  {/* Rule value input */}
-                  {rule.type === 'work-item-type' ? (
-                    <Select
-                      size="small"
-                      displayEmpty
-                      value={rule.workItemType}
-                      onChange={(event) =>
-                        onChange(updateGeneralFilter(options, index, { ...rule, workItemType: event.target.value }))
-                      }
-                      renderValue={(value) => value || <span style={{ opacity: 0.5 }}>Select type…</span>}
-                    >
-                      {projectWorkItemTypes.map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {type}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  ) : (
-                    <TextField
-                      size="small"
-                      placeholder="Tag partial match (case-insensitive)"
-                      value={rule.tagMatch}
-                      onChange={(event) =>
-                        onChange(updateGeneralFilter(options, index, { ...rule, tagMatch: event.target.value }))
-                      }
-                    />
-                  )}
-
-                  {/* Remove */}
-                  <IconButton
-                    size="small"
-                    aria-label="Remove filter rule"
-                    onClick={() => onChange(removeGeneralFilter(options, rule.id))}
-                  >
-                    <Icon href={svgDismiss} />
-                  </IconButton>
-                </Box>
-              ))
-            ) : (
-              <Typography variant="body-sm" color="text.secondary">
-                No general filters configured. All items will be shown.
-              </Typography>
-            )}
-
-            <Box sx={{ pt: 0.5 }}>
-              <Button size="small" variant="outlined" onClick={handleAddRule}>
-                Add rule
-              </Button>
+          {projectWorkItemStatesLoading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CircularProgress size={16} />
+              <Typography variant="body-sm" color="text.secondary">Loading types…</Typography>
             </Box>
+          ) : projectWorkItemTypes.length === 0 ? (
+            <Typography variant="body-sm" color="text.secondary">
+              No work item types found for this project.
+            </Typography>
+          ) : (
+            <Select
+              multiple
+              size="small"
+              fullWidth
+              displayEmpty
+              value={includeWorkItemTypes}
+              input={<OutlinedInput />}
+              onChange={(event) => {
+                const nextValue = typeof event.target.value === 'string'
+                  ? event.target.value.split(',')
+                  : event.target.value
+                setDraft((current) => ({ ...current, includeWorkItemTypes: nextValue }))
+              }}
+              renderValue={(values) =>
+                values.length === 0
+                  ? <span style={{ opacity: 0.5 }}>All types</span>
+                  : values.join(', ')
+              }
+              MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
+            >
+              {projectWorkItemTypes.map((type) => (
+                <MenuItem key={type} value={type} dense>
+                  <Checkbox checked={includeWorkItemTypes.includes(type)} />
+                  <ListItemText primary={type} />
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+        </Box>
+
+        <Divider />
+
+        {/* ── Tag filters (chip container + add input) ── */}
+        <Box>
+          <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
+            Tag filters
+          </Typography>
+          <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.5 }}>
+            Items with a tag matching any of these entries will be hidden from all columns.
+          </Typography>
+
+          {tagFilters.length > 0 ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
+              {tagFilters.map((rule) => (
+                <Chip
+                  key={rule.id}
+                  label={rule.tagMatch}
+                  size="small"
+                  variant="outlined"
+                  onDelete={() => setDraft((current) => removeGeneralFilter(current, rule.id))}
+                />
+              ))}
+            </Box>
+          ) : (
+            <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.5 }}>
+              No tag filters configured. All items will be shown.
+            </Typography>
+          )}
+
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Add tag filter (case-insensitive partial match)"
+              value={newTagInput}
+              onChange={(event) => setNewTagInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleAddTag()
+                }
+              }}
+            />
+            <Button size="small" variant="outlined" onClick={handleAddTag} disabled={!newTagInput.trim()}>
+              Add
+            </Button>
           </Box>
         </Box>
 
@@ -215,7 +246,7 @@ export function QaOptionsDialog({
                           : event.target.value
                         const nextGroups: QaStateGroupOverrides = { ...stateGroups, [key]: nextValue }
                         const allEmpty = Object.values(nextGroups).every((arr) => arr.length === 0)
-                        onChange({ ...options, stateGroups: allEmpty ? null : nextGroups })
+                        setDraft((current) => ({ ...current, stateGroups: allEmpty ? null : nextGroups }))
                       }}
                       renderValue={(values) =>
                         values.length === 0
@@ -241,7 +272,7 @@ export function QaOptionsDialog({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={handleClose}>Close</Button>
       </DialogActions>
     </Dialog>
   )

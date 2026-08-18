@@ -146,7 +146,7 @@ export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardVi
     adoQueryEngine,
     selectedTeam,
     reloadNonce,
-    generalFilters: qaOptionsByTeam?.[selectedTeam.id]?.generalFilters,
+    includeWorkItemTypes: qaOptionsByTeam?.[selectedTeam.id]?.includeWorkItemTypes,
     stateGroupOverrides: qaOptionsByTeam?.[selectedTeam.id]?.stateGroups,
   })
 

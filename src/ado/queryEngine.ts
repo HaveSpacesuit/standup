@@ -113,11 +113,11 @@ export class AdoQueryEngine {
   async getQualityAssuranceRawData(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     signal?: AbortSignal,
-    options?: { forceRefresh?: boolean; excludeWorkItemTypes?: string[] },
+    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[] },
   ): Promise<QualityAssuranceRawData> {
-    const sortedExclusions = [...(options?.excludeWorkItemTypes ?? [])].sort()
-    const cacheKey = sortedExclusions.length > 0
-      ? `${team.id}:exclude:${sortedExclusions.join(',').toLowerCase()}`
+    const sortedIncludes = [...(options?.includeWorkItemTypes ?? [])].sort()
+    const cacheKey = sortedIncludes.length > 0
+      ? `${team.id}:include:${sortedIncludes.join(',').toLowerCase()}`
       : team.id
 
     if (!options?.forceRefresh) {
@@ -127,7 +127,7 @@ export class AdoQueryEngine {
       }
     }
 
-    const raw = await fetchQualityAssuranceRawData(this.client, team, signal, { excludeWorkItemTypes: sortedExclusions })
+    const raw = await fetchQualityAssuranceRawData(this.client, team, signal, { includeWorkItemTypes: sortedIncludes })
     this.qaRawDataCache.set(cacheKey, raw)
     return raw
   }
@@ -135,9 +135,9 @@ export class AdoQueryEngine {
   async getQualityAssuranceBuckets(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     signal?: AbortSignal,
-    options?: { forceRefresh?: boolean; excludeWorkItemTypes?: string[]; stateGroupOverrides?: import('../features/standup/utils/qaOptions').QaStateGroupOverrides | null },
+    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; stateGroupOverrides?: import('../features/standup/utils/qaOptions').QaStateGroupOverrides | null },
   ): Promise<QualityAssuranceBucket[]> {
-    const raw = await this.getQualityAssuranceRawData(team, signal, { forceRefresh: options?.forceRefresh, excludeWorkItemTypes: options?.excludeWorkItemTypes })
+    const raw = await this.getQualityAssuranceRawData(team, signal, { forceRefresh: options?.forceRefresh, includeWorkItemTypes: options?.includeWorkItemTypes })
     const config = resolveQualityAssuranceProjectConfig(team, options?.stateGroupOverrides)
     return bucketQualityAssuranceItems(raw.candidates, raw.updatesByItemId, config)
   }

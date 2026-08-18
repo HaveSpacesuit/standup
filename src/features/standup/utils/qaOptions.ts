@@ -34,6 +34,8 @@ export type QaStateGroupOverrides = {
 
 export type QaOptions = {
   generalFilters: QaFilterRule[]
+  /** Allow-list of work item types to display. Empty = show all types. */
+  includeWorkItemTypes: string[]
   /** When set, overrides the built-in project state group defaults */
   stateGroups: QaStateGroupOverrides | null
 }
@@ -53,6 +55,11 @@ export function createQaFilterRule(type: QaFilterRuleType): QaFilterRule {
     return { id, type: 'work-item-type', workItemType: '' }
   }
   return { id, type: 'tag', tagMatch: '' }
+}
+
+export function createTagFilterRule(tagMatch: string): QaTagFilterRule {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  return { id, type: 'tag', tagMatch }
 }
 
 function isQaFilterRuleType(value: unknown): value is QaFilterRuleType {
@@ -105,7 +112,7 @@ function parseStateGroups(value: unknown): QaStateGroupOverrides | null {
 }
 
 export function parseStoredQaOptions(value: string | null): QaOptions {
-  const empty: QaOptions = { generalFilters: [], stateGroups: null }
+  const empty: QaOptions = { generalFilters: [], includeWorkItemTypes: [], stateGroups: null }
 
   if (!value) {
     return empty
@@ -117,15 +124,18 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
       return empty
     }
 
+    // General filters are now tag-only; drop any legacy work-item-type exclusion rules,
+    // which have been superseded by the includeWorkItemTypes allow-list.
     const generalFilters: QaFilterRule[] = Array.isArray(parsed.generalFilters)
       ? parsed.generalFilters.flatMap((entry: unknown) => {
           const rule = parseRule(entry)
-          return rule ? [rule] : []
+          return rule && rule.type === 'tag' ? [rule] : []
         })
       : []
 
     return {
       generalFilters,
+      includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
       stateGroups: parseStateGroups(parsed.stateGroups),
     }
   } catch {
