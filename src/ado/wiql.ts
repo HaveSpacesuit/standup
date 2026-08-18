@@ -27,6 +27,7 @@ export function buildQaBucketCandidatesWiql(
   areaPath: string,
   lookbackDays = 21,
   includeWorkItemTypes: string[] = [],
+  includeIterationPaths: string[] = [],
 ): string {
   const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
   const startOfWindow = `@StartOfDay('-${lookbackDays}')`
@@ -45,6 +46,11 @@ export function buildQaBucketCandidatesWiql(
   if (includeWorkItemTypes.length > 0) {
     const typeList = includeWorkItemTypes.map(quote).join(', ')
     clauses.push(`  AND [System.WorkItemType] IN (${typeList})`)
+  }
+
+  if (includeIterationPaths.length > 0) {
+    const pathList = includeIterationPaths.map(quote).join(', ')
+    clauses.push(`  AND [System.IterationPath] IN (${pathList})`)
   }
 
   clauses.push('ORDER BY [System.ChangedDate] DESC')

@@ -12,6 +12,7 @@ type UseQualityAssuranceBucketsArgs = {
   selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>
   reloadNonce: number
   includeWorkItemTypes?: string[]
+  includeIterationPaths?: string[]
   stateGroupOverrides?: QaStateGroupOverrides | null
 }
 
@@ -26,6 +27,7 @@ export function useQualityAssuranceBuckets({
   selectedTeam,
   reloadNonce,
   includeWorkItemTypes,
+  includeIterationPaths,
   stateGroupOverrides,
 }: UseQualityAssuranceBucketsArgs): UseQualityAssuranceBucketsResult {
   const [rawData, setRawData] = useState<QualityAssuranceRawData | null>(null)
@@ -42,6 +44,15 @@ export function useQualityAssuranceBuckets({
       .join(',')
   }, [includeWorkItemTypes])
 
+  // Stable string key from the selected iteration paths (already resolved from the sprint filter).
+  const includeIterationPathsKey = useMemo(() => {
+    return [...(includeIterationPaths ?? [])]
+      .map((path) => path.trim())
+      .filter(Boolean)
+      .sort()
+      .join('|')
+  }, [includeIterationPaths])
+
   useEffect(() => {
     if (!adoQueryEngine) {
       setRawData(null)
@@ -55,9 +66,10 @@ export function useQualityAssuranceBuckets({
     setQaBucketsError(null)
 
     const includeTypes = includeWorkItemTypesKey ? includeWorkItemTypesKey.split(',') : []
+    const includeIterations = includeIterationPathsKey ? includeIterationPathsKey.split('|') : []
 
     adoQueryEngine
-      .getQualityAssuranceRawData(selectedTeam, abortController.signal, { includeWorkItemTypes: includeTypes })
+      .getQualityAssuranceRawData(selectedTeam, abortController.signal, { includeWorkItemTypes: includeTypes, includeIterationPaths: includeIterations })
       .then((data) => {
         if (!abortController.signal.aborted) {
           setRawData(data)
@@ -78,7 +90,7 @@ export function useQualityAssuranceBuckets({
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, reloadNonce, selectedTeam, includeWorkItemTypesKey])
+  }, [adoQueryEngine, reloadNonce, selectedTeam, includeWorkItemTypesKey, includeIterationPathsKey])
 
   const qaBuckets = useMemo<QualityAssuranceBucket[]>(() => {
     if (!rawData) {

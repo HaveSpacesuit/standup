@@ -24,6 +24,17 @@ export type IterationWindowInfo = {
   next: IterationInfo | null
 }
 
+export type IterationTimeFrame = 'past' | 'current' | 'future'
+
+export type TeamIterationOption = {
+  name: string
+  /** Full iteration path, e.g. "beconnect\\PW Web\\2026 11" — matches System.IterationPath. */
+  path: string
+  timeFrame: IterationTimeFrame
+  startDate?: string
+  finishDate?: string
+}
+
 export type WorkItemPullRequestSummary = {
   id: number
   repositoryId?: string

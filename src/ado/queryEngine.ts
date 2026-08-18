@@ -2,18 +2,18 @@ import type { TeamProfile } from '../teamProfiles'
 import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
-import { fetchIterationWindowInfo } from './teamIterationsApi'
+import { fetchIterationWindowInfo, fetchTeamIterations } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
 import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchQualityAssuranceRawData, fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
 import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState } from './workItemTypesApi'
-import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
+import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
 import type { QualityAssuranceBucket } from '../features/standup/utils/qualityAssuranceBuckets'
 import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../features/standup/utils/qualityAssuranceBuckets'
 import type { QualityAssuranceRawData } from './workItemsApi'
 
-export type { CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee } from './types'
+export type { CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
 
 
@@ -28,6 +28,7 @@ export class AdoQueryEngine {
   private readonly currentIterationCache = new Map<string, { expiresAt: number; value: IterationWindowInfo }>()
   private readonly teamSubjectDescriptorCache = new Map<string, { expiresAt: number; value: string | null }>()
   private readonly projectWorkItemStatesCache = new Map<string, { expiresAt: number; value: { states: ProjectWorkItemState[]; workItemTypes: string[] } }>()
+  private readonly teamIterationsCache = new Map<string, { expiresAt: number; value: TeamIterationOption[] }>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
@@ -64,6 +65,24 @@ export class AdoQueryEngine {
     signal?: AbortSignal,
   ): Promise<string[]> {
     return (await this.getProjectWorkItemTypeInfo(team, signal)).workItemTypes
+  }
+
+  async getTeamIterations(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
+    signal?: AbortSignal,
+  ): Promise<TeamIterationOption[]> {
+    const cacheKey = team.id
+    const cached = this.teamIterationsCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value
+    }
+
+    const iterations = await fetchTeamIterations(this.client, team, signal)
+    this.teamIterationsCache.set(cacheKey, {
+      value: iterations,
+      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS * 15, // 15 minutes — timeframe shifts over time
+    })
+    return iterations
   }
 
   async getTeamMembers(
@@ -113,12 +132,14 @@ export class AdoQueryEngine {
   async getQualityAssuranceRawData(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     signal?: AbortSignal,
-    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[] },
+    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; includeIterationPaths?: string[] },
   ): Promise<QualityAssuranceRawData> {
-    const sortedIncludes = [...(options?.includeWorkItemTypes ?? [])].sort()
-    const cacheKey = sortedIncludes.length > 0
-      ? `${team.id}:include:${sortedIncludes.join(',').toLowerCase()}`
-      : team.id
+    const sortedTypes = [...(options?.includeWorkItemTypes ?? [])].sort()
+    const sortedIterations = [...(options?.includeIterationPaths ?? [])].sort()
+    const typesKey = sortedTypes.length > 0 ? `types:${sortedTypes.join(',').toLowerCase()}` : ''
+    const iterationsKey = sortedIterations.length > 0 ? `iters:${sortedIterations.join(',').toLowerCase()}` : ''
+    const filterKey = [typesKey, iterationsKey].filter(Boolean).join('|')
+    const cacheKey = filterKey ? `${team.id}:${filterKey}` : team.id
 
     if (!options?.forceRefresh) {
       const cached = this.qaRawDataCache.get(cacheKey)
@@ -127,7 +148,7 @@ export class AdoQueryEngine {
       }
     }
 
-    const raw = await fetchQualityAssuranceRawData(this.client, team, signal, { includeWorkItemTypes: sortedIncludes })
+    const raw = await fetchQualityAssuranceRawData(this.client, team, signal, { includeWorkItemTypes: sortedTypes, includeIterationPaths: sortedIterations })
     this.qaRawDataCache.set(cacheKey, raw)
     return raw
   }
@@ -135,9 +156,9 @@ export class AdoQueryEngine {
   async getQualityAssuranceBuckets(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     signal?: AbortSignal,
-    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; stateGroupOverrides?: import('../features/standup/utils/qaOptions').QaStateGroupOverrides | null },
+    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; includeIterationPaths?: string[]; stateGroupOverrides?: import('../features/standup/utils/qaOptions').QaStateGroupOverrides | null },
   ): Promise<QualityAssuranceBucket[]> {
-    const raw = await this.getQualityAssuranceRawData(team, signal, { forceRefresh: options?.forceRefresh, includeWorkItemTypes: options?.includeWorkItemTypes })
+    const raw = await this.getQualityAssuranceRawData(team, signal, { forceRefresh: options?.forceRefresh, includeWorkItemTypes: options?.includeWorkItemTypes, includeIterationPaths: options?.includeIterationPaths })
     const config = resolveQualityAssuranceProjectConfig(team, options?.stateGroupOverrides)
     return bucketQualityAssuranceItems(raw.candidates, raw.updatesByItemId, config)
   }

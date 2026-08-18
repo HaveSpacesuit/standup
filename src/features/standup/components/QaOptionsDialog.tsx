@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Button,
@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   ListItemText,
   MenuItem,
   OutlinedInput,
@@ -17,9 +18,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { QaOptions, QaStateGroupOverrides, QaTagFilterRule } from '../utils/qaOptions'
+import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagFilterRule } from '../utils/qaOptions'
 import { createTagFilterRule } from '../utils/qaOptions'
-import type { ProjectWorkItemState } from '../../../ado/queryEngine'
+import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
 
 type QaOptionsDialogProps = {
   open: boolean
@@ -29,6 +30,8 @@ type QaOptionsDialogProps = {
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
+  teamIterations: TeamIterationOption[]
+  teamIterationsLoading: boolean
 }
 
 type StateGroupKey = keyof QaStateGroupOverrides
@@ -39,6 +42,20 @@ const STATE_GROUP_SECTIONS: Array<{ key: StateGroupKey; label: string; descripti
   { key: 'development', label: 'Needs follow-up', description: 'Items that returned to these states after being in Ready for QA will appear in the Needs follow-up column.' },
   { key: 'new', label: 'Newly added', description: 'Items in these states that were created recently will always appear in the Newly added column.' },
 ]
+
+type RelativeSprintKey = 'current' | 'next' | 'nextNext'
+
+/** Resolves the sprint name for a relative offset from the current iteration, for label display. */
+function resolveRelativeSprintName(iterations: TeamIterationOption[], offset: number): string | null {
+  let currentIndex = iterations.findIndex((iteration) => iteration.timeFrame === 'current')
+  if (currentIndex === -1) {
+    currentIndex = iterations.findIndex((iteration) => iteration.timeFrame === 'future')
+  }
+  if (currentIndex === -1) {
+    return null
+  }
+  return iterations[currentIndex + offset]?.name ?? null
+}
 
 function removeGeneralFilter(options: QaOptions, id: string): QaOptions {
   return { ...options, generalFilters: options.generalFilters.filter((r) => r.id !== id) }
@@ -56,9 +73,12 @@ export function QaOptionsDialog({
   projectWorkItemStates,
   projectWorkItemTypes,
   projectWorkItemStatesLoading,
+  teamIterations,
+  teamIterationsLoading,
 }: QaOptionsDialogProps) {
   // Edit against a local draft so expensive query-affecting changes (the work item type
-  // allow-list) are only committed — and the data reload only triggered — when the dialog closes.
+  // allow-list and sprint filter) are only committed — and the data reload only triggered —
+  // when the dialog closes.
   const [draft, setDraft] = useState<QaOptions>(options)
   const [newTagInput, setNewTagInput] = useState('')
 
@@ -71,9 +91,15 @@ export function QaOptionsDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const { generalFilters, includeWorkItemTypes } = draft
+  const { generalFilters, includeWorkItemTypes, sprintFilter } = draft
   const stateGroups = getStateGroups(draft)
   const tagFilters = generalFilters.filter((r): r is QaTagFilterRule => r.type === 'tag')
+
+  const relativeSprintLabels = useMemo(() => ({
+    current: resolveRelativeSprintName(teamIterations, 0),
+    next: resolveRelativeSprintName(teamIterations, 1),
+    nextNext: resolveRelativeSprintName(teamIterations, 2),
+  }), [teamIterations])
 
   const handleClose = () => {
     onChange(draft)
@@ -95,6 +121,20 @@ export function QaOptionsDialog({
       return { ...current, generalFilters: [...current.generalFilters, createTagFilterRule(value)] }
     })
     setNewTagInput('')
+  }
+
+  const handleToggleRelativeSprint = (key: RelativeSprintKey, checked: boolean) => {
+    setDraft((current) => ({
+      ...current,
+      sprintFilter: { ...current.sprintFilter, [key]: checked } as QaSprintFilter,
+    }))
+  }
+
+  const handleSprintPathsChange = (paths: string[]) => {
+    setDraft((current) => ({
+      ...current,
+      sprintFilter: { ...current.sprintFilter, iterationPaths: paths },
+    }))
   }
 
   return (
@@ -150,6 +190,101 @@ export function QaOptionsDialog({
               ))}
             </Select>
           )}
+        </Box>
+
+        <Divider />
+
+        {/* ── Sprint filter ── */}
+        <Box>
+          <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
+            Sprints
+          </Typography>
+          <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.5 }}>
+            Limit items to the selected sprints. When nothing is selected, all sprints are shown.
+          </Typography>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={sprintFilter.current}
+                  onChange={(event) => handleToggleRelativeSprint('current', event.target.checked)}
+                />
+              }
+              label={relativeSprintLabels.current ? `Current sprint (${relativeSprintLabels.current})` : 'Current sprint'}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={sprintFilter.next}
+                  onChange={(event) => handleToggleRelativeSprint('next', event.target.checked)}
+                />
+              }
+              label={relativeSprintLabels.next ? `Current sprint + 1 (${relativeSprintLabels.next})` : 'Current sprint + 1'}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={sprintFilter.nextNext}
+                  onChange={(event) => handleToggleRelativeSprint('nextNext', event.target.checked)}
+                />
+              }
+              label={relativeSprintLabels.nextNext ? `Current sprint + 2 (${relativeSprintLabels.nextNext})` : 'Current sprint + 2'}
+            />
+          </Box>
+
+          <Box sx={{ mt: 1.5 }}>
+            <Typography variant="body-sm" sx={{ fontWeight: 600, mb: 0.25 }}>
+              Additional sprints
+            </Typography>
+            <Typography variant="body-sm" color="text.secondary" sx={{ mb: 0.75 }}>
+              Include specific registered sprints, such as a general backlog.
+            </Typography>
+
+            {teamIterationsLoading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={16} />
+                <Typography variant="body-sm" color="text.secondary">Loading sprints…</Typography>
+              </Box>
+            ) : teamIterations.length === 0 ? (
+              <Typography variant="body-sm" color="text.secondary">
+                No sprints found for this team.
+              </Typography>
+            ) : (
+              <Select
+                multiple
+                size="small"
+                fullWidth
+                displayEmpty
+                value={sprintFilter.iterationPaths}
+                input={<OutlinedInput />}
+                onChange={(event) => {
+                  const nextValue = typeof event.target.value === 'string'
+                    ? event.target.value.split(',')
+                    : event.target.value
+                  handleSprintPathsChange(nextValue)
+                }}
+                renderValue={(values) => {
+                  if (values.length === 0) {
+                    return <span style={{ opacity: 0.5 }}>None selected</span>
+                  }
+                  const nameByPath = new Map(teamIterations.map((it) => [it.path, it.name]))
+                  return values.map((path) => nameByPath.get(path) ?? path).join(', ')
+                }}
+                MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
+              >
+                {teamIterations.map((iteration) => (
+                  <MenuItem key={iteration.path} value={iteration.path} dense>
+                    <Checkbox checked={sprintFilter.iterationPaths.includes(iteration.path)} />
+                    <ListItemText
+                      primary={iteration.name}
+                      secondary={iteration.timeFrame === 'current' ? 'Current' : undefined}
+                    />
+                  </MenuItem>
+                ))}
+              </Select>
+            )}
+          </Box>
         </Box>
 
         <Divider />

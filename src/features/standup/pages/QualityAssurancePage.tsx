@@ -5,7 +5,7 @@ import { QualityAssuranceToolbar } from '../components/QualityAssuranceToolbar'
 import { QaOptionsDialog } from '../components/QaOptionsDialog'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import type { QaOptions } from '../utils/qaOptions'
-import type { ProjectWorkItemState } from '../../../ado/queryEngine'
+import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
 
 type QualityAssurancePageProps = {
   patConfigured: boolean
@@ -27,6 +27,8 @@ type QualityAssurancePageProps = {
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
+  teamIterations: TeamIterationOption[]
+  teamIterationsLoading: boolean
 }
 
 export function QualityAssurancePage({
@@ -49,6 +51,8 @@ export function QualityAssurancePage({
   projectWorkItemStates,
   projectWorkItemTypes,
   projectWorkItemStatesLoading,
+  teamIterations,
+  teamIterationsLoading,
 }: QualityAssurancePageProps) {
   const [optionsOpen, setOptionsOpen] = useState(false)
 
@@ -84,6 +88,8 @@ export function QualityAssurancePage({
         projectWorkItemStates={projectWorkItemStates}
         projectWorkItemTypes={projectWorkItemTypes}
         projectWorkItemStatesLoading={projectWorkItemStatesLoading}
+        teamIterations={teamIterations}
+        teamIterationsLoading={teamIterationsLoading}
       />
     </>
   )

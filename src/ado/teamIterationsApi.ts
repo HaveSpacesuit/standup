@@ -1,6 +1,6 @@
 import type { TeamProfile } from '../teamProfiles'
 import type { AdoRequestClient } from './httpClient'
-import type { CurrentIterationInfo, IterationInfo, IterationWindowInfo } from './types'
+import type { CurrentIterationInfo, IterationInfo, IterationTimeFrame, IterationWindowInfo, TeamIterationOption } from './types'
 import { parseIsoDate } from './adoShared'
 
 type TeamIterationsResponse = {
@@ -10,6 +10,7 @@ type TeamIterationsResponse = {
     attributes?: {
       startDate?: string
       finishDate?: string
+      timeFrame?: string
     }
   }>
   value?: Array<{
@@ -18,6 +19,7 @@ type TeamIterationsResponse = {
     attributes?: {
       startDate?: string
       finishDate?: string
+      timeFrame?: string
     }
   }>
 }
@@ -141,6 +143,7 @@ function resolveIterations(response: TeamIterationsResponse): Array<{
   attributes?: {
     startDate?: string
     finishDate?: string
+    timeFrame?: string
   }
 }> {
   return response.values ?? response.value ?? []
@@ -214,4 +217,57 @@ export async function fetchCurrentIterationInfo(
 ): Promise<CurrentIterationInfo | null> {
   const iterationWindow = await fetchIterationWindowInfo(client, team, signal)
   return iterationWindow.current
+}
+
+function normalizeTimeFrame(value: string | undefined): IterationTimeFrame {
+  const normalized = value?.trim().toLowerCase()
+  if (normalized === 'current') {
+    return 'current'
+  }
+  if (normalized === 'past') {
+    return 'past'
+  }
+  return 'future'
+}
+
+/**
+ * Returns all iterations registered for the team, in chronological order (as ADO returns them,
+ * with the dateless backlog iteration last). Each entry includes its timeFrame so callers can
+ * identify the current sprint without date math.
+ */
+export async function fetchTeamIterations(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
+  signal?: AbortSignal,
+): Promise<TeamIterationOption[]> {
+  const teamId = await fetchTeamId(client, team, signal)
+  if (!teamId) {
+    return []
+  }
+
+  const response = await client.request<TeamIterationsResponse>({
+    method: 'GET',
+    orgName: team.orgName,
+    path: `/${encodeURIComponent(team.projectName)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations`,
+    params: {
+      'api-version': '7.1',
+    },
+    signal,
+  })
+
+  return resolveIterations(response).flatMap((iteration) => {
+    const name = resolveIterationName(iteration)
+    const path = iteration.path?.trim()
+    if (!name || !path) {
+      return []
+    }
+
+    return [{
+      name,
+      path,
+      timeFrame: normalizeTimeFrame(iteration.attributes?.timeFrame),
+      startDate: iteration.attributes?.startDate?.trim() || undefined,
+      finishDate: iteration.attributes?.finishDate?.trim() || undefined,
+    }]
+  })
 }

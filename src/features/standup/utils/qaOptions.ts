@@ -1,3 +1,5 @@
+import type { TeamIterationOption } from '../../../ado/types'
+
 export type QaFilterRuleType = 'work-item-type' | 'tag'
 
 export type QaWorkItemTypeFilterRule = {
@@ -32,12 +34,46 @@ export type QaStateGroupOverrides = {
   new: string[]
 }
 
+/**
+ * Sprint (iteration) filter. Relative flags resolve against the live iteration list at query
+ * time (so "current" always tracks the team's current sprint). Explicit iterationPaths come from
+ * the registered-sprints dropdown. When nothing is selected, all sprints are shown.
+ */
+export type QaSprintFilter = {
+  /** Include the team's current sprint. */
+  current: boolean
+  /** Include the sprint after current (current + 1). */
+  next: boolean
+  /** Include the sprint two after current (current + 2). */
+  nextNext: boolean
+  /** Explicit iteration paths selected from the registered-sprints dropdown. */
+  iterationPaths: string[]
+}
+
 export type QaOptions = {
   generalFilters: QaFilterRule[]
   /** Allow-list of work item types to display. Empty = show all types. */
   includeWorkItemTypes: string[]
+  /** Sprint filter. When no relative flags and no explicit paths, all sprints are shown. */
+  sprintFilter: QaSprintFilter
   /** When set, overrides the built-in project state group defaults */
   stateGroups: QaStateGroupOverrides | null
+}
+
+export const EMPTY_SPRINT_FILTER: QaSprintFilter = {
+  current: false,
+  next: false,
+  nextNext: false,
+  iterationPaths: [],
+}
+
+export function hasActiveSprintFilter(sprintFilter: QaSprintFilter): boolean {
+  return (
+    sprintFilter.current ||
+    sprintFilter.next ||
+    sprintFilter.nextNext ||
+    sprintFilter.iterationPaths.length > 0
+  )
 }
 
 export const QA_OPTIONS_STORAGE_KEY_PREFIX = 'standup:qa-options'
@@ -111,8 +147,26 @@ function parseStateGroups(value: unknown): QaStateGroupOverrides | null {
   }
 }
 
+function parseSprintFilter(value: unknown): QaSprintFilter {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...EMPTY_SPRINT_FILTER }
+  }
+  const obj = value as Record<string, unknown>
+  return {
+    current: obj.current === true,
+    next: obj.next === true,
+    nextNext: obj.nextNext === true,
+    iterationPaths: parseStringArray(obj.iterationPaths),
+  }
+}
+
 export function parseStoredQaOptions(value: string | null): QaOptions {
-  const empty: QaOptions = { generalFilters: [], includeWorkItemTypes: [], stateGroups: null }
+  const empty: QaOptions = {
+    generalFilters: [],
+    includeWorkItemTypes: [],
+    sprintFilter: { ...EMPTY_SPRINT_FILTER },
+    stateGroups: null,
+  }
 
   if (!value) {
     return empty
@@ -136,6 +190,7 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
     return {
       generalFilters,
       includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
+      sprintFilter: parseSprintFilter(parsed.sprintFilter),
       stateGroups: parseStateGroups(parsed.stateGroups),
     }
   } catch {
@@ -171,5 +226,51 @@ export function applyQaGeneralFilters<T extends { workItemType?: string; tags?: 
     }
     return true
   })
+}
+
+/**
+ * Resolves a sprint filter into the concrete set of iteration paths to query.
+ * Relative flags (current / +1 / +2) are resolved against the live, chronologically-ordered
+ * iteration list by locating the current sprint (falling back to the first future sprint).
+ * Explicit selections are unioned in. Returns an empty array when no filter is active or when
+ * nothing resolves (caller treats empty as "show all sprints").
+ */
+export function resolveSelectedIterationPaths(
+  sprintFilter: QaSprintFilter,
+  iterations: TeamIterationOption[],
+): string[] {
+  if (!hasActiveSprintFilter(sprintFilter)) {
+    return []
+  }
+
+  const selected = new Set<string>()
+
+  if (sprintFilter.current || sprintFilter.next || sprintFilter.nextNext) {
+    let currentIndex = iterations.findIndex((iteration) => iteration.timeFrame === 'current')
+    if (currentIndex === -1) {
+      currentIndex = iterations.findIndex((iteration) => iteration.timeFrame === 'future')
+    }
+
+    if (currentIndex !== -1) {
+      if (sprintFilter.current && iterations[currentIndex]) {
+        selected.add(iterations[currentIndex].path)
+      }
+      if (sprintFilter.next && iterations[currentIndex + 1]) {
+        selected.add(iterations[currentIndex + 1].path)
+      }
+      if (sprintFilter.nextNext && iterations[currentIndex + 2]) {
+        selected.add(iterations[currentIndex + 2].path)
+      }
+    }
+  }
+
+  const knownPaths = new Set(iterations.map((iteration) => iteration.path))
+  for (const path of sprintFilter.iterationPaths) {
+    if (knownPaths.has(path)) {
+      selected.add(path)
+    }
+  }
+
+  return Array.from(selected)
 }
 

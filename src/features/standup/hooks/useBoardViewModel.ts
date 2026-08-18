@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getAppConfig } from '../../../config'
 import { AdoQueryEngine } from '../../../ado/queryEngine'
-import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import { teamProfiles } from '../../../teamProfiles'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
 import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHistoryHighlights'
@@ -12,12 +12,14 @@ import { useTeamManagementUrl } from './useTeamManagementUrl'
 import { useVisibleBoardItems } from './useVisibleBoardItems'
 import { useQualityAssuranceBuckets } from './useQualityAssuranceBuckets'
 import { useProjectWorkItemStates } from './useProjectWorkItemStates'
+import { useTeamIterations } from './useTeamIterations'
 import {
   applyTagRulesToItem,
   normalizeTeamMemberLabel,
 } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { QaOptions } from '../utils/qaOptions'
+import { resolveSelectedIterationPaths } from '../utils/qaOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 
 type UseBoardViewModelArgs = {
@@ -54,6 +56,8 @@ type UseBoardViewModelResult = {
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
+  teamIterations: TeamIterationOption[]
+  teamIterationsLoading: boolean
 }
 
 export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardViewModelArgs): UseBoardViewModelResult {
@@ -142,11 +146,23 @@ export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardVi
     workItemsError,
   })
 
+  const { iterations: teamIterations, iterationsLoading: teamIterationsLoading } = useTeamIterations({
+    adoQueryEngine,
+    selectedTeam,
+  })
+
+  const sprintFilter = qaOptionsByTeam?.[selectedTeam.id]?.sprintFilter
+  const selectedIterationPaths = useMemo(
+    () => (sprintFilter ? resolveSelectedIterationPaths(sprintFilter, teamIterations) : []),
+    [sprintFilter, teamIterations],
+  )
+
   const { qaBuckets, qaBucketsLoading, qaBucketsError } = useQualityAssuranceBuckets({
     adoQueryEngine,
     selectedTeam,
     reloadNonce,
     includeWorkItemTypes: qaOptionsByTeam?.[selectedTeam.id]?.includeWorkItemTypes,
+    includeIterationPaths: selectedIterationPaths,
     stateGroupOverrides: qaOptionsByTeam?.[selectedTeam.id]?.stateGroups,
   })
 
@@ -229,5 +245,7 @@ export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardVi
     projectWorkItemStates,
     projectWorkItemTypes,
     projectWorkItemStatesLoading,
+    teamIterations,
+    teamIterationsLoading,
   }
 }

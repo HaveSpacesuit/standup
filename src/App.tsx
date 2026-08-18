@@ -9,6 +9,7 @@ import { QualityAssurancePage } from './features/standup/pages/QualityAssuranceP
 import { TeamAssignmentsPage } from './features/standup/pages/TeamAssignmentsPage'
 import {
   type QaOptions,
+  EMPTY_SPRINT_FILTER,
   parseStoredQaOptions,
   serializeQaOptions,
   qaOptionsStorageKey,
@@ -64,9 +65,11 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     projectWorkItemStates,
     projectWorkItemTypes,
     projectWorkItemStatesLoading,
+    teamIterations,
+    teamIterationsLoading,
   } = useBoardViewModel({ patConfigured, qaOptionsByTeam })
 
-  const qaOptions = qaOptionsByTeam[selectedTeamId] ?? { generalFilters: [], includeWorkItemTypes: [], stateGroups: null }
+  const qaOptions = qaOptionsByTeam[selectedTeamId] ?? { generalFilters: [], includeWorkItemTypes: [], sprintFilter: { ...EMPTY_SPRINT_FILTER }, stateGroups: null }
 
   const handleQaOptionsChange = (next: QaOptions) => {
     setQaOptionsByTeam((prev) => ({ ...prev, [selectedTeamId]: next }))
@@ -152,6 +155,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             projectWorkItemStates={projectWorkItemStates}
             projectWorkItemTypes={projectWorkItemTypes}
             projectWorkItemStatesLoading={projectWorkItemStatesLoading}
+            teamIterations={teamIterations}
+            teamIterationsLoading={teamIterationsLoading}
           />
         )}
       </Box>
