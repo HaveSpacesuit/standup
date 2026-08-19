@@ -135,6 +135,22 @@ export function KanbanBoard({
     return totals
   }, [currentIterationName, workItems])
 
+  const statusItemCounts = useMemo(() => {
+    const counts: Record<StatusColumn, number> = {
+      Blocked: 0,
+      New: 0,
+      Active: 0,
+      Review: 0,
+      Done: 0,
+    }
+
+    for (const item of workItems) {
+      counts[item.status] += 1
+    }
+
+    return counts
+  }, [workItems])
+
   const cardsByCell = useMemo(() => {
     const initial = rows.reduce<Record<string, WorkItemSummary[]>>((acc, row) => {
       for (const status of STATUS_COLUMNS) {
@@ -214,6 +230,7 @@ export function KanbanBoard({
         cardsByCell={cardsByCell}
         expandedCells={expandedCells}
         currentIterationName={currentIterationName}
+        statusItemCounts={statusItemCounts}
         statusEffortTotals={statusEffortTotals}
         renderStatusColumnBackground={renderStatusColumnBackground}
         onSetCellExpanded={setCellExpanded}

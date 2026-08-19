@@ -1,6 +1,7 @@
-import { Avatar, Badge, Box, Button, Tooltip, Typography } from '@mui/material'
+import { Avatar, Box, Button, Typography } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
-import { getStatusBadgeColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
+import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { WorkItemCard } from './WorkItemCard'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 
@@ -18,6 +19,7 @@ type KanbanBoardGridProps = {
   cardsByCell: Record<string, WorkItemSummary[]>
   expandedCells: Record<string, boolean>
   currentIterationName: string | null
+  statusItemCounts: Record<StatusColumn, number>
   statusEffortTotals: Record<StatusColumn, number>
   renderStatusColumnBackground: (status: StatusColumn, columnIndex: number) => string
   onSetCellExpanded: (cellKey: string, expanded: boolean) => void
@@ -31,11 +33,14 @@ export function KanbanBoardGrid({
   cardsByCell,
   expandedCells,
   currentIterationName,
+  statusItemCounts,
   statusEffortTotals,
   renderStatusColumnBackground,
   onSetCellExpanded,
   changeHighlightsByItemId,
 }: KanbanBoardGridProps) {
+  const theme = useTheme()
+
   return (
     <Box sx={{ height: '100%' }}>
       <Box
@@ -97,31 +102,50 @@ export function KanbanBoardGrid({
                     backgroundImage: renderStatusColumnBackground(status, columnIndex),
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
-                    <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-                      {status}
-                    </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, minWidth: 0 }}>
+                    <Box
+                      sx={{
+                        width: 4,
+                        minHeight: 34,
+                        borderRadius: 999,
+                        bgcolor: getStatusColumnColor(status, theme.palette),
+                        flex: '0 0 auto',
+                        alignSelf: 'stretch',
+                      }}
+                    />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
+                        <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                          {status}
+                        </Typography>
 
-                    <Tooltip
-                      title={
-                        currentIterationName
-                          ? `Effort total includes visible items from ${currentIterationName} only.`
-                          : 'Effort total includes visible items from the current sprint only.'
-                      }
-                    >
-                      <Box component="span">
-                        <Badge
-                          badgeContent={statusEffortTotals[status]}
-                          color={getStatusBadgeColor(status)}
-                          max={999}
-                          inline
-                          size="small"
-                          showZero
+                        <Box
+                          component="span"
+                          sx={{
+                            color: getStatusColumnColor(status, theme.palette),
+                            fontSize: 14,
+                            lineHeight: 1.25,
+                            fontWeight: 700,
+                            textAlign: 'center',
+                            flex: '0 0 auto',
+                          }}
                         >
-                          <Box sx={{ width: 0, height: 0 }} />
-                        </Badge>
+                          {statusItemCounts[status]}
+                        </Box>
                       </Box>
-                    </Tooltip>
+
+                      <Typography
+                        variant="caption-md"
+                        sx={{ mt: 0.25, color: 'text.secondary' }}
+                        title={
+                          currentIterationName
+                            ? `Effort total includes visible items from ${currentIterationName} only.`
+                            : 'Effort total includes visible items from the current sprint only.'
+                        }
+                      >
+                        Current sprint effort: {statusEffortTotals[status]}
+                      </Typography>
+                    </Box>
                   </Box>
                 </Box>
               ))}
@@ -227,6 +251,8 @@ export function KanbanBoardGrid({
                             key={item.id}
                             item={item}
                             highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
+                            showState
+                            effortPlacement="footer"
                           />
                         ))}
                       </Box>

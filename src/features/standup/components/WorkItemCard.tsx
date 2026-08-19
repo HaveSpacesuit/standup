@@ -22,6 +22,8 @@ type WorkItemCardProps = {
   showState?: boolean
   /** Hides the effort badge (not meaningful in the QA context). */
   hideEffort?: boolean
+  /** Controls where effort appears when it is shown. */
+  effortPlacement?: 'badge' | 'footer'
   /** A labeled person (e.g. "Created by" / "Assigned to") to show in the card footer. */
   footerPerson?: { label: string; identity: IdentityRef } | null
 }
@@ -34,6 +36,7 @@ export function WorkItemCard({
   accentColor,
   showState = false,
   hideEffort = false,
+  effortPlacement = 'badge',
   footerPerson = null,
 }: WorkItemCardProps) {
   const theme = useTheme()
@@ -66,6 +69,7 @@ export function WorkItemCard({
   const personName = person?.displayName ?? person?.uniqueName
   const showPerson = Boolean(!isPullRequestOnly && person && (personName || person.imageUrl))
   const hasVisibleTags = tagLayout.visibleTags.length > 0
+  const showFooterEffort = !hideEffort && effortPlacement === 'footer' && typeof item.effort === 'number' && !isPullRequestOnly
 
   return (
     <Card
@@ -130,7 +134,7 @@ export function WorkItemCard({
           >
             {abbreviateState(item.state)}
           </Box>
-        ) : !hideEffort && typeof item.effort === 'number' && !isPullRequestOnly ? (
+        ) : !hideEffort && effortPlacement === 'badge' && typeof item.effort === 'number' && !isPullRequestOnly ? (
           <Box
             component="span"
             sx={{
@@ -239,20 +243,19 @@ export function WorkItemCard({
               </Box>
             ) : null}
 
-            {/* Tags row (above the person row). When a person row follows, the sprint moves down
-                to the person row so the person always sits at the bottom-left; here we show tags
-                only. Without a person row (e.g. assignments board), tags and sprint stay together. */}
-            {hasVisibleTags || !showPerson ? (
+            {/* Tags row (above the footer row). When a footer row follows, the sprint moves down so
+                the footer content always anchors the bottom-left of the card. Without a footer row,
+                tags and sprint stay together here. */}
+            {hasVisibleTags || (!showPerson && !showFooterEffort) ? (
               <WorkItemTags
                 tagLayout={tagLayout}
-                sprintName={showPerson ? undefined : item.sprintName}
+                sprintName={showPerson || showFooterEffort ? undefined : item.sprintName}
               />
             ) : null}
 
-            {/* Person row — always the bottom-left of the card, with the sprint on the right.
-                It carries the footer's top divider only when it's the first footer row (no tags
-                above it); otherwise it flows directly under the tags row. */}
-            {showPerson && person ? (
+            {/* Footer row — used for QA person info or assignments effort, with the sprint on the
+                right. It carries the divider only when it is the first footer row. */}
+            {showPerson || showFooterEffort ? (
               <Box
                 sx={{
                   clear: 'both',
@@ -267,26 +270,43 @@ export function WorkItemCard({
                   justifyContent: 'space-between',
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '1 1 auto' }}>
-                  <Typography
-                    variant="body-sm"
-                    sx={{ fontSize: 10, color: 'text.secondary', flex: '0 0 auto', whiteSpace: 'nowrap' }}
-                  >
-                    {footerPerson?.label}
-                  </Typography>
-                  <Avatar
-                    alt={personName ?? ''}
-                    src={person.imageUrl}
-                    sx={{ width: 16, height: 16, fontSize: 8, flex: '0 0 auto' }}
-                  />
-                  <Typography
-                    variant="body-sm"
-                    sx={{ fontSize: 11, fontWeight: 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    title={personName}
-                  >
-                    {personName}
-                  </Typography>
-                </Box>
+                {showPerson && person ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '1 1 auto' }}>
+                    <Typography
+                      variant="body-sm"
+                      sx={{ fontSize: 10, color: 'text.secondary', flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                    >
+                      {footerPerson?.label}
+                    </Typography>
+                    <Avatar
+                      alt={personName ?? ''}
+                      src={person.imageUrl}
+                      sx={{ width: 16, height: 16, fontSize: 8, flex: '0 0 auto' }}
+                    />
+                    <Typography
+                      variant="body-sm"
+                      sx={{ fontSize: 11, fontWeight: 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      title={personName}
+                    >
+                      {personName}
+                    </Typography>
+                  </Box>
+                ) : showFooterEffort ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '1 1 auto' }}>
+                    <Typography
+                      variant="body-sm"
+                      sx={{ fontSize: 10, color: 'text.secondary', flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                    >
+                      Effort
+                    </Typography>
+                    <Typography
+                      variant="body-sm"
+                      sx={{ fontSize: 11, fontWeight: 500, color: accent, minWidth: 0, whiteSpace: 'nowrap' }}
+                    >
+                      {item.effort}
+                    </Typography>
+                  </Box>
+                ) : null}
 
                 {item.sprintName ? (
                   <Typography
