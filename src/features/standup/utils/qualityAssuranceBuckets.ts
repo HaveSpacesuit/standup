@@ -75,6 +75,19 @@ function toTimestamp(value: string | undefined): number | null {
   return Number.isNaN(time) ? null : time
 }
 
+function resolveFreshnessTimestamp(
+  candidateTimestamp: string | undefined,
+  fallbackTimestamp: string | undefined,
+  now = Date.now(),
+): string | undefined {
+  const candidateTime = toTimestamp(candidateTimestamp)
+  if (candidateTime !== null && candidateTime <= now) {
+    return candidateTimestamp
+  }
+
+  return fallbackTimestamp
+}
+
 function normalizeState(state: string | undefined): string {
   return normalizeText(state ?? '')
 }
@@ -151,6 +164,7 @@ function resolveStateGroup(state: string | undefined, config: QualityAssurancePr
  * so it can be routed to Needs follow-up / Recently completed after multi-hop transitions.
  */
 function wasReadyForQaRecently(
+  item: WorkItemSummary,
   updates: WorkItemUpdate[],
   config: QualityAssuranceProjectConfig,
   now = Date.now(),
@@ -160,7 +174,7 @@ function wasReadyForQaRecently(
     if (
       typeof nextState === 'string' &&
       matchesStateGroup(nextState, config.stateGroups.testing) &&
-      isFresh(update.revisedDate, now, config.lookbackDays)
+      isFresh(resolveFreshnessTimestamp(update.revisedDate, item.recentActivityAt, now), now, config.lookbackDays)
     ) {
       return true
     }
@@ -253,7 +267,7 @@ function hasRecentHighImpactActivity(
 
   // A change to a high-impact field within the window counts as meaningful activity.
   for (const update of updates) {
-    if (!isFresh(update.revisedDate, now, config.lookbackDays)) {
+    if (!isFresh(resolveFreshnessTimestamp(update.revisedDate, item.recentActivityAt, now), now, config.lookbackDays)) {
       continue
     }
     const fields = update.fields
@@ -283,7 +297,7 @@ export function classifyQualityAssuranceItem(
   }
 
   const currentStateGroup = resolveStateGroup(item.state, config)
-  const readyForQaRecently = wasReadyForQaRecently(updates, config)
+  const readyForQaRecently = wasReadyForQaRecently(item, updates, config)
 
   // An item that was ready for QA within the window is routed by its current state group:
   // still in testing → Ready for QA; moved to development → Needs follow-up; moved to done →

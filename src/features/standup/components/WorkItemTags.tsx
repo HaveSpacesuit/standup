@@ -1,10 +1,57 @@
-import { Chip, Typography } from '@mui/material'
+import { Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import type { TagLayout } from './workItemCardDisplay'
 
 type WorkItemTagsProps = {
   tagLayout: TagLayout
   sprintName?: string
+}
+
+type BoardTagBadgeProps = {
+  label: string
+  isOverflow?: boolean
+}
+
+function BoardTagBadge({ label, isOverflow = false }: BoardTagBadgeProps) {
+  return (
+    <Box
+      component="span"
+      title={label}
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: 16,
+        maxWidth: isOverflow ? 'none' : 110,
+        minWidth: 0,
+        px: 0.75,
+        borderRadius: 999,
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        color: 'text.secondary',
+        fontSize: 9,
+        lineHeight: 1.1,
+        fontWeight: 500,
+        letterSpacing: '0.01em',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        flex: isOverflow ? '0 0 auto' : '0 1 auto',
+      }}
+    >
+      <Box
+        component="span"
+        sx={{
+          display: 'block',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </Box>
+    </Box>
+  )
 }
 
 export function WorkItemTags({ tagLayout, sprintName }: WorkItemTagsProps) {
@@ -40,49 +87,10 @@ export function WorkItemTags({ tagLayout, sprintName }: WorkItemTagsProps) {
         }}
       >
         {tagLayout.visibleTags.map((tag) => (
-          <Chip
-            key={tag}
-            label={tag}
-            size="small"
-            variant="outlined"
-            sx={{
-              flex: '0 1 auto',
-              minWidth: 0,
-              maxWidth: 110,
-              height: 18,
-              '& .MuiChip-label': {
-                px: 0.75,
-                fontSize: 10,
-                lineHeight: 1.1,
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              },
-            }}
-          />
+          <BoardTagBadge key={tag} label={tag} />
         ))}
 
-        {tagLayout.hiddenCount > 0 ? (
-          <Chip
-            label={`+${tagLayout.hiddenCount}`}
-            size="small"
-            variant="outlined"
-            sx={{
-              flex: '0 0 auto',
-              height: 18,
-              '& .MuiChip-label': {
-                px: 0.75,
-                fontSize: 10,
-                lineHeight: 1.1,
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              },
-            }}
-          />
-        ) : null}
+        {tagLayout.hiddenCount > 0 ? <BoardTagBadge label={`+${tagLayout.hiddenCount}`} isOverflow /> : null}
       </Box>
 
       {sprintName ? (

@@ -49,14 +49,14 @@ export function buildTagLayout(tags: string[], budget: number): TagLayout {
 
   for (let index = 0; index < tags.length; index += 1) {
     const tag = tags[index]
-    const chipUnits = TAG_BASE_UNITS + Math.min(tag.length, 20) * TAG_PER_CHAR_UNITS
+    const tagUnits = TAG_BASE_UNITS + Math.min(tag.length, 20) * TAG_PER_CHAR_UNITS
     const remainingCount = tags.length - (index + 1)
     const reservedOverflowUnits = remainingCount > 0 ? 8 : 0
-    const canFit = usedUnits + chipUnits + reservedOverflowUnits <= budget
+    const canFit = usedUnits + tagUnits + reservedOverflowUnits <= budget
 
     if (canFit || visibleTags.length < TAG_MIN_VISIBLE) {
       visibleTags.push(tag)
-      usedUnits += chipUnits
+      usedUnits += tagUnits
       continue
     }
 
