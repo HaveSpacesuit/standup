@@ -136,6 +136,10 @@ function parseStringArray(value: unknown): string[] {
   return value.filter((v): v is string => typeof v === 'string')
 }
 
+function normalizeIterationPath(path: string): string {
+  return path.trim()
+}
+
 function parseStateGroups(value: unknown): QaStateGroupOverrides | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const obj = value as Record<string, unknown>
@@ -270,13 +274,12 @@ export function resolveSelectedIterationPaths(
     }
   }
 
-  const knownPaths = new Set(iterations.map((iteration) => iteration.path))
   for (const path of sprintFilter.iterationPaths) {
-    if (knownPaths.has(path)) {
-      selected.add(path)
+    const normalizedPath = normalizeIterationPath(path)
+    if (normalizedPath) {
+      selected.add(normalizedPath)
     }
   }
 
   return Array.from(selected)
 }
-

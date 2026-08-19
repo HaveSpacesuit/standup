@@ -87,6 +87,7 @@ export function QaOptionsDialog({
   // when the dialog closes.
   const [draft, setDraft] = useState<QaOptions>(options)
   const [newTagInput, setNewTagInput] = useState('')
+  const [newIterationPathInput, setNewIterationPathInput] = useState('')
   const [tagGroupInputs, setTagGroupInputs] = useState<Record<StateGroupKey, string>>({
     testing: '', done: '', development: '', new: '',
   })
@@ -96,6 +97,7 @@ export function QaOptionsDialog({
     if (open) {
       setDraft(options)
       setNewTagInput('')
+      setNewIterationPathInput('')
       setTagGroupInputs({ testing: '', done: '', development: '', new: '' })
       setActiveTab(0)
     }
@@ -106,6 +108,18 @@ export function QaOptionsDialog({
   const { generalFilters: tagFilters, includeWorkItemTypes, sprintFilter } = draft
   const stateGroups = getStateGroups(draft)
   const tagGroups = getTagGroups(draft)
+  const registeredIterationPathSet = useMemo(
+    () => new Set(teamIterations.map((iteration) => iteration.path)),
+    [teamIterations],
+  )
+  const registeredIterationPaths = useMemo(
+    () => sprintFilter.iterationPaths.filter((path) => registeredIterationPathSet.has(path)),
+    [registeredIterationPathSet, sprintFilter.iterationPaths],
+  )
+  const customIterationPaths = useMemo(
+    () => sprintFilter.iterationPaths.filter((path) => !registeredIterationPathSet.has(path)),
+    [registeredIterationPathSet, sprintFilter.iterationPaths],
+  )
 
   const relativeSprintLabels = useMemo(() => ({
     current: resolveRelativeSprintName(teamIterations, 0),
@@ -169,9 +183,50 @@ export function QaOptionsDialog({
   }
 
   const handleSprintPathsChange = (paths: string[]) => {
+    setDraft((current) => {
+      const preservedCustomPaths = current.sprintFilter.iterationPaths.filter(
+        (path) => !registeredIterationPathSet.has(path),
+      )
+
+      return {
+        ...current,
+        sprintFilter: { ...current.sprintFilter, iterationPaths: [...preservedCustomPaths, ...paths] },
+      }
+    })
+  }
+
+  const handleAddIterationPath = () => {
+    const value = newIterationPathInput.trim()
+    if (!value) {
+      return
+    }
+
+    setDraft((current) => {
+      const alreadyExists = current.sprintFilter.iterationPaths.some(
+        (path) => path.trim().toLowerCase() === value.toLowerCase(),
+      )
+      if (alreadyExists) {
+        return current
+      }
+
+      return {
+        ...current,
+        sprintFilter: {
+          ...current.sprintFilter,
+          iterationPaths: [...current.sprintFilter.iterationPaths, value],
+        },
+      }
+    })
+    setNewIterationPathInput('')
+  }
+
+  const handleRemoveIterationPath = (pathToRemove: string) => {
     setDraft((current) => ({
       ...current,
-      sprintFilter: { ...current.sprintFilter, iterationPaths: paths },
+      sprintFilter: {
+        ...current.sprintFilter,
+        iterationPaths: current.sprintFilter.iterationPaths.filter((path) => path !== pathToRemove),
+      },
     }))
   }
 
@@ -323,7 +378,7 @@ export function QaOptionsDialog({
                 size="small"
                 fullWidth
                 displayEmpty
-                value={sprintFilter.iterationPaths}
+                value={registeredIterationPaths}
                 input={<OutlinedInput />}
                 onChange={(event) => {
                   const nextValue = typeof event.target.value === 'string'
@@ -342,7 +397,7 @@ export function QaOptionsDialog({
               >
                 {teamIterations.map((iteration) => (
                   <MenuItem key={iteration.path} value={iteration.path} dense>
-                    <Checkbox checked={sprintFilter.iterationPaths.includes(iteration.path)} />
+                    <Checkbox checked={registeredIterationPaths.includes(iteration.path)} />
                     <ListItemText
                       primary={iteration.name}
                       secondary={iteration.timeFrame === 'current' ? 'Current' : undefined}
@@ -351,6 +406,52 @@ export function QaOptionsDialog({
                 ))}
               </Select>
             )}
+          </Box>
+
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body-sm" sx={{ fontWeight: 600, mb: 0.25 }}>
+              Manual iteration paths
+            </Typography>
+            <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1 }}>
+              Include items from iteration paths that are not part of this team&apos;s registered sprint list.
+            </Typography>
+
+            {customIterationPaths.length > 0 ? (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.25 }}>
+                {customIterationPaths.map((path) => (
+                  <Chip
+                    key={path}
+                    label={path}
+                    size="small"
+                    variant="outlined"
+                    onDelete={() => handleRemoveIterationPath(path)}
+                  />
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.25 }}>
+                No manual iteration paths configured.
+              </Typography>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="Add iteration path (for example: Project\\General Backlog)"
+                value={newIterationPathInput}
+                onChange={(event) => setNewIterationPathInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    handleAddIterationPath()
+                  }
+                }}
+              />
+              <Button size="small" variant="outlined" onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
+                Add
+              </Button>
+            </Box>
           </Box>
         </Box>
 
