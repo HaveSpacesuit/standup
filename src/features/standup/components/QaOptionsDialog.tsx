@@ -9,12 +9,13 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControlLabel,
   ListItemText,
   MenuItem,
   OutlinedInput,
   Select,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material'
@@ -89,12 +90,14 @@ export function QaOptionsDialog({
   const [tagGroupInputs, setTagGroupInputs] = useState<Record<StateGroupKey, string>>({
     testing: '', done: '', development: '', new: '',
   })
+  const [activeTab, setActiveTab] = useState(0)
 
   useEffect(() => {
     if (open) {
       setDraft(options)
       setNewTagInput('')
       setTagGroupInputs({ testing: '', done: '', development: '', new: '' })
+      setActiveTab(0)
     }
     // Only re-sync the draft when the dialog is (re)opened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,12 +176,41 @@ export function QaOptionsDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
       <DialogTitle>QA Options</DialogTitle>
 
-      <DialogContent sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <DialogContent sx={{ display: 'flex', gap: 2, pt: 1, minHeight: 420 }}>
+        <Tabs
+          orientation="vertical"
+          value={activeTab}
+          onChange={(_event, value: number) => setActiveTab(value)}
+          sx={{
+            borderRight: 1,
+            borderColor: 'divider',
+            minWidth: 172,
+            flexShrink: 0,
+            '& .MuiTabs-flexContainer': {
+              alignItems: 'stretch',
+            },
+            '& .MuiTab-root': {
+              alignItems: 'flex-start',
+              justifyContent: 'flex-start',
+              textAlign: 'left',
+              textTransform: 'none',
+              minHeight: 44,
+              px: 1.5,
+            },
+          }}
+        >
+          <Tab label="Work item types" />
+          <Tab label="Sprints" />
+          <Tab label="Tag filters" />
+          <Tab label="Column classification" />
+        </Tabs>
 
-        {/* ── Work item types to display (opt-in allow-list) ── */}
+        <Box sx={{ flex: 1, minWidth: 0, maxHeight: 480, overflowY: 'auto', pr: 0.5 }}>
+
+        {activeTab === 0 && (
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
             Work item types
@@ -227,9 +259,9 @@ export function QaOptionsDialog({
           )}
         </Box>
 
-        <Divider />
+        )}
 
-        {/* ── Sprint filter ── */}
+        {activeTab === 1 && (
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
             Sprints
@@ -322,9 +354,9 @@ export function QaOptionsDialog({
           </Box>
         </Box>
 
-        <Divider />
+        )}
 
-        {/* ── Tag filters (chip container + add input) ── */}
+        {activeTab === 2 && (
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
             Tag filters
@@ -371,9 +403,9 @@ export function QaOptionsDialog({
           </Box>
         </Box>
 
-        <Divider />
+        )}
 
-        {/* ── Column classification (states + tags per column) ── */}
+        {activeTab === 3 && (
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
             Column classification
@@ -475,7 +507,9 @@ export function QaOptionsDialog({
             })}
           </Box>
         </Box>
+        )}
 
+        </Box>
       </DialogContent>
 
       <DialogActions>
