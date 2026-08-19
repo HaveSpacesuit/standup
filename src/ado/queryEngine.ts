@@ -9,8 +9,6 @@ import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchQualityAssuranceRawData, fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
 import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState } from './workItemTypesApi'
 import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
-import type { QualityAssuranceBucket } from '../features/standup/utils/qualityAssuranceBuckets'
-import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../features/standup/utils/qualityAssuranceBuckets'
 import type { QualityAssuranceRawData } from './workItemsApi'
 
 export type { CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee } from './types'
@@ -153,20 +151,16 @@ export class AdoQueryEngine {
     return raw
   }
 
-  async getQualityAssuranceBuckets(
-    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
-    signal?: AbortSignal,
-    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; includeIterationPaths?: string[]; stateGroupOverrides?: import('../features/standup/utils/qaOptions').QaStateGroupOverrides | null; tagGroups?: import('../features/standup/utils/qaOptions').QaTagGroups | null },
-  ): Promise<QualityAssuranceBucket[]> {
-    const raw = await this.getQualityAssuranceRawData(team, signal, { forceRefresh: options?.forceRefresh, includeWorkItemTypes: options?.includeWorkItemTypes, includeIterationPaths: options?.includeIterationPaths })
-    const config = resolveQualityAssuranceProjectConfig(team, options?.stateGroupOverrides, options?.tagGroups)
-    return bucketQualityAssuranceItems(raw.candidates, raw.updatesByItemId, config)
-  }
-
   clearTeamWorkItemsCache(teamId?: string): void {
     if (teamId) {
       this.teamWorkItemsCache.delete(teamId)
-      this.qaRawDataCache.delete(teamId)
+      // QA raw-data cache keys are compound (`${teamId}:<filters>`) when work-item-type or sprint
+      // filters are active, so clear every entry belonging to this team — not just the bare key.
+      for (const key of this.qaRawDataCache.keys()) {
+        if (key === teamId || key.startsWith(`${teamId}:`)) {
+          this.qaRawDataCache.delete(key)
+        }
+      }
       return
     }
 

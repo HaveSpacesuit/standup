@@ -173,11 +173,16 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme }:
                   bgcolor: getQaColumnBackground(accentColor, colorScheme),
                 }}
               >
-                {visibleItems.map((item) => (
-                  <Box key={item.id}>
-                    <WorkItemCard item={item} />
-                  </Box>
-                ))}
+                {visibleItems.map((item) => {
+                  const footerPerson = bucket.id === 'new'
+                    ? (item.createdBy ? { label: 'Created by', identity: item.createdBy } : null)
+                    : (item.assignedTo ? { label: 'Assigned to', identity: item.assignedTo } : null)
+                  return (
+                    <Box key={item.id}>
+                      <WorkItemCard item={item} accentColor={accentColor} showState hideEffort footerPerson={footerPerson} />
+                    </Box>
+                  )
+                })}
 
                 {hiddenCount > 0 ? (
                   <Button

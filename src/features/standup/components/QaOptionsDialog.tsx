@@ -18,7 +18,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagFilterRule, QaTagGroups } from '../utils/qaOptions'
+import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagGroups } from '../utils/qaOptions'
 import { createTagFilterRule, DEFAULT_QA_TAG_GROUPS } from '../utils/qaOptions'
 import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
 
@@ -100,10 +100,9 @@ export function QaOptionsDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const { generalFilters, includeWorkItemTypes, sprintFilter } = draft
+  const { generalFilters: tagFilters, includeWorkItemTypes, sprintFilter } = draft
   const stateGroups = getStateGroups(draft)
   const tagGroups = getTagGroups(draft)
-  const tagFilters = generalFilters.filter((r): r is QaTagFilterRule => r.type === 'tag')
 
   const relativeSprintLabels = useMemo(() => ({
     current: resolveRelativeSprintName(teamIterations, 0),
@@ -123,7 +122,7 @@ export function QaOptionsDialog({
     }
     setDraft((current) => {
       const alreadyExists = current.generalFilters.some(
-        (r) => r.type === 'tag' && r.tagMatch.trim().toLowerCase() === value.toLowerCase(),
+        (rule) => rule.tagMatch.trim().toLowerCase() === value.toLowerCase(),
       )
       if (alreadyExists) {
         return current

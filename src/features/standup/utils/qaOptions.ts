@@ -1,22 +1,15 @@
 import type { TeamIterationOption } from '../../../ado/types'
 
-export type QaFilterRuleType = 'work-item-type' | 'tag'
-
-export type QaWorkItemTypeFilterRule = {
-  id: string
-  type: 'work-item-type'
-  /** Case-insensitive exact match against workItemType */
-  workItemType: string
-}
-
+/**
+ * A general QA filter rule. General filters are tag-based: any item carrying a tag that
+ * partially matches (case-insensitive) is hidden from all columns.
+ */
 export type QaTagFilterRule = {
   id: string
   type: 'tag'
   /** Case-insensitive partial match against any tag on the item */
   tagMatch: string
 }
-
-export type QaFilterRule = QaWorkItemTypeFilterRule | QaTagFilterRule
 
 /**
  * State/tag classifiers that override the built-in project defaults.
@@ -78,7 +71,8 @@ export type QaSprintFilter = {
 }
 
 export type QaOptions = {
-  generalFilters: QaFilterRule[]
+  /** Tag-based filters: items with a matching tag are hidden from all columns. */
+  generalFilters: QaTagFilterRule[]
   /** Allow-list of work item types to display. Empty = show all types. */
   includeWorkItemTypes: string[]
   /** Sprint filter. When no relative flags and no explicit paths, all sprints are shown. */
@@ -111,47 +105,24 @@ export function qaOptionsStorageKey(teamId: string): string {
   return `${QA_OPTIONS_STORAGE_KEY_PREFIX}:${teamId}`
 }
 
-// Keep the legacy key for migration
-export const QA_OPTIONS_STORAGE_KEY = QA_OPTIONS_STORAGE_KEY_PREFIX
-
-export function createQaFilterRule(type: QaFilterRuleType): QaFilterRule {
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-  if (type === 'work-item-type') {
-    return { id, type: 'work-item-type', workItemType: '' }
-  }
-  return { id, type: 'tag', tagMatch: '' }
-}
-
 export function createTagFilterRule(tagMatch: string): QaTagFilterRule {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   return { id, type: 'tag', tagMatch }
 }
 
-function isQaFilterRuleType(value: unknown): value is QaFilterRuleType {
-  return value === 'work-item-type' || value === 'tag'
-}
-
-function parseRule(entry: unknown): QaFilterRule | null {
+function parseTagRule(entry: unknown): QaTagFilterRule | null {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
     return null
   }
 
   const candidate = entry as Record<string, unknown>
-  const id = typeof candidate.id === 'string' && candidate.id
-    ? candidate.id
-    : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-
-  if (!isQaFilterRuleType(candidate.type)) {
+  if (candidate.type !== 'tag') {
     return null
   }
 
-  if (candidate.type === 'work-item-type') {
-    return {
-      id,
-      type: 'work-item-type',
-      workItemType: typeof candidate.workItemType === 'string' ? candidate.workItemType : '',
-    }
-  }
+  const id = typeof candidate.id === 'string' && candidate.id
+    ? candidate.id
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
   return {
     id,
@@ -219,12 +190,12 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
       return empty
     }
 
-    // General filters are now tag-only; drop any legacy work-item-type exclusion rules,
-    // which have been superseded by the includeWorkItemTypes allow-list.
-    const generalFilters: QaFilterRule[] = Array.isArray(parsed.generalFilters)
+    // General filters are tag-only; parseTagRule drops any legacy work-item-type rules from
+    // older stored data (those were superseded by the includeWorkItemTypes allow-list).
+    const generalFilters: QaTagFilterRule[] = Array.isArray(parsed.generalFilters)
       ? parsed.generalFilters.flatMap((entry: unknown) => {
-          const rule = parseRule(entry)
-          return rule && rule.type === 'tag' ? [rule] : []
+          const rule = parseTagRule(entry)
+          return rule ? [rule] : []
         })
       : []
 
@@ -244,9 +215,9 @@ export function serializeQaOptions(options: QaOptions): string {
   return JSON.stringify(options)
 }
 
-export function applyQaGeneralFilters<T extends { workItemType?: string; tags?: string[] }>(
+export function applyQaGeneralFilters<T extends { tags?: string[] }>(
   items: T[],
-  rules: QaFilterRule[],
+  rules: QaTagFilterRule[],
 ): T[] {
   if (rules.length === 0) {
     return items
@@ -254,16 +225,9 @@ export function applyQaGeneralFilters<T extends { workItemType?: string; tags?: 
 
   return items.filter((item) => {
     for (const rule of rules) {
-      if (rule.type === 'work-item-type') {
-        const ruleValue = rule.workItemType.trim().toLowerCase()
-        if (ruleValue && item.workItemType?.toLowerCase() === ruleValue) {
-          return false
-        }
-      } else {
-        const ruleValue = rule.tagMatch.trim().toLowerCase()
-        if (ruleValue && (item.tags ?? []).some((tag) => tag.toLowerCase().includes(ruleValue))) {
-          return false
-        }
+      const ruleValue = rule.tagMatch.trim().toLowerCase()
+      if (ruleValue && (item.tags ?? []).some((tag) => tag.toLowerCase().includes(ruleValue))) {
+        return false
       }
     }
     return true

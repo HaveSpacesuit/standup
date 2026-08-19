@@ -26,6 +26,19 @@ export function getTagBudget(sprintName?: string): number {
   return Math.max(TAG_ROW_UNIT_BUDGET - (sprintName ? 10 : 0), 16)
 }
 
+/**
+ * Compacts a work item state for display on the QA state chip: states of three or more words are
+ * abbreviated to their initials (e.g. "Available for Testing" → "AFT"). Shorter states are left
+ * as-is. The full state should still be shown in a tooltip.
+ */
+export function abbreviateState(state: string): string {
+  const words = state.trim().split(/\s+/).filter(Boolean)
+  if (words.length < 3) {
+    return state
+  }
+  return words.map((word) => word.charAt(0).toUpperCase()).join('')
+}
+
 export function buildTagLayout(tags: string[], budget: number): TagLayout {
   if (tags.length === 0) {
     return { visibleTags: [], hiddenCount: 0 }

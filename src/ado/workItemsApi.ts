@@ -55,6 +55,7 @@ type WorkItemApiItem = {
     'System.IterationPath'?: unknown
     'System.WorkItemType'?: unknown
     'System.AssignedTo'?: unknown
+    'System.CreatedBy'?: unknown
     'System.State'?: unknown
     'System.Tags'?: unknown
     'Microsoft.VSTS.Scheduling.Effort'?: unknown
@@ -437,6 +438,7 @@ async function fetchWorkItemsByWiql(
           'System.IterationPath',
           'System.WorkItemType',
           'System.AssignedTo',
+          'System.CreatedBy',
           'System.State',
           'System.Tags',
           'Microsoft.VSTS.Scheduling.Effort',
@@ -499,6 +501,7 @@ async function fetchWorkItemsByWiql(
         workItemType,
         workItemIconUrl: workItemIconMap[iconId],
         assignedTo: parseAssignedTo(item.fields?.['System.AssignedTo']),
+        createdBy: parseAssignedTo(item.fields?.['System.CreatedBy']),
         status: resolveStatusFromStateAndTags(
           item.fields?.['System.State'],
           item.fields?.['System.Tags'],

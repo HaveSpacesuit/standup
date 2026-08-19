@@ -57,24 +57,10 @@ const DEFAULT_CONFIG: QualityAssuranceProjectConfig = {
   strictNewStates: false,
 }
 
-const PROJECT_CONFIGS: Record<string, Partial<QualityAssuranceProjectConfig>> = {
-  'projectwise web': {
-    stateGroups: {
-      testing: ['available for testing', 'ready for testing', 'aft'],
-      development: ['committed', 'active', 'in progress'],
-      done: ['done', 'closed', 'completed'],
-      new: ['new', 'proposed'],
-    },
-  },
-  'projectwise explorer': {
-    stateGroups: {
-      testing: ['available for testing', 'ready for testing', 'aft'],
-      development: ['committed', 'active', 'in progress'],
-      done: ['done', 'closed', 'completed'],
-      new: ['new', 'proposed'],
-    },
-  },
-}
+// Per-project default overrides. Empty by default — all projects use DEFAULT_CONFIG unless an
+// entry is added here (keyed by lowercased project name). Users can also override per team via
+// the QA options dialog. Kept as an extension seam for projects with non-standard workflow states.
+const PROJECT_CONFIGS: Record<string, Partial<QualityAssuranceProjectConfig>> = {}
 
 function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -158,24 +144,6 @@ function resolveStateGroup(state: string | undefined, config: QualityAssurancePr
   return 'other'
 }
 
-function parseHistoryStateTransition(updates: WorkItemUpdate[]): { enteredStateAt?: string; previousState?: string } {
-  let previousState: string | undefined
-  let enteredStateAt: string | undefined
-  let currentState = ''
-
-  for (const update of updates) {
-    const nextState = update.fields?.['System.State']?.newValue
-
-    if (typeof nextState === 'string' && normalizeState(nextState) !== normalizeState(currentState)) {
-      previousState = currentState || undefined
-      currentState = nextState
-      enteredStateAt = update.revisedDate ?? enteredStateAt
-    }
-  }
-
-  return { enteredStateAt, previousState }
-}
-
 /**
  * Returns true if the item entered a "ready for QA" (testing-group) state within the lookback
  * window at any point in its history — not just as the immediately preceding state. This lets an
@@ -250,10 +218,6 @@ function isNewCandidate(item: WorkItemSummary, config: QualityAssuranceProjectCo
   return isFresh(item.createdAt, Date.now(), config.lookbackDays)
 }
 
-function isTransitionedRecently(enteredStateAt: string | undefined, config: QualityAssuranceProjectConfig): boolean {
-  return isFresh(enteredStateAt, Date.now(), config.lookbackDays)
-}
-
 /**
  * Work item update fields that represent meaningful QA-relevant activity. A candidate is only
  * surfaced on the board if it had a change to one of these fields within the lookback window
@@ -319,22 +283,20 @@ export function classifyQualityAssuranceItem(
   }
 
   const currentStateGroup = resolveStateGroup(item.state, config)
-  const transition = parseHistoryStateTransition(updates)
   const readyForQaRecently = wasReadyForQaRecently(updates, config)
 
-  if (currentStateGroup === 'testing' && isTransitionedRecently(transition.enteredStateAt, config)) {
+  // An item that was ready for QA within the window is routed by its current state group:
+  // still in testing → Ready for QA; moved to development → Needs follow-up; moved to done →
+  // Recently completed. We scan the full recent history (not just the immediately prior state)
+  // so multi-hop transitions like testing → done → development are handled correctly.
+  if (currentStateGroup === 'testing' && readyForQaRecently) {
     return 'needs-testing'
   }
 
-  // An item that was ready for QA within the window and has since moved to a development state is
-  // "Needs follow-up" — regardless of how many state hops happened in between (e.g. testing → done
-  // → development). We scan the full recent history rather than only the immediately prior state.
   if (currentStateGroup === 'development' && readyForQaRecently) {
     return 'needs-development'
   }
 
-  // Likewise, an item that was ready for QA within the window and is now in a done state is
-  // "Recently completed", even after intermediate transitions.
   if (currentStateGroup === 'done' && readyForQaRecently) {
     return 'done'
   }

@@ -86,6 +86,7 @@ export type WorkItemSummary = {
   workItemType?: string
   workItemIconUrl?: string
   assignedTo?: IdentityRef
+  createdBy?: IdentityRef
   status: WorkItemStatus
 }
 

@@ -43,8 +43,11 @@ export function useQualityAssurancePageModel({ buckets, qaOptions }: UseQualityA
       .map((bucket) => ({
         ...bucket,
         items: applyQaGeneralFilters(bucket.items, qaOptions.generalFilters).filter((item) => {
-          const assignee = item.assignedTo?.displayName
-            ? { kind: 'team-member' as const, label: item.assignedTo.displayName }
+          // Match the quick filter against whichever person the card shows for this column:
+          // created-by in the Newly added column, assigned-to elsewhere.
+          const person = bucket.id === 'new' ? item.createdBy : item.assignedTo
+          const assignee = person?.displayName
+            ? { kind: 'team-member' as const, label: person.displayName }
             : undefined
 
           return matchesQuickFilter(item, normalizedQuickFilterText, assignee)

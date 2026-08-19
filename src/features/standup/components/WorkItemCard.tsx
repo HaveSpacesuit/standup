@@ -1,11 +1,13 @@
-import { Badge, Card, Typography } from '@mui/material'
+import { Avatar, Badge, Card, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
+import type { IdentityRef } from '../../../ado/identity'
 import { getWorkItemIconUrlWithThemeColor } from '../utils/workItemIconColor'
 import { WorkItemTags } from './WorkItemTags'
 import { PullRequestSection } from './PullRequestSection'
 import {
+  abbreviateState,
   buildTagLayout,
   getStatusPaletteKey,
   getTagBudget,
@@ -14,14 +16,32 @@ import {
 type WorkItemCardProps = {
   item: WorkItemSummary
   highlightState?: WorkItemCardHighlightState
+  /** Overrides the state-derived accent (border, id, PR coloring). Used by the QA board to color cards by column. */
+  accentColor?: string
+  /** Displays the work item's current state on the card. */
+  showState?: boolean
+  /** Hides the effort badge (not meaningful in the QA context). */
+  hideEffort?: boolean
+  /** A labeled person (e.g. "Created by" / "Assigned to") to show in the card footer. */
+  footerPerson?: { label: string; identity: IdentityRef } | null
 }
 
 export type WorkItemCardHighlightState = 'new' | 'stale' | 'none'
 
-export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProps) {
+export function WorkItemCard({
+  item,
+  highlightState = 'none',
+  accentColor,
+  showState = false,
+  hideEffort = false,
+  footerPerson = null,
+}: WorkItemCardProps) {
   const theme = useTheme()
   const statusPaletteKey = getStatusPaletteKey(item.status)
   const statusColor = theme.palette[statusPaletteKey].main
+  // The card's emphasis color: the QA board passes its column accent so cards match the column
+  // they're in; elsewhere it falls back to the state-derived status color.
+  const accent = accentColor ?? statusColor
   const isNew = highlightState === 'new'
   const isStale = highlightState === 'stale'
   const newGlow = `0 0 0 1px color-mix(in srgb, ${statusColor} 72%, transparent), 0 0 14px color-mix(in srgb, ${statusColor} 42%, transparent)`
@@ -42,6 +62,11 @@ export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProp
   const tagBudget = getTagBudget(item.sprintName)
   const tagLayout = buildTagLayout(sortedTags, tagBudget)
 
+  const person = footerPerson?.identity
+  const personName = person?.displayName ?? person?.uniqueName
+  const showPerson = Boolean(!isPullRequestOnly && person && (personName || person.imageUrl))
+  const hasVisibleTags = tagLayout.visibleTags.length > 0
+
   return (
     <Card
       elevation={2}
@@ -49,7 +74,7 @@ export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProp
         position: 'relative',
         p: 1,
         border: '1px solid',
-        borderColor: statusColor,
+        borderColor: accent,
         borderRadius: 1,
         bgcolor: isNew ? newBackground : 'background.paper',
         overflow: 'visible',
@@ -59,13 +84,13 @@ export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProp
         filter: isStale ? 'saturate(0.78)' : 'none',
         '&:hover': {
           boxShadow: hoverShadow ?? 4,
-          borderColor: statusColor,
+          borderColor: accent,
           opacity: 1,
           filter: 'none',
         },
         '&:focus-within': {
           boxShadow: hoverShadow ?? 4,
-          borderColor: statusColor,
+          borderColor: accent,
           opacity: 1,
           filter: 'none',
         },
@@ -79,7 +104,33 @@ export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProp
           zIndex: 1,
         }}
       >
-        {typeof item.effort === 'number' && !isPullRequestOnly ? (
+        {showState && item.state ? (
+          <Box
+            component="span"
+            sx={{
+              float: 'right',
+              ml: 0.75,
+              mb: 0.25,
+              px: 0.75,
+              py: 0.125,
+              maxWidth: 130,
+              borderRadius: 999,
+              border: '1px solid',
+              borderColor: `color-mix(in srgb, ${accent} 35%, transparent)`,
+              bgcolor: `color-mix(in srgb, ${accent} 14%, transparent)`,
+              color: accent,
+              fontSize: 10,
+              lineHeight: 1.5,
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+            title={item.state}
+          >
+            {abbreviateState(item.state)}
+          </Box>
+        ) : !hideEffort && typeof item.effort === 'number' && !isPullRequestOnly ? (
           <Box
             component="span"
             sx={{
@@ -103,7 +154,7 @@ export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProp
         ) : null}
 
         {isPullRequestOnly && pullRequestOnly ? (
-          <PullRequestSection pullRequest={pullRequestOnly} statusColor={statusColor} emphasizeTitle />
+          <PullRequestSection pullRequest={pullRequestOnly} statusColor={accent} emphasizeTitle />
         ) : (
           <>
             <Box
@@ -154,7 +205,7 @@ export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProp
                   component="span"
                   sx={{
                     fontWeight: 700,
-                    color: statusColor,
+                    color: accent,
                     mr: 0.5,
                   }}
                 >
@@ -182,13 +233,71 @@ export function WorkItemCard({ item, highlightState = 'none' }: WorkItemCardProp
                   <PullRequestSection
                     key={pullRequest.id}
                     pullRequest={pullRequest}
-                    statusColor={statusColor}
+                    statusColor={accent}
                   />
                 ))}
               </Box>
             ) : null}
 
-            <WorkItemTags tagLayout={tagLayout} sprintName={item.sprintName} />
+            {/* Tags row (above the person row). When a person row follows, the sprint moves down
+                to the person row so the person always sits at the bottom-left; here we show tags
+                only. Without a person row (e.g. assignments board), tags and sprint stay together. */}
+            {hasVisibleTags || !showPerson ? (
+              <WorkItemTags
+                tagLayout={tagLayout}
+                sprintName={showPerson ? undefined : item.sprintName}
+              />
+            ) : null}
+
+            {/* Person row — always the bottom-left of the card, with the sprint on the right.
+                It carries the footer's top divider only when it's the first footer row (no tags
+                above it); otherwise it flows directly under the tags row. */}
+            {showPerson && person ? (
+              <Box
+                sx={{
+                  clear: 'both',
+                  mt: hasVisibleTags ? 0.5 : 0.7,
+                  pt: hasVisibleTags ? 0 : 0.6,
+                  borderTop: hasVisibleTags ? 'none' : '1px solid',
+                  borderColor: 'divider',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  minWidth: 0,
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '1 1 auto' }}>
+                  <Typography
+                    variant="body-sm"
+                    sx={{ fontSize: 10, color: 'text.secondary', flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                  >
+                    {footerPerson?.label}
+                  </Typography>
+                  <Avatar
+                    alt={personName ?? ''}
+                    src={person.imageUrl}
+                    sx={{ width: 16, height: 16, fontSize: 8, flex: '0 0 auto' }}
+                  />
+                  <Typography
+                    variant="body-sm"
+                    sx={{ fontSize: 11, fontWeight: 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    title={personName}
+                  >
+                    {personName}
+                  </Typography>
+                </Box>
+
+                {item.sprintName ? (
+                  <Typography
+                    variant="body-sm"
+                    sx={{ ml: 0.5, flex: '0 0 auto', fontSize: 10, lineHeight: 1.1, color: 'text.secondary', opacity: 0.85, whiteSpace: 'nowrap' }}
+                  >
+                    Sprint {item.sprintName}
+                  </Typography>
+                ) : null}
+              </Box>
+            ) : null}
           </>
         )}
       </Box>
