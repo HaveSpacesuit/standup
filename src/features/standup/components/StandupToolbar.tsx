@@ -16,7 +16,7 @@ import type { TeamMember } from '../../../ado/queryEngine'
 import svgUsers from '@stratakit/icons/users.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
-import svgTag from '@stratakit/icons/tag.svg'
+import svgSettings from '@stratakit/icons/settings.svg'
 import svgArrowUp from '@stratakit/icons/arrow-up.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
 import { PageToolbar } from './PageToolbar'
@@ -169,11 +169,11 @@ export function StandupToolbar({
         >
           <IconButton
             size="small"
-            label="Tag rules"
+            label="Assignments options"
             onClick={onOpenTagRulesDialog}
             disabled={!patConfigured}
           >
-            <Icon href={svgTag} />
+            <Icon href={svgSettings} />
           </IconButton>
           <IconButton
             size="small"

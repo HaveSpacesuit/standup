@@ -4,7 +4,7 @@ import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
-import svgFilter from '@stratakit/icons/filter.svg'
+import svgSettings from '@stratakit/icons/settings.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
 
@@ -79,7 +79,7 @@ export function QualityAssuranceToolbar({
           onClick={onOpenOptions}
           disabled={!patConfigured}
         >
-          <Icon href={svgFilter} />
+          <Icon href={svgSettings} />
         </IconButton>
         <IconButton
           size="small"

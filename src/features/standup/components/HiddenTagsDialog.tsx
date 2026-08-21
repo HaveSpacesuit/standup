@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Box,
   Button,
@@ -9,6 +9,8 @@ import {
   IconButton,
   MenuItem,
   Select,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material'
@@ -48,89 +50,112 @@ export function HiddenTagsDialog({
   tagRules,
   onClose,
   onChange,
-  title = 'Tag Rules',
+  title = 'Assignments options',
   description = 'Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.',
   actionOptions = DEFAULT_TAG_RULE_ACTION_OPTIONS,
 }: HiddenTagsDialogProps) {
   const orderedRules = useMemo(() => tagRules, [tagRules])
+  const [activeTab, setActiveTab] = useState<'tag-rules'>('tag-rules')
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>{title}</DialogTitle>
 
-      <DialogContent sx={{ pt: 1 }}>
-        <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.25 }}>
-          {description}
-        </Typography>
+      <DialogContent sx={{ pt: 1, pb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+          <Tabs
+            orientation="vertical"
+            value={activeTab}
+            onChange={(_, value) => setActiveTab(value)}
+            sx={{
+              borderRight: 1,
+              borderColor: 'divider',
+              minWidth: 160,
+              '& .MuiTab-root': { alignItems: 'flex-start', textAlign: 'left', justifyContent: 'flex-start' },
+            }}
+          >
+            <Tab label="Tag rules" value="tag-rules" />
+          </Tabs>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {orderedRules.length > 0 ? (
-            orderedRules.map((rule, index) => (
-              <Box key={rule.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 140px auto auto auto', gap: 1, alignItems: 'center' }}>
-                <TextField
-                  size="small"
-                  placeholder="Tag match"
-                  value={rule.tag}
-                  onChange={(event) => {
-                    const nextRules = [...tagRules]
-                    nextRules[index] = { ...rule, tag: event.target.value }
-                    onChange(nextRules)
-                  }}
-                />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {activeTab === 'tag-rules' ? (
+              <>
+                <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.25 }}>
+                  {description}
+                </Typography>
 
-                <Select
-                  size="small"
-                  value={rule.action}
-                  onChange={(event) => {
-                    const nextRules = [...tagRules]
-                    nextRules[index] = { ...rule, action: event.target.value as TagRuleAction }
-                    onChange(nextRules)
-                  }}
-                >
-                  {actionOptions.map((action) => (
-                    <MenuItem key={action} value={action}>
-                      {action === 'unlisted' ? 'Unlisted' : action}
-                    </MenuItem>
-                  ))}
-                </Select>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {orderedRules.length > 0 ? (
+                    orderedRules.map((rule, index) => (
+                      <Box key={rule.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 140px auto auto auto', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          size="small"
+                          placeholder="Tag match"
+                          value={rule.tag}
+                          onChange={(event) => {
+                            const nextRules = [...tagRules]
+                            nextRules[index] = { ...rule, tag: event.target.value }
+                            onChange(nextRules)
+                          }}
+                        />
 
-                <IconButton
-                  size="small"
-                  aria-label="Move tag rule up"
-                  onClick={() => onChange(moveRule(tagRules, index, -1))}
-                  disabled={index === 0}
-                >
-                  <Icon href={svgArrowUp} />
-                </IconButton>
+                        <Select
+                          size="small"
+                          value={rule.action}
+                          onChange={(event) => {
+                            const nextRules = [...tagRules]
+                            nextRules[index] = { ...rule, action: event.target.value as TagRuleAction }
+                            onChange(nextRules)
+                          }}
+                        >
+                          {actionOptions.map((action) => (
+                            <MenuItem key={action} value={action}>
+                              {action === 'unlisted' ? 'Unlisted' : action}
+                            </MenuItem>
+                          ))}
+                        </Select>
 
-                <IconButton
-                  size="small"
-                  aria-label="Move tag rule down"
-                  onClick={() => onChange(moveRule(tagRules, index, 1))}
-                  disabled={index === tagRules.length - 1}
-                >
-                  <Icon href={svgArrowDown} />
-                </IconButton>
+                        <IconButton
+                          size="small"
+                          aria-label="Move tag rule up"
+                          onClick={() => onChange(moveRule(tagRules, index, -1))}
+                          disabled={index === 0}
+                        >
+                          <Icon href={svgArrowUp} />
+                        </IconButton>
 
-                <IconButton
-                  size="small"
-                  aria-label="Remove tag rule"
-                  onClick={() => onChange(tagRules.filter((candidate) => candidate.id !== rule.id))}
-                >
-                  <Icon href={svgDismiss} />
-                </IconButton>
-              </Box>
-            ))
-          ) : (
-            <Typography variant="body-sm" color="text.secondary">
-              No tag rules configured.
-            </Typography>
-          )}
+                        <IconButton
+                          size="small"
+                          aria-label="Move tag rule down"
+                          onClick={() => onChange(moveRule(tagRules, index, 1))}
+                          disabled={index === tagRules.length - 1}
+                        >
+                          <Icon href={svgArrowDown} />
+                        </IconButton>
 
-          <Box sx={{ pt: 0.5 }}>
-            <Button size="small" variant="outlined" onClick={() => onChange([...tagRules, createTagRule()])}>
-              Add rule
-            </Button>
+                        <IconButton
+                          size="small"
+                          aria-label="Remove tag rule"
+                          onClick={() => onChange(tagRules.filter((candidate) => candidate.id !== rule.id))}
+                        >
+                          <Icon href={svgDismiss} />
+                        </IconButton>
+                      </Box>
+                    ))
+                  ) : (
+                    <Typography variant="body-sm" color="text.secondary">
+                      No tag rules configured.
+                    </Typography>
+                  )}
+
+                  <Box sx={{ pt: 0.5 }}>
+                    <Button size="small" variant="outlined" onClick={() => onChange([...tagRules, createTagRule()])}>
+                      Add rule
+                    </Button>
+                  </Box>
+                </Box>
+              </>
+            ) : null}
           </Box>
         </Box>
       </DialogContent>
