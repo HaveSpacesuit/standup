@@ -8,6 +8,14 @@ import { useQualityAssurancePageModel } from './features/standup/hooks/useQualit
 import { QualityAssurancePage } from './features/standup/pages/QualityAssurancePage'
 import { TeamAssignmentsPage } from './features/standup/pages/TeamAssignmentsPage'
 import {
+  type CardHighlightOptions,
+  ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY,
+  DEFAULT_CARD_HIGHLIGHT_OPTIONS,
+  QA_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY,
+  parseStoredCardHighlightOptions,
+  serializeCardHighlightOptions,
+} from './features/standup/utils/cardHighlightOptions'
+import {
   type QaOptions,
   DEFAULT_QA_LOOKBACK_DAYS,
   EMPTY_SPRINT_FILTER,
@@ -36,6 +44,14 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
       ]),
     ),
   )
+  const [qaCardHighlightOptions, setQaCardHighlightOptions] = useState<CardHighlightOptions>(() => {
+    const existing = localStorage.getItem(QA_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY)
+    return existing ? parseStoredCardHighlightOptions(existing) : DEFAULT_CARD_HIGHLIGHT_OPTIONS
+  })
+  const [assignmentCardHighlightOptions, setAssignmentCardHighlightOptions] = useState<CardHighlightOptions>(() => {
+    const existing = localStorage.getItem(ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY)
+    return existing ? parseStoredCardHighlightOptions(existing) : DEFAULT_CARD_HIGHLIGHT_OPTIONS
+  })
 
   const {
     selectedTeamId,
@@ -68,7 +84,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     projectWorkItemStatesLoading,
     teamIterations,
     teamIterationsLoading,
-  } = useBoardViewModel({ patConfigured, qaOptionsByTeam })
+  } = useBoardViewModel({ patConfigured, qaOptionsByTeam, assignmentCardHighlightOptions })
 
   const qaOptions = qaOptionsByTeam[selectedTeamId] ?? {
     generalFilters: [],
@@ -82,6 +98,16 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const handleQaOptionsChange = (next: QaOptions) => {
     setQaOptionsByTeam((prev) => ({ ...prev, [selectedTeamId]: next }))
     localStorage.setItem(qaOptionsStorageKey(selectedTeamId), serializeQaOptions(next))
+  }
+
+  const handleQaCardHighlightOptionsChange = (next: CardHighlightOptions) => {
+    setQaCardHighlightOptions(next)
+    localStorage.setItem(QA_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY, serializeCardHighlightOptions(next))
+  }
+
+  const handleAssignmentCardHighlightOptionsChange = (next: CardHighlightOptions) => {
+    setAssignmentCardHighlightOptions(next)
+    localStorage.setItem(ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY, serializeCardHighlightOptions(next))
   }
 
   const {
@@ -141,6 +167,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             iterationLoading={iterationLoading}
             tagRules={tagRules}
             onTagRulesChange={(nextRules) => setTagRules(nextRules)}
+            cardHighlightOptions={assignmentCardHighlightOptions}
+            onCardHighlightOptionsChange={handleAssignmentCardHighlightOptionsChange}
           />
         ) : (
           <QualityAssurancePage
@@ -160,6 +188,8 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             newItemsError={qaBucketsError}
             qaOptions={qaOptions}
             onQaOptionsChange={handleQaOptionsChange}
+            cardHighlightOptions={qaCardHighlightOptions}
+            onCardHighlightOptionsChange={handleQaCardHighlightOptionsChange}
             projectWorkItemStates={projectWorkItemStates}
             projectWorkItemTypes={projectWorkItemTypes}
             projectWorkItemStatesLoading={projectWorkItemStatesLoading}

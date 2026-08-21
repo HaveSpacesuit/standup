@@ -14,6 +14,7 @@ import { PatMissingNotice } from '../components/PatMissingNotice'
 import { SprintSummaryBar } from '../components/SprintSummaryBar'
 import { StandupToolbar } from '../components/StandupToolbar'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
+import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 
 type TeamAssignmentsPageProps = {
   patConfigured: boolean
@@ -44,6 +45,8 @@ type TeamAssignmentsPageProps = {
   iterationLoading: boolean
   tagRules: TagRule[]
   onTagRulesChange: (nextRules: TagRule[]) => void
+  cardHighlightOptions: CardHighlightOptions
+  onCardHighlightOptionsChange: (next: CardHighlightOptions) => void
 }
 
 export function TeamAssignmentsPage({
@@ -75,6 +78,8 @@ export function TeamAssignmentsPage({
   iterationLoading,
   tagRules,
   onTagRulesChange,
+  cardHighlightOptions,
+  onCardHighlightOptionsChange,
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
 
@@ -127,6 +132,8 @@ export function TeamAssignmentsPage({
           tagRules={tagRules}
           onChange={onTagRulesChange}
           onClose={() => setTagRulesDialogOpen(false)}
+          cardHighlightOptions={cardHighlightOptions}
+          onCardHighlightOptionsChange={onCardHighlightOptionsChange}
         />
 
         {!patConfigured ? <PatMissingNotice /> : null}

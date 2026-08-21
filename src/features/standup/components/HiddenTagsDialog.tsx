@@ -20,12 +20,16 @@ import svgArrowUp from '@stratakit/icons/arrow-up.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
 import type { TagRule, TagRuleAction } from '../../../ado/workItemStatus'
 import { createTagRule } from '../utils/boardFilters'
+import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
+import { normalizeCardHighlightOptions } from '../utils/cardHighlightOptions'
 
 type HiddenTagsDialogProps = {
   open: boolean
   tagRules: TagRule[]
   onClose: () => void
   onChange: (nextRules: TagRule[]) => void
+  cardHighlightOptions: CardHighlightOptions
+  onCardHighlightOptionsChange: (next: CardHighlightOptions) => void
   title?: string
   description?: string
   actionOptions?: TagRuleAction[]
@@ -50,12 +54,17 @@ export function HiddenTagsDialog({
   tagRules,
   onClose,
   onChange,
+  cardHighlightOptions,
+  onCardHighlightOptionsChange,
   title = 'Assignments options',
   description = 'Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.',
   actionOptions = DEFAULT_TAG_RULE_ACTION_OPTIONS,
 }: HiddenTagsDialogProps) {
   const orderedRules = useMemo(() => tagRules, [tagRules])
-  const [activeTab, setActiveTab] = useState<'tag-rules'>('tag-rules')
+  const [activeTab, setActiveTab] = useState<'tag-rules' | 'freshness'>('tag-rules')
+  const updateCardHighlightOptions = (changes: Partial<CardHighlightOptions>) => {
+    onCardHighlightOptionsChange(normalizeCardHighlightOptions({ ...cardHighlightOptions, ...changes }))
+  }
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -75,6 +84,7 @@ export function HiddenTagsDialog({
             }}
           >
             <Tab label="Tag rules" value="tag-rules" />
+            <Tab label="Freshness" value="freshness" />
           </Tabs>
 
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -155,6 +165,43 @@ export function HiddenTagsDialog({
                   </Box>
                 </Box>
               </>
+            ) : null}
+
+            {activeTab === 'freshness' ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Typography variant="body-md" sx={{ fontWeight: 700 }}>
+                  Card freshness
+                </Typography>
+                <Typography variant="body-sm" color="text.secondary">
+                  Change the threshold at which cards are styled as fresh or stale on the assignments board.
+                </Typography>
+
+                <TextField
+                  size="small"
+                  type="number"
+                  label="Fresh threshold (days)"
+                  value={cardHighlightOptions.freshDays}
+                  slotProps={{ htmlInput: { min: 1, max: 365, step: 1 } }}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    updateCardHighlightOptions({ freshDays: Number.isFinite(value) ? value : 1 })
+                  }}
+                  sx={{ maxWidth: 220 }}
+                />
+
+                <TextField
+                  size="small"
+                  type="number"
+                  label="Stale threshold (days)"
+                  value={cardHighlightOptions.staleDays}
+                  slotProps={{ htmlInput: { min: 1, max: 365, step: 1 } }}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    updateCardHighlightOptions({ staleDays: Number.isFinite(value) ? value : 7 })
+                  }}
+                  sx={{ maxWidth: 220 }}
+                />
+              </Box>
             ) : null}
           </Box>
         </Box>

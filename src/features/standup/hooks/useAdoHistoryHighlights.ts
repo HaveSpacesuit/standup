@@ -5,6 +5,8 @@ import {
   resolveStatusFromStateAndTags,
   type TagRule,
 } from '../../../ado/workItemStatus'
+import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
+import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
 
 export type ChangeHighlightState = 'new' | 'stale' | 'none'
 
@@ -24,6 +26,7 @@ type UseAdoHistoryHighlightsArgs = {
   }
   tagRules: TagRule[]
   workItems: WorkItemSummary[]
+  cardHighlightOptions?: CardHighlightOptions
 }
 
 type WorkItemFieldUpdate = {
@@ -64,7 +67,7 @@ type PullRequestDetailsResponse = {
   isDraft?: boolean
 }
 
-const STALE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
 const PULL_REQUEST_ARTIFACT_PREFIX = 'vstfs:///Git/PullRequestId/'
 
 function toTimestamp(value: string | undefined): number | null {
@@ -154,27 +157,23 @@ function getVoteUpdateMoments(threads: PullRequestThread[]): string[] {
     .filter((value): value is string => isUsableHistoryTimestamp(value, now))
 }
 
-function getPreviousWeekdayFreshnessThreshold(now = new Date()): number {
-  const previousWeekday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0)
+export function getHighlightState(
+  referenceAt: string | undefined,
+  baselineAt: string | undefined,
+  now: number,
+  options: CardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS,
+): ChangeHighlightState {
+  const freshWindowMs = Math.max(options.freshDays, 1) * DAY_MS
+  const staleWindowMs = Math.max(options.staleDays, 1) * DAY_MS
 
-  do {
-    previousWeekday.setDate(previousWeekday.getDate() - 1)
-  } while (previousWeekday.getDay() === 0 || previousWeekday.getDay() === 6)
-
-  return previousWeekday.getTime()
-}
-
-export function getHighlightState(referenceAt: string | undefined, baselineAt: string | undefined, now: number): ChangeHighlightState {
   const trackedAt = toTimestamp(referenceAt)
   if (trackedAt !== null) {
-    const freshThreshold = getPreviousWeekdayFreshnessThreshold(new Date(now))
-    if (trackedAt >= freshThreshold && trackedAt <= now) {
+    if (trackedAt >= now - freshWindowMs && trackedAt <= now) {
       return 'new'
     }
 
     const ageMs = Math.max(now - trackedAt, 0)
-
-    if (ageMs >= STALE_WINDOW_MS) {
+    if (ageMs >= staleWindowMs) {
       return 'stale'
     }
 
@@ -182,7 +181,7 @@ export function getHighlightState(referenceAt: string | undefined, baselineAt: s
   }
 
   const baseline = toTimestamp(baselineAt)
-  if (baseline !== null && Math.max(now - baseline, 0) >= STALE_WINDOW_MS) {
+  if (baseline !== null && Math.max(now - baseline, 0) >= staleWindowMs) {
     return 'stale'
   }
 
@@ -245,6 +244,7 @@ async function computeWorkItemHighlight(
   tagRules: TagRule[],
   item: WorkItemSummary,
   signal: AbortSignal,
+  cardHighlightOptions: CardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS,
 ): Promise<HighlightResult> {
   const now = Date.now()
   const response = await adoQueryEngine.request<WorkItemUpdatesResponse>({
@@ -417,7 +417,7 @@ async function computeWorkItemHighlight(
   }
 
   const trackedAt = lastVoteChangeAt
-  const state = getHighlightState(trackedAt, baselineAt, now)
+  const state = getHighlightState(trackedAt, baselineAt, now, cardHighlightOptions)
 
   return {
     state,
@@ -435,6 +435,7 @@ async function computePullRequestHighlight(
   team: UseAdoHistoryHighlightsArgs['team'],
   item: WorkItemSummary,
   signal: AbortSignal,
+  cardHighlightOptions: CardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS,
 ): Promise<HighlightResult> {
   const pullRequest = item.pullRequest
   const baselineAt = item.recentActivityAt
@@ -450,7 +451,7 @@ async function computePullRequestHighlight(
     .map((value) => ({ value, timestamp: toTimestamp(value) ?? 0 }))
     .sort((left, right) => right.timestamp - left.timestamp)[0]?.value
 
-  const state = getHighlightState(latestVote, baselineAt, Date.now())
+  const state = getHighlightState(latestVote, baselineAt, Date.now(), cardHighlightOptions)
 
   return {
     state,
@@ -462,7 +463,7 @@ async function computePullRequestHighlight(
   }
 }
 
-export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workItems }: UseAdoHistoryHighlightsArgs): Record<number, ChangeHighlightState> {
+export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workItems, cardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS }: UseAdoHistoryHighlightsArgs): Record<number, ChangeHighlightState> {
   const [results, setResults] = useState<Record<number, HighlightResult>>({})
 
   useEffect(() => {
@@ -476,8 +477,8 @@ export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workIt
     Promise.all(
       workItems.map(async (item) => {
         const result = item.kind === 'pull-request'
-          ? await computePullRequestHighlight(adoQueryEngine, team, item, abortController.signal)
-          : await computeWorkItemHighlight(adoQueryEngine, team, tagRules, item, abortController.signal)
+          ? await computePullRequestHighlight(adoQueryEngine, team, item, abortController.signal, cardHighlightOptions)
+          : await computeWorkItemHighlight(adoQueryEngine, team, tagRules, item, abortController.signal, cardHighlightOptions)
 
         return [item.id, result] as const
       }),
@@ -498,7 +499,7 @@ export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workIt
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, team, tagRules, workItems])
+  }, [adoQueryEngine, team, tagRules, workItems, cardHighlightOptions])
 
   return useMemo(() => {
     const highlights: Record<number, ChangeHighlightState> = {}

@@ -20,11 +20,13 @@ import {
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { QaOptions } from '../utils/qaOptions'
 import { resolveSelectedIterationPaths } from '../utils/qaOptions'
+import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 
 type UseBoardViewModelArgs = {
   patConfigured: boolean
   qaOptionsByTeam?: Record<string, QaOptions>
+  assignmentCardHighlightOptions?: CardHighlightOptions
 }
 
 type UseBoardViewModelResult = {
@@ -60,7 +62,7 @@ type UseBoardViewModelResult = {
   teamIterationsLoading: boolean
 }
 
-export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardViewModelArgs): UseBoardViewModelResult {
+export function useBoardViewModel({ patConfigured, qaOptionsByTeam, assignmentCardHighlightOptions }: UseBoardViewModelArgs): UseBoardViewModelResult {
   const [reloadNonce, setReloadNonce] = useState(0)
 
   const {
@@ -194,6 +196,7 @@ export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardVi
     team: historyHighlightTeam,
     tagRules,
     workItems: boardItems,
+    cardHighlightOptions: assignmentCardHighlightOptions,
   })
 
   useEffect(() => {

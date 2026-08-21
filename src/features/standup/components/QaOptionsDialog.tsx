@@ -21,6 +21,8 @@ import {
 } from '@mui/material'
 import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagGroups } from '../utils/qaOptions'
 import { createTagFilterRule, DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays } from '../utils/qaOptions'
+import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
+import { normalizeCardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
 
 type QaOptionsDialogProps = {
@@ -28,6 +30,8 @@ type QaOptionsDialogProps = {
   options: QaOptions
   onClose: () => void
   onChange: (next: QaOptions) => void
+  cardHighlightOptions: CardHighlightOptions
+  onCardHighlightOptionsChange: (next: CardHighlightOptions) => void
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
@@ -76,6 +80,8 @@ export function QaOptionsDialog({
   options,
   onClose,
   onChange,
+  cardHighlightOptions,
+  onCardHighlightOptionsChange,
   projectWorkItemStates,
   projectWorkItemTypes,
   projectWorkItemStatesLoading,
@@ -95,6 +101,9 @@ export function QaOptionsDialog({
     testing: '', done: '', development: '', new: '',
   })
   const [activeTab, setActiveTab] = useState(0)
+  const updateCardHighlightOptions = (changes: Partial<CardHighlightOptions>) => {
+    onCardHighlightOptionsChange(normalizeCardHighlightOptions({ ...cardHighlightOptions, ...changes }))
+  }
 
   useEffect(() => {
     if (open) {
@@ -268,6 +277,7 @@ export function QaOptionsDialog({
           <Tab label="Sprints" />
           <Tab label="Tag filters" />
           <Tab label="Column classification" />
+          <Tab label="Freshness" />
         </Tabs>
 
         <Box sx={{ flex: 1, minWidth: 0, maxHeight: 480, overflowY: 'auto', pr: 0.5 }}>
@@ -643,6 +653,43 @@ export function QaOptionsDialog({
             })}
           </Box>
         </Box>
+        )}
+
+        {activeTab === 5 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Typography variant="body-md" sx={{ fontWeight: 700 }}>
+              Freshness
+            </Typography>
+            <Typography variant="body-sm" color="text.secondary">
+              Change the threshold at which cards are styled as fresh or stale on the QA board.
+            </Typography>
+
+            <TextField
+              size="small"
+              type="number"
+              label="Fresh threshold (days)"
+              value={cardHighlightOptions.freshDays}
+              slotProps={{ htmlInput: { min: 1, max: 365, step: 1 } }}
+              onChange={(event) => {
+                const value = Number(event.target.value)
+                updateCardHighlightOptions({ freshDays: Number.isFinite(value) ? value : 1 })
+              }}
+              sx={{ maxWidth: 220 }}
+            />
+
+            <TextField
+              size="small"
+              type="number"
+              label="Stale threshold (days)"
+              value={cardHighlightOptions.staleDays}
+              slotProps={{ htmlInput: { min: 1, max: 365, step: 1 } }}
+              onChange={(event) => {
+                const value = Number(event.target.value)
+                updateCardHighlightOptions({ staleDays: Number.isFinite(value) ? value : 7 })
+              }}
+              sx={{ maxWidth: 220 }}
+            />
+          </Box>
         )}
 
         </Box>

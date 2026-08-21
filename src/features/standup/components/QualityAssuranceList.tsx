@@ -4,6 +4,8 @@ import { useTheme } from '@mui/material/styles'
 import { QualityAssuranceLoadingState } from './QualityAssuranceLoadingState'
 import { WorkItemCard } from './WorkItemCard'
 import { getHighlightState } from '../hooks/useAdoHistoryHighlights'
+import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
+import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import {
   getQaBucketAccentColor,
@@ -19,9 +21,10 @@ type QualityAssuranceListProps = {
   error: string | null
   buckets: QualityAssuranceBucket[]
   colorScheme: 'light' | 'dark'
+  cardHighlightOptions?: CardHighlightOptions
 }
 
-export function QualityAssuranceList({ isLoading, error, buckets, colorScheme }: QualityAssuranceListProps) {
+export function QualityAssuranceList({ isLoading, error, buckets, colorScheme, cardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS }: QualityAssuranceListProps) {
   const theme = useTheme()
   const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({})
 
@@ -178,7 +181,7 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme }:
                   const footerPerson = bucket.id === 'new'
                     ? (item.createdBy ? { label: 'Created by', identity: item.createdBy } : null)
                     : (item.assignedTo ? { label: 'Assigned to', identity: item.assignedTo } : null)
-                  const highlightState = getHighlightState(item.recentActivityAt, item.createdAt, Date.now())
+                  const highlightState = getHighlightState(item.recentActivityAt, item.createdAt, Date.now(), cardHighlightOptions)
                   return (
                     <Box key={item.id}>
                       <WorkItemCard

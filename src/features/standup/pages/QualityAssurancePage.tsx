@@ -4,6 +4,7 @@ import { QualityAssuranceList } from '../components/QualityAssuranceList'
 import { QualityAssuranceToolbar } from '../components/QualityAssuranceToolbar'
 import { QaOptionsDialog } from '../components/QaOptionsDialog'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
+import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { QaOptions } from '../utils/qaOptions'
 import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
 
@@ -24,6 +25,8 @@ type QualityAssurancePageProps = {
   newItemsError: string | null
   qaOptions: QaOptions
   onQaOptionsChange: (next: QaOptions) => void
+  cardHighlightOptions: CardHighlightOptions
+  onCardHighlightOptionsChange: (next: CardHighlightOptions) => void
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
@@ -48,6 +51,8 @@ export function QualityAssurancePage({
   newItemsError,
   qaOptions,
   onQaOptionsChange,
+  cardHighlightOptions,
+  onCardHighlightOptionsChange,
   projectWorkItemStates,
   projectWorkItemTypes,
   projectWorkItemStatesLoading,
@@ -78,6 +83,7 @@ export function QualityAssurancePage({
         error={newItemsError}
         buckets={buckets}
         colorScheme={colorScheme}
+        cardHighlightOptions={cardHighlightOptions}
       />
 
       <QaOptionsDialog
@@ -85,6 +91,8 @@ export function QualityAssurancePage({
         options={qaOptions}
         onClose={() => setOptionsOpen(false)}
         onChange={onQaOptionsChange}
+        cardHighlightOptions={cardHighlightOptions}
+        onCardHighlightOptionsChange={onCardHighlightOptionsChange}
         projectWorkItemStates={projectWorkItemStates}
         projectWorkItemTypes={projectWorkItemTypes}
         projectWorkItemStatesLoading={projectWorkItemStatesLoading}
