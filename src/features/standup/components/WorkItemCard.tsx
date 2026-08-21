@@ -70,6 +70,7 @@ export function WorkItemCard({
   const showPerson = Boolean(!isPullRequestOnly && person && (personName || person.imageUrl))
   const hasVisibleTags = tagLayout.visibleTags.length > 0
   const showFooterEffort = !hideEffort && effortPlacement === 'footer' && typeof item.effort === 'number' && !isPullRequestOnly
+  const showTagsRow = hasVisibleTags || (!showPerson && !showFooterEffort)
 
   return (
     <Card
@@ -221,6 +222,13 @@ export function WorkItemCard({
               </Typography>
             </Box>
 
+            {showTagsRow ? (
+              <WorkItemTags
+                tagLayout={tagLayout}
+                sprintName={showPerson || showFooterEffort ? undefined : item.sprintName}
+              />
+            ) : null}
+
             {hasLinkedPullRequests ? (
               <Box
                 sx={{
@@ -243,25 +251,15 @@ export function WorkItemCard({
               </Box>
             ) : null}
 
-            {/* Tags row (above the footer row). When a footer row follows, the sprint moves down so
-                the footer content always anchors the bottom-left of the card. Without a footer row,
-                tags and sprint stay together here. */}
-            {hasVisibleTags || (!showPerson && !showFooterEffort) ? (
-              <WorkItemTags
-                tagLayout={tagLayout}
-                sprintName={showPerson || showFooterEffort ? undefined : item.sprintName}
-              />
-            ) : null}
-
             {/* Footer row — used for QA person info or assignments effort, with the sprint on the
-                right. It carries the divider only when it is the first footer row. */}
+                right. It carries a divider when it starts a new metadata section. */}
             {showPerson || showFooterEffort ? (
               <Box
                 sx={{
                   clear: 'both',
-                  mt: hasVisibleTags ? 0.5 : 0.7,
-                  pt: hasVisibleTags ? 0 : 0.6,
-                  borderTop: hasVisibleTags ? 'none' : '1px solid',
+                  mt: 0.7,
+                  pt: 0.6,
+                  borderTop: '1px solid',
                   borderColor: 'divider',
                   display: 'flex',
                   alignItems: 'center',

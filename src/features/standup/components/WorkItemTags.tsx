@@ -63,10 +63,7 @@ export function WorkItemTags({ tagLayout, sprintName }: WorkItemTagsProps) {
     <Box
       sx={{
         mt: 0.7,
-        pt: 0.6,
         clear: 'both',
-        borderTop: '1px solid',
-        borderColor: 'divider',
         display: 'flex',
         flexWrap: 'nowrap',
         gap: 0.5,

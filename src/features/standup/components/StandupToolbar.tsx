@@ -1,6 +1,7 @@
 import {
   Avatar,
   Box,
+  ButtonGroup,
   FormControl,
   IconButton,
   InputAdornment,
@@ -138,7 +139,7 @@ export function StandupToolbar({
           </Select>
         </FormControl>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        <ButtonGroup size="small" >
           <IconButton
             size="small"
             aria-label="Select previous team member filter"
@@ -158,7 +159,7 @@ export function StandupToolbar({
           >
             <Icon href={svgArrowDown} />
           </IconButton>
-        </Box>
+        </ButtonGroup>
 
         <TeamToolbarControls
           teamOptions={teamOptions}
