@@ -130,13 +130,14 @@ export class AdoQueryEngine {
   async getQualityAssuranceRawData(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     signal?: AbortSignal,
-    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; includeIterationPaths?: string[] },
+    options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; includeIterationPaths?: string[]; lookbackDays?: number },
   ): Promise<QualityAssuranceRawData> {
     const sortedTypes = [...(options?.includeWorkItemTypes ?? [])].sort()
     const sortedIterations = [...(options?.includeIterationPaths ?? [])].sort()
     const typesKey = sortedTypes.length > 0 ? `types:${sortedTypes.join(',').toLowerCase()}` : ''
     const iterationsKey = sortedIterations.length > 0 ? `iters:${sortedIterations.join(',').toLowerCase()}` : ''
-    const filterKey = [typesKey, iterationsKey].filter(Boolean).join('|')
+    const lookbackKey = typeof options?.lookbackDays === 'number' ? `lookback:${options.lookbackDays}` : ''
+    const filterKey = [typesKey, iterationsKey, lookbackKey].filter(Boolean).join('|')
     const cacheKey = filterKey ? `${team.id}:${filterKey}` : team.id
 
     if (!options?.forceRefresh) {
@@ -146,7 +147,11 @@ export class AdoQueryEngine {
       }
     }
 
-    const raw = await fetchQualityAssuranceRawData(this.client, team, signal, { includeWorkItemTypes: sortedTypes, includeIterationPaths: sortedIterations })
+    const raw = await fetchQualityAssuranceRawData(this.client, team, signal, {
+      includeWorkItemTypes: sortedTypes,
+      includeIterationPaths: sortedIterations,
+      lookbackDays: options?.lookbackDays,
+    })
     this.qaRawDataCache.set(cacheKey, raw)
     return raw
   }

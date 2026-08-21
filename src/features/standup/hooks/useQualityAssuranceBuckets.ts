@@ -13,6 +13,7 @@ type UseQualityAssuranceBucketsArgs = {
   reloadNonce: number
   includeWorkItemTypes?: string[]
   includeIterationPaths?: string[]
+  lookbackDays?: number
   stateGroupOverrides?: QaStateGroupOverrides | null
   tagGroups?: QaTagGroups | null
 }
@@ -29,6 +30,7 @@ export function useQualityAssuranceBuckets({
   reloadNonce,
   includeWorkItemTypes,
   includeIterationPaths,
+  lookbackDays,
   stateGroupOverrides,
   tagGroups,
 }: UseQualityAssuranceBucketsArgs): UseQualityAssuranceBucketsResult {
@@ -71,7 +73,11 @@ export function useQualityAssuranceBuckets({
     const includeIterations = includeIterationPathsKey ? includeIterationPathsKey.split('|') : []
 
     adoQueryEngine
-      .getQualityAssuranceRawData(selectedTeam, abortController.signal, { includeWorkItemTypes: includeTypes, includeIterationPaths: includeIterations })
+      .getQualityAssuranceRawData(selectedTeam, abortController.signal, {
+        includeWorkItemTypes: includeTypes,
+        includeIterationPaths: includeIterations,
+        lookbackDays,
+      })
       .then((data) => {
         if (!abortController.signal.aborted) {
           setRawData(data)
@@ -92,16 +98,16 @@ export function useQualityAssuranceBuckets({
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, reloadNonce, selectedTeam, includeWorkItemTypesKey, includeIterationPathsKey])
+  }, [adoQueryEngine, reloadNonce, selectedTeam, includeWorkItemTypesKey, includeIterationPathsKey, lookbackDays])
 
   const qaBuckets = useMemo<QualityAssuranceBucket[]>(() => {
     if (!rawData) {
       return []
     }
 
-    const config = resolveQualityAssuranceProjectConfig(selectedTeam, stateGroupOverrides, tagGroups)
+    const config = resolveQualityAssuranceProjectConfig(selectedTeam, stateGroupOverrides, tagGroups, lookbackDays)
     return bucketQualityAssuranceItems(rawData.candidates, rawData.updatesByItemId, config)
-  }, [rawData, selectedTeam, stateGroupOverrides, tagGroups])
+  }, [rawData, selectedTeam, stateGroupOverrides, tagGroups, lookbackDays])
 
   return {
     qaBuckets,

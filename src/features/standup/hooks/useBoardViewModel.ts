@@ -163,6 +163,7 @@ export function useBoardViewModel({ patConfigured, qaOptionsByTeam }: UseBoardVi
     reloadNonce,
     includeWorkItemTypes: qaOptionsByTeam?.[selectedTeam.id]?.includeWorkItemTypes,
     includeIterationPaths: selectedIterationPaths,
+    lookbackDays: qaOptionsByTeam?.[selectedTeam.id]?.lookbackDays,
     stateGroupOverrides: qaOptionsByTeam?.[selectedTeam.id]?.stateGroups,
     tagGroups: qaOptionsByTeam?.[selectedTeam.id]?.tagGroups,
   })

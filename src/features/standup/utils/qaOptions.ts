@@ -70,11 +70,24 @@ export type QaSprintFilter = {
   iterationPaths: string[]
 }
 
+export const DEFAULT_QA_LOOKBACK_DAYS = 21
+
+export function normalizeQaLookbackDays(value: number | undefined | null): number {
+  if (value == null || !Number.isFinite(value)) {
+    return DEFAULT_QA_LOOKBACK_DAYS
+  }
+
+  const rounded = Math.round(value)
+  return Math.min(365, Math.max(1, rounded))
+}
+
 export type QaOptions = {
   /** Tag-based filters: items with a matching tag are hidden from all columns. */
   generalFilters: QaTagFilterRule[]
   /** Allow-list of work item types to display. Empty = show all types. */
   includeWorkItemTypes: string[]
+  /** How many days of recent activity to include in QA freshness and query windows. */
+  lookbackDays: number
   /** Sprint filter. When no relative flags and no explicit paths, all sprints are shown. */
   sprintFilter: QaSprintFilter
   /** When set, overrides the built-in project state group defaults */
@@ -151,6 +164,14 @@ function parseStateGroups(value: unknown): QaStateGroupOverrides | null {
   }
 }
 
+function parseLookbackDays(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_QA_LOOKBACK_DAYS
+  }
+
+  return normalizeQaLookbackDays(value)
+}
+
 function parseSprintFilter(value: unknown): QaSprintFilter {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ...EMPTY_SPRINT_FILTER }
@@ -179,6 +200,7 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
   const empty: QaOptions = {
     generalFilters: [],
     includeWorkItemTypes: [],
+    lookbackDays: DEFAULT_QA_LOOKBACK_DAYS,
     sprintFilter: { ...EMPTY_SPRINT_FILTER },
     stateGroups: null,
     tagGroups: null,
@@ -206,6 +228,7 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
     return {
       generalFilters,
       includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
+      lookbackDays: parseLookbackDays(parsed.lookbackDays),
       sprintFilter: parseSprintFilter(parsed.sprintFilter),
       stateGroups: parseStateGroups(parsed.stateGroups),
       tagGroups: parseTagGroups(parsed.tagGroups),

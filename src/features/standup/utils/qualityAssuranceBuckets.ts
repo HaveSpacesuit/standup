@@ -1,7 +1,7 @@
 import type { TeamProfile } from '../../../teamProfiles'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { QaStateGroupOverrides, QaTagGroups } from './qaOptions'
-import { DEFAULT_QA_TAG_GROUPS } from './qaOptions'
+import { DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays } from './qaOptions'
 
 export type QualityAssuranceBucketId = 'new' | 'needs-testing' | 'needs-development' | 'done'
 
@@ -46,7 +46,7 @@ export type WorkItemUpdatesResponse = {
 }
 
 const DEFAULT_CONFIG: QualityAssuranceProjectConfig = {
-  lookbackDays: 21,
+  lookbackDays: DEFAULT_QA_LOOKBACK_DAYS,
   stateGroups: {
     testing: ['available for testing', 'ready for testing', 'aft'],
     development: ['committed', 'active', 'in progress'],
@@ -96,11 +96,14 @@ export function resolveQualityAssuranceProjectConfig(
   team: Pick<TeamProfile, 'id' | 'projectName'>,
   stateGroupOverrides?: QaStateGroupOverrides | null,
   tagGroupsOverride?: QaTagGroups | null,
+  lookbackDaysOverride?: number | null,
 ): QualityAssuranceProjectConfig {
   const overrides = PROJECT_CONFIGS[normalizeText(team.projectName)]
+  const lookbackDays = normalizeQaLookbackDays(lookbackDaysOverride ?? overrides?.lookbackDays ?? DEFAULT_QA_LOOKBACK_DAYS)
   const base: QualityAssuranceProjectConfig = {
     ...DEFAULT_CONFIG,
     ...overrides,
+    lookbackDays,
     stateGroups: {
       ...DEFAULT_CONFIG.stateGroups,
       ...overrides?.stateGroups,
@@ -182,13 +185,13 @@ function wasReadyForQaRecently(
   return false
 }
 
-function isFresh(timestamp: string | undefined, now = Date.now(), lookbackDays = 21): boolean {
+function isFresh(timestamp: string | undefined, now = Date.now(), lookbackDays = DEFAULT_QA_LOOKBACK_DAYS): boolean {
   const time = toTimestamp(timestamp)
   if (time === null) {
     return false
   }
 
-  const windowStart = now - lookbackDays * 24 * 60 * 60 * 1000
+  const windowStart = now - normalizeQaLookbackDays(lookbackDays) * 24 * 60 * 60 * 1000
   return time >= windowStart && time <= now
 }
 

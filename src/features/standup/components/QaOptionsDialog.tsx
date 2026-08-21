@@ -20,7 +20,7 @@ import {
   Typography,
 } from '@mui/material'
 import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagGroups } from '../utils/qaOptions'
-import { createTagFilterRule, DEFAULT_QA_TAG_GROUPS } from '../utils/qaOptions'
+import { createTagFilterRule, DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays } from '../utils/qaOptions'
 import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
 
 type QaOptionsDialogProps = {
@@ -85,7 +85,10 @@ export function QaOptionsDialog({
   // Edit against a local draft so expensive query-affecting changes (the work item type
   // allow-list and sprint filter) are only committed — and the data reload only triggered —
   // when the dialog closes.
-  const [draft, setDraft] = useState<QaOptions>(options)
+  const [draft, setDraft] = useState<QaOptions>(() => ({
+    ...options,
+    lookbackDays: normalizeQaLookbackDays(options.lookbackDays),
+  }))
   const [newTagInput, setNewTagInput] = useState('')
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
   const [tagGroupInputs, setTagGroupInputs] = useState<Record<StateGroupKey, string>>({
@@ -95,7 +98,10 @@ export function QaOptionsDialog({
 
   useEffect(() => {
     if (open) {
-      setDraft(options)
+      setDraft({
+        ...options,
+        lookbackDays: normalizeQaLookbackDays(options.lookbackDays),
+      })
       setNewTagInput('')
       setNewIterationPathInput('')
       setTagGroupInputs({ testing: '', done: '', development: '', new: '' })
@@ -258,6 +264,7 @@ export function QaOptionsDialog({
           }}
         >
           <Tab label="Work item types" />
+          <Tab label="Timing" />
           <Tab label="Sprints" />
           <Tab label="Tag filters" />
           <Tab label="Column classification" />
@@ -317,6 +324,34 @@ export function QaOptionsDialog({
         )}
 
         {activeTab === 1 && (
+        <Box>
+          <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
+            Timing
+          </Typography>
+          <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.5 }}>
+            Set how far back the QA board looks for recent activity and newly added work. Shortening this window reduces how much history is considered.
+          </Typography>
+
+          <TextField
+            size="small"
+            type="number"
+            label="Lookback window (days)"
+            value={Number.isFinite(draft.lookbackDays) ? draft.lookbackDays : DEFAULT_QA_LOOKBACK_DAYS}
+            slotProps={{ htmlInput: { min: 1, max: 365, step: 1 } }}
+            onChange={(event) => {
+              const value = Number(event.target.value)
+              setDraft((current) => ({
+                ...current,
+                lookbackDays: Number.isFinite(value) ? normalizeQaLookbackDays(value) : DEFAULT_QA_LOOKBACK_DAYS,
+              }))
+            }}
+            sx={{ maxWidth: 220 }}
+          />
+        </Box>
+
+        )}
+
+        {activeTab === 2 && (
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
             Sprints
@@ -457,7 +492,7 @@ export function QaOptionsDialog({
 
         )}
 
-        {activeTab === 2 && (
+        {activeTab === 3 && (
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
             Tag filters
@@ -506,7 +541,7 @@ export function QaOptionsDialog({
 
         )}
 
-        {activeTab === 3 && (
+        {activeTab === 4 && (
         <Box>
           <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
             Column classification

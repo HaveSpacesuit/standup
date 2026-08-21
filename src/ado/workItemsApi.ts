@@ -13,6 +13,7 @@ import {
   type WorkItemUpdatesResponse,
   type WorkItemUpdate,
 } from '../features/standup/utils/qualityAssuranceBuckets'
+import { DEFAULT_QA_LOOKBACK_DAYS, normalizeQaLookbackDays } from '../features/standup/utils/qaOptions'
 
 const WORK_ITEM_TYPE_ICON_IDS: Record<string, string> = {
   bug: 'icon_insect',
@@ -575,9 +576,10 @@ export async function fetchQualityAssuranceRawData(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
   signal?: AbortSignal,
-  options?: { includeWorkItemTypes?: string[]; includeIterationPaths?: string[] },
+  options?: { includeWorkItemTypes?: string[]; includeIterationPaths?: string[]; lookbackDays?: number },
 ): Promise<QualityAssuranceRawData> {
-  const wiqlQuery = buildQaBucketCandidatesWiql(team.projectName, team.areaPath, 21, options?.includeWorkItemTypes, options?.includeIterationPaths)
+  const lookbackDays = normalizeQaLookbackDays(options?.lookbackDays ?? DEFAULT_QA_LOOKBACK_DAYS)
+  const wiqlQuery = buildQaBucketCandidatesWiql(team.projectName, team.areaPath, lookbackDays, options?.includeWorkItemTypes, options?.includeIterationPaths)
   const candidates = await fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
   const updatesByItemId = await fetchQualityAssuranceWorkItemUpdates(client, team, candidates.map((item) => item.id), signal)
 
