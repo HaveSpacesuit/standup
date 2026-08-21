@@ -164,7 +164,7 @@ function getPreviousWeekdayFreshnessThreshold(now = new Date()): number {
   return previousWeekday.getTime()
 }
 
-function getHighlightState(referenceAt: string | undefined, baselineAt: string | undefined, now: number): ChangeHighlightState {
+export function getHighlightState(referenceAt: string | undefined, baselineAt: string | undefined, now: number): ChangeHighlightState {
   const trackedAt = toTimestamp(referenceAt)
   if (trackedAt !== null) {
     const freshThreshold = getPreviousWeekdayFreshnessThreshold(new Date(now))

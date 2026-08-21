@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTheme } from '@mui/material/styles'
 import { QualityAssuranceLoadingState } from './QualityAssuranceLoadingState'
 import { WorkItemCard } from './WorkItemCard'
+import { getHighlightState } from '../hooks/useAdoHistoryHighlights'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import {
   getQaBucketAccentColor,
@@ -177,9 +178,17 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme }:
                   const footerPerson = bucket.id === 'new'
                     ? (item.createdBy ? { label: 'Created by', identity: item.createdBy } : null)
                     : (item.assignedTo ? { label: 'Assigned to', identity: item.assignedTo } : null)
+                  const highlightState = getHighlightState(item.recentActivityAt, item.createdAt, Date.now())
                   return (
                     <Box key={item.id}>
-                      <WorkItemCard item={item} accentColor={accentColor} showState hideEffort footerPerson={footerPerson} />
+                      <WorkItemCard
+                        item={item}
+                        accentColor={accentColor}
+                        showState
+                        hideEffort
+                        footerPerson={footerPerson}
+                        highlightState={highlightState}
+                      />
                     </Box>
                   )
                 })}
