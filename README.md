@@ -22,7 +22,7 @@ The app aggregates work items and pull requests into a Kanban-style board groupe
 
 ## Team profile configuration
 
-Team definitions are in [src/teamProfiles.ts](src/teamProfiles.ts).
+Team definitions are managed from **Settings > Teams** and stored in browser local storage.
 
 Each profile includes:
 
@@ -32,6 +32,21 @@ Each profile includes:
 - repository name (used for PR queries)
 
 The selected team is persisted in local storage and restored at startup.
+
+### Team import and export
+
+Use **Settings > Teams** to:
+
+- **Export team data** for the selected team as a JSON file
+- **Import team data** from a teammate
+
+An exported team file includes:
+
+- the team profile
+- assignment page options for that team
+- QA page options for that team
+
+Imported team data is validated before it is applied. If the file is valid, the app updates the team profile plus its per-team options in browser local storage.
 
 ## Requirements
 

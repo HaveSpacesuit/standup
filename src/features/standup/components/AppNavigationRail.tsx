@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import {
   Alert,
   Box,
@@ -38,6 +38,8 @@ type AppNavigationRailProps = {
   rememberPatOnThisMachine: boolean
   onPatSave: (pat: string, rememberOnThisMachine: boolean) => void
   onPatClear: () => void
+  onExportTeamData: (teamId: string) => void
+  onImportTeamData: (jsonText: string) => void
   selectedTeamId: string
   teamProfiles: TeamProfile[]
   onTeamProfilesChange: (teamProfiles: TeamProfile[]) => void
@@ -92,6 +94,8 @@ export function AppNavigationRail({
   rememberPatOnThisMachine,
   onPatSave,
   onPatClear,
+  onExportTeamData,
+  onImportTeamData,
   selectedTeamId,
   teamProfiles,
   onTeamProfilesChange,
@@ -106,6 +110,7 @@ export function AppNavigationRail({
   const [patError, setPatError] = useState<string | null>(null)
   const [hasAutoOpenedForMissingPat, setHasAutoOpenedForMissingPat] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTab>('azure-devops')
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (patConfigured || hasAutoOpenedForMissingPat) {
@@ -231,6 +236,38 @@ export function AppNavigationRail({
     setDraftTeamProfile(fallbackTeam)
     setIsCreatingTeam(false)
     setTeamError(null)
+  }
+
+  const handleExportCurrentTeam = () => {
+    try {
+      setTeamError(null)
+      onExportTeamData(editingTeamId)
+    } catch (error) {
+      setTeamError(error instanceof Error ? error.message : 'Unable to export team data.')
+    }
+  }
+
+  const handleImportButtonClick = () => {
+    setTeamError(null)
+    fileInputRef.current?.click()
+  }
+
+  const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) {
+      return
+    }
+
+    try {
+      const jsonText = await file.text()
+      onImportTeamData(jsonText)
+      setTeamError(null)
+      setActiveTab('teams')
+    } catch (error) {
+      setTeamError(error instanceof Error ? error.message : 'Unable to import team data.')
+    }
   }
 
   return (
@@ -376,12 +413,22 @@ export function AppNavigationRail({
 
             {activeTab === 'teams' ? (
               <Stack spacing={1.5}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(event) => {
+                    void handleImportFileChange(event)
+                  }}
+                  hidden
+                />
+
                 <Box>
                   <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
                     Teams
                   </Typography>
                   <Typography variant="body-sm" color="text.secondary">
-                    Team settings are stored in this browser&apos;s local storage.
+                    Team settings are stored in this browser&apos;s local storage. Import or export a team to share its configuration and per-team page options.
                   </Typography>
                 </Box>
 
@@ -398,9 +445,14 @@ export function AppNavigationRail({
                   }}
                 >
                   <Stack spacing={1.25}>
-                    <Button variant="outlined" onClick={handleAddTeam}>
-                      Add team
-                    </Button>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                      <Button variant="outlined" onClick={handleAddTeam}>
+                        Add team
+                      </Button>
+                      <Button variant="outlined" onClick={handleImportButtonClick}>
+                        Import team data
+                      </Button>
+                    </Stack>
 
                     <List sx={{ border: 1, borderColor: 'divider', borderRadius: 1, py: 0, overflow: 'hidden', width: '100%' }}>
                       {teamProfiles.map((team) => (
@@ -483,6 +535,9 @@ export function AppNavigationRail({
                     </Box>
 
                     <Stack direction="row" spacing={1}>
+                      <Button size="small" onClick={handleExportCurrentTeam}>
+                        Export team data
+                      </Button>
                       <Button size="small" color="error" onClick={handleRemoveTeam}>
                         {isCreatingTeam ? 'Discard team' : 'Remove team'}
                       </Button>

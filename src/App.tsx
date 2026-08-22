@@ -3,8 +3,10 @@ import { Box } from '@mui/material'
 import { clearStoredPat, loadStoredPat, saveStoredPat, type StoredPatState } from './adoAuth'
 import type { TeamProfile } from './teamConfig'
 import { loadTeamProfiles, saveTeamProfiles } from './teamConfig'
+import { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } from './teamDataTransfer'
 import { AppNavigationRail } from './features/standup/components/AppNavigationRail'
 import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
+import { loadStoredTagRulesForTeam, tagRulesStorageKey } from './features/standup/hooks/useBoardPreferences'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 import { useQualityAssurancePageModel } from './features/standup/hooks/useQualityAssurancePageModel'
 import { QualityAssurancePage } from './features/standup/pages/QualityAssurancePage'
@@ -79,6 +81,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
       if (!nextTeamIds.has(team.id)) {
         localStorage.removeItem(qaOptionsStorageKey(team.id))
         localStorage.removeItem(assignmentOptionsStorageKey(team.id))
+        localStorage.removeItem(tagRulesStorageKey(team.id))
       }
     }
 
@@ -106,7 +109,9 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     onTeamChange,
     onRefresh,
     tagRules,
+    tagRulesByTeam,
     setTagRules,
+    setTagRulesForTeam,
     quickFilterInput,
     setQuickFilterInput,
     selectedMemberFilter,
@@ -174,6 +179,70 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     localStorage.setItem(assignmentOptionsStorageKey(selectedTeamId), serializeAssignmentOptions(next))
   }
 
+  const handleExportTeamData = (teamId: string) => {
+    const teamProfile = teamProfiles.find((team) => team.id === teamId)
+    if (!teamProfile) {
+      throw new Error('Select a team before exporting team data.')
+    }
+
+    const exportPayload = buildTeamDataExport({
+      teamProfile,
+      assignmentOptions: assignmentOptionsByTeam[teamId] ?? {
+        includeWorkItemTypes: [],
+        sprintFilter: { ...DEFAULT_ASSIGNMENT_SPRINT_FILTER },
+      },
+      assignmentTagRules: tagRulesByTeam[teamId] ?? loadStoredTagRulesForTeam(teamId),
+      qaOptions: qaOptionsByTeam[teamId] ?? {
+        generalFilters: [],
+        includeWorkItemTypes: [],
+        lookbackDays: DEFAULT_QA_LOOKBACK_DAYS,
+        sprintFilter: { ...EMPTY_SPRINT_FILTER },
+        stateGroups: null,
+        tagGroups: null,
+      },
+    })
+    const exportText = serializeTeamDataExport(exportPayload)
+    const blob = new Blob([exportText], { type: 'application/json' })
+    const downloadUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = `${teamProfile.displayName.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'team'}-standup.json`
+    link.click()
+    URL.revokeObjectURL(downloadUrl)
+  }
+
+  const handleImportTeamData = (jsonText: string) => {
+    const importedData = parseImportedTeamData(jsonText)
+    const importedTeamId = importedData.teamProfile.id
+    const nextTeamProfiles = teamProfiles.some((team) => team.id === importedTeamId)
+      ? teamProfiles.map((team) => (team.id === importedTeamId ? importedData.teamProfile : team))
+      : [...teamProfiles, importedData.teamProfile]
+
+    saveTeamProfiles(nextTeamProfiles)
+    setTeamProfiles(nextTeamProfiles)
+
+    setAssignmentOptionsByTeam((previous) => ({
+      ...previous,
+      [importedTeamId]: importedData.assignmentOptions,
+    }))
+    localStorage.setItem(
+      assignmentOptionsStorageKey(importedTeamId),
+      serializeAssignmentOptions(importedData.assignmentOptions),
+    )
+
+    setQaOptionsByTeam((previous) => ({
+      ...previous,
+      [importedTeamId]: importedData.qaOptions,
+    }))
+    localStorage.setItem(
+      qaOptionsStorageKey(importedTeamId),
+      serializeQaOptions(importedData.qaOptions),
+    )
+
+    setTagRulesForTeam(importedTeamId, importedData.assignmentTagRules)
+    onTeamChange(importedTeamId)
+  }
+
   const {
     quickFilterInput: qualityAssuranceQuickFilterInput,
     onQuickFilterInputChange: onQualityAssuranceQuickFilterInputChange,
@@ -203,6 +272,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
         rememberPatOnThisMachine={storedPatState?.rememberOnThisMachine ?? false}
         onPatSave={handlePatSave}
         onPatClear={handlePatClear}
+        onExportTeamData={handleExportTeamData}
+        onImportTeamData={handleImportTeamData}
         selectedTeamId={selectedTeamId}
         teamProfiles={teamProfiles}
         onTeamProfilesChange={handleTeamProfilesChange}

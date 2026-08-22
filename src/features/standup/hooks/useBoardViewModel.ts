@@ -40,7 +40,9 @@ type UseBoardViewModelResult = {
   onTeamChange: (teamId: string) => void
   onRefresh: () => void
   tagRules: TagRule[]
+  tagRulesByTeam: Record<string, TagRule[]>
   setTagRules: (value: TagRule[] | ((previous: TagRule[]) => TagRule[])) => void
+  setTagRulesForTeam: (teamId: string, rules: TagRule[]) => void
   quickFilterInput: string
   setQuickFilterInput: (value: string) => void
   selectedMemberFilter: string
@@ -87,7 +89,9 @@ export function useBoardViewModel({
     onMemberFilterChange,
     setSelectedMemberFilter,
     tagRules,
+    tagRulesByTeam,
     setTagRules,
+    setTagRulesForTeam,
   } = useBoardPreferences(teamProfiles)
 
   const forceRefreshRef = useRef(false)
@@ -258,7 +262,9 @@ export function useBoardViewModel({
     onTeamChange,
     onRefresh,
     tagRules,
+    tagRulesByTeam,
     setTagRules,
+    setTagRulesForTeam,
     quickFilterInput,
     setQuickFilterInput,
     selectedMemberFilter,
