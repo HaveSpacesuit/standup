@@ -3,6 +3,7 @@ import { Box } from '@mui/material'
 import type {
   IterationWindowInfo,
   ResolvedWorkItemAssignee,
+  TeamIterationOption,
   TeamMember,
   WorkItemSummary,
 } from '../../../ado/queryEngine'
@@ -15,6 +16,7 @@ import { SprintSummaryBar } from '../components/SprintSummaryBar'
 import { StandupToolbar } from '../components/StandupToolbar'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
+import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
 
 type TeamAssignmentsPageProps = {
   patConfigured: boolean
@@ -47,6 +49,14 @@ type TeamAssignmentsPageProps = {
   onTagRulesChange: (nextRules: TagRule[]) => void
   cardHighlightOptions: CardHighlightOptions
   onCardHighlightOptionsChange: (next: CardHighlightOptions) => void
+  projectWorkItemTypes: string[]
+  projectWorkItemTypesLoading: boolean
+  includeWorkItemTypes: string[]
+  onIncludeWorkItemTypesChange: (next: string[]) => void
+  sprintFilter: AssignmentSprintFilter
+  onSprintFilterChange: (next: AssignmentSprintFilter) => void
+  teamIterations: TeamIterationOption[]
+  teamIterationsLoading: boolean
 }
 
 export function TeamAssignmentsPage({
@@ -80,6 +90,14 @@ export function TeamAssignmentsPage({
   onTagRulesChange,
   cardHighlightOptions,
   onCardHighlightOptionsChange,
+  projectWorkItemTypes,
+  projectWorkItemTypesLoading,
+  includeWorkItemTypes,
+  onIncludeWorkItemTypesChange,
+  sprintFilter,
+  onSprintFilterChange,
+  teamIterations,
+  teamIterationsLoading,
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
 
@@ -134,6 +152,14 @@ export function TeamAssignmentsPage({
           onClose={() => setTagRulesDialogOpen(false)}
           cardHighlightOptions={cardHighlightOptions}
           onCardHighlightOptionsChange={onCardHighlightOptionsChange}
+          projectWorkItemTypes={projectWorkItemTypes}
+          projectWorkItemTypesLoading={projectWorkItemTypesLoading}
+          includeWorkItemTypes={includeWorkItemTypes}
+          onIncludeWorkItemTypesChange={onIncludeWorkItemTypesChange}
+          sprintFilter={sprintFilter}
+          onSprintFilterChange={onSprintFilterChange}
+          teamIterations={teamIterations}
+          teamIterationsLoading={teamIterationsLoading}
         />
 
         {!patConfigured ? <PatMissingNotice /> : null}

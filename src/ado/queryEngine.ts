@@ -109,9 +109,20 @@ export class AdoQueryEngine {
   async getWorkItemsForCurrentAndNextIteration(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath' | 'iterationPath'>,
     signal?: AbortSignal,
-    options?: { forceRefresh?: boolean },
+    options?: {
+      forceRefresh?: boolean
+      includeWorkItemTypes?: string[]
+      includeIterationPaths?: string[]
+      useDefaultIterationWindow?: boolean
+    },
   ): Promise<WorkItemSummary[]> {
-    const cacheKey = team.id
+    const sortedTypes = [...(options?.includeWorkItemTypes ?? [])].sort()
+    const sortedIterations = [...(options?.includeIterationPaths ?? [])].sort()
+    const typesKey = sortedTypes.length > 0 ? `types:${sortedTypes.join(',').toLowerCase()}` : ''
+    const iterationsKey = sortedIterations.length > 0 ? `iters:${sortedIterations.join(',').toLowerCase()}` : ''
+    const iterationWindowKey = options?.useDefaultIterationWindow ? 'iters:default-window' : 'iters:all'
+    const filterKey = [typesKey, iterationsKey, iterationWindowKey].filter(Boolean).join('|')
+    const cacheKey = filterKey ? `${team.id}:${filterKey}` : team.id
 
     if (!options?.forceRefresh) {
       const cachedItems = this.teamWorkItemsCache.get(cacheKey)
@@ -120,7 +131,11 @@ export class AdoQueryEngine {
       }
     }
 
-    const items = await fetchWorkItemsForCurrentAndNextIteration(this.client, team, signal)
+    const items = await fetchWorkItemsForCurrentAndNextIteration(this.client, team, signal, {
+      includeWorkItemTypes: sortedTypes,
+      includeIterationPaths: sortedIterations,
+      useDefaultIterationWindow: options?.useDefaultIterationWindow,
+    })
 
     this.teamWorkItemsCache.set(cacheKey, items)
 
@@ -158,7 +173,13 @@ export class AdoQueryEngine {
 
   clearTeamWorkItemsCache(teamId?: string): void {
     if (teamId) {
-      this.teamWorkItemsCache.delete(teamId)
+      // Team work-item cache keys can be compound (`${teamId}:types:<...>`) when type filters
+      // are active, so clear every entry belonging to this team.
+      for (const key of this.teamWorkItemsCache.keys()) {
+        if (key === teamId || key.startsWith(`${teamId}:`)) {
+          this.teamWorkItemsCache.delete(key)
+        }
+      }
       // QA raw-data cache keys are compound (`${teamId}:<filters>`) when work-item-type or sprint
       // filters are active, so clear every entry belonging to this team — not just the bare key.
       for (const key of this.qaRawDataCache.keys()) {

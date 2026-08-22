@@ -8,6 +8,9 @@ type UseTeamDataArgs = {
   selectedTeam: TeamProfile
   reloadNonce: number
   forceRefreshRef: MutableRefObject<boolean>
+  includeWorkItemTypes?: string[]
+  includeIterationPaths?: string[]
+  useDefaultIterationWindow?: boolean
 }
 
 type UseTeamDataResult = {
@@ -27,6 +30,9 @@ export function useTeamData({
   selectedTeam,
   reloadNonce,
   forceRefreshRef,
+  includeWorkItemTypes,
+  includeIterationPaths,
+  useDefaultIterationWindow,
 }: UseTeamDataArgs): UseTeamDataResult {
   const [members, setMembers] = useState<TeamMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
@@ -69,6 +75,9 @@ export function useTeamData({
         }),
         adoQueryEngine.getWorkItemsForCurrentAndNextIteration(selectedTeam, abortController.signal, {
           forceRefresh,
+          includeWorkItemTypes,
+          includeIterationPaths,
+          useDefaultIterationWindow,
         }),
         adoQueryEngine.getIterationWindowInfo(selectedTeam, abortController.signal, {
           forceRefresh,
@@ -133,7 +142,7 @@ export function useTeamData({
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, selectedTeam, reloadNonce, forceRefreshRef])
+  }, [adoQueryEngine, selectedTeam, reloadNonce, forceRefreshRef, includeWorkItemTypes, includeIterationPaths, useDefaultIterationWindow])
 
   return {
     members,

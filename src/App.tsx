@@ -23,6 +23,13 @@ import {
   serializeQaOptions,
   qaOptionsStorageKey,
 } from './features/standup/utils/qaOptions'
+import {
+  type AssignmentOptions,
+  DEFAULT_ASSIGNMENT_SPRINT_FILTER,
+  assignmentOptionsStorageKey,
+  parseStoredAssignmentOptions,
+  serializeAssignmentOptions,
+} from './features/standup/utils/assignmentOptions'
 
 type AppProps = {
   patConfigured: boolean
@@ -52,6 +59,14 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     const existing = localStorage.getItem(ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY)
     return existing ? parseStoredCardHighlightOptions(existing) : DEFAULT_CARD_HIGHLIGHT_OPTIONS
   })
+  const [assignmentOptionsByTeam, setAssignmentOptionsByTeam] = useState<Record<string, AssignmentOptions>>(() =>
+    Object.fromEntries(
+      teamProfiles.map((team) => [
+        team.id,
+        parseStoredAssignmentOptions(localStorage.getItem(assignmentOptionsStorageKey(team.id))),
+      ]),
+    ),
+  )
 
   const {
     selectedTeamId,
@@ -81,10 +96,11 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     qaBucketsError,
     projectWorkItemStates,
     projectWorkItemTypes,
+    selectedAssignmentWorkItemTypes,
     projectWorkItemStatesLoading,
     teamIterations,
     teamIterationsLoading,
-  } = useBoardViewModel({ patConfigured, qaOptionsByTeam, assignmentCardHighlightOptions })
+  } = useBoardViewModel({ patConfigured, qaOptionsByTeam, assignmentOptionsByTeam, assignmentCardHighlightOptions })
 
   const qaOptions = qaOptionsByTeam[selectedTeamId] ?? {
     generalFilters: [],
@@ -93,6 +109,10 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     sprintFilter: { ...EMPTY_SPRINT_FILTER },
     stateGroups: null,
     tagGroups: null,
+  }
+  const assignmentOptions = assignmentOptionsByTeam[selectedTeamId] ?? {
+    includeWorkItemTypes: [],
+    sprintFilter: { ...DEFAULT_ASSIGNMENT_SPRINT_FILTER },
   }
 
   const handleQaOptionsChange = (next: QaOptions) => {
@@ -108,6 +128,11 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const handleAssignmentCardHighlightOptionsChange = (next: CardHighlightOptions) => {
     setAssignmentCardHighlightOptions(next)
     localStorage.setItem(ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY, serializeCardHighlightOptions(next))
+  }
+
+  const handleAssignmentOptionsChange = (next: AssignmentOptions) => {
+    setAssignmentOptionsByTeam((prev) => ({ ...prev, [selectedTeamId]: next }))
+    localStorage.setItem(assignmentOptionsStorageKey(selectedTeamId), serializeAssignmentOptions(next))
   }
 
   const {
@@ -169,6 +194,14 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
             onTagRulesChange={(nextRules) => setTagRules(nextRules)}
             cardHighlightOptions={assignmentCardHighlightOptions}
             onCardHighlightOptionsChange={handleAssignmentCardHighlightOptionsChange}
+            projectWorkItemTypes={projectWorkItemTypes}
+            projectWorkItemTypesLoading={projectWorkItemStatesLoading}
+            includeWorkItemTypes={selectedAssignmentWorkItemTypes}
+            onIncludeWorkItemTypesChange={(next) => handleAssignmentOptionsChange({ ...assignmentOptions, includeWorkItemTypes: next })}
+            sprintFilter={assignmentOptions.sprintFilter}
+            onSprintFilterChange={(next) => handleAssignmentOptionsChange({ ...assignmentOptions, sprintFilter: next })}
+            teamIterations={teamIterations}
+            teamIterationsLoading={teamIterationsLoading}
           />
         ) : (
           <QualityAssurancePage

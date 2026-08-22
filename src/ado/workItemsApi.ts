@@ -516,8 +516,20 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath' | 'iterationPath'>,
   signal?: AbortSignal,
+  options?: {
+    includeWorkItemTypes?: string[]
+    includeIterationPaths?: string[]
+    useDefaultIterationWindow?: boolean
+  },
 ): Promise<WorkItemSummary[]> {
-  const wiqlQuery = buildIterationScopedWiql(team.projectName, team.areaPath, team.iterationPath)
+  const wiqlQuery = buildIterationScopedWiql(
+    team.projectName,
+    team.areaPath,
+    team.iterationPath,
+    options?.includeWorkItemTypes,
+    options?.includeIterationPaths,
+    options?.useDefaultIterationWindow,
+  )
 
   return fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
 }
