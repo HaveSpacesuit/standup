@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Box } from '@mui/material'
+import { clearStoredPat, loadStoredPat, saveStoredPat, type StoredPatState } from './adoAuth'
 import type { TeamProfile } from './teamConfig'
 import { loadTeamProfiles, saveTeamProfiles } from './teamConfig'
 import { AppNavigationRail } from './features/standup/components/AppNavigationRail'
@@ -33,15 +34,16 @@ import {
 } from './features/standup/utils/assignmentOptions'
 
 type AppProps = {
-  patConfigured: boolean
   colorScheme: 'light' | 'dark'
   onToggleColorScheme: () => void
 }
 
-function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
+function App({ colorScheme, onToggleColorScheme }: AppProps) {
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const qualityAssuranceQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const [teamProfiles, setTeamProfiles] = useState<TeamProfile[]>(loadTeamProfiles)
+  const [storedPatState, setStoredPatState] = useState<StoredPatState | null>(() => loadStoredPat())
+  const patConfigured = storedPatState !== null
 
   // Per-team qaOptions — keyed by teamId so each team's state groups persist independently.
   // Eagerly initialized from localStorage so it's available before useBoardViewModel runs.
@@ -90,6 +92,15 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     ))
   }
 
+  const handlePatSave = (pat: string, rememberOnThisMachine: boolean) => {
+    setStoredPatState(saveStoredPat(pat, rememberOnThisMachine))
+  }
+
+  const handlePatClear = () => {
+    clearStoredPat()
+    setStoredPatState(null)
+  }
+
   const {
     selectedTeamId,
     onTeamChange,
@@ -122,7 +133,13 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     projectWorkItemStatesLoading,
     teamIterations,
     teamIterationsLoading,
-  } = useBoardViewModel({ patConfigured, teamProfiles, qaOptionsByTeam, assignmentOptionsByTeam, assignmentCardHighlightOptions })
+  } = useBoardViewModel({
+    pat: storedPatState?.pat ?? null,
+    teamProfiles,
+    qaOptionsByTeam,
+    assignmentOptionsByTeam,
+    assignmentCardHighlightOptions,
+  })
 
   const qaOptions = qaOptionsByTeam[selectedTeamId] ?? {
     generalFilters: [],
@@ -181,6 +198,11 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         activeView={activeView}
         colorScheme={colorScheme}
         onToggleColorScheme={onToggleColorScheme}
+        patConfigured={patConfigured}
+        patValue={storedPatState?.pat ?? ''}
+        rememberPatOnThisMachine={storedPatState?.rememberOnThisMachine ?? false}
+        onPatSave={handlePatSave}
+        onPatClear={handlePatClear}
         selectedTeamId={selectedTeamId}
         teamProfiles={teamProfiles}
         onTeamProfilesChange={handleTeamProfilesChange}

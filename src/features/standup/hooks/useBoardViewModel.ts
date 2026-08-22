@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getAppConfig } from '../../../config'
+import { DEFAULT_AZDO_API_VERSION } from '../../../adoAuth'
 import { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../teamConfig'
@@ -28,7 +28,7 @@ import {
 } from '../utils/assignmentOptions'
 
 type UseBoardViewModelArgs = {
-  patConfigured: boolean
+  pat: string | null
   teamProfiles: TeamProfile[]
   qaOptionsByTeam?: Record<string, QaOptions>
   assignmentOptionsByTeam?: Record<string, AssignmentOptions>
@@ -70,7 +70,7 @@ type UseBoardViewModelResult = {
 }
 
 export function useBoardViewModel({
-  patConfigured,
+  pat,
   teamProfiles,
   qaOptionsByTeam,
   assignmentOptionsByTeam,
@@ -95,14 +95,15 @@ export function useBoardViewModel({
   const selectedTeam =
     teamProfiles.find((team) => team.id === selectedTeamId) ?? teamProfiles[0]
 
+  const patConfigured = Boolean(pat)
+
   const adoQueryEngine = useMemo(() => {
-    if (!patConfigured) {
+    if (!pat) {
       return null
     }
 
-    const config = getAppConfig()
-    return new AdoQueryEngine(config.azdoPat, config.azdoApiVersion)
-  }, [patConfigured])
+    return new AdoQueryEngine(pat, DEFAULT_AZDO_API_VERSION)
+  }, [pat])
 
   const onRefresh = () => {
     adoQueryEngine?.clearTeamWorkItemsCache(selectedTeam.id)

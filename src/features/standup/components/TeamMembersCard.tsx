@@ -44,7 +44,7 @@ export function TeamMembersCard({
   if (!patConfigured) {
     content = (
       <Typography variant="body-sm" color="text.secondary">
-        Add AZDO_PAT in .env.local to load team members.
+        Open Settings and add your Azure DevOps PAT to load team members.
       </Typography>
     )
   } else if (isLoading) {

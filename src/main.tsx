@@ -2,9 +2,6 @@ import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Root } from '@stratakit/mui'
 import App from './App.tsx'
-import { isPatConfigured } from './config'
-
-const patConfigured = isPatConfigured()
 const COLOR_SCHEME_STORAGE_KEY = 'standup:color-scheme'
 
 type ColorScheme = 'light' | 'dark'
@@ -32,7 +29,6 @@ function AppRoot() {
   return (
     <Root colorScheme={colorScheme}>
       <App
-        patConfigured={patConfigured}
         colorScheme={colorScheme}
         onToggleColorScheme={handleToggleColorScheme}
       />

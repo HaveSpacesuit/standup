@@ -14,6 +14,8 @@ import {
   ListItemText,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material'
@@ -23,6 +25,7 @@ import svgUsers from '@stratakit/icons/users.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
+import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
 import type { TeamProfile } from '../../../teamConfig'
 import type { AppView } from '../hooks/useAppNavigation'
 
@@ -30,10 +33,17 @@ type AppNavigationRailProps = {
   activeView: AppView
   colorScheme: 'light' | 'dark'
   onToggleColorScheme: () => void
+  patConfigured: boolean
+  patValue: string
+  rememberPatOnThisMachine: boolean
+  onPatSave: (pat: string, rememberOnThisMachine: boolean) => void
+  onPatClear: () => void
   selectedTeamId: string
   teamProfiles: TeamProfile[]
   onTeamProfilesChange: (teamProfiles: TeamProfile[]) => void
 }
+
+type SettingsTab = 'azure-devops' | 'teams' | 'display'
 
 const EMPTY_TEAM_PROFILE_FIELDS = {
   orgName: '',
@@ -77,6 +87,11 @@ export function AppNavigationRail({
   activeView,
   colorScheme,
   onToggleColorScheme,
+  patConfigured,
+  patValue,
+  rememberPatOnThisMachine,
+  onPatSave,
+  onPatClear,
   selectedTeamId,
   teamProfiles,
   onTeamProfilesChange,
@@ -86,6 +101,20 @@ export function AppNavigationRail({
   const [draftTeamProfile, setDraftTeamProfile] = useState<TeamProfile>(() => resolveEditableTeamProfile(teamProfiles, selectedTeamId))
   const [isCreatingTeam, setIsCreatingTeam] = useState(false)
   const [teamError, setTeamError] = useState<string | null>(null)
+  const [draftPatValue, setDraftPatValue] = useState(patValue)
+  const [draftRememberPat, setDraftRememberPat] = useState(rememberPatOnThisMachine)
+  const [patError, setPatError] = useState<string | null>(null)
+  const [hasAutoOpenedForMissingPat, setHasAutoOpenedForMissingPat] = useState(false)
+  const [activeTab, setActiveTab] = useState<SettingsTab>('azure-devops')
+
+  useEffect(() => {
+    if (patConfigured || hasAutoOpenedForMissingPat) {
+      return
+    }
+
+    setIsSettingsDialogOpen(true)
+    setHasAutoOpenedForMissingPat(true)
+  }, [hasAutoOpenedForMissingPat, patConfigured])
 
   useEffect(() => {
     if (!isSettingsDialogOpen) {
@@ -97,7 +126,11 @@ export function AppNavigationRail({
     setDraftTeamProfile(activeTeamProfile)
     setIsCreatingTeam(false)
     setTeamError(null)
-  }, [isSettingsDialogOpen, selectedTeamId, teamProfiles])
+    setDraftPatValue(patValue)
+    setDraftRememberPat(rememberPatOnThisMachine)
+    setPatError(null)
+    setActiveTab('azure-devops')
+  }, [isSettingsDialogOpen, patValue, rememberPatOnThisMachine, selectedTeamId, teamProfiles])
 
   const handleTeamSelection = (teamId: string) => {
     const nextTeamProfile = teamProfiles.find((team) => team.id === teamId)
@@ -125,6 +158,25 @@ export function AppNavigationRail({
     setDraftTeamProfile(nextDraft)
     setIsCreatingTeam(true)
     setTeamError(null)
+  }
+
+  const handleSavePat = () => {
+    const trimmedPat = draftPatValue.trim()
+    if (!trimmedPat) {
+      setPatError('Azure DevOps PAT is required.')
+      return
+    }
+
+    onPatSave(trimmedPat, draftRememberPat)
+    setDraftPatValue(trimmedPat)
+    setPatError(null)
+  }
+
+  const handleClearPat = () => {
+    onPatClear()
+    setDraftPatValue('')
+    setDraftRememberPat(false)
+    setPatError(null)
   }
 
   const handleSaveTeam = () => {
@@ -219,138 +271,259 @@ export function AppNavigationRail({
       </NavigationRail.Content>
 
       <Dialog open={isSettingsDialogOpen} onClose={() => setIsSettingsDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Settings</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          <FormControlLabel
-            sx={{ m: 0 }}
-            control={
-              <Switch
-                size="small"
-                checked={colorScheme === 'dark'}
-                onChange={onToggleColorScheme}
-              />
-            }
-            label={<Typography variant="body-sm">Dark mode</Typography>}
-          />
-
-          <Divider />
-
-          <Box>
-            <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
-              Teams
-            </Typography>
-            <Typography variant="body-sm" color="text.secondary">
-              Team settings are stored in this browser&apos;s local storage.
-            </Typography>
-          </Box>
-
-          {teamError ? <Alert severity="error">{teamError}</Alert> : null}
-
-          <Box
+      <DialogTitle>Settings</DialogTitle>
+      <DialogContent sx={{ display: 'flex', gap: 2, pt: 1, minHeight: 420 }}>
+        <Tabs
+            orientation="vertical"
+            value={activeTab}
+            onChange={(_event, value: SettingsTab) => setActiveTab(value)}
             sx={{
-              display: 'grid',
-              gap: 2,
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: '240px minmax(0, 1fr)',
+              borderRight: 1,
+              borderColor: 'divider',
+              minWidth: 140,
+              flexShrink: 0,
+              '& .MuiTabs-flexContainer': {
+                alignItems: 'stretch',
+              },
+              '& .MuiTab-root': {
+                alignItems: 'flex-start',
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                textTransform: 'none',
+                minHeight: 44,
+                px: 1.5,
               },
             }}
           >
-            <Stack spacing={1.25}>
-              <Button variant="outlined" onClick={handleAddTeam}>
-                Add team
-              </Button>
+            <Tab label="ADO" value="azure-devops" />
+            <Tab label="Teams" value="teams" />
+            <Tab label="Display" value="display" />
+          </Tabs>
 
-              <List sx={{ border: 1, borderColor: 'divider', borderRadius: 1, py: 0, overflow: 'hidden', width: '100%' }}>
-                {teamProfiles.map((team) => (
-                  <ListItemButton
-                    key={team.id}
-                    selected={!isCreatingTeam && team.id === editingTeamId}
-                    onClick={() => handleTeamSelection(team.id)}
-                    divider
-                    sx={{ width: '100%' }}
-                  >
-                    <ListItemText
-                      sx={{ width: '100%', m: 0 }}
-                      primary={<Typography component="span" sx={{ display: 'block' }}>{team.displayName}</Typography>}
+          <Box sx={{ flex: 1, minWidth: 0, maxHeight: 480, overflowY: 'auto', pr: 0.5 }}>
+            {activeTab === 'azure-devops' ? (
+              <Stack spacing={1.5}>
+                {!patConfigured ? (
+                  <Alert severity="warning">
+                    Add an Azure DevOps personal access token to load standup data in this browser.
+                  </Alert>
+                ) : null}
+
+                <Box>
+                  <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                    Azure DevOps access
+                  </Typography>
+                  <Typography variant="body-sm" color="text.secondary">
+                    Paste your own Azure DevOps PAT. Leave &quot;Remember on this machine&quot; off to keep it only for this browser session.
+                  </Typography>
+                </Box>
+
+                {patError ? <Alert severity="error">{patError}</Alert> : null}
+
+                <TextField
+                  label="Personal access token"
+                  type="password"
+                  value={draftPatValue}
+                  onChange={(event) => {
+                    setDraftPatValue(event.target.value)
+                    setPatError(null)
+                  }}
+                  fullWidth
+                  placeholder="Paste your Azure DevOps PAT"
+                />
+
+                <FormControlLabel
+                  sx={{ m: 0 }}
+                  control={(
+                    <Switch
+                      size="small"
+                      checked={draftRememberPat}
+                      onChange={(event) => setDraftRememberPat(event.target.checked)}
                     />
-                  </ListItemButton>
-                ))}
-              </List>
-            </Stack>
+                  )}
+                  label={<Typography variant="body-sm">Remember on this machine</Typography>}
+                />
 
-            <Stack spacing={1.5}>
-              <Typography variant="body-md" component="h3" sx={{ fontWeight: 700 }}>
-                {isCreatingTeam ? 'New team' : 'Edit team'}
-              </Typography>
+                <Box>
+                  <Typography variant="body-sm" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    Required PAT scopes
+                  </Typography>
+                  <Box component="ul" sx={{ m: 0, pl: 2.5, color: 'text.secondary' }}>
+                    {REQUIRED_PAT_SCOPES.map((scope) => (
+                      <Typography key={scope} component="li" variant="body-sm">
+                        {scope}
+                      </Typography>
+                    ))}
+                  </Box>
+                </Box>
 
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 1.5,
-                  gridTemplateColumns: {
-                    xs: '1fr',
-                    sm: '1fr 1fr',
-                  },
-                }}
-              >
-                <TextField
-                  label="Display name"
-                  value={draftTeamProfile.displayName}
-                  onChange={(event) => handleDraftFieldChange('displayName', event.target.value)}
-                  fullWidth
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" variant="contained" onClick={handleSavePat}>
+                    Save PAT
+                  </Button>
+                  <Button size="small" color="error" onClick={handleClearPat}>
+                    Clear PAT
+                  </Button>
+                </Stack>
+
+                {patConfigured ? (
+                  <Typography variant="body-sm" color="text.secondary">
+                    Current storage: {draftRememberPat ? 'remembered on this machine' : 'browser session only'}.
+                  </Typography>
+                ) : null}
+              </Stack>
+            ) : null}
+
+            {activeTab === 'teams' ? (
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                    Teams
+                  </Typography>
+                  <Typography variant="body-sm" color="text.secondary">
+                    Team settings are stored in this browser&apos;s local storage.
+                  </Typography>
+                </Box>
+
+                {teamError ? <Alert severity="error">{teamError}</Alert> : null}
+
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gap: 2,
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm: '240px minmax(0, 1fr)',
+                    },
+                  }}
+                >
+                  <Stack spacing={1.25}>
+                    <Button variant="outlined" onClick={handleAddTeam}>
+                      Add team
+                    </Button>
+
+                    <List sx={{ border: 1, borderColor: 'divider', borderRadius: 1, py: 0, overflow: 'hidden', width: '100%' }}>
+                      {teamProfiles.map((team) => (
+                        <ListItemButton
+                          key={team.id}
+                          selected={!isCreatingTeam && team.id === editingTeamId}
+                          onClick={() => handleTeamSelection(team.id)}
+                          divider
+                          sx={{ width: '100%' }}
+                        >
+                          <ListItemText
+                            sx={{ width: '100%', m: 0 }}
+                            primary={<Typography component="span" sx={{ display: 'block' }}>{team.displayName}</Typography>}
+                          />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Stack>
+
+                  <Stack spacing={1.5}>
+                    <Typography variant="body-md" component="h3" sx={{ fontWeight: 700 }}>
+                      {isCreatingTeam ? 'New team' : 'Edit team'}
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gap: 1.5,
+                        gridTemplateColumns: {
+                          xs: '1fr',
+                          sm: '1fr 1fr',
+                        },
+                      }}
+                    >
+                      <TextField
+                        label="Display name"
+                        value={draftTeamProfile.displayName}
+                        onChange={(event) => handleDraftFieldChange('displayName', event.target.value)}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Organization"
+                        value={draftTeamProfile.orgName}
+                        onChange={(event) => handleDraftFieldChange('orgName', event.target.value)}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Project"
+                        value={draftTeamProfile.projectName}
+                        onChange={(event) => handleDraftFieldChange('projectName', event.target.value)}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Azure DevOps team name"
+                        value={draftTeamProfile.teamName}
+                        onChange={(event) => handleDraftFieldChange('teamName', event.target.value)}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Repository name"
+                        value={draftTeamProfile.repoName}
+                        onChange={(event) => handleDraftFieldChange('repoName', event.target.value)}
+                        fullWidth
+                      />
+                      <Box />
+                      <TextField
+                        label="Area path"
+                        value={draftTeamProfile.areaPath}
+                        onChange={(event) => handleDraftFieldChange('areaPath', event.target.value)}
+                        fullWidth
+                        sx={{ gridColumn: { sm: '1 / -1' } }}
+                      />
+                      <TextField
+                        label="Iteration path"
+                        value={draftTeamProfile.iterationPath}
+                        onChange={(event) => handleDraftFieldChange('iterationPath', event.target.value)}
+                        fullWidth
+                        sx={{ gridColumn: { sm: '1 / -1' } }}
+                      />
+                    </Box>
+
+                    <Stack direction="row" spacing={1}>
+                      <Button size="small" color="error" onClick={handleRemoveTeam}>
+                        {isCreatingTeam ? 'Discard team' : 'Remove team'}
+                      </Button>
+                      <Button size="small" variant="contained" onClick={handleSaveTeam}>
+                        Save team
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Box>
+              </Stack>
+            ) : null}
+
+            {activeTab === 'display' ? (
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                    Display
+                  </Typography>
+                  <Typography variant="body-sm" color="text.secondary">
+                    Adjust app appearance for this browser.
+                  </Typography>
+                </Box>
+
+                <Divider />
+
+                <FormControlLabel
+                  sx={{ m: 0 }}
+                  control={(
+                    <Switch
+                      size="small"
+                      checked={colorScheme === 'dark'}
+                      onChange={onToggleColorScheme}
+                    />
+                  )}
+                  label={<Typography variant="body-sm">Dark mode</Typography>}
                 />
-                <TextField
-                  label="Organization"
-                  value={draftTeamProfile.orgName}
-                  onChange={(event) => handleDraftFieldChange('orgName', event.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  label="Project"
-                  value={draftTeamProfile.projectName}
-                  onChange={(event) => handleDraftFieldChange('projectName', event.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  label="Azure DevOps team name"
-                  value={draftTeamProfile.teamName}
-                  onChange={(event) => handleDraftFieldChange('teamName', event.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  label="Repository name"
-                  value={draftTeamProfile.repoName}
-                  onChange={(event) => handleDraftFieldChange('repoName', event.target.value)}
-                  fullWidth
-                />
-                <Box />
-                <TextField
-                  label="Area path"
-                  value={draftTeamProfile.areaPath}
-                  onChange={(event) => handleDraftFieldChange('areaPath', event.target.value)}
-                  fullWidth
-                  sx={{ gridColumn: { sm: '1 / -1' } }}
-                />
-                <TextField
-                  label="Iteration path"
-                  value={draftTeamProfile.iterationPath}
-                  onChange={(event) => handleDraftFieldChange('iterationPath', event.target.value)}
-                  fullWidth
-                  sx={{ gridColumn: { sm: '1 / -1' } }}
-                />
-              </Box>
-            </Stack>
+              </Stack>
+            ) : null}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button size="small" color="error" onClick={handleRemoveTeam}>
-            {isCreatingTeam ? 'Discard team' : 'Remove team'}
-          </Button>
-          <Box sx={{ flex: 1 }} />
-          <Button size="small" variant="contained" onClick={handleSaveTeam}>
-            Save team
-          </Button>
           <Button size="small" onClick={() => setIsSettingsDialogOpen(false)}>
             Close
           </Button>

@@ -15,7 +15,7 @@ export function PatMissingNotice() {
           Azure DevOps PAT: Missing
         </Typography>
         <Typography variant="body-sm" color="text.secondary">
-          Update AZDO_PAT in .env.local, then restart npm run dev.
+          Open Settings and add your Azure DevOps PAT to load dashboard data.
         </Typography>
       </CardContent>
     </Card>

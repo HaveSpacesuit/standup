@@ -44,13 +44,7 @@ The selected team is persisted in local storage and restored at startup.
 npm install
 ```
 
-## Local Azure DevOps auth (.env.local)
-
-1. Copy `.env.example` to `.env.local`.
-2. Fill your own values in `.env.local`:
-	- `AZDO_PAT`: your personal access token.
-	- `AZDO_API_VERSION` (optional): defaults to `7.1`.
-3. Restart `npm run dev` after any `.env.local` change.
+## Azure DevOps auth
 
 Required PAT scopes:
 
@@ -63,18 +57,18 @@ Required PAT scopes:
 
 `Graph (Read)` is required for resolving the team `subjectDescriptor` used by the direct "Manage team" deep link. Without it, the app falls back to the project teams listing page.
 
-Example:
+How it works:
 
-```dotenv
-AZDO_PAT=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-AZDO_API_VERSION=7.1
-```
+1. Open the app.
+2. If no PAT is configured yet, Settings opens automatically.
+3. Paste your Azure DevOps PAT.
+4. Optionally turn on **Remember on this machine** to store it in this browser's local storage.
 
 Notes:
 
-- `.env.local` is ignored by git.
-- `.env.example` is committed as a template for teammates.
-- App startup validates required env vars and fails fast if any are missing.
+- If **Remember on this machine** is off, the PAT is kept only for the current browser session.
+- You can update or clear the PAT later from **Settings**.
+- Team settings are stored separately in browser local storage, so teammates can use the same hosted app with their own PAT and team configuration.
 
 ## Board behavior and filters
 

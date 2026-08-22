@@ -4,7 +4,6 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 
 // https://vite.dev/config/
 export default defineConfig({
-  envPrefix: ['VITE_', 'AZDO_'],
   base: './',
   server: {
     open: true,

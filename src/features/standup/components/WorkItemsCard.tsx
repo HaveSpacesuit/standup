@@ -33,7 +33,7 @@ export function WorkItemsCard({
   if (!patConfigured) {
     content = (
       <Typography variant="body-sm" color="text.secondary">
-        Add AZDO_PAT in .env.local to load work items.
+        Open Settings and add your Azure DevOps PAT to load work items.
       </Typography>
     )
   } else if (isLoading) {
