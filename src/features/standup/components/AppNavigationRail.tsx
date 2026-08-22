@@ -25,6 +25,7 @@ import svgUsers from '@stratakit/icons/users.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
+import svgHelp from '@stratakit/icons/help.svg'
 import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
 import type { TeamProfile } from '../../../teamConfig'
 import type { AppView } from '../hooks/useAppNavigation'
@@ -101,6 +102,7 @@ export function AppNavigationRail({
   onTeamProfilesChange,
 }: AppNavigationRailProps) {
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
   const [editingTeamId, setEditingTeamId] = useState<string>(selectedTeamId)
   const [draftTeamProfile, setDraftTeamProfile] = useState<TeamProfile>(() => resolveEditableTeamProfile(teamProfiles, selectedTeamId))
   const [isCreatingTeam, setIsCreatingTeam] = useState(false)
@@ -304,8 +306,80 @@ export function AppNavigationRail({
               onClick={() => setIsSettingsDialogOpen(true)}
             />
           </NavigationRail.ListItem>
+          <NavigationRail.ListItem>
+            <NavigationRail.Button
+              icon={`${svgHelp}#icon-large`}
+              label="Help"
+              onClick={() => setIsHelpDialogOpen(true)}
+            />
+          </NavigationRail.ListItem>
         </NavigationRail.Footer>
       </NavigationRail.Content>
+
+      <Dialog open={isHelpDialogOpen} onClose={() => setIsHelpDialogOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Standup app help</DialogTitle>
+        <DialogContent dividers sx={{ display: 'grid', gap: 2, pt: 1 }}>
+          <Box>
+            <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
+              App structure
+            </Typography>
+            <Typography variant="body-sm" color="text.secondary">
+              The app is organized around a navigation rail with two main pages: Team assignments and Quality assurance.
+            </Typography>
+          </Box>
+
+          <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1.25, color: 'text.secondary' }}>
+            <Typography component="li" variant="body-sm">
+              <strong>Team assignments</strong> groups work items by team member and board status, then adds PR-only cards for repository pull requests that aren&apos;t already mapped to visible work items.
+            </Typography>
+            <Typography component="li" variant="body-sm">
+              <strong>Quality assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.
+            </Typography>
+            <Typography component="li" variant="body-sm">
+              <strong>Settings</strong> stores Azure DevOps credentials, team configuration, and app appearance preferences in browser storage.
+            </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
+              Configuration overview
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1, color: 'text.secondary' }}>
+              <Typography component="li" variant="body-sm">
+                <strong>Azure DevOps access</strong> requires a PAT with Build, Code, Graph, Project and Team, Release, and Work Items read scopes.
+              </Typography>
+              <Typography component="li" variant="body-sm">
+                <strong>Teams</strong> lets you define an org, project, area path, iteration path, team name, and repository. Each team stores its own QA and assignment options.
+              </Typography>
+              <Typography component="li" variant="body-sm">
+                <strong>Display</strong> toggles the app between light and dark mode without changing your Azure DevOps data.
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box>
+            <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
+              Useful behavior
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1, color: 'text.secondary' }}>
+              <Typography component="li" variant="body-sm">
+                Use the quick filter in the toolbar to match work item IDs, titles, sprint details, tags, PR titles, and team member names.
+              </Typography>
+              <Typography component="li" variant="body-sm">
+                Ctrl+F (or Cmd+F on macOS) focuses the current page&apos;s quick filter, and the member filter can be cycled with Ctrl+Up and Ctrl+Down.
+              </Typography>
+              <Typography component="li" variant="body-sm">
+                Team profiles and saved per-team options persist in local storage so the app can restore the currently selected setup on reload.
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button size="small" onClick={() => setIsHelpDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={isSettingsDialogOpen} onClose={() => setIsSettingsDialogOpen(false)} fullWidth maxWidth="md">
       <DialogTitle>Settings</DialogTitle>
