@@ -1,6 +1,6 @@
 import { useEffect, useState, type MutableRefObject } from 'react'
 import type { AdoQueryEngine, CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
-import type { TeamProfile } from '../../../teamProfiles'
+import type { TeamProfile } from '../../../teamConfig'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
 type UseTeamDataArgs = {

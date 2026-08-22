@@ -1,4 +1,4 @@
-import type { TeamProfile } from '../teamProfiles'
+import type { TeamProfile } from '../teamConfig'
 import { parseAssignedTo, toIdentityKeys } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { CurrentIterationInfo, TeamMember, WorkItemPullRequestSummary, WorkItemSummary } from './types'

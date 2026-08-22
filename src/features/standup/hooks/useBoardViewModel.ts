@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getAppConfig } from '../../../config'
 import { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
-import { teamProfiles } from '../../../teamProfiles'
+import type { TeamProfile } from '../../../teamConfig'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
 import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHistoryHighlights'
 import { useTeamData } from './useTeamData'
@@ -29,6 +29,7 @@ import {
 
 type UseBoardViewModelArgs = {
   patConfigured: boolean
+  teamProfiles: TeamProfile[]
   qaOptionsByTeam?: Record<string, QaOptions>
   assignmentOptionsByTeam?: Record<string, AssignmentOptions>
   assignmentCardHighlightOptions?: CardHighlightOptions
@@ -70,6 +71,7 @@ type UseBoardViewModelResult = {
 
 export function useBoardViewModel({
   patConfigured,
+  teamProfiles,
   qaOptionsByTeam,
   assignmentOptionsByTeam,
   assignmentCardHighlightOptions,
@@ -86,7 +88,7 @@ export function useBoardViewModel({
     setSelectedMemberFilter,
     tagRules,
     setTagRules,
-  } = useBoardPreferences()
+  } = useBoardPreferences(teamProfiles)
 
   const forceRefreshRef = useRef(false)
 

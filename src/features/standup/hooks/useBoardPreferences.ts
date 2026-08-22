@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { teamProfiles } from '../../../teamProfiles'
+import type { TeamProfile } from '../../../teamConfig'
 import { parseStoredTagRules } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 
@@ -19,17 +19,17 @@ const TAG_RULES_STORAGE_KEY = 'standup:tag-rules'
 const LEGACY_HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
 const SELECTED_TEAM_STORAGE_KEY = 'standup:selected-team-id'
 
-function getInitialSelectedTeamId(): string {
+function getInitialSelectedTeamId(teamProfiles: TeamProfile[]): string {
   const storedTeamId = localStorage.getItem(SELECTED_TEAM_STORAGE_KEY)
   if (storedTeamId && teamProfiles.some((team) => team.id === storedTeamId)) {
     return storedTeamId
   }
 
-  return teamProfiles[0].id
+  return teamProfiles[0]?.id ?? ''
 }
 
-export function useBoardPreferences(): UseBoardPreferencesResult {
-  const [selectedTeamId, setSelectedTeamId] = useState(getInitialSelectedTeamId)
+export function useBoardPreferences(teamProfiles: TeamProfile[]): UseBoardPreferencesResult {
+  const [selectedTeamId, setSelectedTeamId] = useState(() => getInitialSelectedTeamId(teamProfiles))
   const [quickFilterInput, setQuickFilterInput] = useState('')
   const [selectedMemberFilter, setSelectedMemberFilter] = useState('')
   const [tagRules, setTagRules] = useState<TagRule[]>(() =>
@@ -46,6 +46,14 @@ export function useBoardPreferences(): UseBoardPreferencesResult {
   useEffect(() => {
     localStorage.setItem(SELECTED_TEAM_STORAGE_KEY, selectedTeamId)
   }, [selectedTeamId])
+
+  useEffect(() => {
+    if (teamProfiles.some((team) => team.id === selectedTeamId)) {
+      return
+    }
+
+    setSelectedTeamId(teamProfiles[0]?.id ?? '')
+  }, [selectedTeamId, teamProfiles])
 
   return {
     selectedTeamId,

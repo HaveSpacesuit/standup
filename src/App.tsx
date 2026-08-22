@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Box } from '@mui/material'
-import { teamProfiles } from './teamProfiles'
+import type { TeamProfile } from './teamConfig'
+import { loadTeamProfiles, saveTeamProfiles } from './teamConfig'
 import { AppNavigationRail } from './features/standup/components/AppNavigationRail'
 import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
@@ -40,6 +41,7 @@ type AppProps = {
 function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const qualityAssuranceQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
+  const [teamProfiles, setTeamProfiles] = useState<TeamProfile[]>(loadTeamProfiles)
 
   // Per-team qaOptions — keyed by teamId so each team's state groups persist independently.
   // Eagerly initialized from localStorage so it's available before useBoardViewModel runs.
@@ -67,6 +69,26 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
       ]),
     ),
   )
+
+  const handleTeamProfilesChange = (nextTeamProfiles: TeamProfile[]) => {
+    const nextTeamIds = new Set(nextTeamProfiles.map((team) => team.id))
+
+    for (const team of teamProfiles) {
+      if (!nextTeamIds.has(team.id)) {
+        localStorage.removeItem(qaOptionsStorageKey(team.id))
+        localStorage.removeItem(assignmentOptionsStorageKey(team.id))
+      }
+    }
+
+    saveTeamProfiles(nextTeamProfiles)
+    setTeamProfiles(nextTeamProfiles)
+    setQaOptionsByTeam((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
+    ))
+    setAssignmentOptionsByTeam((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
+    ))
+  }
 
   const {
     selectedTeamId,
@@ -100,7 +122,7 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
     projectWorkItemStatesLoading,
     teamIterations,
     teamIterationsLoading,
-  } = useBoardViewModel({ patConfigured, qaOptionsByTeam, assignmentOptionsByTeam, assignmentCardHighlightOptions })
+  } = useBoardViewModel({ patConfigured, teamProfiles, qaOptionsByTeam, assignmentOptionsByTeam, assignmentCardHighlightOptions })
 
   const qaOptions = qaOptionsByTeam[selectedTeamId] ?? {
     generalFilters: [],
@@ -159,6 +181,9 @@ function App({ patConfigured, colorScheme, onToggleColorScheme }: AppProps) {
         activeView={activeView}
         colorScheme={colorScheme}
         onToggleColorScheme={onToggleColorScheme}
+        selectedTeamId={selectedTeamId}
+        teamProfiles={teamProfiles}
+        onTeamProfilesChange={handleTeamProfilesChange}
       />
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>

@@ -1,4 +1,4 @@
-import type { TeamProfile } from '../teamProfiles'
+import type { TeamProfile } from '../teamConfig'
 import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
 import { WorkItemAssigneeResolver } from './assigneeResolver'

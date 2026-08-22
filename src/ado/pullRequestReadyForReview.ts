@@ -1,4 +1,4 @@
-import type { TeamProfile } from '../teamProfiles'
+import type { TeamProfile } from '../teamConfig'
 import type { AdoRequestClient } from './httpClient'
 import { parseIsoDate } from './adoShared'
 

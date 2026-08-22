@@ -1,7 +1,7 @@
 import { Button, Card, CardContent, FormControl, MenuItem, Select, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import type { SelectChangeEvent } from '@mui/material'
-import type { TeamProfile } from '../../../teamProfiles'
+import type { TeamProfile } from '../../../teamConfig'
 
 type TeamSelectorCardProps = {
   teams: TeamProfile[]

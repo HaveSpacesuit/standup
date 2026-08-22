@@ -1,4 +1,4 @@
-import type { TeamProfile } from '../teamProfiles'
+import type { TeamProfile } from '../teamConfig'
 import type { AdoRequestClient } from './httpClient'
 import type { CurrentIterationInfo, IterationInfo, IterationTimeFrame, IterationWindowInfo, TeamIterationOption } from './types'
 import { parseIsoDate } from './adoShared'

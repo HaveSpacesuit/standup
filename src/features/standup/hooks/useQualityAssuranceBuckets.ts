@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
-import type { TeamProfile } from '../../../teamProfiles'
+import type { TeamProfile } from '../../../teamConfig'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../utils/qualityAssuranceBuckets'
 import type { QaStateGroupOverrides, QaTagGroups } from '../utils/qaOptions'
