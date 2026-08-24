@@ -36,7 +36,7 @@ function formatAge(value: string | undefined): string {
 
 export function PullRequestChecksRow({ pullRequest }: PullRequestChecksRowProps) {
   const checks = getChecksPresentation(pullRequest.checks)
-  const age = formatAge(pullRequest.recentActivityAt)
+  const age = pullRequest.status === 'completed' ? '' : formatAge(pullRequest.recentActivityAt)
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, minWidth: 0, mt: 0.7 }}>

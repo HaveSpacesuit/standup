@@ -149,6 +149,7 @@ function mapPullRequestToWorkItemSummary(
     iconUrl: pullRequestIconUrl,
     approvalCount: resolvePullRequestApprovalCount(pullRequest.reviewers),
     reviewState: resolvePullRequestReviewState(pullRequest.reviewers),
+    status: pullRequest.status?.trim().toLowerCase(),
     checks,
     recentActivityAt: readyForReviewAt ?? pullRequest.creationDate,
   }
