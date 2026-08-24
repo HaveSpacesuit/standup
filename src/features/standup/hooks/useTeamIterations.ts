@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AdoQueryEngine, TeamIterationOption } from '../../../ado/queryEngine'
-import type { TeamProfile } from '../../../teamConfig'
+import type { TeamProfile } from '../../../appSettings'
 import { isAbortError } from './queryErrors'
 
 type UseTeamIterationsArgs = {

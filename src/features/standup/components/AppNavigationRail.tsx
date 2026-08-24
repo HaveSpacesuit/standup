@@ -30,7 +30,7 @@ import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgHelp from '@stratakit/icons/help.svg'
 import svgInfo from '@stratakit/icons/info.svg'
 import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
-import type { TeamProfile } from '../../../teamConfig'
+import type { TeamProfile } from '../../../appSettings'
 import type { AppView } from '../hooks/useAppNavigation'
 
 function FieldHint({ tip }: { tip: string }) {
@@ -144,7 +144,7 @@ export function AppNavigationRail({
     const activeTeamProfile = resolveEditableTeamProfile(teamProfiles, selectedTeamId)
     setEditingTeamId(activeTeamProfile.id)
     setDraftTeamProfile(activeTeamProfile)
-    setIsCreatingTeam(false)
+    setIsCreatingTeam(teamProfiles.length === 0)
     setTeamError(null)
     setDraftPatValue(patValue)
     setPatError(null)
@@ -233,11 +233,6 @@ export function AppNavigationRail({
       setDraftTeamProfile(fallbackTeam)
       setIsCreatingTeam(false)
       setTeamError(null)
-      return
-    }
-
-    if (teamProfiles.length === 1) {
-      setTeamError('Keep at least one team configured. Edit the current team instead of removing it.')
       return
     }
 
@@ -536,6 +531,13 @@ export function AppNavigationRail({
                           />
                         </ListItemButton>
                       ))}
+                      {teamProfiles.length === 0 ? (
+                        <Box sx={{ px: 1.5, py: 1 }}>
+                          <Typography variant="body-sm" color="text.secondary">
+                            No teams configured yet.
+                          </Typography>
+                        </Box>
+                      ) : null}
                     </List>
                   </Stack>
 
@@ -609,7 +611,7 @@ export function AppNavigationRail({
                     </Box>
 
                     <Stack direction="row" spacing={1}>
-                      <Button size="small" onClick={handleExportCurrentTeam}>
+                      <Button size="small" onClick={handleExportCurrentTeam} disabled={isCreatingTeam}>
                         Export team data
                       </Button>
                       <Button size="small" color="error" onClick={handleRemoveTeam}>

@@ -46,7 +46,7 @@ src/
   ado/                     # Azure DevOps API helpers and query logic
   features/standup/        # board, QA, and team-management UI
   adoAuth.ts               # PAT storage and validation
-  teamConfig.ts            # per-team profile config
+  appSettings.ts           # persisted app settings and team profiles
   teamDataTransfer.ts      # team export/import helpers
 public/                   # static assets
 index.html                # app entry document

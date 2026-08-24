@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_AZDO_API_VERSION } from '../../../adoAuth'
 import { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
-import type { TeamProfile } from '../../../teamConfig'
+import type { TeamProfile } from '../../../appSettings'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
 import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHistoryHighlights'
 import { useTeamData } from './useTeamData'
@@ -69,6 +69,17 @@ type UseBoardViewModelResult = {
   teamIterationsLoading: boolean
 }
 
+const EMPTY_TEAM_PROFILE: TeamProfile = {
+  id: '',
+  orgName: '',
+  projectName: '',
+  displayName: '',
+  areaPath: '',
+  iterationPath: '',
+  teamName: '',
+  repoName: '',
+}
+
 export function useBoardViewModel({
   pat,
   teamProfiles,
@@ -94,8 +105,9 @@ export function useBoardViewModel({
 
   const forceRefreshRef = useRef(false)
 
-  const selectedTeam =
-    teamProfiles.find((team) => team.id === selectedTeamId) ?? teamProfiles[0]
+  const selectedTeam = teamProfiles.find((team) => team.id === selectedTeamId) ?? null
+  const effectiveTeam = selectedTeam ?? EMPTY_TEAM_PROFILE
+  const hasConfiguredTeam = selectedTeam !== null
 
   const patConfigured = Boolean(pat)
 
@@ -106,8 +118,13 @@ export function useBoardViewModel({
 
     return new AdoQueryEngine(pat, DEFAULT_AZDO_API_VERSION)
   }, [pat])
+  const dataQueryEngine = hasConfiguredTeam ? adoQueryEngine : null
 
   const onRefresh = () => {
+    if (!selectedTeam) {
+      return
+    }
+
     adoQueryEngine?.clearTeamWorkItemsCache(selectedTeam.id)
     adoQueryEngine?.clearTeamMetadataCaches(selectedTeam)
     forceRefreshRef.current = true
@@ -115,8 +132,8 @@ export function useBoardViewModel({
   }
 
   const { iterations: teamIterations, iterationsLoading: teamIterationsLoading } = useTeamIterations({
-    adoQueryEngine,
-    selectedTeam,
+    adoQueryEngine: dataQueryEngine,
+    selectedTeam: effectiveTeam,
   })
 
   const {
@@ -124,7 +141,7 @@ export function useBoardViewModel({
     useDefaultAssignmentIterationWindow,
     selectedAssignmentWorkItemTypes,
   } = useAssignmentQueryFilters({
-    selectedTeamId: selectedTeam.id,
+    selectedTeamId: effectiveTeam.id,
     teamIterations,
     assignmentOptionsByTeam,
   })
@@ -140,8 +157,8 @@ export function useBoardViewModel({
     currentIteration,
     iterationWindow,
   } = useTeamData({
-    adoQueryEngine,
-    selectedTeam,
+    adoQueryEngine: dataQueryEngine,
+    selectedTeam: effectiveTeam,
     reloadNonce,
     forceRefreshRef,
     includeWorkItemTypes: selectedAssignmentWorkItemTypes,
@@ -155,8 +172,8 @@ export function useBoardViewModel({
   )
 
   const { pullRequestBoardItems, pullRequestBoardItemsLoading } = usePullRequestBoardItems({
-    adoQueryEngine,
-    selectedTeam,
+    adoQueryEngine: dataQueryEngine,
+    selectedTeam: effectiveTeam,
     currentIteration,
     members,
     membersLoading,
@@ -172,8 +189,8 @@ export function useBoardViewModel({
   )
 
   const { workItemAssignees, assigneesLoading, assigneesError } = useWorkItemAssignees({
-    adoQueryEngine,
-    orgName: selectedTeam.orgName,
+    adoQueryEngine: dataQueryEngine,
+    orgName: effectiveTeam.orgName,
     members,
     membersLoading,
     membersError,
@@ -182,26 +199,26 @@ export function useBoardViewModel({
     workItemsError,
   })
 
-  const sprintFilter = qaOptionsByTeam?.[selectedTeam.id]?.sprintFilter
+  const sprintFilter = qaOptionsByTeam?.[effectiveTeam.id]?.sprintFilter
   const selectedIterationPaths = useMemo(
     () => (sprintFilter ? resolveSelectedIterationPaths(sprintFilter, teamIterations) : []),
     [sprintFilter, teamIterations],
   )
 
   const { qaBuckets, qaBucketsLoading, qaBucketsError } = useQualityAssuranceBuckets({
-    adoQueryEngine,
-    selectedTeam,
+    adoQueryEngine: dataQueryEngine,
+    selectedTeam: effectiveTeam,
     reloadNonce,
-    includeWorkItemTypes: qaOptionsByTeam?.[selectedTeam.id]?.includeWorkItemTypes,
+    includeWorkItemTypes: qaOptionsByTeam?.[effectiveTeam.id]?.includeWorkItemTypes,
     includeIterationPaths: selectedIterationPaths,
-    lookbackDays: qaOptionsByTeam?.[selectedTeam.id]?.lookbackDays,
-    stateGroupOverrides: qaOptionsByTeam?.[selectedTeam.id]?.stateGroups,
-    tagGroups: qaOptionsByTeam?.[selectedTeam.id]?.tagGroups,
+    lookbackDays: qaOptionsByTeam?.[effectiveTeam.id]?.lookbackDays,
+    stateGroupOverrides: qaOptionsByTeam?.[effectiveTeam.id]?.stateGroups,
+    tagGroups: qaOptionsByTeam?.[effectiveTeam.id]?.tagGroups,
   })
 
   const { workItemStates: projectWorkItemStates, workItemTypes: projectWorkItemTypes, workItemStatesLoading: projectWorkItemStatesLoading } = useProjectWorkItemStates({
-    adoQueryEngine,
-    selectedTeam,
+    adoQueryEngine: dataQueryEngine,
+    selectedTeam: effectiveTeam,
   })
 
   const { memberFilterOptions, visibleBoardItems } = useVisibleBoardItems({
@@ -213,15 +230,15 @@ export function useBoardViewModel({
 
   const historyHighlightTeam = useMemo(
     () => ({
-      orgName: selectedTeam.orgName,
-      projectName: selectedTeam.projectName,
-      repoName: selectedTeam.repoName,
+      orgName: effectiveTeam.orgName,
+      projectName: effectiveTeam.projectName,
+      repoName: effectiveTeam.repoName,
     }),
-    [selectedTeam.orgName, selectedTeam.projectName, selectedTeam.repoName],
+    [effectiveTeam.orgName, effectiveTeam.projectName, effectiveTeam.repoName],
   )
 
   const changeHighlightsByItemId = useAdoHistoryHighlights({
-    adoQueryEngine,
+    adoQueryEngine: dataQueryEngine,
     team: historyHighlightTeam,
     tagRules,
     workItems: boardItems,
@@ -243,9 +260,10 @@ export function useBoardViewModel({
   }, [memberFilterOptions, selectedMemberFilter, setSelectedMemberFilter])
 
   const teamManagementUrl = useTeamManagementUrl({
-    adoQueryEngine,
+    adoQueryEngine: dataQueryEngine,
     patConfigured,
-    selectedTeam,
+    hasConfiguredTeam,
+    selectedTeam: effectiveTeam,
   })
 
   const isTeamDataLoading = membersLoading || workItemsLoading || pullRequestBoardItemsLoading || assigneesLoading

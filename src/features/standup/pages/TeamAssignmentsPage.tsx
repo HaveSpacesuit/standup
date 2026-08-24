@@ -14,6 +14,7 @@ import { HiddenTagsDialog } from '../components/HiddenTagsDialog'
 import { PatMissingNotice } from '../components/PatMissingNotice'
 import { SprintSummaryBar } from '../components/SprintSummaryBar'
 import { StandupToolbar } from '../components/StandupToolbar'
+import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
@@ -100,6 +101,7 @@ export function TeamAssignmentsPage({
   teamIterationsLoading,
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
+  const hasConfiguredTeams = teamOptions.length > 0
 
   return (
     <>
@@ -123,47 +125,51 @@ export function TeamAssignmentsPage({
         isTeamDataLoading={isTeamDataLoading}
       />
 
-      <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <KanbanBoard
-            patConfigured={patConfigured}
-            isLoading={isTeamDataLoading}
-            colorScheme={colorScheme}
-            membersError={membersError}
-            workItemsError={workItemsError}
-            assigneesError={assigneesError}
-            members={members}
-            workItems={workItems}
-            currentIterationName={currentIterationName}
-            changeHighlightsByItemId={changeHighlightsByItemId}
-            workItemAssignees={workItemAssignees}
+      {!hasConfiguredTeams ? (
+        <TeamConfigurationEmptyState pageLabel="Team assignments" />
+      ) : (
+        <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            <KanbanBoard
+              patConfigured={patConfigured}
+              isLoading={isTeamDataLoading}
+              colorScheme={colorScheme}
+              membersError={membersError}
+              workItemsError={workItemsError}
+              assigneesError={assigneesError}
+              members={members}
+              workItems={workItems}
+              currentIterationName={currentIterationName}
+              changeHighlightsByItemId={changeHighlightsByItemId}
+              workItemAssignees={workItemAssignees}
+            />
+          </Box>
+
+          <SprintSummaryBar
+            iterationWindow={iterationWindow}
+            isLoading={iterationLoading}
           />
+
+          <HiddenTagsDialog
+            open={tagRulesDialogOpen}
+            tagRules={tagRules}
+            onChange={onTagRulesChange}
+            onClose={() => setTagRulesDialogOpen(false)}
+            cardHighlightOptions={cardHighlightOptions}
+            onCardHighlightOptionsChange={onCardHighlightOptionsChange}
+            projectWorkItemTypes={projectWorkItemTypes}
+            projectWorkItemTypesLoading={projectWorkItemTypesLoading}
+            includeWorkItemTypes={includeWorkItemTypes}
+            onIncludeWorkItemTypesChange={onIncludeWorkItemTypesChange}
+            sprintFilter={sprintFilter}
+            onSprintFilterChange={onSprintFilterChange}
+            teamIterations={teamIterations}
+            teamIterationsLoading={teamIterationsLoading}
+          />
+
+          {!patConfigured ? <PatMissingNotice /> : null}
         </Box>
-
-        <SprintSummaryBar
-          iterationWindow={iterationWindow}
-          isLoading={iterationLoading}
-        />
-
-        <HiddenTagsDialog
-          open={tagRulesDialogOpen}
-          tagRules={tagRules}
-          onChange={onTagRulesChange}
-          onClose={() => setTagRulesDialogOpen(false)}
-          cardHighlightOptions={cardHighlightOptions}
-          onCardHighlightOptionsChange={onCardHighlightOptionsChange}
-          projectWorkItemTypes={projectWorkItemTypes}
-          projectWorkItemTypesLoading={projectWorkItemTypesLoading}
-          includeWorkItemTypes={includeWorkItemTypes}
-          onIncludeWorkItemTypesChange={onIncludeWorkItemTypesChange}
-          sprintFilter={sprintFilter}
-          onSprintFilterChange={onSprintFilterChange}
-          teamIterations={teamIterations}
-          teamIterationsLoading={teamIterationsLoading}
-        />
-
-        {!patConfigured ? <PatMissingNotice /> : null}
-      </Box>
+      )}
     </>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { clearStoredPat, loadStoredPat, saveStoredPat, type StoredPatState } from '../../../adoAuth'
-import type { TeamProfile } from '../../../teamConfig'
-import { loadTeamProfiles, saveTeamProfiles } from '../../../teamConfig'
+import type { TeamProfile } from '../../../appSettings'
+import { loadTeamProfiles, saveTeamProfiles } from '../../../appSettings'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import {
   ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY,

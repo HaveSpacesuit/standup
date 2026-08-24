@@ -1,5 +1,5 @@
 import type { TagRule, TagRuleAction } from './ado/workItemStatus'
-import type { TeamProfile } from './teamConfig'
+import type { TeamProfile } from './appSettings'
 import type { AssignmentOptions, AssignmentSprintFilter } from './features/standup/utils/assignmentOptions'
 import type {
   QaOptions,

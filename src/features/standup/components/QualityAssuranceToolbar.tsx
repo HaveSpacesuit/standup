@@ -37,6 +37,8 @@ export function QualityAssuranceToolbar({
   onOpenOptions,
   isLoading,
 }: QualityAssuranceToolbarProps) {
+  const hasConfiguredTeams = teamOptions.length > 0
+
   return (
     <PageToolbar iconHref={svgClipboard} title="Quality Assurance">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
@@ -77,7 +79,7 @@ export function QualityAssuranceToolbar({
           size="small"
           label="QA options"
           onClick={onOpenOptions}
-          disabled={!patConfigured}
+          disabled={!patConfigured || !hasConfiguredTeams}
         >
           <Icon href={svgSettings} />
         </IconButton>
@@ -85,7 +87,7 @@ export function QualityAssuranceToolbar({
           size="small"
           label="Refresh"
           onClick={onRefresh}
-          disabled={!patConfigured || isLoading}
+          disabled={!patConfigured || !hasConfiguredTeams || isLoading}
         >
           <Icon href={svgCloudSync}  />
         </IconButton>

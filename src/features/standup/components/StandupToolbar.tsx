@@ -61,6 +61,8 @@ export function StandupToolbar({
   onOpenTagRulesDialog,
   isTeamDataLoading,
 }: StandupToolbarProps) {
+  const hasConfiguredTeams = teamOptions.length > 0
+
   const handleMemberFilterChange = (event: SelectChangeEvent<string>) => {
     onMemberFilterChange(event.target.value)
   }
@@ -171,7 +173,7 @@ export function StandupToolbar({
             size="small"
             label="Assignments options"
             onClick={onOpenTagRulesDialog}
-            disabled={!patConfigured}
+            disabled={!patConfigured || !hasConfiguredTeams}
           >
             <Icon href={svgSettings} />
           </IconButton>
@@ -179,7 +181,7 @@ export function StandupToolbar({
             size="small"
             label="Refresh"
             onClick={onRefresh}
-            disabled={!patConfigured || isTeamDataLoading}
+            disabled={!patConfigured || !hasConfiguredTeams || isTeamDataLoading}
           >
             <Icon href={svgCloudSync} />
           </IconButton>

@@ -23,6 +23,8 @@ export function TeamToolbarControls({
   teamManagementUrl,
   children,
 }: TeamToolbarControlsProps) {
+  const hasConfiguredTeams = teamOptions.length > 0
+
   const handleTeamChange = (event: SelectChangeEvent<string>) => {
     onTeamChange(event.target.value)
   }
@@ -34,26 +36,47 @@ export function TeamToolbarControls({
       </Typography>
 
       <FormControl size="small" sx={{ minWidth: 260, flex: 1 }}>
-        <Select value={selectedTeamId} onChange={handleTeamChange}>
-          {teamOptions.map((team) => (
+        <Select
+          value={hasConfiguredTeams ? selectedTeamId : ''}
+          onChange={handleTeamChange}
+          displayEmpty
+          disabled={!hasConfiguredTeams}
+        >
+          {hasConfiguredTeams ? teamOptions.map((team) => (
             <MenuItem key={team.id} value={team.id}>
               {team.displayName}
             </MenuItem>
-          ))}
+          )) : (
+            <MenuItem value="" disabled>
+              No teams configured
+            </MenuItem>
+          )}
         </Select>
       </FormControl>
 
       <Tooltip title="Manage team">
-        <IconButton
-          size="small"
-          aria-label="Manage team"
-          component="a"
-          href={teamManagementUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          <Icon href={svgUserAdd} />
-        </IconButton>
+        <span>
+          {hasConfiguredTeams ? (
+            <IconButton
+              size="small"
+              aria-label="Manage team"
+              component="a"
+              href={teamManagementUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <Icon href={svgUserAdd} />
+            </IconButton>
+          ) : (
+            <IconButton
+              size="small"
+              aria-label="Manage team"
+              disabled
+            >
+              <Icon href={svgUserAdd} />
+            </IconButton>
+          )}
+        </span>
       </Tooltip>
       <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider' }} />
 

@@ -1,4 +1,4 @@
-import type { TeamProfile } from '../teamConfig'
+import type { TeamProfile } from '../appSettings'
 import type { AdoRequestClient } from './httpClient'
 
 type WorkItemTypeStateColor = {

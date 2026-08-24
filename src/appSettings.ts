@@ -12,29 +12,6 @@ export type TeamProfile = {
 
 export const TEAM_PROFILES_STORAGE_KEY = 'standup:team-profiles'
 
-export const DEFAULT_TEAM_PROFILES: TeamProfile[] = [
-  {
-    id: 'pw-web',
-    orgName: 'bentleycs',
-    projectName: 'beconnect',
-    displayName: 'ProjectWise Web',
-    areaPath: 'beconnect\\Document Management\\ProjectWise Web Connections (3060)',
-    iterationPath: '[beconnect]\\ProjectWise Web',
-    teamName: 'ProjectWise Web',
-    repoName: 'SharePortal',
-  },
-  {
-    id: 'pw-explorer',
-    orgName: 'bentleycs',
-    projectName: 'ProjectWise',
-    displayName: 'ProjectWise Explorer',
-    areaPath: 'ProjectWise\\DI\\Unified Experience',
-    iterationPath: '[ProjectWise]\\Unified Experience',
-    teamName: 'ProjectWise Explorer',
-    repoName: 'PW Theseus',
-  },
-]
-
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false
@@ -82,23 +59,21 @@ function parseStoredTeamProfile(value: unknown): TeamProfile | null {
 export function loadTeamProfiles(): TeamProfile[] {
   const stored = localStorage.getItem(TEAM_PROFILES_STORAGE_KEY)
   if (!stored) {
-    return [...DEFAULT_TEAM_PROFILES]
+    return []
   }
 
   try {
     const parsed = JSON.parse(stored)
     if (!Array.isArray(parsed)) {
-      return [...DEFAULT_TEAM_PROFILES]
+      return []
     }
 
-    const teamProfiles = parsed.flatMap((entry) => {
+    return parsed.flatMap((entry) => {
       const teamProfile = parseStoredTeamProfile(entry)
       return teamProfile ? [teamProfile] : []
     })
-
-    return teamProfiles.length > 0 ? teamProfiles : [...DEFAULT_TEAM_PROFILES]
   } catch {
-    return [...DEFAULT_TEAM_PROFILES]
+    return []
   }
 }
 

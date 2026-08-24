@@ -4,6 +4,7 @@ import type { AdoQueryEngine } from '../../../ado/queryEngine'
 type UseTeamManagementUrlArgs = {
   adoQueryEngine: AdoQueryEngine | null
   patConfigured: boolean
+  hasConfiguredTeam: boolean
   selectedTeam: {
     orgName: string
     projectName: string
@@ -27,6 +28,7 @@ function buildTeamManagementUrl(
 export function useTeamManagementUrl({
   adoQueryEngine,
   patConfigured,
+  hasConfiguredTeam,
   selectedTeam,
 }: UseTeamManagementUrlArgs): string {
   const [teamSubjectDescriptor, setTeamSubjectDescriptor] = useState<string | null>(null)
@@ -37,7 +39,7 @@ export function useTeamManagementUrl({
 
     setTeamSubjectDescriptor(null)
 
-    if (!adoQueryEngine || !patConfigured) {
+    if (!adoQueryEngine || !patConfigured || !hasConfiguredTeam) {
       return () => {
         isDisposed = true
         abortController.abort()
@@ -68,16 +70,17 @@ export function useTeamManagementUrl({
       isDisposed = true
       abortController.abort()
     }
-  }, [adoQueryEngine, patConfigured, selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName])
+  }, [adoQueryEngine, hasConfiguredTeam, patConfigured, selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName])
 
   return useMemo(
-    () =>
-      buildTeamManagementUrl(
+    () => (hasConfiguredTeam
+      ? buildTeamManagementUrl(
         selectedTeam.orgName,
         selectedTeam.projectName,
         selectedTeam.teamName,
         teamSubjectDescriptor,
-      ),
-    [selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName, teamSubjectDescriptor],
+      )
+      : '#'),
+    [hasConfiguredTeam, selectedTeam.orgName, selectedTeam.projectName, selectedTeam.teamName, teamSubjectDescriptor],
   )
 }

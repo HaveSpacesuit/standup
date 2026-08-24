@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { TeamProfile } from '../../../teamConfig'
+import type { TeamProfile } from '../../../appSettings'
 import { parseStoredTagRules } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 

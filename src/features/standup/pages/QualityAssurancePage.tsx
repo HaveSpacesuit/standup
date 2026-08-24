@@ -3,6 +3,7 @@ import type { TeamOption } from '../components/TeamToolbarControls'
 import { QualityAssuranceList } from '../components/QualityAssuranceList'
 import { QualityAssuranceToolbar } from '../components/QualityAssuranceToolbar'
 import { QaOptionsDialog } from '../components/QaOptionsDialog'
+import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { QaOptions } from '../utils/qaOptions'
@@ -60,6 +61,7 @@ export function QualityAssurancePage({
   teamIterationsLoading,
 }: QualityAssurancePageProps) {
   const [optionsOpen, setOptionsOpen] = useState(false)
+  const hasConfiguredTeams = teamOptions.length > 0
 
   return (
     <>
@@ -78,27 +80,33 @@ export function QualityAssurancePage({
         isLoading={isLoading}
       />
 
-      <QualityAssuranceList
-        isLoading={isLoading}
-        error={newItemsError}
-        buckets={buckets}
-        colorScheme={colorScheme}
-        cardHighlightOptions={cardHighlightOptions}
-      />
+      {!hasConfiguredTeams ? (
+        <TeamConfigurationEmptyState pageLabel="Quality assurance" />
+      ) : (
+        <QualityAssuranceList
+          isLoading={isLoading}
+          error={newItemsError}
+          buckets={buckets}
+          colorScheme={colorScheme}
+          cardHighlightOptions={cardHighlightOptions}
+        />
+      )}
 
-      <QaOptionsDialog
-        open={optionsOpen}
-        options={qaOptions}
-        onClose={() => setOptionsOpen(false)}
-        onChange={onQaOptionsChange}
-        cardHighlightOptions={cardHighlightOptions}
-        onCardHighlightOptionsChange={onCardHighlightOptionsChange}
-        projectWorkItemStates={projectWorkItemStates}
-        projectWorkItemTypes={projectWorkItemTypes}
-        projectWorkItemStatesLoading={projectWorkItemStatesLoading}
-        teamIterations={teamIterations}
-        teamIterationsLoading={teamIterationsLoading}
-      />
+      {hasConfiguredTeams ? (
+        <QaOptionsDialog
+          open={optionsOpen}
+          options={qaOptions}
+          onClose={() => setOptionsOpen(false)}
+          onChange={onQaOptionsChange}
+          cardHighlightOptions={cardHighlightOptions}
+          onCardHighlightOptionsChange={onCardHighlightOptionsChange}
+          projectWorkItemStates={projectWorkItemStates}
+          projectWorkItemTypes={projectWorkItemTypes}
+          projectWorkItemStatesLoading={projectWorkItemStatesLoading}
+          teamIterations={teamIterations}
+          teamIterationsLoading={teamIterationsLoading}
+        />
+      ) : null}
     </>
   )
 }

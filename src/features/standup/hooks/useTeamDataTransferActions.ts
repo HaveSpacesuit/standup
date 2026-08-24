@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import type { TagRule } from '../../../ado/workItemStatus'
-import type { TeamProfile } from '../../../teamConfig'
+import type { TeamProfile } from '../../../appSettings'
 import { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } from '../../../teamDataTransfer'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
 import type { QaOptions } from '../utils/qaOptions'

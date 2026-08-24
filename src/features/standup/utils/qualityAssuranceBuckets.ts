@@ -1,4 +1,4 @@
-import type { TeamProfile } from '../../../teamConfig'
+import type { TeamProfile } from '../../../appSettings'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { QaStateGroupOverrides, QaTagGroups } from './qaOptions'
 import { DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays } from './qaOptions'
