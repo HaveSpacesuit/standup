@@ -5,6 +5,7 @@ import type { TeamProfile } from './teamConfig'
 import { loadTeamProfiles, saveTeamProfiles } from './teamConfig'
 import { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } from './teamDataTransfer'
 import { AppNavigationRail } from './features/standup/components/AppNavigationRail'
+import { PatEntryDialog } from './features/standup/components/PatEntryDialog'
 import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
 import { loadStoredTagRulesForTeam, tagRulesStorageKey } from './features/standup/hooks/useBoardPreferences'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
@@ -95,8 +96,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     ))
   }
 
-  const handlePatSave = (pat: string, rememberOnThisMachine: boolean) => {
-    setStoredPatState(saveStoredPat(pat, rememberOnThisMachine))
+  const handlePatSave = (pat: string) => {
+    setStoredPatState(saveStoredPat(pat))
   }
 
   const handlePatClear = () => {
@@ -263,13 +264,14 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', bgcolor: 'background.paper' }}>
+      <PatEntryDialog open={!patConfigured} onPatSave={handlePatSave} />
+
       <AppNavigationRail
         activeView={activeView}
         colorScheme={colorScheme}
         onToggleColorScheme={onToggleColorScheme}
         patConfigured={patConfigured}
         patValue={storedPatState?.pat ?? ''}
-        rememberPatOnThisMachine={storedPatState?.rememberOnThisMachine ?? false}
         onPatSave={handlePatSave}
         onPatClear={handlePatClear}
         onExportTeamData={handleExportTeamData}

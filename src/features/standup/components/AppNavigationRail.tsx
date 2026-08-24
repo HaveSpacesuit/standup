@@ -36,8 +36,7 @@ type AppNavigationRailProps = {
   onToggleColorScheme: () => void
   patConfigured: boolean
   patValue: string
-  rememberPatOnThisMachine: boolean
-  onPatSave: (pat: string, rememberOnThisMachine: boolean) => void
+  onPatSave: (pat: string) => void
   onPatClear: () => void
   onExportTeamData: (teamId: string) => void
   onImportTeamData: (jsonText: string) => void
@@ -92,7 +91,6 @@ export function AppNavigationRail({
   onToggleColorScheme,
   patConfigured,
   patValue,
-  rememberPatOnThisMachine,
   onPatSave,
   onPatClear,
   onExportTeamData,
@@ -108,20 +106,9 @@ export function AppNavigationRail({
   const [isCreatingTeam, setIsCreatingTeam] = useState(false)
   const [teamError, setTeamError] = useState<string | null>(null)
   const [draftPatValue, setDraftPatValue] = useState(patValue)
-  const [draftRememberPat, setDraftRememberPat] = useState(rememberPatOnThisMachine)
   const [patError, setPatError] = useState<string | null>(null)
-  const [hasAutoOpenedForMissingPat, setHasAutoOpenedForMissingPat] = useState(false)
   const [activeTab, setActiveTab] = useState<SettingsTab>('azure-devops')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  useEffect(() => {
-    if (patConfigured || hasAutoOpenedForMissingPat) {
-      return
-    }
-
-    setIsSettingsDialogOpen(true)
-    setHasAutoOpenedForMissingPat(true)
-  }, [hasAutoOpenedForMissingPat, patConfigured])
 
   useEffect(() => {
     if (!isSettingsDialogOpen) {
@@ -134,10 +121,9 @@ export function AppNavigationRail({
     setIsCreatingTeam(false)
     setTeamError(null)
     setDraftPatValue(patValue)
-    setDraftRememberPat(rememberPatOnThisMachine)
     setPatError(null)
     setActiveTab('azure-devops')
-  }, [isSettingsDialogOpen, patValue, rememberPatOnThisMachine, selectedTeamId, teamProfiles])
+  }, [isSettingsDialogOpen, patValue, selectedTeamId, teamProfiles])
 
   const handleTeamSelection = (teamId: string) => {
     const nextTeamProfile = teamProfiles.find((team) => team.id === teamId)
@@ -174,7 +160,7 @@ export function AppNavigationRail({
       return
     }
 
-    onPatSave(trimmedPat, draftRememberPat)
+    onPatSave(trimmedPat)
     setDraftPatValue(trimmedPat)
     setPatError(null)
   }
@@ -182,7 +168,6 @@ export function AppNavigationRail({
   const handleClearPat = () => {
     onPatClear()
     setDraftPatValue('')
-    setDraftRememberPat(false)
     setPatError(null)
   }
 
@@ -425,7 +410,7 @@ export function AppNavigationRail({
                     Azure DevOps access
                   </Typography>
                   <Typography variant="body-sm" color="text.secondary">
-                    Paste your own Azure DevOps PAT. Leave &quot;Remember on this machine&quot; off to keep it only for this browser session.
+                    Paste your own Azure DevOps PAT. It will be kept for this browser session only.
                   </Typography>
                 </Box>
 
@@ -441,18 +426,6 @@ export function AppNavigationRail({
                   }}
                   fullWidth
                   placeholder="Paste your Azure DevOps PAT"
-                />
-
-                <FormControlLabel
-                  sx={{ m: 0 }}
-                  control={(
-                    <Switch
-                      size="small"
-                      checked={draftRememberPat}
-                      onChange={(event) => setDraftRememberPat(event.target.checked)}
-                    />
-                  )}
-                  label={<Typography variant="body-sm">Remember on this machine</Typography>}
                 />
 
                 <Box>
@@ -476,12 +449,6 @@ export function AppNavigationRail({
                     Clear PAT
                   </Button>
                 </Stack>
-
-                {patConfigured ? (
-                  <Typography variant="body-sm" color="text.secondary">
-                    Current storage: {draftRememberPat ? 'remembered on this machine' : 'browser session only'}.
-                  </Typography>
-                ) : null}
               </Stack>
             ) : null}
 
