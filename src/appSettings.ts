@@ -11,6 +11,7 @@ export type TeamProfile = {
 }
 
 export const TEAM_PROFILES_STORAGE_KEY = 'standup:team-profiles'
+const DEFAULT_PAT_ORGANIZATION = 'bentleycs'
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -79,4 +80,13 @@ export function loadTeamProfiles(): TeamProfile[] {
 
 export function saveTeamProfiles(teamProfiles: TeamProfile[]): void {
   localStorage.setItem(TEAM_PROFILES_STORAGE_KEY, JSON.stringify(teamProfiles))
+}
+
+export function resolvePatOrganization(teamProfiles: TeamProfile[]): string {
+  const firstOrgName = teamProfiles[0]?.orgName?.trim()
+  return firstOrgName || DEFAULT_PAT_ORGANIZATION
+}
+
+export function buildPatCreationUrl(orgName: string): string {
+  return `https://dev.azure.com/${encodeURIComponent(orgName)}/_usersSettings/tokens`
 }

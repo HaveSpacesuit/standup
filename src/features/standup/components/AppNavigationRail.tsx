@@ -10,6 +10,7 @@ import {
   Divider,
   FormControlLabel,
   InputAdornment,
+  Link,
   List,
   ListItemButton,
   ListItemText,
@@ -59,6 +60,7 @@ type AppNavigationRailProps = {
   selectedTeamId: string
   teamProfiles: TeamProfile[]
   onTeamProfilesChange: (teamProfiles: TeamProfile[]) => void
+  patCreationUrl: string
 }
 
 type SettingsTab = 'azure-devops' | 'teams' | 'display'
@@ -124,6 +126,7 @@ export function AppNavigationRail({
   selectedTeamId,
   teamProfiles,
   onTeamProfilesChange,
+  patCreationUrl,
 }: AppNavigationRailProps) {
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
@@ -431,7 +434,14 @@ export function AppNavigationRail({
                     Azure DevOps access
                   </Typography>
                   <Typography variant="body-sm" color="text.secondary">
-                    Paste your own Azure DevOps PAT. It will be kept for this browser session only.
+                    Paste your own Azure DevOps PAT. It will be used for the current browser session only.
+                  </Typography>
+                  <Typography variant="body-sm" color="text.secondary">
+                    Need one?{' '}
+                    <Link href={patCreationUrl} target="_blank" rel="noreferrer noopener">
+                      Create an Azure DevOps PAT
+                    </Link>
+                    .
                   </Typography>
                 </Box>
 
@@ -464,7 +474,7 @@ export function AppNavigationRail({
 
                 <Stack direction="row" spacing={1}>
                   <Button size="small" variant="contained" onClick={handleSavePat}>
-                    Save PAT
+                    Use PAT
                   </Button>
                   <Button size="small" color="error" onClick={handleClearPat}>
                     Clear PAT

@@ -7,6 +7,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Link,
   Stack,
   TextField,
   Typography,
@@ -16,9 +17,10 @@ import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
 type PatEntryDialogProps = {
   open: boolean
   onPatSave: (pat: string) => void
+  patCreationUrl: string
 }
 
-export function PatEntryDialog({ open, onPatSave }: PatEntryDialogProps) {
+export function PatEntryDialog({ open, onPatSave, patCreationUrl }: PatEntryDialogProps) {
   const [patValue, setPatValue] = useState('')
   const [patError, setPatError] = useState<string | null>(null)
 
@@ -56,7 +58,14 @@ export function PatEntryDialog({ open, onPatSave }: PatEntryDialogProps) {
         <Stack spacing={2} sx={{ pt: 0.5 }}>
           <Typography variant="body-sm" color="text.secondary">
             Paste your Azure DevOps personal access token to load standup data. The token will be
-            kept for this browser session only.
+            used for the current browser session only.
+          </Typography>
+          <Typography variant="body-sm" color="text.secondary">
+            Need one?{' '}
+            <Link href={patCreationUrl} target="_blank" rel="noreferrer noopener">
+              Create an Azure DevOps PAT
+            </Link>
+            .
           </Typography>
 
           {patError ? <Alert severity="error">{patError}</Alert> : null}
@@ -92,7 +101,7 @@ export function PatEntryDialog({ open, onPatSave }: PatEntryDialogProps) {
 
       <DialogActions>
         <Button variant="contained" onClick={handleSave}>
-          Save PAT
+          Use PAT
         </Button>
       </DialogActions>
     </Dialog>

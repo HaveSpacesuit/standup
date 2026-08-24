@@ -8,6 +8,7 @@ import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 import { useQualityAssurancePageModel } from './features/standup/hooks/useQualityAssurancePageModel'
 import { useStandupAppState } from './features/standup/hooks/useStandupAppState'
 import { useTeamDataTransferActions } from './features/standup/hooks/useTeamDataTransferActions'
+import { buildPatCreationUrl, resolvePatOrganization } from './appSettings'
 import type { AssignmentOptions } from './features/standup/utils/assignmentOptions'
 import type { CardHighlightOptions } from './features/standup/utils/cardHighlightOptions'
 import type { QaOptions } from './features/standup/utils/qaOptions'
@@ -83,6 +84,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
 
   const qaOptions = qaOptionsByTeam[selectedTeamId] ?? createDefaultQaOptions()
   const assignmentOptions = assignmentOptionsByTeam[selectedTeamId] ?? createDefaultAssignmentOptions()
+  const patCreationUrl = buildPatCreationUrl(resolvePatOrganization(teamProfiles))
 
   const handleQaOptionsChange = (next: QaOptions) => {
     setQaOptionsForTeam(selectedTeamId, next)
@@ -132,7 +134,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', bgcolor: 'background.paper' }}>
-      <PatEntryDialog open={!patConfigured} onPatSave={handlePatSave} />
+      <PatEntryDialog open={!patConfigured} onPatSave={handlePatSave} patCreationUrl={patCreationUrl} />
 
       <AppNavigationRail
         activeView={activeView}
@@ -147,6 +149,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
         selectedTeamId={selectedTeamId}
         teamProfiles={teamProfiles}
         onTeamProfilesChange={handleTeamProfilesChange}
+        patCreationUrl={patCreationUrl}
       />
 
       <StandupContent
