@@ -9,6 +9,7 @@ import {
   DialogTitle,
   Divider,
   FormControlLabel,
+  InputAdornment,
   List,
   ListItemButton,
   ListItemText,
@@ -17,6 +18,7 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
@@ -26,9 +28,23 @@ import svgClipboard from '@stratakit/icons/clipboard.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgHelp from '@stratakit/icons/help.svg'
+import svgInfo from '@stratakit/icons/info.svg'
 import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
 import type { TeamProfile } from '../../../teamConfig'
 import type { AppView } from '../hooks/useAppNavigation'
+
+function FieldHint({ tip }: { tip: string }) {
+  return (
+    <Tooltip title={tip} placement="top" arrow>
+      <Box
+        component="span"
+        sx={{ display: 'inline-flex', alignItems: 'center', cursor: 'default', color: 'text.secondary', ml: 0.25 }}
+      >
+        <Icon href={`${svgInfo}#icon`} alt="" />
+      </Box>
+    </Tooltip>
+  )
+}
 
 type AppNavigationRailProps = {
   activeView: AppView
@@ -58,6 +74,16 @@ const EMPTY_TEAM_PROFILE_FIELDS = {
 }
 
 type TeamProfileFormField = keyof typeof EMPTY_TEAM_PROFILE_FIELDS
+
+const FIELD_HINTS: Record<TeamProfileFormField, string> = {
+  displayName: 'The name shown in the team selector and as the board title. Use a short, recognisable label such as "ProjectWise Web".',
+  orgName: 'Your Azure DevOps organisation name — the subdomain after dev.azure.com, e.g. "bentleycs".',
+  projectName: 'The Azure DevOps project that contains your work items, e.g. "beconnect".',
+  teamName: 'The exact Azure DevOps team name. This scopes the team-members list and the "Manage team" link. Find it under Project Settings › Teams.',
+  repoName: 'The Git repository to query for pull requests. Only PRs from this repo appear as PR cards on the board.',
+  areaPath: 'Limits work items to this area. Use the backslash-separated path shown in your ADO area settings, e.g. "beconnect\\\\My Area\\\\Sub-area".',
+  iterationPath: 'Scopes sprint data to this path. Use the format shown in ADO iteration settings, e.g. "[beconnect]\\\\My Team".',
+}
 
 function createDraftTeamProfile(): TeamProfile {
   return {
@@ -533,30 +559,35 @@ export function AppNavigationRail({
                         value={draftTeamProfile.displayName}
                         onChange={(event) => handleDraftFieldChange('displayName', event.target.value)}
                         fullWidth
+                        slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.displayName} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Organization"
                         value={draftTeamProfile.orgName}
                         onChange={(event) => handleDraftFieldChange('orgName', event.target.value)}
                         fullWidth
+                        slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.orgName} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Project"
                         value={draftTeamProfile.projectName}
                         onChange={(event) => handleDraftFieldChange('projectName', event.target.value)}
                         fullWidth
+                        slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.projectName} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Azure DevOps team name"
                         value={draftTeamProfile.teamName}
                         onChange={(event) => handleDraftFieldChange('teamName', event.target.value)}
                         fullWidth
+                        slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.teamName} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Repository name"
                         value={draftTeamProfile.repoName}
                         onChange={(event) => handleDraftFieldChange('repoName', event.target.value)}
                         fullWidth
+                        slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.repoName} /></InputAdornment> } }}
                       />
                       <Box />
                       <TextField
@@ -565,6 +596,7 @@ export function AppNavigationRail({
                         onChange={(event) => handleDraftFieldChange('areaPath', event.target.value)}
                         fullWidth
                         sx={{ gridColumn: { sm: '1 / -1' } }}
+                        slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.areaPath} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Iteration path"
@@ -572,6 +604,7 @@ export function AppNavigationRail({
                         onChange={(event) => handleDraftFieldChange('iterationPath', event.target.value)}
                         fullWidth
                         sx={{ gridColumn: { sm: '1 / -1' } }}
+                        slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.iterationPath} /></InputAdornment> } }}
                       />
                     </Box>
 

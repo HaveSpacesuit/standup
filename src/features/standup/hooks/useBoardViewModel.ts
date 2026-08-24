@@ -13,6 +13,7 @@ import { useVisibleBoardItems } from './useVisibleBoardItems'
 import { useQualityAssuranceBuckets } from './useQualityAssuranceBuckets'
 import { useProjectWorkItemStates } from './useProjectWorkItemStates'
 import { useTeamIterations } from './useTeamIterations'
+import { useAssignmentQueryFilters } from './useAssignmentQueryFilters'
 import {
   applyTagRulesToItem,
   normalizeTeamMemberLabel,
@@ -22,10 +23,7 @@ import type { QaOptions } from '../utils/qaOptions'
 import { resolveSelectedIterationPaths } from '../utils/qaOptions'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
-import {
-  type AssignmentOptions,
-  DEFAULT_ASSIGNMENT_SPRINT_FILTER,
-} from '../utils/assignmentOptions'
+import type { AssignmentOptions } from '../utils/assignmentOptions'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -121,20 +119,15 @@ export function useBoardViewModel({
     selectedTeam,
   })
 
-  const assignmentSprintFilter =
-    assignmentOptionsByTeam?.[selectedTeam.id]?.sprintFilter ?? DEFAULT_ASSIGNMENT_SPRINT_FILTER
-  const useDefaultAssignmentIterationWindow = assignmentSprintFilter.current
-    && assignmentSprintFilter.next
-    && !assignmentSprintFilter.nextNext
-    && assignmentSprintFilter.iterationPaths.length === 0
-  const selectedAssignmentIterationPaths = useMemo(
-    () =>
-      resolveSelectedIterationPaths(
-        assignmentSprintFilter,
-        teamIterations,
-      ),
-    [assignmentSprintFilter, teamIterations],
-  )
+  const {
+    selectedAssignmentIterationPaths,
+    useDefaultAssignmentIterationWindow,
+    selectedAssignmentWorkItemTypes,
+  } = useAssignmentQueryFilters({
+    selectedTeamId: selectedTeam.id,
+    teamIterations,
+    assignmentOptionsByTeam,
+  })
 
   const {
     members,
@@ -151,7 +144,7 @@ export function useBoardViewModel({
     selectedTeam,
     reloadNonce,
     forceRefreshRef,
-    includeWorkItemTypes: assignmentOptionsByTeam?.[selectedTeam.id]?.includeWorkItemTypes,
+    includeWorkItemTypes: selectedAssignmentWorkItemTypes,
     includeIterationPaths: selectedAssignmentIterationPaths,
     useDefaultIterationWindow: useDefaultAssignmentIterationWindow,
   })
@@ -287,7 +280,7 @@ export function useBoardViewModel({
     qaBucketsError,
     projectWorkItemStates,
     projectWorkItemTypes,
-    selectedAssignmentWorkItemTypes: assignmentOptionsByTeam?.[selectedTeam.id]?.includeWorkItemTypes ?? [],
+    selectedAssignmentWorkItemTypes,
     projectWorkItemStatesLoading,
     teamIterations,
     teamIterationsLoading,
