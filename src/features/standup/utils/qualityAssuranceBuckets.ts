@@ -1,6 +1,7 @@
 import type { TeamProfile } from '../../../appSettings'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { QaStateGroupOverrides, QaTagGroups } from './qaOptions'
+import { sortWorkItemsBySprintAndId } from './workItemSorting'
 import { DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays } from './qaOptions'
 
 export type QualityAssuranceBucketId = 'new' | 'needs-testing' | 'needs-development' | 'done'
@@ -364,11 +365,7 @@ export function bucketQualityAssuranceItems(
   }
 
   for (const key of Object.keys(buckets) as QualityAssuranceBucketId[]) {
-    buckets[key] = buckets[key].sort((left, right) => {
-      const leftAt = toTimestamp(left.createdAt ?? left.recentActivityAt) ?? 0
-      const rightAt = toTimestamp(right.createdAt ?? right.recentActivityAt) ?? 0
-      return rightAt - leftAt
-    })
+    buckets[key] = buckets[key].sort(sortWorkItemsBySprintAndId)
   }
 
   return [

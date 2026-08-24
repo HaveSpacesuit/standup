@@ -10,6 +10,7 @@ import {
 import { KanbanBoardGrid, type BoardRowData } from './KanbanBoardGrid'
 import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
+import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 
 const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
 const COLLAPSED_CELL_CARD_LIMIT = 3
@@ -39,15 +40,6 @@ function sortMembers(members: TeamMember[]): TeamMember[] {
 
     return a.displayName.localeCompare(b.displayName)
   })
-}
-
-function getRecentActivitySortValue(item: WorkItemSummary): number {
-  if (!item.recentActivityAt) {
-    return Number.NEGATIVE_INFINITY
-  }
-
-  const parsed = Date.parse(item.recentActivityAt)
-  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
 }
 
 export function KanbanBoard({
@@ -174,7 +166,7 @@ export function KanbanBoard({
     }
 
     for (const cellItems of Object.values(initial)) {
-      cellItems.sort((left, right) => getRecentActivitySortValue(right) - getRecentActivitySortValue(left))
+      cellItems.sort(sortWorkItemsBySprintAndId)
     }
 
     return initial
