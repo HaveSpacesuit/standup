@@ -28,6 +28,8 @@ import svgUsers from '@stratakit/icons/users.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
+import svgArrowDown from '@stratakit/icons/arrow-down.svg'
+import svgArrowUp from '@stratakit/icons/arrow-up.svg'
 import svgHelp from '@stratakit/icons/help.svg'
 import svgInfo from '@stratakit/icons/info.svg'
 import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
@@ -279,6 +281,27 @@ export function AppNavigationRail({
     } catch (error) {
       setTeamError(error instanceof Error ? error.message : 'Unable to import team data.')
     }
+  }
+
+  const handleMoveTeam = (teamId: string, direction: 'up' | 'down') => {
+    const currentIndex = teamProfiles.findIndex((team) => team.id === teamId)
+    if (currentIndex < 0) {
+      return
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    if (targetIndex < 0 || targetIndex >= teamProfiles.length) {
+      return
+    }
+
+    const nextTeamProfiles = [...teamProfiles]
+    const [movedTeam] = nextTeamProfiles.splice(currentIndex, 1)
+    nextTeamProfiles.splice(targetIndex, 0, movedTeam)
+    onTeamProfilesChange(nextTeamProfiles)
+    setEditingTeamId(teamId)
+    setDraftTeamProfile(movedTeam)
+    setIsCreatingTeam(false)
+    setTeamError(null)
   }
 
   return (
@@ -535,10 +558,40 @@ export function AppNavigationRail({
                           divider
                           sx={{ width: '100%' }}
                         >
-                          <ListItemText
-                            sx={{ width: '100%', m: 0 }}
-                            primary={<Typography component="span" sx={{ display: 'block' }}>{team.displayName}</Typography>}
-                          />
+                          <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <ListItemText
+                              sx={{ width: '100%', m: 0 }}
+                              primary={<Typography component="span" sx={{ display: 'block' }}>{team.displayName}</Typography>}
+                            />
+                            <Stack direction="row" spacing={0.25}>
+                              <Button
+                                size="small"
+                                variant="text"
+                                aria-label={`Move ${team.displayName} up`}
+                                disabled={isCreatingTeam || teamProfiles[0]?.id === team.id}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  handleMoveTeam(team.id, 'up')
+                                }}
+                                sx={{ minWidth: 0, px: 0.5 }}
+                              >
+                                <Icon href={svgArrowUp} alt="" />
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="text"
+                                aria-label={`Move ${team.displayName} down`}
+                                disabled={isCreatingTeam || teamProfiles[teamProfiles.length - 1]?.id === team.id}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  handleMoveTeam(team.id, 'down')
+                                }}
+                                sx={{ minWidth: 0, px: 0.5 }}
+                              >
+                                <Icon href={svgArrowDown} alt="" />
+                              </Button>
+                            </Stack>
+                          </Box>
                         </ListItemButton>
                       ))}
                       {teamProfiles.length === 0 ? (
