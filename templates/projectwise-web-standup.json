@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-08-24T21:06:22.356Z",
+  "teamProfile": {
+    "id": "pw-web",
+    "orgName": "bentleycs",
+    "projectName": "beconnect",
+    "displayName": "ProjectWise Web",
+    "areaPath": "beconnect\\Document Management\\ProjectWise Web Connections (3060)",
+    "iterationPath": "[beconnect]\\ProjectWise Web",
+    "teamName": "ProjectWise Web",
+    "repoName": "SharePortal"
+  },
+  "assignmentOptions": {
+    "includeWorkItemTypes": [
+      "Bug",
+      "Product Backlog Item"
+    ],
+    "sprintFilter": {
+      "current": true,
+      "next": true,
+      "nextNext": false,
+      "iterationPaths": []
+    }
+  },
+  "assignmentTagRules": [
+    {
+      "id": "default-blocked",
+      "tag": "blocked",
+      "action": "Blocked"
+    },
+    {
+      "id": "1786139486676-z7cjhmy",
+      "tag": "Waiting",
+      "action": "Blocked"
+    },
+    {
+      "id": "default-pr",
+      "tag": "pr",
+      "action": "Review"
+    }
+  ],
+  "qaOptions": {
+    "generalFilters": [],
+    "includeWorkItemTypes": [
+      "Bug",
+      "Product Backlog Item"
+    ],
+    "lookbackDays": 14,
+    "sprintFilter": {
+      "current": true,
+      "next": true,
+      "nextNext": false,
+      "iterationPaths": [
+        "beconnect",
+        "beconnect\\PW Web"
+      ]
+    },
+    "stateGroups": {
+      "testing": [
+        "Available for Testing"
+      ],
+      "done": [
+        "Done",
+        "Removed"
+      ],
+      "development": [
+        "New",
+        "Approved",
+        "Committed"
+      ],
+      "new": [
+        "New",
+        "Approved"
+      ]
+    },
+    "tagGroups": null
+  }
+}

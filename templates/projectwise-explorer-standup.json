@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-08-24T21:13:37.614Z",
+  "teamProfile": {
+    "id": "pw-explorer",
+    "orgName": "bentleycs",
+    "projectName": "ProjectWise",
+    "displayName": "ProjectWise Explorer",
+    "areaPath": "ProjectWise\\DI\\Unified Experience",
+    "iterationPath": "[ProjectWise]\\Unified Experience",
+    "teamName": "ProjectWise Explorer",
+    "repoName": "PW Theseus"
+  },
+  "assignmentOptions": {
+    "includeWorkItemTypes": [
+      "Bug",
+      "Product Backlog Item"
+    ],
+    "sprintFilter": {
+      "current": true,
+      "next": true,
+      "nextNext": false,
+      "iterationPaths": []
+    }
+  },
+  "assignmentTagRules": [
+    {
+      "id": "default-blocked",
+      "tag": "blocked",
+      "action": "Blocked"
+    },
+    {
+      "id": "1786139486676-z7cjhmy",
+      "tag": "Waiting",
+      "action": "Blocked"
+    },
+    {
+      "id": "1786139226107-3u8qst4",
+      "tag": "UXWork",
+      "action": "unlisted"
+    }
+  ],
+  "qaOptions": {
+    "generalFilters": [
+      {
+        "id": "1787605765545-uxgq9uc",
+        "type": "tag",
+        "tagMatch": "UXWork"
+      }
+    ],
+    "includeWorkItemTypes": [
+      "Bug",
+      "Product Backlog Item"
+    ],
+    "lookbackDays": 7,
+    "sprintFilter": {
+      "current": true,
+      "next": true,
+      "nextNext": false,
+      "iterationPaths": [
+        "ProjectWise",
+        "ProjectWise\\2026",
+        "ProjectWise\\\\2026"
+      ]
+    },
+    "stateGroups": {
+      "testing": [
+        "Available for Testing"
+      ],
+      "done": [
+        "Done",
+        "Removed"
+      ],
+      "development": [
+        "New",
+        "Refined",
+        "Accepted",
+        "In Progress",
+        "In Code Review",
+        "Ready to Build"
+      ],
+      "new": [
+        "New",
+        "Refined",
+        "Approved"
+      ]
+    },
+    "tagGroups": null
+  }
+}
