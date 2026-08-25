@@ -1,9 +1,14 @@
 import { Box, Chip, Skeleton, Typography } from '@mui/material'
 import type { IterationWindowInfo } from '../../../ado/queryEngine'
+import { EffortFlowChart } from './EffortFlowChart'
+import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 
 type SprintSummaryBarProps = {
   iterationWindow: IterationWindowInfo
   isLoading?: boolean
+  effortFlowPoints: EffortFlowPoint[]
+  effortFlowLoading: boolean
+  colorScheme: 'light' | 'dark'
 }
 
 function parseDateOnly(value?: string): Date | null {
@@ -74,6 +79,9 @@ function getDaysRemainingInSprint(finishDate?: string): number | null {
 export function SprintSummaryBar({
   iterationWindow,
   isLoading = false,
+  effortFlowPoints,
+  effortFlowLoading,
+  colorScheme,
 }: SprintSummaryBarProps) {
   const current = iterationWindow.current
   const next = iterationWindow.next
@@ -84,8 +92,8 @@ export function SprintSummaryBar({
       <Box
         sx={{
           px: 2,
-          py: 1,
-          minHeight: 52,
+          py: 0.5,
+          height: 56,
           flexShrink: 0,
           borderBottom: '1px solid',
           borderColor: 'divider',
@@ -111,56 +119,81 @@ export function SprintSummaryBar({
     <Box
       sx={{
         px: 2,
-        py: 1,
-        minHeight: 52,
+        py: 0.5,
+        height: 56,
         flexShrink: 0,
         borderBottom: '1px solid',
         borderColor: 'divider',
         bgcolor: 'background.default',
         display: 'flex',
-        flexWrap: 'wrap',
-        columnGap: 8,
-        rowGap: 1,
-        alignItems: 'flex-start',
-        justifyContent: 'flex-start',
+        columnGap: 4,
+        alignItems: 'stretch',
       }}
     >
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          columnGap: 8,
+          rowGap: 1,
           alignItems: 'center',
-          columnGap: 2,
+          justifyContent: 'flex-start',
+          flex: '1 1 50%',
+          minWidth: 0,
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-              Current sprint: {current ? formatDateRange(current.startDate, current.finishDate) : 'Dates unavailable'}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            columnGap: 2,
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                Current sprint: {current ? formatDateRange(current.startDate, current.finishDate) : 'Dates unavailable'}
+              </Typography>
+            </Box>
+            <Typography variant="caption-sm" color="text.secondary">
+              {current?.fullName ?? 'Unavailable'}
             </Typography>
           </Box>
+          <Chip
+            size="small"
+            variant="outlined"
+            label={
+              daysRemaining === null
+                ? 'Days remaining: unavailable'
+                : `Days remaining: ${daysRemaining}`
+            }
+          />
+        </Box>
+
+        <Box sx={{ minWidth: 320, flex: '0 1 320px' }}>
+          <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+            Next sprint: {next ? formatDateRange(next.startDate, next.finishDate) : 'Dates unavailable'}
+          </Typography>
           <Typography variant="caption-sm" color="text.secondary">
-            {current?.fullName ?? 'Unavailable'}
+            {next?.fullName ?? 'Unavailable'}
           </Typography>
         </Box>
-        <Chip
-          size="small"
-          variant="outlined"
-          label={
-            daysRemaining === null
-              ? 'Days remaining: unavailable'
-              : `Days remaining: ${daysRemaining}`
-          }
-        />
       </Box>
 
-      <Box sx={{ minWidth: 320, flex: '0 1 320px' }}>
-        <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-          Next sprint: {next ? formatDateRange(next.startDate, next.finishDate) : 'Dates unavailable'}
-        </Typography>
-        <Typography variant="caption-sm" color="text.secondary">
-          {next?.fullName ?? 'Unavailable'}
-        </Typography>
+      <Box
+        sx={{
+          flex: '1 1 50%',
+          minWidth: 280,
+          borderLeft: '1px solid',
+          borderColor: 'divider',
+          pl: 3,
+          overflow: 'hidden',
+        }}
+      >
+        <Box sx={{ height: '100%' }}>
+          <EffortFlowChart points={effortFlowPoints} isLoading={effortFlowLoading} colorScheme={colorScheme} />
+        </Box>
       </Box>
     </Box>
   )

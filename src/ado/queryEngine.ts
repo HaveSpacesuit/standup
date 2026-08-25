@@ -8,10 +8,10 @@ import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchQualityAssuranceRawData, fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
 import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState } from './workItemTypesApi'
-import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary } from './types'
+import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
 import type { QualityAssuranceRawData } from './workItemsApi'
 
-export type { CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee } from './types'
+export type { CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
 
 
@@ -27,6 +27,7 @@ export class AdoQueryEngine {
   private readonly teamSubjectDescriptorCache = new Map<string, { expiresAt: number; value: string | null }>()
   private readonly projectWorkItemStatesCache = new Map<string, { expiresAt: number; value: { states: ProjectWorkItemState[]; workItemTypes: string[] } }>()
   private readonly teamIterationsCache = new Map<string, { expiresAt: number; value: TeamIterationOption[] }>()
+  private readonly workItemUpdatesCache = new Map<string, { expiresAt: number; value: WorkItemUpdate[] }>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
@@ -224,6 +225,38 @@ export class AdoQueryEngine {
 
   async request<T>(options: AdoRequestOptions): Promise<T> {
     return this.client.request<T>(options)
+  }
+
+  /** Cached wrapper around the work item `/updates` (revision history) endpoint, shared by any
+   * feature that needs to replay a work item's field history (e.g. change highlights, effort-flow chart). */
+  async getWorkItemUpdates(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    itemId: number,
+    signal?: AbortSignal,
+  ): Promise<WorkItemUpdate[]> {
+    const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${itemId}`
+    const cached = this.workItemUpdatesCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value
+    }
+
+    const response = await this.client.request<WorkItemUpdatesResponse>({
+      method: 'GET',
+      orgName: team.orgName,
+      path: `/${encodeURIComponent(team.projectName)}/_apis/wit/workItems/${itemId}/updates`,
+      params: {
+        'api-version': '7.1',
+      },
+      signal,
+    })
+
+    const value = response.value ?? []
+    this.workItemUpdatesCache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,
+    })
+
+    return value
   }
 
   async getTeamSubjectDescriptor(

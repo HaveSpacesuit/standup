@@ -5,6 +5,7 @@ import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption
 import type { TeamProfile } from '../../../appSettings'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
 import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHistoryHighlights'
+import { useEffortFlowHistory, type EffortFlowPoint } from './useEffortFlowHistory'
 import { useTeamData } from './useTeamData'
 import { useWorkItemAssignees } from './useWorkItemAssignees'
 import { useBoardPreferences } from './useBoardPreferences'
@@ -57,6 +58,8 @@ type UseBoardViewModelResult = {
   iterationWindow: IterationWindowInfo
   iterationLoading: boolean
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
+  effortFlowPoints: EffortFlowPoint[]
+  effortFlowLoading: boolean
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
   qaBuckets: import('../utils/qualityAssuranceBuckets').QualityAssuranceBucket[]
   qaBucketsLoading: boolean
@@ -245,6 +248,22 @@ export function useBoardViewModel({
     cardHighlightOptions: assignmentCardHighlightOptions,
   })
 
+  const currentSprintBoardItems = useMemo(
+    () =>
+      currentIteration
+        ? visibleBoardItems.filter((item) => item.sprintName === currentIteration.name)
+        : visibleBoardItems,
+    [visibleBoardItems, currentIteration],
+  )
+
+  const { points: effortFlowPoints, isLoading: effortFlowLoading } = useEffortFlowHistory({
+    adoQueryEngine: dataQueryEngine,
+    team: historyHighlightTeam,
+    tagRules,
+    workItems: currentSprintBoardItems,
+    iterationWindow,
+  })
+
   useEffect(() => {
     if (!selectedMemberFilter) {
       return
@@ -292,6 +311,8 @@ export function useBoardViewModel({
     iterationWindow,
     iterationLoading,
     changeHighlightsByItemId,
+    effortFlowPoints,
+    effortFlowLoading,
     workItemAssignees,
     qaBuckets,
     qaBucketsLoading,

@@ -97,3 +97,27 @@ export type ResolvedWorkItemAssignee = {
   label: string
   kind: 'team-member' | 'unassigned'
 }
+
+export type WorkItemFieldUpdate = {
+  oldValue?: unknown
+  newValue?: unknown
+}
+
+export type WorkItemUpdateRelation = {
+  rel?: string
+  url?: string
+}
+
+export type WorkItemUpdate = {
+  revisedDate?: string
+  fields?: Record<string, WorkItemFieldUpdate>
+  relations?: {
+    added?: WorkItemUpdateRelation[]
+    removed?: WorkItemUpdateRelation[]
+    updated?: WorkItemUpdateRelation[]
+  }
+}
+
+export type WorkItemUpdatesResponse = {
+  value?: WorkItemUpdate[]
+}

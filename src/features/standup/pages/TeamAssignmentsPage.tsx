@@ -16,6 +16,7 @@ import { SprintSummaryBar } from '../components/SprintSummaryBar'
 import { StandupToolbar } from '../components/StandupToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
+import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
 
@@ -43,6 +44,8 @@ type TeamAssignmentsPageProps = {
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
+  effortFlowPoints: EffortFlowPoint[]
+  effortFlowLoading: boolean
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
   iterationWindow: IterationWindowInfo
   iterationLoading: boolean
@@ -84,6 +87,8 @@ export function TeamAssignmentsPage({
   workItems,
   currentIterationName,
   changeHighlightsByItemId,
+  effortFlowPoints,
+  effortFlowLoading,
   workItemAssignees,
   iterationWindow,
   iterationLoading,
@@ -148,6 +153,9 @@ export function TeamAssignmentsPage({
           <SprintSummaryBar
             iterationWindow={iterationWindow}
             isLoading={iterationLoading}
+            effortFlowPoints={effortFlowPoints}
+            effortFlowLoading={effortFlowLoading}
+            colorScheme={colorScheme}
           />
 
           <HiddenTagsDialog

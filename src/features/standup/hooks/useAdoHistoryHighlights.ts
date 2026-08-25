@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AdoQueryEngine, WorkItemSummary } from '../../../ado/queryEngine'
+import type { AdoQueryEngine, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import {
   getRelevantTagRuleSignature,
   resolveStatusFromStateAndTags,
@@ -27,30 +27,6 @@ type UseAdoHistoryHighlightsArgs = {
   tagRules: TagRule[]
   workItems: WorkItemSummary[]
   cardHighlightOptions?: CardHighlightOptions
-}
-
-type WorkItemFieldUpdate = {
-  oldValue?: unknown
-  newValue?: unknown
-}
-
-type WorkItemRelation = {
-  rel?: string
-  url?: string
-}
-
-type WorkItemUpdate = {
-  revisedDate?: string
-  fields?: Record<string, WorkItemFieldUpdate>
-  relations?: {
-    added?: WorkItemRelation[]
-    removed?: WorkItemRelation[]
-    updated?: WorkItemRelation[]
-  }
-}
-
-type WorkItemUpdatesResponse = {
-  value?: WorkItemUpdate[]
 }
 
 type PullRequestThread = {
@@ -247,17 +223,9 @@ async function computeWorkItemHighlight(
   cardHighlightOptions: CardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS,
 ): Promise<HighlightResult> {
   const now = Date.now()
-  const response = await adoQueryEngine.request<WorkItemUpdatesResponse>({
-    method: 'GET',
-    orgName: team.orgName,
-    path: `/${encodeURIComponent(team.projectName)}/_apis/wit/workItems/${item.id}/updates`,
-    params: {
-      'api-version': '7.1',
-    },
-    signal,
-  })
+  const itemUpdates = await adoQueryEngine.getWorkItemUpdates(team, item.id, signal)
 
-  const updates = [...(response.value ?? [])].sort((left, right) => {
+  const updates = [...itemUpdates].sort((left, right) => {
     const leftAt = toTimestamp(resolveUpdateTimestamp(left, now)) ?? 0
     const rightAt = toTimestamp(resolveUpdateTimestamp(right, now)) ?? 0
     return leftAt - rightAt
