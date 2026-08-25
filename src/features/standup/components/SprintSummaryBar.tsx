@@ -1,4 +1,7 @@
-import { Box, Chip, Skeleton, Typography } from '@mui/material'
+import { useState } from 'react'
+import { Box, Chip, Dialog, DialogContent, DialogTitle, IconButton, Skeleton, Tooltip, Typography } from '@mui/material'
+import { Icon } from '@stratakit/mui'
+import svgWindowExpand from '@stratakit/icons/window-expand.svg'
 import type { IterationWindowInfo } from '../../../ado/queryEngine'
 import { EffortFlowChart } from './EffortFlowChart'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
@@ -86,6 +89,7 @@ export function SprintSummaryBar({
   const current = iterationWindow.current
   const next = iterationWindow.next
   const daysRemaining = getDaysRemainingInSprint(current?.finishDate)
+  const [isChartDialogOpen, setIsChartDialogOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -188,13 +192,35 @@ export function SprintSummaryBar({
           borderLeft: '1px solid',
           borderColor: 'divider',
           pl: 3,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
           overflow: 'hidden',
         }}
       >
-        <Box sx={{ height: '100%' }}>
+        <Box sx={{ height: '100%', flex: 1, minWidth: 0 }}>
           <EffortFlowChart points={effortFlowPoints} isLoading={effortFlowLoading} colorScheme={colorScheme} />
         </Box>
+          <IconButton
+            size="small"
+            label="Effort flow"
+            onClick={() => setIsChartDialogOpen(true)}
+          >
+            <Icon href={svgWindowExpand} />
+          </IconButton>
       </Box>
+
+      <Dialog open={isChartDialogOpen} onClose={() => setIsChartDialogOpen(false)} fullWidth maxWidth="lg">
+        <DialogTitle>Effort flow — current sprint</DialogTitle>
+        <DialogContent sx={{ height: 480, pb: 3 }}>
+          <EffortFlowChart
+            points={effortFlowPoints}
+            isLoading={effortFlowLoading}
+            colorScheme={colorScheme}
+            variant="detailed"
+          />
+        </DialogContent>
+      </Dialog>
     </Box>
   )
 }

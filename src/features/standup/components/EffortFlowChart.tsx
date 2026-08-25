@@ -6,6 +6,7 @@ import {
   CategoryScale,
   Chart as ChartJS,
   Filler,
+  Legend,
   LinearScale,
   LineElement,
   PointElement,
@@ -18,12 +19,14 @@ import { Line } from 'react-chartjs-2'
 import { getStatusColumnColor, getTintedStatusColor, STATUS_COLUMNS } from '../utils/statusColumnStyles'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
 type EffortFlowChartProps = {
   points: EffortFlowPoint[]
   isLoading: boolean
   colorScheme: 'light' | 'dark'
+  /** 'detailed' shows axis labels, gridlines, and a legend — used for the expanded dialog view. */
+  variant?: 'compact' | 'detailed'
 }
 
 /** Theme palette colors are CSS custom-property references (e.g. `var(--...)`), which canvas
@@ -53,6 +56,18 @@ function withAlpha(rgbColor: string, alpha: number): string {
 
   const [r, g, b] = match[1].split(',').map((part) => part.trim())
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+const DATE_LABEL_FORMATTER = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+
+function formatDateLabel(dateKey: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey)
+  if (!match) {
+    return dateKey
+  }
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return DATE_LABEL_FORMATTER.format(date)
 }
 
 type ResolvedStatusColors = Record<(typeof STATUS_COLUMNS)[number], { fill: string; line: string }>
@@ -148,7 +163,7 @@ function renderExternalTooltip({ chart, tooltip }: { chart: Chart; tooltip: Tool
   tooltipEl.style.top = `${top}px`
 }
 
-export function EffortFlowChart({ points, isLoading, colorScheme }: EffortFlowChartProps) {
+export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'compact' }: EffortFlowChartProps) {
   const theme = useTheme()
 
   // The color-scheme attribute that drives the theme's CSS custom properties is only applied to
@@ -168,7 +183,7 @@ export function EffortFlowChart({ points, isLoading, colorScheme }: EffortFlowCh
 
   const data = useMemo(
     () => ({
-      labels: points.map((point) => point.date),
+      labels: points.map((point) => formatDateLabel(point.date)),
       datasets: STATUS_COLUMNS.map((status, index) => ({
         label: status,
         data: points.map((point) => point[status]),
@@ -190,19 +205,21 @@ export function EffortFlowChart({ points, isLoading, colorScheme }: EffortFlowCh
       return Math.max(max, total)
     }, 0)
 
+    const detailed = variant === 'detailed'
+
     return {
       responsive: true,
       maintainAspectRatio: false,
       layout: { padding: 0 },
       interaction: { mode: 'index' as const, intersect: false },
       scales: {
-        x: { stacked: true, display: false, offset: false },
+        x: { stacked: true, display: detailed, offset: false },
         // Fix min/max to the exact data range (no auto headroom) so the stacked area fills the
         // full canvas height instead of leaving blank space above the tallest band.
-        y: { stacked: true, display: false, min: 0, max: maxTotal || 1, grace: 0 },
+        y: { stacked: true, display: detailed, min: 0, max: maxTotal || 1, grace: detailed ? undefined : 0 },
       },
       plugins: {
-        legend: { display: false },
+        legend: { display: detailed, position: 'bottom' as const },
         // Datasets stack bottom-up (Blocked at bottom, Done at top) — reverse so the tooltip
         // reads top-down in the same visual order as the chart.
         tooltip: {
@@ -212,7 +229,7 @@ export function EffortFlowChart({ points, isLoading, colorScheme }: EffortFlowCh
         },
       },
     }
-  }, [points])
+  }, [points, variant])
 
   if (points.length === 0) {
     return (

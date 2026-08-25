@@ -219,8 +219,14 @@ export function useEffortFlowHistory({
     const result: EffortFlowPoint[] = []
 
     // Span the full sprint (start through finish) so future days render as blank space rather than
-    // stopping the chart at today.
+    // stopping the chart at today. Weekends are skipped entirely — we expect little to no movement
+    // on those days, so they'd just add noise.
     for (let cursor = new Date(start); cursor <= finish; cursor = new Date(cursor.getTime() + DAY_MS)) {
+      const dayOfWeek = cursor.getDay()
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        continue
+      }
+
       if (cursor > todayAtMidnight) {
         result.push({ date: formatDateKey(cursor), Blocked: null, New: null, Active: null, Review: null, Done: null })
         continue
