@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
@@ -17,6 +17,7 @@ import {
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import { getStatusColumnColor, getTintedStatusColor, STATUS_COLUMNS } from '../utils/statusColumnStyles'
+import { formatDateLabel } from '../utils/dateOnly'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
@@ -58,18 +59,6 @@ function withAlpha(rgbColor: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-const DATE_LABEL_FORMATTER = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
-
-function formatDateLabel(dateKey: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey)
-  if (!match) {
-    return dateKey
-  }
-
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-  return DATE_LABEL_FORMATTER.format(date)
-}
-
 type ResolvedStatusColors = Record<(typeof STATUS_COLUMNS)[number], { fill: string; line: string }>
 
 function resolveStatusColors(palette: Theme['palette'], colorScheme: 'light' | 'dark'): ResolvedStatusColors {
@@ -88,37 +77,37 @@ function resolveStatusColors(palette: Theme['palette'], colorScheme: 'light' | '
 
 // The chart lives in a very short footer strip, so a canvas-drawn tooltip has nowhere to render
 // without being clipped. This renders the tooltip as a fixed-position DOM element instead, so it
-// can float above the chart and stay clamped inside the viewport.
-const TOOLTIP_ID = 'effort-flow-chart-tooltip'
-
-function getOrCreateTooltipEl(): HTMLDivElement {
-  let el = document.getElementById(TOOLTIP_ID) as HTMLDivElement | null
-  if (!el) {
-    el = document.createElement('div')
-    el.id = TOOLTIP_ID
-    Object.assign(el.style, {
-      position: 'fixed',
-      pointerEvents: 'none',
-      zIndex: '1500',
-      opacity: '0',
-      transition: 'opacity 0.08s ease',
-      padding: '6px 10px',
-      borderRadius: '4px',
-      background: 'rgba(20, 20, 20, 0.92)',
-      color: '#fff',
-      fontSize: '11px',
-      lineHeight: '1.5',
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
-      whiteSpace: 'nowrap',
-    } satisfies Partial<CSSStyleDeclaration>)
-    document.body.appendChild(el)
-  }
-
+// can float above the chart and stay clamped inside the viewport. Each chart instance gets its own
+// element (rather than a shared by-ID singleton) since the footer and dialog charts can be mounted
+// at the same time.
+function createTooltipEl(): HTMLDivElement {
+  const el = document.createElement('div')
+  Object.assign(el.style, {
+    position: 'fixed',
+    pointerEvents: 'none',
+    zIndex: '1500',
+    opacity: '0',
+    transition: 'opacity 0.08s ease',
+    padding: '6px 10px',
+    borderRadius: '4px',
+    background: 'rgba(20, 20, 20, 0.92)',
+    color: '#fff',
+    fontSize: '11px',
+    lineHeight: '1.5',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
+    whiteSpace: 'nowrap',
+  } satisfies Partial<CSSStyleDeclaration>)
+  document.body.appendChild(el)
   return el
 }
 
-function renderExternalTooltip({ chart, tooltip }: { chart: Chart; tooltip: TooltipModel<'line'> }) {
-  const tooltipEl = getOrCreateTooltipEl()
+function renderExternalTooltip(
+  { chart, tooltip }: { chart: Chart; tooltip: TooltipModel<'line'> },
+  tooltipEl: HTMLDivElement | null,
+) {
+  if (!tooltipEl) {
+    return
+  }
 
   if (tooltip.opacity === 0) {
     tooltipEl.style.opacity = '0'
@@ -165,6 +154,7 @@ function renderExternalTooltip({ chart, tooltip }: { chart: Chart; tooltip: Tool
 
 export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'compact' }: EffortFlowChartProps) {
   const theme = useTheme()
+  const tooltipElRef = useRef<HTMLDivElement | null>(null)
 
   // The color-scheme attribute that drives the theme's CSS custom properties is only applied to
   // the DOM after this render commits, so resolving colors during render would read the *previous*
@@ -176,8 +166,12 @@ export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'com
   }, [theme.palette, colorScheme])
 
   useLayoutEffect(() => {
+    const el = createTooltipEl()
+    tooltipElRef.current = el
+
     return () => {
-      document.getElementById(TOOLTIP_ID)?.remove()
+      el.remove()
+      tooltipElRef.current = null
     }
   }, [])
 
@@ -224,7 +218,8 @@ export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'com
         // reads top-down in the same visual order as the chart.
         tooltip: {
           enabled: false,
-          external: renderExternalTooltip,
+          external: (context: { chart: Chart; tooltip: TooltipModel<'line'> }) =>
+            renderExternalTooltip(context, tooltipElRef.current),
           itemSort: (a: TooltipItem<'line'>, b: TooltipItem<'line'>) => b.datasetIndex - a.datasetIndex,
         },
       },

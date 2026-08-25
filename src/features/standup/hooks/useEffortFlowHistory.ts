@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine, IterationWindowInfo, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import { resolveStatusFromStateAndTags, type TagRule } from '../../../ado/workItemStatus'
+import { resolveUpdateTimestamp, toTimestamp } from '../../../ado/workItemHistoryTimeline'
+import { EFFORT_FIELD_NAMES, parseEffort } from '../../../ado/workItemsApi'
+import { formatDateKey, parseDateOnly } from '../utils/dateOnly'
 import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 
 export type EffortFlowPoint = { date: string } & Record<StatusColumn, number | null>
@@ -19,52 +22,6 @@ type UseEffortFlowHistoryResult = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
-
-function parseDateOnly(value?: string): Date | null {
-  if (!value) {
-    return null
-  }
-
-  const datePart = value.slice(0, 10)
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart)
-  if (!match) {
-    const fallback = new Date(value)
-    return Number.isNaN(fallback.getTime()) ? null : fallback
-  }
-
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-}
-
-function toTimestamp(value: string | undefined): number | null {
-  if (!value) {
-    return null
-  }
-
-  const parsed = Date.parse(value)
-  return Number.isNaN(parsed) ? null : parsed
-}
-
-function resolveUpdateTimestamp(update: WorkItemUpdate, now: number): string | undefined {
-  const changedDateValue = update.fields?.['System.ChangedDate']?.newValue
-  const candidate = typeof changedDateValue === 'string' ? changedDateValue : update.revisedDate
-  const timestamp = toTimestamp(candidate)
-  return timestamp !== null && timestamp <= now ? candidate : undefined
-}
-
-function parseEffortValue(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) {
-      return parsed
-    }
-  }
-
-  return undefined
-}
 
 type TimelineEntry = {
   timestamp: number
@@ -104,9 +61,9 @@ function buildItemTimeline(item: WorkItemSummary, updates: WorkItemUpdate[], tag
       currentTags = typeof value === 'string' ? value : ''
     }
 
-    for (const fieldName of ['Microsoft.VSTS.Scheduling.Effort', 'Microsoft.VSTS.Scheduling.StoryPoints', 'Microsoft.VSTS.Scheduling.Size']) {
+    for (const fieldName of EFFORT_FIELD_NAMES) {
       if (Object.hasOwn(fields, fieldName)) {
-        const parsed = parseEffortValue(fields[fieldName]?.newValue)
+        const parsed = parseEffort(fields[fieldName]?.newValue)
         if (parsed !== undefined) {
           currentEffort = parsed
         }
@@ -145,13 +102,6 @@ function statusAsOf(timeline: TimelineEntry[], asOfMs: number): TimelineEntry | 
 
 function createEmptyTotals(): Record<StatusColumn, number> {
   return { Blocked: 0, New: 0, Active: 0, Review: 0, Done: 0 }
-}
-
-function formatDateKey(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 export function useEffortFlowHistory({

@@ -153,7 +153,7 @@ function chunkArray<T>(items: T[], chunkSize: number): T[][] {
   return chunks
 }
 
-function parseEffort(value: unknown): number | undefined {
+export function parseEffort(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value
   }
@@ -167,6 +167,13 @@ function parseEffort(value: unknown): number | undefined {
 
   return undefined
 }
+
+// Precedence order used when a work item tracks effort under more than one field.
+export const EFFORT_FIELD_NAMES = [
+  'Microsoft.VSTS.Scheduling.Effort',
+  'Microsoft.VSTS.Scheduling.StoryPoints',
+  'Microsoft.VSTS.Scheduling.Size',
+] as const
 
 function resolveEffort(fields: WorkItemApiItem['fields']): number | undefined {
   return (

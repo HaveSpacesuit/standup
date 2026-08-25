@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AdoQueryEngine, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
+import type { AdoQueryEngine, WorkItemSummary } from '../../../ado/queryEngine'
+import { isUsableHistoryTimestamp, resolveUpdateTimestamp, toTimestamp } from '../../../ado/workItemHistoryTimeline'
 import {
   getRelevantTagRuleSignature,
   resolveStatusFromStateAndTags,
@@ -45,31 +46,6 @@ type PullRequestDetailsResponse = {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const PULL_REQUEST_ARTIFACT_PREFIX = 'vstfs:///Git/PullRequestId/'
-
-function toTimestamp(value: string | undefined): number | null {
-  if (!value) {
-    return null
-  }
-
-  const parsed = Date.parse(value)
-  return Number.isNaN(parsed) ? null : parsed
-}
-
-function isUsableHistoryTimestamp(value: string | undefined, now = Date.now()): value is string {
-  const timestamp = toTimestamp(value)
-  return timestamp !== null && timestamp <= now
-}
-
-function resolveUpdateTimestamp(update: WorkItemUpdate, now = Date.now()): string | undefined {
-  const fieldChangedDate = update.fields?.['System.ChangedDate']?.newValue
-  const changedDateValue = typeof fieldChangedDate === 'string' ? fieldChangedDate : undefined
-
-  if (isUsableHistoryTimestamp(changedDateValue, now)) {
-    return changedDateValue
-  }
-
-  return isUsableHistoryTimestamp(update.revisedDate, now) ? update.revisedDate : undefined
-}
 
 function parseAssignedIdentityKey(value: unknown): string {
   if (!value || typeof value !== 'object') {

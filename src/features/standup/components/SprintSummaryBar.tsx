@@ -5,6 +5,7 @@ import svgWindowExpand from '@stratakit/icons/window-expand.svg'
 import type { IterationWindowInfo } from '../../../ado/queryEngine'
 import { EffortFlowChart } from './EffortFlowChart'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
+import { parseDateOnly } from '../utils/dateOnly'
 
 type SprintSummaryBarProps = {
   iterationWindow: IterationWindowInfo
@@ -12,24 +13,6 @@ type SprintSummaryBarProps = {
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
   colorScheme: 'light' | 'dark'
-}
-
-function parseDateOnly(value?: string): Date | null {
-  if (!value) {
-    return null
-  }
-
-  const datePart = value.slice(0, 10)
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart)
-  if (!match) {
-    const fallback = new Date(value)
-    return Number.isNaN(fallback.getTime()) ? null : fallback
-  }
-
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  return new Date(year, month - 1, day)
 }
 
 function formatDateRange(startDate?: string, finishDate?: string): string {
