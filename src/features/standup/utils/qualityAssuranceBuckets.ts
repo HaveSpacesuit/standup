@@ -243,13 +243,14 @@ function isNewCandidate(item: WorkItemSummary, config: QualityAssuranceProjectCo
  * reordering, board-column recalcs, and description tweaks that bump System.ChangedDate without
  * representing real QA progress.
  *
- * Iteration/scheduling changes are intentionally excluded — merely (re)scheduling an old item
+ * System.IterationPath changes are intentionally excluded — merely (re)scheduling an old item
  * into a sprint doesn't make it newly added or actively worked on.
  */
 const HIGH_IMPACT_UPDATE_FIELDS = [
   'System.State',
   'System.AreaPath',
   'System.Tags',
+  'System.AssignedTo',
 ] as const
 
 function hasRecentHighImpactActivity(
@@ -307,7 +308,12 @@ export function classifyQualityAssuranceItem(
   // still in testing → Ready for QA; moved to development → Needs follow-up; moved to done →
   // Recently completed. We scan the full recent history (not just the immediately prior state)
   // so multi-hop transitions like testing → done → development are handled correctly.
-  if (currentStateGroup === 'testing' && readyForQaRecently) {
+  //
+  // Still-in-testing items are also surfaced on other high-impact activity (e.g. reassignment)
+  // even without a fresh state transition — an item can sit in "Available for Testing" for a
+  // long time without its state changing, and reassigning it to a new tester is exactly the
+  // kind of QA-relevant progress this board should show.
+  if (currentStateGroup === 'testing' && (readyForQaRecently || hasRecentHighImpactActivity(item, updates, config))) {
     return 'needs-testing'
   }
 
