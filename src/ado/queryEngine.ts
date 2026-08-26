@@ -16,18 +16,17 @@ export type { ProjectWorkItemState } from './workItemTypesApi'
 
 
 export class AdoQueryEngine {
-  private static readonly DEFAULT_CACHE_TTL_MS = 60_000
-
   private readonly client: AdoHttpClient
   private readonly assigneeResolver: WorkItemAssigneeResolver
   private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
   private readonly qaRawDataCache = new Map<string, QualityAssuranceRawData>()
-  private readonly teamMembersCache = new Map<string, { expiresAt: number; value: TeamMember[] }>()
-  private readonly currentIterationCache = new Map<string, { expiresAt: number; value: IterationWindowInfo }>()
-  private readonly teamSubjectDescriptorCache = new Map<string, { expiresAt: number; value: string | null }>()
-  private readonly projectWorkItemStatesCache = new Map<string, { expiresAt: number; value: { states: ProjectWorkItemState[]; workItemTypes: string[] } }>()
-  private readonly teamIterationsCache = new Map<string, { expiresAt: number; value: TeamIterationOption[] }>()
-  private readonly workItemUpdatesCache = new Map<string, { expiresAt: number; value: WorkItemUpdate[] }>()
+  private readonly unlinkedPullRequestItemsCache = new Map<string, WorkItemSummary[]>()
+  private readonly teamMembersCache = new Map<string, TeamMember[]>()
+  private readonly currentIterationCache = new Map<string, IterationWindowInfo>()
+  private readonly teamSubjectDescriptorCache = new Map<string, string | null>()
+  private readonly projectWorkItemStatesCache = new Map<string, { states: ProjectWorkItemState[]; workItemTypes: string[] }>()
+  private readonly teamIterationsCache = new Map<string, TeamIterationOption[]>()
+  private readonly workItemUpdatesCache = new Map<string, WorkItemUpdate[]>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
@@ -42,15 +41,12 @@ export class AdoQueryEngine {
   ): Promise<{ states: ProjectWorkItemState[]; workItemTypes: string[] }> {
     const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}`
     const cached = this.projectWorkItemStatesCache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value
+    if (cached) {
+      return cached
     }
 
     const info = await fetchProjectWorkItemTypeInfo(this.client, team, signal)
-    this.projectWorkItemStatesCache.set(cacheKey, {
-      value: info,
-      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS * 60, // 1 hour — rarely changes
-    })
+    this.projectWorkItemStatesCache.set(cacheKey, info)
     return info
   }
 
@@ -74,15 +70,12 @@ export class AdoQueryEngine {
   ): Promise<TeamIterationOption[]> {
     const cacheKey = team.id
     const cached = this.teamIterationsCache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value
+    if (cached) {
+      return cached
     }
 
     const iterations = await fetchTeamIterations(this.client, team, signal)
-    this.teamIterationsCache.set(cacheKey, {
-      value: iterations,
-      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS * 15, // 15 minutes — timeframe shifts over time
-    })
+    this.teamIterationsCache.set(cacheKey, iterations)
     return iterations
   }
 
@@ -95,16 +88,13 @@ export class AdoQueryEngine {
 
     if (!options?.forceRefresh) {
       const cached = this.teamMembersCache.get(cacheKey)
-      if (cached && cached.expiresAt > Date.now()) {
-        return cached.value
+      if (cached) {
+        return cached
       }
     }
 
     const members = await fetchTeamMembers(this.client, team, signal)
-    this.teamMembersCache.set(cacheKey, {
-      value: members,
-      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,
-    })
+    this.teamMembersCache.set(cacheKey, members)
 
     return members
   }
@@ -191,11 +181,13 @@ export class AdoQueryEngine {
           this.qaRawDataCache.delete(key)
         }
       }
+      this.unlinkedPullRequestItemsCache.delete(teamId)
       return
     }
 
     this.teamWorkItemsCache.clear()
     this.qaRawDataCache.clear()
+    this.unlinkedPullRequestItemsCache.clear()
   }
 
   clearTeamMetadataCaches(
@@ -205,6 +197,8 @@ export class AdoQueryEngine {
       this.teamMembersCache.clear()
       this.currentIterationCache.clear()
       this.teamSubjectDescriptorCache.clear()
+      this.teamIterationsCache.clear()
+      this.workItemUpdatesCache.clear()
       return
     }
 
@@ -215,6 +209,10 @@ export class AdoQueryEngine {
     this.teamSubjectDescriptorCache.delete(
       `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}`,
     )
+    this.teamIterationsCache.delete(team.id)
+    // Item-history cache isn't keyed by team (work item IDs are org-wide), so a per-team
+    // refresh simply clears it all — cheap to refetch and keeps "Refresh" meaning "reload everything".
+    this.workItemUpdatesCache.clear()
   }
 
   async resolveWorkItemAssignee(
@@ -239,8 +237,8 @@ export class AdoQueryEngine {
   ): Promise<WorkItemUpdate[]> {
     const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${itemId}`
     const cached = this.workItemUpdatesCache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value
+    if (cached) {
+      return cached
     }
 
     const response = await this.client.request<WorkItemUpdatesResponse>({
@@ -254,10 +252,7 @@ export class AdoQueryEngine {
     })
 
     const value = response.value ?? []
-    this.workItemUpdatesCache.set(cacheKey, {
-      value,
-      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,
-    })
+    this.workItemUpdatesCache.set(cacheKey, value)
 
     return value
   }
@@ -271,16 +266,13 @@ export class AdoQueryEngine {
 
     if (!options?.forceRefresh) {
       const cached = this.teamSubjectDescriptorCache.get(cacheKey)
-      if (cached && cached.expiresAt > Date.now()) {
-        return cached.value
+      if (cached) {
+        return cached
       }
     }
 
     const descriptor = await fetchTeamSubjectDescriptor(this.client, team, signal)
-    this.teamSubjectDescriptorCache.set(cacheKey, {
-      value: descriptor,
-      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,
-    })
+    this.teamSubjectDescriptorCache.set(cacheKey, descriptor)
 
     return descriptor
   }
@@ -303,28 +295,35 @@ export class AdoQueryEngine {
 
     if (!options?.forceRefresh) {
       const cached = this.currentIterationCache.get(cacheKey)
-      if (cached && cached.expiresAt > Date.now()) {
-        return cached.value
+      if (cached) {
+        return cached
       }
     }
 
     const currentIterationInfo = await fetchIterationWindowInfo(this.client, team, signal)
-    this.currentIterationCache.set(cacheKey, {
-      value: currentIterationInfo,
-      expiresAt: Date.now() + AdoQueryEngine.DEFAULT_CACHE_TTL_MS,
-    })
+    this.currentIterationCache.set(cacheKey, currentIterationInfo)
 
     return currentIterationInfo
   }
 
   async getUnlinkedActivePullRequestItems(
-    team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'repoName'>,
     members: TeamMember[],
     visibleWorkItems: WorkItemSummary[],
     currentIteration: CurrentIterationInfo | null,
     signal?: AbortSignal,
+    options?: { forceRefresh?: boolean },
   ): Promise<WorkItemSummary[]> {
-    return fetchUnlinkedActivePullRequestItems(
+    const cacheKey = team.id
+
+    if (!options?.forceRefresh) {
+      const cached = this.unlinkedPullRequestItemsCache.get(cacheKey)
+      if (cached) {
+        return cached
+      }
+    }
+
+    const items = await fetchUnlinkedActivePullRequestItems(
       this.client,
       team,
       members,
@@ -332,5 +331,8 @@ export class AdoQueryEngine {
       currentIteration,
       signal,
     )
+    this.unlinkedPullRequestItemsCache.set(cacheKey, items)
+
+    return items
   }
 }

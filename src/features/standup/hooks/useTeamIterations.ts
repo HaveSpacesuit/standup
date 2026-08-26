@@ -6,6 +6,7 @@ import { isAbortError } from './queryErrors'
 type UseTeamIterationsArgs = {
   adoQueryEngine: AdoQueryEngine | null
   selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>
+  reloadNonce: number
 }
 
 type UseTeamIterationsResult = {
@@ -16,6 +17,7 @@ type UseTeamIterationsResult = {
 export function useTeamIterations({
   adoQueryEngine,
   selectedTeam,
+  reloadNonce,
 }: UseTeamIterationsArgs): UseTeamIterationsResult {
   const [iterations, setIterations] = useState<TeamIterationOption[]>([])
   const [iterationsLoading, setIterationsLoading] = useState(false)
@@ -51,7 +53,7 @@ export function useTeamIterations({
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, selectedTeam])
+  }, [adoQueryEngine, selectedTeam, reloadNonce])
 
   return { iterations, iterationsLoading }
 }

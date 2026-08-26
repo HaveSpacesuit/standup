@@ -139,6 +139,7 @@ export function useBoardViewModel({
   const { iterations: teamIterations, iterationsLoading: teamIterationsLoading } = useTeamIterations({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
+    reloadNonce,
   })
 
   const {

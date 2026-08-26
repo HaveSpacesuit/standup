@@ -5,7 +5,7 @@ import { isAbortError } from './queryErrors'
 
 type UsePullRequestBoardItemsArgs = {
   adoQueryEngine: AdoQueryEngine | null
-  selectedTeam: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>
+  selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'repoName'>
   currentIteration: CurrentIterationInfo | null
   members: TeamMember[]
   membersLoading: boolean
