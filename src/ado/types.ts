@@ -48,6 +48,34 @@ export type WorkItemPullRequestSummary = {
   recentActivityAt?: string
 }
 
+/** Shape of a Git pull request as returned by ADO's PR list/get endpoints — shared by every
+ * call site that fetches PR details, so a new field only needs to be added in one place. */
+export type PullRequestApiResponse = {
+  pullRequestId?: number
+  title?: string
+  status?: string
+  isDraft?: boolean
+  creationDate?: string
+  closedDate?: string
+  createdBy?: unknown
+  reviewers?: Array<{
+    id?: string
+    uniqueName?: string
+    displayName?: string
+    isContainer?: boolean
+    vote?: number
+  }>
+  repository?: {
+    id?: string
+    name?: string
+  }
+  _links?: {
+    web?: {
+      href?: string
+    }
+  }
+}
+
 export type PullRequestChecksAggregateState = 'passing' | 'pending' | 'failing'
 
 export type PullRequestCheckState = PullRequestChecksAggregateState

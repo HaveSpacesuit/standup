@@ -14,6 +14,24 @@ import type { QualityAssuranceRawData } from './workItemsApi'
 export type { CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
 
+// Shared cache-key builders so a getter and its corresponding `clear*Cache` method can never
+// drift apart and silently stop invalidating (each key shape is defined in exactly one place).
+function orgProjectCacheKey(team: Pick<TeamProfile, 'orgName' | 'projectName'>): string {
+  return `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}`
+}
+
+function teamSubjectDescriptorCacheKey(team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName'>): string {
+  return `${orgProjectCacheKey(team)}:${team.teamName.toLowerCase()}`
+}
+
+function iterationWindowCacheKey(team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>): string {
+  return `${teamSubjectDescriptorCacheKey(team)}:${team.iterationPath.toLowerCase()}`
+}
+
+function workItemUpdatesCacheKey(team: Pick<TeamProfile, 'orgName' | 'projectName'>, itemId: number): string {
+  return `${orgProjectCacheKey(team)}:${itemId}`
+}
+
 
 export class AdoQueryEngine {
   private readonly client: AdoHttpClient
@@ -39,7 +57,7 @@ export class AdoQueryEngine {
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
     signal?: AbortSignal,
   ): Promise<{ states: ProjectWorkItemState[]; workItemTypes: string[] }> {
-    const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}`
+    const cacheKey = orgProjectCacheKey(team)
     const cached = this.projectWorkItemStatesCache.get(cacheKey)
     if (cached) {
       return cached
@@ -203,12 +221,8 @@ export class AdoQueryEngine {
     }
 
     this.teamMembersCache.delete(team.id)
-    this.currentIterationCache.delete(
-      `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}:${team.iterationPath.toLowerCase()}`,
-    )
-    this.teamSubjectDescriptorCache.delete(
-      `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}`,
-    )
+    this.currentIterationCache.delete(iterationWindowCacheKey(team))
+    this.teamSubjectDescriptorCache.delete(teamSubjectDescriptorCacheKey(team))
     this.teamIterationsCache.delete(team.id)
     // Item-history cache isn't keyed by team (work item IDs are org-wide), so a per-team
     // refresh simply clears it all — cheap to refetch and keeps "Refresh" meaning "reload everything".
@@ -235,7 +249,7 @@ export class AdoQueryEngine {
     itemId: number,
     signal?: AbortSignal,
   ): Promise<WorkItemUpdate[]> {
-    const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${itemId}`
+    const cacheKey = workItemUpdatesCacheKey(team, itemId)
     const cached = this.workItemUpdatesCache.get(cacheKey)
     if (cached) {
       return cached
@@ -262,7 +276,7 @@ export class AdoQueryEngine {
     signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
   ): Promise<string | null> {
-    const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}`
+    const cacheKey = teamSubjectDescriptorCacheKey(team)
 
     if (!options?.forceRefresh) {
       const cached = this.teamSubjectDescriptorCache.get(cacheKey)
@@ -291,7 +305,7 @@ export class AdoQueryEngine {
     signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
   ): Promise<IterationWindowInfo> {
-    const cacheKey = `${team.orgName.toLowerCase()}:${team.projectName.toLowerCase()}:${team.teamName.toLowerCase()}:${team.iterationPath.toLowerCase()}`
+    const cacheKey = iterationWindowCacheKey(team)
 
     if (!options?.forceRefresh) {
       const cached = this.currentIterationCache.get(cacheKey)

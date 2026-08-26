@@ -1,7 +1,7 @@
 import type { TeamProfile } from '../appSettings'
 import { parseAssignedTo, toIdentityKeys } from './identity'
 import type { AdoRequestClient } from './httpClient'
-import type { CurrentIterationInfo, TeamMember, WorkItemPullRequestSummary, WorkItemSummary } from './types'
+import type { CurrentIterationInfo, PullRequestApiResponse, TeamMember, WorkItemPullRequestSummary, WorkItemSummary } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
 import { fetchPolicyEvaluationChecksSummary, fetchProjectId } from './policyEvaluationChecksApi'
 import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
@@ -10,32 +10,6 @@ import { fetchWorkItemIconMap } from './workItemIconsApi'
 
 type PullRequestListResponse = {
   value?: PullRequestApiResponse[]
-}
-
-type PullRequestApiResponse = {
-  pullRequestId?: number
-  title?: string
-  status?: string
-  isDraft?: boolean
-  creationDate?: string
-  closedDate?: string
-  createdBy?: unknown
-  reviewers?: Array<{
-    id?: string
-    uniqueName?: string
-    displayName?: string
-    isContainer?: boolean
-    vote?: number
-  }>
-  repository?: {
-    id?: string
-    name?: string
-  }
-  _links?: {
-    web?: {
-      href?: string
-    }
-  }
 }
 
 function addDays(timestamp: number, days: number): number {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine, WorkItemSummary } from '../../../ado/queryEngine'
 import { isUsableHistoryTimestamp, resolveUpdateTimestamp, toTimestamp } from '../../../ado/workItemHistoryTimeline'
+import { parsePullRequestArtifactLink } from '../../../ado/adoShared'
 import {
   getRelevantTagRuleSignature,
   resolveStatusFromStateAndTags,
@@ -45,7 +46,6 @@ type PullRequestDetailsResponse = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const PULL_REQUEST_ARTIFACT_PREFIX = 'vstfs:///Git/PullRequestId/'
 
 function parseAssignedIdentityKey(value: unknown): string {
   if (!value || typeof value !== 'object') {
@@ -66,33 +66,6 @@ function parseAssignedIdentityKey(value: unknown): string {
   }
 
   return ''
-}
-
-function parsePullRequestArtifactLink(url: string | undefined): { repositoryId: string; pullRequestId: number } | null {
-  if (!url) {
-    return null
-  }
-
-  const markerIndex = url.indexOf(PULL_REQUEST_ARTIFACT_PREFIX)
-  if (markerIndex === -1) {
-    return null
-  }
-
-  const encodedPayload = url.slice(markerIndex + PULL_REQUEST_ARTIFACT_PREFIX.length)
-  const decodedPayload = decodeURIComponent(encodedPayload)
-  const segments = decodedPayload.split('/').filter(Boolean)
-
-  if (segments.length < 3) {
-    return null
-  }
-
-  const repositoryId = segments[1]
-  const pullRequestId = Number(segments[2])
-  if (!repositoryId || !Number.isFinite(pullRequestId)) {
-    return null
-  }
-
-  return { repositoryId, pullRequestId }
 }
 
 function getThreadType(thread: PullRequestThread): string {
@@ -222,7 +195,7 @@ async function computeWorkItemHighlight(
     }
 
     for (const relation of update.relations?.added ?? []) {
-      if (relation.rel !== 'ArtifactLink') {
+      if (relation.rel !== 'ArtifactLink' || typeof relation.url !== 'string') {
         continue
       }
 
@@ -293,7 +266,7 @@ async function computeWorkItemHighlight(
     }
 
     for (const relation of update.relations?.added ?? []) {
-      if (relation.rel !== 'ArtifactLink') {
+      if (relation.rel !== 'ArtifactLink' || typeof relation.url !== 'string') {
         continue
       }
 

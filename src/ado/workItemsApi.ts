@@ -1,14 +1,15 @@
 import type { TeamProfile } from '../appSettings'
 import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
-import type { WorkItemPullRequestSummary, WorkItemSummary } from './types'
+import type { WorkItemPullRequestSummary, WorkItemSummary, PullRequestApiResponse } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
 import { buildIterationScopedWiql, buildQaBucketCandidatesWiql } from './wiql'
 import { fetchPolicyEvaluationChecksSummary, fetchProjectId } from './policyEvaluationChecksApi'
 import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
-import { getPullRequestIconUrl } from './adoShared'
+import { getPullRequestIconUrl, parsePullRequestArtifactLink, type PullRequestArtifactRef } from './adoShared'
 import resolveStatusFromStateAndTags from './workItemStatus'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
+import { mapWithConcurrency } from './concurrency'
 import {
   type WorkItemUpdatesResponse,
   type WorkItemUpdate,
@@ -77,72 +78,14 @@ type WorkItemRelationsItem = {
   }>
 }
 
-type PullRequestApiResponse = {
-  pullRequestId?: number
-  title?: string
-  status?: string
-  isDraft?: boolean
-  creationDate?: string
-  reviewers?: Array<{
-    id?: string
-    uniqueName?: string
-    displayName?: string
-    isContainer?: boolean
-    vote?: number
-  }>
-  repository?: {
-    id?: string
-    name?: string
-  }
-  _links?: {
-    web?: {
-      href?: string
-    }
-  }
-}
-
 type PullRequestListResponse = {
   value?: PullRequestApiResponse[]
 }
 
-type PullRequestRef = {
-  repositoryId: string
-  pullRequestId: number
-}
+type PullRequestRef = PullRequestArtifactRef
 
-const PULL_REQUEST_ARTIFACT_PREFIX = 'vstfs:///Git/PullRequestId/'
 const PULL_REQUEST_LOOKUP_CONCURRENCY = 8
 const WORK_ITEM_BATCH_LIMIT = 200
-
-async function mapWithConcurrency<TInput, TOutput>(
-  items: TInput[],
-  concurrency: number,
-  mapper: (item: TInput) => Promise<TOutput>,
-): Promise<TOutput[]> {
-  if (items.length === 0) {
-    return []
-  }
-
-  const outputs = new Array<TOutput>(items.length)
-  let nextIndex = 0
-
-  const worker = async () => {
-    while (true) {
-      const currentIndex = nextIndex
-      nextIndex += 1
-
-      if (currentIndex >= items.length) {
-        return
-      }
-
-      outputs[currentIndex] = await mapper(items[currentIndex])
-    }
-  }
-
-  const workerCount = Math.min(concurrency, items.length)
-  await Promise.all(Array.from({ length: workerCount }, () => worker()))
-  return outputs
-}
 
 function chunkArray<T>(items: T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) {
@@ -222,33 +165,6 @@ function resolveRecentActivityAt(fields: WorkItemApiItem['fields']): string | un
 function resolveCreatedAt(fields: WorkItemApiItem['fields']): string | undefined {
   const createdDate = fields?.['System.CreatedDate']
   return typeof createdDate === 'string' && createdDate.trim() ? createdDate : undefined
-}
-
-function parsePullRequestArtifactLink(url: string): PullRequestRef | null {
-  const markerIndex = url.indexOf(PULL_REQUEST_ARTIFACT_PREFIX)
-  if (markerIndex === -1) {
-    return null
-  }
-
-  const encodedPayload = url.slice(markerIndex + PULL_REQUEST_ARTIFACT_PREFIX.length)
-  const decodedPayload = decodeURIComponent(encodedPayload)
-  const segments = decodedPayload.split('/').filter(Boolean)
-
-  if (segments.length < 3) {
-    return null
-  }
-
-  const repositoryId = segments[1]
-  const pullRequestId = Number(segments[2])
-
-  if (!repositoryId || !Number.isFinite(pullRequestId)) {
-    return null
-  }
-
-  return {
-    repositoryId,
-    pullRequestId,
-  }
 }
 
 function buildPullRequestWebUrl(
