@@ -5,6 +5,7 @@ import type {
   TeamMember,
   WorkItemSummary,
 } from '../../../ado/queryEngine'
+import type { TeamProfile } from '../../../appSettings'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
 const ASSIGNEE_RESOLUTION_CONCURRENCY = 8
@@ -41,7 +42,7 @@ async function mapWithConcurrency<TInput, TOutput>(
 
 type UseWorkItemAssigneesArgs = {
   adoQueryEngine: AdoQueryEngine | null
-  orgName: string
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>
   members: TeamMember[]
   membersLoading: boolean
   membersError: string | null
@@ -58,7 +59,7 @@ type UseWorkItemAssigneesResult = {
 
 export function useWorkItemAssignees({
   adoQueryEngine,
-  orgName,
+  team,
   members,
   membersLoading,
   membersError,
@@ -119,7 +120,7 @@ export function useWorkItemAssignees({
       async (item) => ({
         id: item.id,
         assignee: await adoQueryEngine.resolveWorkItemAssignee(
-          orgName,
+          team,
           memberLookup,
           item,
           abortController.signal,
@@ -162,7 +163,7 @@ export function useWorkItemAssignees({
     members,
     membersError,
     membersLoading,
-    orgName,
+    team,
     workItems,
     workItemsError,
     workItemsLoading,

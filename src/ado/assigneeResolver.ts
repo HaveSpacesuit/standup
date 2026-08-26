@@ -1,30 +1,24 @@
 import { parseAssignedTo, toIdentityKeys, type IdentityRef } from './identity'
-import type { AdoRequestClient } from './httpClient'
-import type { ResolvedWorkItemAssignee, TeamMemberLookup, WorkItemSummary } from './types'
+import type { TeamProfile } from '../appSettings'
+import type { ResolvedWorkItemAssignee, TeamMemberLookup, WorkItemSummary, WorkItemUpdate } from './types'
 
-type WorkItemUpdatesResponse = {
-  count: number
-  value: WorkItemUpdateApiItem[]
-}
-
-type WorkItemUpdateApiItem = {
-  fields?: {
-    'System.AssignedTo'?: {
-      newValue?: unknown
-    }
-  }
-}
+/** Fetches (and, at the call site, caches) a work item's revision history — shared with every
+ * other feature that needs `/updates` so a given item's history is only requested once. */
+export type WorkItemUpdatesFetcher = (
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  workItemId: number,
+  signal?: AbortSignal,
+) => Promise<WorkItemUpdate[]>
 
 export class WorkItemAssigneeResolver {
-  private readonly client: AdoRequestClient
-  private readonly workItemAssignmentTrailCache = new Map<string, IdentityRef[]>()
+  private readonly fetchWorkItemUpdates: WorkItemUpdatesFetcher
 
-  constructor(client: AdoRequestClient) {
-    this.client = client
+  constructor(fetchWorkItemUpdates: WorkItemUpdatesFetcher) {
+    this.fetchWorkItemUpdates = fetchWorkItemUpdates
   }
 
   async resolveWorkItemAssignee(
-    orgName: string,
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
     teamMemberLookup: TeamMemberLookup,
     workItem: WorkItemSummary,
     signal?: AbortSignal,
@@ -46,7 +40,7 @@ export class WorkItemAssigneeResolver {
       }
     }
 
-    const assignmentTrail = await this.getWorkItemAssignmentTrail(orgName, workItem.id, signal)
+    const assignmentTrail = await this.getWorkItemAssignmentTrail(team, workItem.id, signal)
 
     for (const identity of assignmentTrail) {
       const match = this.matchTeamMember(teamMemberLookup, identity)
@@ -77,31 +71,15 @@ export class WorkItemAssigneeResolver {
   }
 
   private async getWorkItemAssignmentTrail(
-    orgName: string,
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
     workItemId: number,
     signal?: AbortSignal,
   ): Promise<IdentityRef[]> {
-    const cacheKey = `${orgName}:${workItemId}`
-    const cachedTrail = this.workItemAssignmentTrailCache.get(cacheKey)
-    if (cachedTrail) {
-      return cachedTrail
-    }
+    const updates = await this.fetchWorkItemUpdates(team, workItemId, signal)
 
-    const updatesResponse = await this.client.request<WorkItemUpdatesResponse>({
-      path: `/_apis/wit/workItems/${workItemId}/updates`,
-      params: {
-        'api-version': '7.1',
-      },
-      orgName,
-      signal,
-    })
-
-    const trail = (updatesResponse.value ?? [])
+    return updates
       .map((update) => parseAssignedTo(update.fields?.['System.AssignedTo']?.newValue))
       .filter((value): value is IdentityRef => Boolean(value))
       .reverse()
-
-    this.workItemAssignmentTrailCache.set(cacheKey, trail)
-    return trail
   }
 }

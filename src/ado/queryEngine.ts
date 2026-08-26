@@ -31,7 +31,9 @@ export class AdoQueryEngine {
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
-    this.assigneeResolver = new WorkItemAssigneeResolver(this.client)
+    // Route through getWorkItemUpdates so the assignee resolver shares its cache instead of
+    // issuing its own duplicate /updates requests for items already fetched elsewhere.
+    this.assigneeResolver = new WorkItemAssigneeResolver((team, itemId, signal) => this.getWorkItemUpdates(team, itemId, signal))
   }
 
   private async getProjectWorkItemTypeInfo(
@@ -167,6 +169,7 @@ export class AdoQueryEngine {
       includeWorkItemTypes: sortedTypes,
       includeIterationPaths: sortedIterations,
       lookbackDays: options?.lookbackDays,
+      fetchWorkItemUpdates: (itemId, itemSignal) => this.getWorkItemUpdates(team, itemId, itemSignal),
     })
     this.qaRawDataCache.set(cacheKey, raw)
     return raw
@@ -215,12 +218,12 @@ export class AdoQueryEngine {
   }
 
   async resolveWorkItemAssignee(
-    orgName: string,
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
     teamMemberLookup: TeamMemberLookup,
     workItem: WorkItemSummary,
     signal?: AbortSignal,
   ): Promise<ResolvedWorkItemAssignee> {
-    return this.assigneeResolver.resolveWorkItemAssignee(orgName, teamMemberLookup, workItem, signal)
+    return this.assigneeResolver.resolveWorkItemAssignee(team, teamMemberLookup, workItem, signal)
   }
 
   async request<T>(options: AdoRequestOptions): Promise<T> {

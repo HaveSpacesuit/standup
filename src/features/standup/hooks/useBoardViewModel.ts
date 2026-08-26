@@ -12,6 +12,7 @@ import { useBoardPreferences } from './useBoardPreferences'
 import { useTeamManagementUrl } from './useTeamManagementUrl'
 import { useVisibleBoardItems } from './useVisibleBoardItems'
 import { useQualityAssuranceBuckets } from './useQualityAssuranceBuckets'
+import { useActiveAppView } from './useAppNavigation'
 import { useProjectWorkItemStates } from './useProjectWorkItemStates'
 import { useTeamIterations } from './useTeamIterations'
 import { useAssignmentQueryFilters } from './useAssignmentQueryFilters'
@@ -107,6 +108,7 @@ export function useBoardViewModel({
   } = useBoardPreferences(teamProfiles)
 
   const forceRefreshRef = useRef(false)
+  const activeView = useActiveAppView()
 
   const selectedTeam = teamProfiles.find((team) => team.id === selectedTeamId) ?? null
   const effectiveTeam = selectedTeam ?? EMPTY_TEAM_PROFILE
@@ -193,7 +195,7 @@ export function useBoardViewModel({
 
   const { workItemAssignees, assigneesLoading, assigneesError } = useWorkItemAssignees({
     adoQueryEngine: dataQueryEngine,
-    orgName: effectiveTeam.orgName,
+    team: effectiveTeam,
     members,
     membersLoading,
     membersError,
@@ -212,6 +214,7 @@ export function useBoardViewModel({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
     reloadNonce,
+    enabled: activeView === 'qa-activity',
     includeWorkItemTypes: qaOptionsByTeam?.[effectiveTeam.id]?.includeWorkItemTypes,
     includeIterationPaths: selectedIterationPaths,
     lookbackDays: qaOptionsByTeam?.[effectiveTeam.id]?.lookbackDays,

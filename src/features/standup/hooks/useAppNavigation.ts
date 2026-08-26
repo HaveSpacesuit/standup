@@ -27,26 +27,10 @@ function getViewFromHash(hash: string): AppView {
   return 'team-assignments'
 }
 
-export function useAppNavigation({
-  patConfigured,
-  memberFilterOptions,
-  selectedMemberFilter,
-  onMemberFilterChange,
-  quickFilterInputRefs,
-}: UseAppNavigationArgs): UseAppNavigationResult {
+/** Tracks the URL-hash-driven active page, independent of the rest of the navigation
+ * wiring, so other hooks (e.g. gating the QA data fetch) can read it without a dependency cycle. */
+export function useActiveAppView(): AppView {
   const [activeView, setActiveView] = useState<AppView>(() => getViewFromHash(window.location.hash))
-
-  const onMemberFilterCycle = useCallback((direction: -1 | 1) => {
-    if (!patConfigured || memberFilterOptions.length === 0) {
-      return
-    }
-
-    const cycleValues = ['', ...memberFilterOptions]
-    const currentIndex = cycleValues.indexOf(selectedMemberFilter)
-    const safeCurrentIndex = currentIndex === -1 ? 0 : currentIndex
-    const nextIndex = (safeCurrentIndex + direction + cycleValues.length) % cycleValues.length
-    onMemberFilterChange(cycleValues[nextIndex])
-  }, [memberFilterOptions, onMemberFilterChange, patConfigured, selectedMemberFilter])
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -60,6 +44,30 @@ export function useAppNavigation({
       window.removeEventListener('hashchange', handleHashChange)
     }
   }, [])
+
+  return activeView
+}
+
+export function useAppNavigation({
+  patConfigured,
+  memberFilterOptions,
+  selectedMemberFilter,
+  onMemberFilterChange,
+  quickFilterInputRefs,
+}: UseAppNavigationArgs): UseAppNavigationResult {
+  const activeView = useActiveAppView()
+
+  const onMemberFilterCycle = useCallback((direction: -1 | 1) => {
+    if (!patConfigured || memberFilterOptions.length === 0) {
+      return
+    }
+
+    const cycleValues = ['', ...memberFilterOptions]
+    const currentIndex = cycleValues.indexOf(selectedMemberFilter)
+    const safeCurrentIndex = currentIndex === -1 ? 0 : currentIndex
+    const nextIndex = (safeCurrentIndex + direction + cycleValues.length) % cycleValues.length
+    onMemberFilterChange(cycleValues[nextIndex])
+  }, [memberFilterOptions, onMemberFilterChange, patConfigured, selectedMemberFilter])
 
   useEffect(() => {
     document.title =

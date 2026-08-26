@@ -132,14 +132,25 @@ function resolvePullRequestChecksSummary(
   }
 }
 
+// Project IDs never change for the life of an org/project pair, so a single in-memory
+// cache is safe to share across every call site (linked PRs, unlinked PRs, etc.).
+const projectIdCache = new Map<string, Promise<string | null>>()
+
 export async function fetchProjectId(
   client: AdoRequestClient,
   orgName: string,
   projectName: string,
   signal?: AbortSignal,
 ): Promise<string | null> {
-  try {
-    const response = await client.request<ProjectApiResponse>({
+  const cacheKey = `${orgName.toLowerCase()}:${projectName.toLowerCase()}`
+
+  const cached = projectIdCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const fetchPromise = client
+    .request<ProjectApiResponse>({
       method: 'GET',
       orgName,
       path: `/_apis/projects/${encodeURIComponent(projectName)}`,
@@ -148,12 +159,14 @@ export async function fetchProjectId(
       },
       signal,
     })
+    .then((response) => response.id?.trim() || null)
+    .catch(() => {
+      projectIdCache.delete(cacheKey)
+      return null
+    })
 
-    const projectId = response.id?.trim()
-    return projectId || null
-  } catch {
-    return null
-  }
+  projectIdCache.set(cacheKey, fetchPromise)
+  return fetchPromise
 }
 
 export async function fetchPolicyEvaluationChecksSummary(

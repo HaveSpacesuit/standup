@@ -11,6 +11,7 @@ type UseQualityAssuranceBucketsArgs = {
   adoQueryEngine: AdoQueryEngine | null
   selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>
   reloadNonce: number
+  enabled: boolean
   includeWorkItemTypes?: string[]
   includeIterationPaths?: string[]
   lookbackDays?: number
@@ -28,6 +29,7 @@ export function useQualityAssuranceBuckets({
   adoQueryEngine,
   selectedTeam,
   reloadNonce,
+  enabled,
   includeWorkItemTypes,
   includeIterationPaths,
   lookbackDays,
@@ -60,6 +62,14 @@ export function useQualityAssuranceBuckets({
   useEffect(() => {
     if (!adoQueryEngine) {
       setRawData(null)
+      setQaBucketsLoading(false)
+      setQaBucketsError(null)
+      return
+    }
+
+    // Skip the fetch (WIQL + batch + per-item /updates calls) until the QA tab is actually
+    // viewed — most sessions never open it, so this avoids a large amount of unused querying.
+    if (!enabled) {
       setQaBucketsLoading(false)
       setQaBucketsError(null)
       return
@@ -98,7 +108,7 @@ export function useQualityAssuranceBuckets({
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, reloadNonce, selectedTeam, includeWorkItemTypesKey, includeIterationPathsKey, lookbackDays])
+  }, [adoQueryEngine, enabled, reloadNonce, selectedTeam, includeWorkItemTypesKey, includeIterationPathsKey, lookbackDays])
 
   const qaBuckets = useMemo<QualityAssuranceBucket[]>(() => {
     if (!rawData) {

@@ -101,6 +101,10 @@ type PullRequestApiResponse = {
   }
 }
 
+type PullRequestListResponse = {
+  value?: PullRequestApiResponse[]
+}
+
 type PullRequestRef = {
   repositoryId: string
   pullRequestId: number
@@ -266,6 +270,41 @@ function buildPullRequestWebUrl(
   return `https://dev.azure.com/${encodeURIComponent(orgName)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(fallback.repositoryId)}/pullrequest/${fallback.pullRequestId}`
 }
 
+/** Fetches a repo's active + completed PR lists once so linked-PR resolution can be a
+ * map lookup instead of one GET request per distinct PR. */
+async function fetchRepositoryActiveAndCompletedPullRequests(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  repositoryId: string,
+  signal?: AbortSignal,
+): Promise<Map<number, PullRequestApiResponse>> {
+  const responses = await Promise.all(
+    (['active', 'completed'] as const).map((status) =>
+      client.request<PullRequestListResponse>({
+        method: 'GET',
+        orgName: team.orgName,
+        path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullrequests`,
+        params: {
+          'api-version': '7.1',
+          'searchCriteria.status': status,
+        },
+        signal,
+      }),
+    ),
+  )
+
+  const pullRequestsById = new Map<number, PullRequestApiResponse>()
+  for (const response of responses) {
+    for (const pullRequest of response.value ?? []) {
+      if (typeof pullRequest.pullRequestId === 'number') {
+        pullRequestsById.set(pullRequest.pullRequestId, pullRequest)
+      }
+    }
+  }
+
+  return pullRequestsById
+}
+
 async function fetchActivePullRequestsByWorkItem(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
@@ -290,6 +329,23 @@ async function fetchActivePullRequestsByWorkItem(
 
   const projectId = await fetchProjectId(client, team.orgName, team.projectName, signal)
 
+  // Resolve every linked PR from its repo's active/completed lists (2 calls per distinct
+  // repo) instead of issuing one GET per PR — repos are almost always shared across refs.
+  const repositoryIds = new Set([...uniqueRefMap.values()].map((ref) => ref.repositoryId))
+  const pullRequestsByRepository = new Map<string, Map<number, PullRequestApiResponse>>()
+  await Promise.all(
+    [...repositoryIds].map(async (repositoryId) => {
+      try {
+        pullRequestsByRepository.set(
+          repositoryId,
+          await fetchRepositoryActiveAndCompletedPullRequests(client, team, repositoryId, signal),
+        )
+      } catch {
+        pullRequestsByRepository.set(repositoryId, new Map())
+      }
+    }),
+  )
+
   const activePullRequestMap = new Map<string, WorkItemPullRequestSummary>()
 
   await mapWithConcurrency(
@@ -297,15 +353,10 @@ async function fetchActivePullRequestsByWorkItem(
     PULL_REQUEST_LOOKUP_CONCURRENCY,
     async ([key, ref]) => {
       try {
-        const pullRequest = await client.request<PullRequestApiResponse>({
-          method: 'GET',
-          orgName: team.orgName,
-          path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(ref.repositoryId)}/pullRequests/${ref.pullRequestId}`,
-          params: {
-            'api-version': '7.1',
-          },
-          signal,
-        })
+        const pullRequest = pullRequestsByRepository.get(ref.repositoryId)?.get(ref.pullRequestId)
+        if (!pullRequest) {
+          return
+        }
 
         const status = typeof pullRequest.status === 'string' ? pullRequest.status.toLowerCase() : ''
         if (status !== 'active' || pullRequest.isDraft === true) {
@@ -355,6 +406,8 @@ async function fetchActivePullRequestsByWorkItem(
   return result
 }
 
+/** Fetches PR artifact links for a set of work items via a separate Relations-expanded
+ * request — Azure DevOps rejects combining `$expand` with `fields` on workitemsbatch. */
 async function fetchPullRequestRefsByWorkItem(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName'>,
@@ -563,13 +616,18 @@ async function fetchQualityAssuranceWorkItemUpdates(
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
   workItemIds: number[],
   signal?: AbortSignal,
-): Promise<Record<number, ReturnType<typeof normalizeUpdates>>> {
-  const result: Record<number, ReturnType<typeof normalizeUpdates>> = {}
+  fetchWorkItemUpdates?: (workItemId: number, signal?: AbortSignal) => Promise<WorkItemUpdate[]>,
+): Promise<Record<number, WorkItemUpdate[]>> {
+  const result: Record<number, WorkItemUpdate[]> = {}
 
   await mapWithConcurrency(workItemIds, 6, async (workItemId) => {
     try {
-      const response = await fetchWorkItemUpdatesById(client, team, workItemId, signal)
-      result[workItemId] = normalizeUpdates(response)
+      // Prefer the caller's shared/cached fetcher so an item whose history was already
+      // pulled for the main board (or assignee resolution) isn't fetched a second time here.
+      const updates = fetchWorkItemUpdates
+        ? await fetchWorkItemUpdates(workItemId, signal)
+        : normalizeUpdates(await fetchWorkItemUpdatesById(client, team, workItemId, signal))
+      result[workItemId] = updates
     } catch {
       result[workItemId] = []
     }
@@ -595,12 +653,23 @@ export async function fetchQualityAssuranceRawData(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
   signal?: AbortSignal,
-  options?: { includeWorkItemTypes?: string[]; includeIterationPaths?: string[]; lookbackDays?: number },
+  options?: {
+    includeWorkItemTypes?: string[]
+    includeIterationPaths?: string[]
+    lookbackDays?: number
+    fetchWorkItemUpdates?: (workItemId: number, signal?: AbortSignal) => Promise<WorkItemUpdate[]>
+  },
 ): Promise<QualityAssuranceRawData> {
   const lookbackDays = normalizeQaLookbackDays(options?.lookbackDays ?? DEFAULT_QA_LOOKBACK_DAYS)
   const wiqlQuery = buildQaBucketCandidatesWiql(team.projectName, team.areaPath, lookbackDays, options?.includeWorkItemTypes, options?.includeIterationPaths)
   const candidates = await fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
-  const updatesByItemId = await fetchQualityAssuranceWorkItemUpdates(client, team, candidates.map((item) => item.id), signal)
+  const updatesByItemId = await fetchQualityAssuranceWorkItemUpdates(
+    client,
+    team,
+    candidates.map((item) => item.id),
+    signal,
+    options?.fetchWorkItemUpdates,
+  )
 
   return { candidates, updatesByItemId }
 }
