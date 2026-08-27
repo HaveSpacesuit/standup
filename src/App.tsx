@@ -236,6 +236,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           workItems: visibleBoardItems,
           currentIterationName,
           visitedStatusesByItemId,
+          members,
+          workItemAssignees,
         }}
       />
     </Box>

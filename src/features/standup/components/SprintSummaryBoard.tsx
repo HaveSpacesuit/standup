@@ -1,17 +1,18 @@
 import { Box, CircularProgress, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { useMemo } from 'react'
-import type { WorkItemSummary } from '../../../ado/queryEngine'
+import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import type { IdentityRef } from '../../../ado/identity'
 import {
   getStatusColumnBackground,
   getStatusColumnColor,
   STATUS_COLUMNS,
   type StatusColumn,
 } from '../utils/statusColumnStyles'
-import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
+import { sortWorkItemsBySprintStatusAndId } from '../utils/workItemSorting'
 import { WorkItemCard } from './WorkItemCard'
 
-const BOARD_GRID_TEMPLATE = 'repeat(5, minmax(200px, 1fr))'
+const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
 
 type SprintSummaryBoardProps = {
   patConfigured: boolean
@@ -22,6 +23,8 @@ type SprintSummaryBoardProps = {
   currentIterationName: string | null
   /** Distinct status columns each item occupied since the start of the current sprint, used to draw move-history arrows. */
   visitedStatusesByItemId: Record<number, StatusColumn[]>
+  members: TeamMember[]
+  workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
 function createEmptyStatusRecord(): Record<StatusColumn, number> {
@@ -75,7 +78,7 @@ function MoveHistoryArrow({
     <Box
       aria-hidden="true"
       sx={{
-        gridColumn: `${spanStart + 1} / ${spanEnd + 2}`,
+        gridColumn: `${spanStart + 2} / ${spanEnd + 3}`,
         gridRow: rowNumber,
         position: 'relative',
         pointerEvents: 'none',
@@ -134,22 +137,29 @@ export function SprintSummaryBoard({
   workItems,
   currentIterationName,
   visitedStatusesByItemId,
+  members,
+  workItemAssignees,
 }: SprintSummaryBoardProps) {
   const theme = useTheme()
   const renderStatusColumnBackground = (status: StatusColumn, columnIndex: number) =>
     getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme)
 
+  const reviewItems = useMemo(
+    () => workItems.filter((item) => item.kind !== 'pull-request'),
+    [workItems],
+  )
+
   const statusItemCounts = useMemo(() => {
     const counts = createEmptyStatusRecord()
-    for (const item of workItems) {
+    for (const item of reviewItems) {
       counts[item.status] += 1
     }
     return counts
-  }, [workItems])
+  }, [reviewItems])
 
   const statusEffortTotals = useMemo(() => {
     const totals = createEmptyStatusRecord()
-    for (const item of workItems) {
+    for (const item of reviewItems) {
       if (currentIterationName && item.sprintName !== currentIterationName) {
         continue
       }
@@ -159,7 +169,7 @@ export function SprintSummaryBoard({
       totals[item.status] += item.effort
     }
     return totals
-  }, [workItems, currentIterationName])
+  }, [reviewItems, currentIterationName])
 
   // A single global row order (grouped by status, then sprint/id) so each card gets its own row
   // and no other card ever sits to its left or right, leaving room for future move-history arrows.
@@ -167,19 +177,12 @@ export function SprintSummaryBoard({
     // Dedupe by id defensively: a stray duplicate (e.g. from an in-flight refetch) would otherwise
     // add an extra row whose arrow has no visible card paired with it.
     const uniqueItemsById = new Map<number, WorkItemSummary>()
-    for (const item of workItems) {
+    for (const item of reviewItems) {
       uniqueItemsById.set(item.id, item)
     }
 
-    const grouped: Record<StatusColumn, WorkItemSummary[]> = { Blocked: [], New: [], Active: [], Review: [], Done: [] }
-    for (const item of uniqueItemsById.values()) {
-      grouped[item.status].push(item)
-    }
-    for (const items of Object.values(grouped)) {
-      items.sort(sortWorkItemsBySprintAndId)
-    }
-    return STATUS_COLUMNS.flatMap((status) => grouped[status])
-  }, [workItems, currentIterationName])
+    return [...uniqueItemsById.values()].sort(sortWorkItemsBySprintStatusAndId)
+  }, [reviewItems, currentIterationName])
 
   if (!patConfigured) {
     return (
@@ -238,6 +241,19 @@ export function SprintSummaryBoard({
             bgcolor: 'background.paper',
           }}
         >
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+              Sprint
+            </Typography>
+          </Box>
           {STATUS_COLUMNS.map((status, columnIndex) => (
             <Box
               key={status}
@@ -312,6 +328,7 @@ export function SprintSummaryBoard({
               pointerEvents: 'none',
             }}
           >
+            <Box sx={{ bgcolor: 'background.paper' }} />
             {STATUS_COLUMNS.map((status, columnIndex) => (
               <Box
                 key={`background-${status}`}
@@ -329,23 +346,70 @@ export function SprintSummaryBoard({
               gridAutoRows: 'max-content',
             }}
           >
-            {orderedItems.map((item, rowIndex) => {
-              const rowNumber = rowIndex + 1
+            {orderedItems.map((item, itemIndex) => {
+              const isFirstItemInSprint = itemIndex === 0 || item.sprintName !== orderedItems[itemIndex - 1]?.sprintName
+               const rowNumber = itemIndex + 1 + orderedItems.slice(0, itemIndex).filter((candidate, index) =>
+                index === 0 || candidate.sprintName !== orderedItems[index - 1]?.sprintName,
+              ).length
               const currentColumnIndex = STATUS_COLUMNS.indexOf(item.status)
               const visitedStatuses = visitedStatusesByItemId[item.id] ?? []
               const sourceColumnIndex = findMoveHistorySourceColumnIndex(visitedStatuses, currentColumnIndex)
+              const resolvedAssignee = workItemAssignees[item.id]
+              const assignedMember = resolvedAssignee?.kind === 'team-member'
+                ? members.find((member) => member.displayName.toLowerCase() === resolvedAssignee.label.toLowerCase())
+                : undefined
+              const footerPerson: { label: string; identity: IdentityRef } | null = assignedMember
+                ? { label: '', identity: assignedMember }
+                : null
 
               return (
                 <Box key={item.id} sx={{ display: 'contents' }}>
+                  {isFirstItemInSprint && itemIndex > 0 ? (
+                    <Box
+                      aria-hidden="true"
+                      sx={{
+                        gridColumn: '1 / -1',
+                        gridRow: rowNumber,
+                        alignSelf: 'start',
+                        borderTop: '1px solid',
+                        borderColor: 'divider',
+                        pointerEvents: 'none',
+                        zIndex: 2,
+                      }}
+                    />
+                  ) : null}
+                  {isFirstItemInSprint ? (
+                    <Box
+                      sx={{
+                        gridColumn: 1,
+                        gridRow: rowNumber,
+                        px: 1.5,
+                        py: 1,
+                        borderColor: 'divider',
+                        bgcolor: 'background.paper',
+                      }}
+                    >
+                      <Typography variant="caption-md" sx={{ fontWeight: 700 }}>
+                        {item.sprintName ?? 'No sprint'}
+                      </Typography>
+                    </Box>
+                  ) : null}
                   <Box
                     sx={{
-                      gridColumn: currentColumnIndex + 1,
+                      gridColumn: currentColumnIndex + 2,
                       gridRow: rowNumber,
                       px: 1.5,
                       py: 1,
                     }}
                   >
-                    <WorkItemCard item={item} showState effortPlacement="footer" />
+                    <WorkItemCard
+                      item={item}
+                      showState
+                      effortPlacement="footer"
+                      hideSprint
+                      footerPerson={footerPerson}
+                      showFooterPersonWithEffort
+                    />
                   </Box>
                   {sourceColumnIndex !== null ? (
                     <MoveHistoryArrow

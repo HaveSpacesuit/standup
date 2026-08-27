@@ -1,5 +1,5 @@
 import { Box } from '@mui/material'
-import type { WorkItemSummary } from '../../../ado/queryEngine'
+import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { StatusColumn } from '../utils/statusColumnStyles'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { SprintSummaryBoard } from '../components/SprintSummaryBoard'
@@ -18,6 +18,8 @@ type SprintSummaryPageProps = {
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   visitedStatusesByItemId: Record<number, StatusColumn[]>
+  members: TeamMember[]
+  workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
 export function SprintSummaryPage({
@@ -32,6 +34,8 @@ export function SprintSummaryPage({
   workItems,
   currentIterationName,
   visitedStatusesByItemId,
+  members,
+  workItemAssignees,
 }: SprintSummaryPageProps) {
   const hasConfiguredTeams = teamOptions.length > 0
 
@@ -56,6 +60,8 @@ export function SprintSummaryPage({
             workItems={workItems}
             currentIterationName={currentIterationName}
             visitedStatusesByItemId={visitedStatusesByItemId}
+            members={members}
+            workItemAssignees={workItemAssignees}
           />
         </Box>
       )}

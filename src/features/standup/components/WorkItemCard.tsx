@@ -24,6 +24,10 @@ type WorkItemCardProps = {
   hideEffort?: boolean
   /** Controls where effort appears when it is shown. */
   effortPlacement?: 'badge' | 'footer'
+  /** Hides the sprint metadata in the footer when the surrounding view already groups by sprint. */
+  hideSprint?: boolean
+  /** Places the footer person beside effort instead of replacing the effort block. */
+  showFooterPersonWithEffort?: boolean
   /** A labeled person (e.g. "Created by" / "Assigned to") to show in the card footer. */
   footerPerson?: { label: string; identity: IdentityRef } | null
 }
@@ -37,6 +41,8 @@ export function WorkItemCard({
   showState = false,
   hideEffort = false,
   effortPlacement = 'badge',
+  hideSprint = false,
+  showFooterPersonWithEffort = false,
   footerPerson = null,
 }: WorkItemCardProps) {
   const theme = useTheme()
@@ -268,7 +274,22 @@ export function WorkItemCard({
                   justifyContent: 'space-between',
                 }}
               >
-                {showPerson && person ? (
+                {showFooterEffort ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '1 1 auto' }}>
+                    <Typography
+                      variant="body-sm"
+                      sx={{ fontSize: 10, color: 'text.secondary', flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                    >
+                      Effort
+                    </Typography>
+                    <Typography
+                      variant="body-sm"
+                      sx={{ fontSize: 11, fontWeight: 500, color: accent, minWidth: 0, whiteSpace: 'nowrap' }}
+                    >
+                      {item.effort}
+                    </Typography>
+                  </Box>
+                ) : showPerson && person ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '1 1 auto' }}>
                     <Typography
                       variant="body-sm"
@@ -289,24 +310,24 @@ export function WorkItemCard({
                       {personName}
                     </Typography>
                   </Box>
-                ) : showFooterEffort ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '1 1 auto' }}>
-                    <Typography
-                      variant="body-sm"
-                      sx={{ fontSize: 10, color: 'text.secondary', flex: '0 0 auto', whiteSpace: 'nowrap' }}
-                    >
-                      Effort
-                    </Typography>
-                    <Typography
-                      variant="body-sm"
-                      sx={{ fontSize: 11, fontWeight: 500, color: accent, minWidth: 0, whiteSpace: 'nowrap' }}
-                    >
-                      {item.effort}
-                    </Typography>
-                  </Box>
                 ) : null}
 
-                {item.sprintName ? (
+                {showPerson && showFooterPersonWithEffort && person ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '0 1 auto' }}>
+                    <Avatar
+                      alt={personName ?? ''}
+                      src={person.imageUrl}
+                      sx={{ width: 16, height: 16, fontSize: 8, flex: '0 0 auto' }}
+                    />
+                    <Typography
+                      variant="body-sm"
+                      sx={{ fontSize: 11, fontWeight: 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      title={personName}
+                    >
+                      {personName}
+                    </Typography>
+                  </Box>
+                ) : item.sprintName && !hideSprint ? (
                   <Typography
                     variant="body-sm"
                     sx={{ ml: 0.5, flex: '0 0 auto', fontSize: 10, lineHeight: 1.1, color: 'text.secondary', opacity: 0.85, whiteSpace: 'nowrap' }}
