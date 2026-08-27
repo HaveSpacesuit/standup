@@ -66,6 +66,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     changeHighlightsByItemId,
     effortFlowPoints,
     effortFlowLoading,
+    visitedStatusesByItemId,
     workItemAssignees,
     qaBuckets,
     qaBucketsLoading,
@@ -222,6 +223,19 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           projectWorkItemStatesLoading,
           teamIterations,
           teamIterationsLoading,
+        }}
+        sprintSummaryPageProps={{
+          teamOptions: teamProfiles,
+          selectedTeamId,
+          onTeamChange,
+          teamManagementUrl,
+          patConfigured,
+          colorScheme,
+          isLoading: isTeamDataLoading,
+          workItemsError,
+          workItems: visibleBoardItems,
+          currentIterationName,
+          visitedStatusesByItemId,
         }}
       />
     </Box>

@@ -19,6 +19,9 @@ type UseEffortFlowHistoryArgs = {
 type UseEffortFlowHistoryResult = {
   points: EffortFlowPoint[]
   isLoading: boolean
+  /** Distinct status columns each item occupied from the start of the current sprint through now,
+   * derived from the same per-item revision timelines used for the effort flow chart (no extra queries). */
+  visitedStatusesByItemId: Record<number, StatusColumn[]>
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -205,7 +208,36 @@ export function useEffortFlowHistory({
     return result
   }, [iterationWindow, timelinesByItemId, workItems])
 
-  return { points, isLoading }
+  const visitedStatusesByItemId = useMemo<Record<number, StatusColumn[]>>(() => {
+    const sprintStart = parseDateOnly(iterationWindow.current?.startDate)
+    if (!sprintStart) {
+      return {}
+    }
+
+    const sprintStartMs = sprintStart.getTime()
+    const nowMs = Date.now()
+    const result: Record<number, StatusColumn[]> = {}
+
+    for (const [itemIdText, timeline] of Object.entries(timelinesByItemId)) {
+      const visited = new Set<StatusColumn>()
+      const atSprintStart = statusAsOf(timeline, sprintStartMs)
+      if (atSprintStart) {
+        visited.add(atSprintStart.status)
+      }
+
+      for (const entry of timeline) {
+        if (entry.timestamp > sprintStartMs && entry.timestamp <= nowMs) {
+          visited.add(entry.status)
+        }
+      }
+
+      result[Number(itemIdText)] = Array.from(visited)
+    }
+
+    return result
+  }, [iterationWindow, timelinesByItemId])
+
+  return { points, isLoading, visitedStatusesByItemId }
 }
 
 export { STATUS_COLUMNS }

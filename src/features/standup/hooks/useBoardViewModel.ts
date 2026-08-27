@@ -26,6 +26,7 @@ import { resolveSelectedIterationPaths } from '../utils/qaOptions'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
+import type { StatusColumn } from '../utils/statusColumnStyles'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -61,6 +62,7 @@ type UseBoardViewModelResult = {
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
+  visitedStatusesByItemId: Record<number, StatusColumn[]>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
   qaBuckets: import('../utils/qualityAssuranceBuckets').QualityAssuranceBucket[]
   qaBucketsLoading: boolean
@@ -260,7 +262,7 @@ export function useBoardViewModel({
     [visibleBoardItems, currentIteration],
   )
 
-  const { points: effortFlowPoints, isLoading: effortFlowLoading } = useEffortFlowHistory({
+  const { points: effortFlowPoints, isLoading: effortFlowLoading, visitedStatusesByItemId } = useEffortFlowHistory({
     adoQueryEngine: dataQueryEngine,
     team: historyHighlightTeam,
     tagRules,
@@ -317,6 +319,7 @@ export function useBoardViewModel({
     changeHighlightsByItemId,
     effortFlowPoints,
     effortFlowLoading,
+    visitedStatusesByItemId,
     workItemAssignees,
     qaBuckets,
     qaBucketsLoading,

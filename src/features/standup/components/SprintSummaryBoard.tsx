@@ -1,0 +1,370 @@
+import { Box, CircularProgress, Typography } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
+import { useMemo } from 'react'
+import type { WorkItemSummary } from '../../../ado/queryEngine'
+import {
+  getStatusColumnBackground,
+  getStatusColumnColor,
+  STATUS_COLUMNS,
+  type StatusColumn,
+} from '../utils/statusColumnStyles'
+import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
+import { WorkItemCard } from './WorkItemCard'
+
+const BOARD_GRID_TEMPLATE = 'repeat(5, minmax(200px, 1fr))'
+
+type SprintSummaryBoardProps = {
+  patConfigured: boolean
+  isLoading: boolean
+  colorScheme: 'light' | 'dark'
+  workItemsError: string | null
+  workItems: WorkItemSummary[]
+  currentIterationName: string | null
+  /** Distinct status columns each item occupied since the start of the current sprint, used to draw move-history arrows. */
+  visitedStatusesByItemId: Record<number, StatusColumn[]>
+}
+
+function createEmptyStatusRecord(): Record<StatusColumn, number> {
+  return { Blocked: 0, New: 0, Active: 0, Review: 0, Done: 0 }
+}
+
+/** Finds the farthest column an item visited on one side of its current column since sprint start,
+ * preferring the left side per the move-history metric (left takes priority over right). */
+function findMoveHistorySourceColumnIndex(visitedStatuses: StatusColumn[], currentColumnIndex: number): number | null {
+  const visitedIndices = visitedStatuses.map((status) => STATUS_COLUMNS.indexOf(status))
+
+  const leftIndices = visitedIndices.filter((index) => index < currentColumnIndex)
+  if (leftIndices.length > 0) {
+    return Math.min(...leftIndices)
+  }
+
+  const rightIndices = visitedIndices.filter((index) => index > currentColumnIndex)
+  if (rightIndices.length > 0) {
+    return Math.max(...rightIndices)
+  }
+
+  return null
+}
+
+/** Draws a line + arrowhead from the center of the source (visited) column to the near border of the
+ * card's current column, spanning only the empty columns between them so it never overlaps a card. */
+function MoveHistoryArrow({
+  sourceColumnIndex,
+  currentColumnIndex,
+  rowNumber,
+  color,
+}: {
+  sourceColumnIndex: number
+  currentColumnIndex: number
+  rowNumber: number
+  color: string
+}) {
+  const pointsRight = sourceColumnIndex < currentColumnIndex
+  const spanStart = pointsRight ? sourceColumnIndex : currentColumnIndex + 1
+  const spanEnd = pointsRight ? currentColumnIndex - 1 : sourceColumnIndex
+  const spanCount = spanEnd - spanStart + 1
+  const sourceCenterFraction = pointsRight ? 0.5 / spanCount : (spanCount - 0.5) / spanCount
+  const lineStartPercent = pointsRight ? sourceCenterFraction * 100 : 0
+  const lineEndPercent = pointsRight ? 100 : sourceCenterFraction * 100
+  const arrowheadLengthPx = 8
+  // The card cell reserves 12px (px: 1.5) of padding before its visible border, so nudge the whole
+  // arrow that far past the column boundary to land right at the card instead of stopping short of it.
+  const cardGutterPx = 12
+
+  return (
+    <Box
+      aria-hidden="true"
+      sx={{
+        gridColumn: `${spanStart + 1} / ${spanEnd + 2}`,
+        gridRow: rowNumber,
+        position: 'relative',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: pointsRight ? 'flex-start' : 'flex-end',
+        transform: `translateX(${pointsRight ? cardGutterPx : -cardGutterPx}px)`,
+      }}
+    >
+      {/* A fixed (non-percentage) svg height keeps the line's y-coordinate a simple 1:1 mapping,
+       * flex-centered the same way as the arrowhead below it — percentage-stretching the svg to the
+       * row's full (variable) height was landing the line below where the arrowhead pointed. The svg
+       * is also shrunk by the arrowhead's own length so the line stops at its base instead of poking
+       * out past its (much narrower) tip. */}
+      <svg
+        width={`calc(100% - ${arrowheadLengthPx}px)`}
+        height="4"
+        viewBox="0 0 100 4"
+        preserveAspectRatio="none"
+        style={{ display: 'block', overflow: 'visible' }}
+      >
+        <line
+          x1={lineStartPercent}
+          y1={2}
+          x2={lineEndPercent}
+          y2={2}
+          stroke={color}
+          strokeWidth={2}
+          vectorEffect="non-scaling-stroke"
+          shapeRendering="crispEdges"
+        />
+      </svg>
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 0,
+          height: 0,
+          borderTop: '5px solid transparent',
+          borderBottom: '5px solid transparent',
+          ...(pointsRight
+            ? { right: 0, borderLeft: `${arrowheadLengthPx}px solid ${color}` }
+            : { left: 0, borderRight: `${arrowheadLengthPx}px solid ${color}` }),
+        }}
+      />
+    </Box>
+  )
+}
+
+export function SprintSummaryBoard({
+  patConfigured,
+  isLoading,
+  colorScheme,
+  workItemsError,
+  workItems,
+  currentIterationName,
+  visitedStatusesByItemId,
+}: SprintSummaryBoardProps) {
+  const theme = useTheme()
+  const renderStatusColumnBackground = (status: StatusColumn, columnIndex: number) =>
+    getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme)
+
+  // The board only shows current-sprint items — that's the same set already queried for the
+  // effort flow chart's move history, so no additional ADO requests are needed for the arrows.
+  const currentSprintItems = useMemo(
+    () => (currentIterationName ? workItems.filter((item) => item.sprintName === currentIterationName) : workItems),
+    [workItems, currentIterationName],
+  )
+
+  const statusItemCounts = useMemo(() => {
+    const counts = createEmptyStatusRecord()
+    for (const item of currentSprintItems) {
+      counts[item.status] += 1
+    }
+    return counts
+  }, [currentSprintItems])
+
+  const statusEffortTotals = useMemo(() => {
+    const totals = createEmptyStatusRecord()
+    for (const item of currentSprintItems) {
+      if (typeof item.effort !== 'number') {
+        continue
+      }
+      totals[item.status] += item.effort
+    }
+    return totals
+  }, [currentSprintItems])
+
+  // A single global row order (grouped by status, then sprint/id) so each card gets its own row
+  // and no other card ever sits to its left or right, leaving room for future move-history arrows.
+  const orderedItems = useMemo(() => {
+    // Dedupe by id defensively: a stray duplicate (e.g. from an in-flight refetch) would otherwise
+    // add an extra row whose arrow has no visible card paired with it.
+    const uniqueItemsById = new Map<number, WorkItemSummary>()
+    for (const item of currentSprintItems) {
+      uniqueItemsById.set(item.id, item)
+    }
+
+    const grouped: Record<StatusColumn, WorkItemSummary[]> = { Blocked: [], New: [], Active: [], Review: [], Done: [] }
+    for (const item of uniqueItemsById.values()) {
+      grouped[item.status].push(item)
+    }
+    for (const items of Object.values(grouped)) {
+      items.sort(sortWorkItemsBySprintAndId)
+    }
+    return STATUS_COLUMNS.flatMap((status) => grouped[status])
+  }, [currentSprintItems])
+
+  if (!patConfigured) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="body-sm" color="text.secondary">
+          Open Settings and add your Azure DevOps PAT to load board data.
+        </Typography>
+      </Box>
+    )
+  }
+
+  if (workItemsError) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="body-sm" color="error.main">
+          {workItemsError}
+        </Typography>
+      </Box>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+        <CircularProgress size={18} />
+        <Typography variant="body-sm" color="text.secondary">
+          Loading sprint summary...
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <Box sx={{ height: '100%', overflowX: 'auto' }}>
+      <Box
+        sx={{
+          minWidth: 1000,
+          height: '100%',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          scrollbarGutter: 'stable',
+          bgcolor: 'background.default',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 3,
+            display: 'grid',
+            gridTemplateColumns: BOARD_GRID_TEMPLATE,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+          }}
+        >
+          {STATUS_COLUMNS.map((status, columnIndex) => (
+            <Box
+              key={status}
+              sx={{
+                px: 2,
+                py: 1.5,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                backgroundImage: renderStatusColumnBackground(status, columnIndex),
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, minWidth: 0 }}>
+                <Box
+                  sx={{
+                    width: 4,
+                    minHeight: 34,
+                    borderRadius: 999,
+                    bgcolor: getStatusColumnColor(status, theme.palette),
+                    flex: '0 0 auto',
+                    alignSelf: 'stretch',
+                  }}
+                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
+                    <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                      {status}
+                    </Typography>
+                    <Box
+                      component="span"
+                      sx={{
+                        color: getStatusColumnColor(status, theme.palette),
+                        fontSize: 14,
+                        lineHeight: 1.25,
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        flex: '0 0 auto',
+                      }}
+                    >
+                      {statusItemCounts[status]}
+                    </Box>
+                  </Box>
+                  <Typography
+                    variant="caption-md"
+                    sx={{ mt: 0.25, color: 'text.secondary' }}
+                    title={
+                      currentIterationName
+                        ? `Effort total includes visible items from ${currentIterationName} only.`
+                        : 'Effort total includes visible items from the current sprint only.'
+                    }
+                  >
+                    Current sprint effort: {statusEffortTotals[status]}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+
+        <Box
+          sx={{
+            position: 'relative',
+            flex: '1 0 auto',
+          }}
+        >
+          <Box
+            aria-hidden="true"
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              gridTemplateColumns: BOARD_GRID_TEMPLATE,
+              pointerEvents: 'none',
+            }}
+          >
+            {STATUS_COLUMNS.map((status, columnIndex) => (
+              <Box
+                key={`background-${status}`}
+                sx={{ backgroundImage: renderStatusColumnBackground(status, columnIndex) }}
+              />
+            ))}
+          </Box>
+
+          <Box
+            sx={{
+              position: 'relative',
+              zIndex: 1,
+              display: 'grid',
+              gridTemplateColumns: BOARD_GRID_TEMPLATE,
+              gridAutoRows: 'max-content',
+            }}
+          >
+            {orderedItems.map((item, rowIndex) => {
+              const rowNumber = rowIndex + 1
+              const currentColumnIndex = STATUS_COLUMNS.indexOf(item.status)
+              const visitedStatuses = visitedStatusesByItemId[item.id] ?? []
+              const sourceColumnIndex = findMoveHistorySourceColumnIndex(visitedStatuses, currentColumnIndex)
+
+              return (
+                <Box key={item.id} sx={{ display: 'contents' }}>
+                  <Box
+                    sx={{
+                      gridColumn: currentColumnIndex + 1,
+                      gridRow: rowNumber,
+                      px: 1.5,
+                      py: 1,
+                    }}
+                  >
+                    <WorkItemCard item={item} showState effortPlacement="footer" />
+                  </Box>
+                  {sourceColumnIndex !== null ? (
+                    <MoveHistoryArrow
+                      sourceColumnIndex={sourceColumnIndex}
+                      currentColumnIndex={currentColumnIndex}
+                      rowNumber={rowNumber}
+                      color={getStatusColumnColor(STATUS_COLUMNS[sourceColumnIndex], theme.palette)}
+                    />
+                  ) : null}
+                </Box>
+              )
+            })}
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  )
+}
