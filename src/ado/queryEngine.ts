@@ -36,15 +36,15 @@ function workItemUpdatesCacheKey(team: Pick<TeamProfile, 'orgName' | 'projectNam
 export class AdoQueryEngine {
   private readonly client: AdoHttpClient
   private readonly assigneeResolver: WorkItemAssigneeResolver
-  private readonly teamWorkItemsCache = new Map<string, WorkItemSummary[]>()
-  private readonly qaRawDataCache = new Map<string, QualityAssuranceRawData>()
-  private readonly unlinkedPullRequestItemsCache = new Map<string, WorkItemSummary[]>()
-  private readonly teamMembersCache = new Map<string, TeamMember[]>()
-  private readonly currentIterationCache = new Map<string, IterationWindowInfo>()
-  private readonly teamSubjectDescriptorCache = new Map<string, string | null>()
-  private readonly projectWorkItemStatesCache = new Map<string, { states: ProjectWorkItemState[]; workItemTypes: string[] }>()
-  private readonly teamIterationsCache = new Map<string, TeamIterationOption[]>()
-  private readonly workItemUpdatesCache = new Map<string, WorkItemUpdate[]>()
+  private readonly teamWorkItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
+  private readonly qaRawDataCache = new Map<string, Promise<QualityAssuranceRawData>>()
+  private readonly unlinkedPullRequestItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
+  private readonly teamMembersCache = new Map<string, Promise<TeamMember[]>>()
+  private readonly currentIterationCache = new Map<string, Promise<IterationWindowInfo>>()
+  private readonly teamSubjectDescriptorCache = new Map<string, Promise<string | null>>()
+  private readonly projectWorkItemStatesCache = new Map<string, Promise<{ states: ProjectWorkItemState[]; workItemTypes: string[] }>>()
+  private readonly teamIterationsCache = new Map<string, Promise<TeamIterationOption[]>>()
+  private readonly workItemUpdatesCache = new Map<string, Promise<WorkItemUpdate[]>>()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
@@ -53,19 +53,35 @@ export class AdoQueryEngine {
     this.assigneeResolver = new WorkItemAssigneeResolver((team, itemId, signal) => this.getWorkItemUpdates(team, itemId, signal))
   }
 
-  private async getProjectWorkItemTypeInfo(
-    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
-    signal?: AbortSignal,
-  ): Promise<{ states: ProjectWorkItemState[]; workItemTypes: string[] }> {
-    const cacheKey = orgProjectCacheKey(team)
-    const cached = this.projectWorkItemStatesCache.get(cacheKey)
-    if (cached) {
-      return cached
+  private getOrLoadCached<T>(
+    cache: Map<string, Promise<T>>,
+    cacheKey: string,
+    load: () => Promise<T>,
+    forceRefresh?: boolean,
+  ): Promise<T> {
+    if (!forceRefresh) {
+      const cached = cache.get(cacheKey)
+      if (cached) {
+        return cached
+      }
     }
 
-    const info = await fetchProjectWorkItemTypeInfo(this.client, team, signal)
-    this.projectWorkItemStatesCache.set(cacheKey, info)
-    return info
+    const promise = load().catch((error: unknown) => {
+      if (cache.get(cacheKey) === promise) {
+        cache.delete(cacheKey)
+      }
+      throw error
+    })
+    cache.set(cacheKey, promise)
+    return promise
+  }
+
+  private async getProjectWorkItemTypeInfo(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
+    _signal?: AbortSignal,
+  ): Promise<{ states: ProjectWorkItemState[]; workItemTypes: string[] }> {
+    const cacheKey = orgProjectCacheKey(team)
+    return this.getOrLoadCached(this.projectWorkItemStatesCache, cacheKey, () => fetchProjectWorkItemTypeInfo(this.client, team))
   }
 
   async getProjectWorkItemStates(
@@ -84,42 +100,24 @@ export class AdoQueryEngine {
 
   async getTeamIterations(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
   ): Promise<TeamIterationOption[]> {
     const cacheKey = team.id
-    const cached = this.teamIterationsCache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
-
-    const iterations = await fetchTeamIterations(this.client, team, signal)
-    this.teamIterationsCache.set(cacheKey, iterations)
-    return iterations
+    return this.getOrLoadCached(this.teamIterationsCache, cacheKey, () => fetchTeamIterations(this.client, team))
   }
 
   async getTeamMembers(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'teamName'>,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
   ): Promise<TeamMember[]> {
     const cacheKey = team.id
-
-    if (!options?.forceRefresh) {
-      const cached = this.teamMembersCache.get(cacheKey)
-      if (cached) {
-        return cached
-      }
-    }
-
-    const members = await fetchTeamMembers(this.client, team, signal)
-    this.teamMembersCache.set(cacheKey, members)
-
-    return members
+    return this.getOrLoadCached(this.teamMembersCache, cacheKey, () => fetchTeamMembers(this.client, team), options?.forceRefresh)
   }
 
   async getWorkItemsForCurrentAndNextIteration(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath' | 'iterationPath'>,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
     options?: {
       forceRefresh?: boolean
       includeWorkItemTypes?: string[]
@@ -135,27 +133,16 @@ export class AdoQueryEngine {
     const filterKey = [typesKey, iterationsKey, iterationWindowKey].filter(Boolean).join('|')
     const cacheKey = filterKey ? `${team.id}:${filterKey}` : team.id
 
-    if (!options?.forceRefresh) {
-      const cachedItems = this.teamWorkItemsCache.get(cacheKey)
-      if (cachedItems) {
-        return cachedItems
-      }
-    }
-
-    const items = await fetchWorkItemsForCurrentAndNextIteration(this.client, team, signal, {
+    return this.getOrLoadCached(this.teamWorkItemsCache, cacheKey, () => fetchWorkItemsForCurrentAndNextIteration(this.client, team, undefined, {
       includeWorkItemTypes: sortedTypes,
       includeIterationPaths: sortedIterations,
       useDefaultIterationWindow: options?.useDefaultIterationWindow,
-    })
-
-    this.teamWorkItemsCache.set(cacheKey, items)
-
-    return items
+    }), options?.forceRefresh)
   }
 
   async getQualityAssuranceRawData(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
     options?: { forceRefresh?: boolean; includeWorkItemTypes?: string[]; includeIterationPaths?: string[]; lookbackDays?: number },
   ): Promise<QualityAssuranceRawData> {
     const sortedTypes = [...(options?.includeWorkItemTypes ?? [])].sort()
@@ -166,21 +153,12 @@ export class AdoQueryEngine {
     const filterKey = [typesKey, iterationsKey, lookbackKey].filter(Boolean).join('|')
     const cacheKey = filterKey ? `${team.id}:${filterKey}` : team.id
 
-    if (!options?.forceRefresh) {
-      const cached = this.qaRawDataCache.get(cacheKey)
-      if (cached) {
-        return cached
-      }
-    }
-
-    const raw = await fetchQualityAssuranceRawData(this.client, team, signal, {
+    return this.getOrLoadCached(this.qaRawDataCache, cacheKey, () => fetchQualityAssuranceRawData(this.client, team, undefined, {
       includeWorkItemTypes: sortedTypes,
       includeIterationPaths: sortedIterations,
       lookbackDays: options?.lookbackDays,
-      fetchWorkItemUpdates: (itemId, itemSignal) => this.getWorkItemUpdates(team, itemId, itemSignal),
-    })
-    this.qaRawDataCache.set(cacheKey, raw)
-    return raw
+      fetchWorkItemUpdates: (itemId) => this.getWorkItemUpdates(team, itemId),
+    }), options?.forceRefresh)
   }
 
   clearTeamWorkItemsCache(teamId?: string): void {
@@ -247,48 +225,30 @@ export class AdoQueryEngine {
   async getWorkItemUpdates(
     team: Pick<TeamProfile, 'orgName' | 'projectName'>,
     itemId: number,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
   ): Promise<WorkItemUpdate[]> {
     const cacheKey = workItemUpdatesCacheKey(team, itemId)
-    const cached = this.workItemUpdatesCache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
+    return this.getOrLoadCached(this.workItemUpdatesCache, cacheKey, async () => {
+      const response = await this.client.request<WorkItemUpdatesResponse>({
+        method: 'GET',
+        orgName: team.orgName,
+        path: `/${encodeURIComponent(team.projectName)}/_apis/wit/workItems/${itemId}/updates`,
+        params: {
+          'api-version': '7.1',
+        },
+      })
 
-    const response = await this.client.request<WorkItemUpdatesResponse>({
-      method: 'GET',
-      orgName: team.orgName,
-      path: `/${encodeURIComponent(team.projectName)}/_apis/wit/workItems/${itemId}/updates`,
-      params: {
-        'api-version': '7.1',
-      },
-      signal,
+      return response.value ?? []
     })
-
-    const value = response.value ?? []
-    this.workItemUpdatesCache.set(cacheKey, value)
-
-    return value
   }
 
   async getTeamSubjectDescriptor(
     team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName'>,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
   ): Promise<string | null> {
     const cacheKey = teamSubjectDescriptorCacheKey(team)
-
-    if (!options?.forceRefresh) {
-      const cached = this.teamSubjectDescriptorCache.get(cacheKey)
-      if (cached) {
-        return cached
-      }
-    }
-
-    const descriptor = await fetchTeamSubjectDescriptor(this.client, team, signal)
-    this.teamSubjectDescriptorCache.set(cacheKey, descriptor)
-
-    return descriptor
+    return this.getOrLoadCached(this.teamSubjectDescriptorCache, cacheKey, () => fetchTeamSubjectDescriptor(this.client, team), options?.forceRefresh)
   }
 
   async getCurrentIterationInfo(
@@ -302,22 +262,11 @@ export class AdoQueryEngine {
 
   async getIterationWindowInfo(
     team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
   ): Promise<IterationWindowInfo> {
     const cacheKey = iterationWindowCacheKey(team)
-
-    if (!options?.forceRefresh) {
-      const cached = this.currentIterationCache.get(cacheKey)
-      if (cached) {
-        return cached
-      }
-    }
-
-    const currentIterationInfo = await fetchIterationWindowInfo(this.client, team, signal)
-    this.currentIterationCache.set(cacheKey, currentIterationInfo)
-
-    return currentIterationInfo
+    return this.getOrLoadCached(this.currentIterationCache, cacheKey, () => fetchIterationWindowInfo(this.client, team), options?.forceRefresh)
   }
 
   async getUnlinkedActivePullRequestItems(
@@ -325,28 +274,16 @@ export class AdoQueryEngine {
     members: TeamMember[],
     visibleWorkItems: WorkItemSummary[],
     currentIteration: CurrentIterationInfo | null,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
   ): Promise<WorkItemSummary[]> {
     const cacheKey = team.id
-
-    if (!options?.forceRefresh) {
-      const cached = this.unlinkedPullRequestItemsCache.get(cacheKey)
-      if (cached) {
-        return cached
-      }
-    }
-
-    const items = await fetchUnlinkedActivePullRequestItems(
+    return this.getOrLoadCached(this.unlinkedPullRequestItemsCache, cacheKey, () => fetchUnlinkedActivePullRequestItems(
       this.client,
       team,
       members,
       visibleWorkItems,
       currentIteration,
-      signal,
-    )
-    this.unlinkedPullRequestItemsCache.set(cacheKey, items)
-
-    return items
+    ), options?.forceRefresh)
   }
 }
