@@ -8,6 +8,8 @@ import {
   MenuItem,
   Select,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   type SelectChangeEvent,
 } from '@mui/material'
 import type { RefObject } from 'react'
@@ -19,6 +21,7 @@ import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgArrowUp from '@stratakit/icons/arrow-up.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
+import svgFastForward from '@stratakit/icons/fast-forward.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
 
@@ -40,6 +43,8 @@ type StandupToolbarProps = {
   onRefresh: () => void
   onOpenTagRulesDialog: () => void
   isTeamDataLoading: boolean
+  isSprintView: boolean
+  onSprintViewChange: (isSprintView: boolean) => void
 }
 
 export function StandupToolbar({
@@ -60,6 +65,8 @@ export function StandupToolbar({
   onRefresh,
   onOpenTagRulesDialog,
   isTeamDataLoading,
+  isSprintView,
+  onSprintViewChange,
 }: StandupToolbarProps) {
   const hasConfiguredTeams = teamOptions.length > 0
 
@@ -168,6 +175,26 @@ export function StandupToolbar({
           selectedTeamId={selectedTeamId}
           onTeamChange={onTeamChange}
           teamManagementUrl={teamManagementUrl}
+          beforeChildren={
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={isSprintView ? 'sprint' : 'assignment'}
+              onChange={(_event, value: 'assignment' | 'sprint' | null) => {
+                if (value) {
+                  onSprintViewChange(value === 'sprint')
+                }
+              }}
+              aria-label="Assignments board view"
+            >
+              <ToggleButton value="assignment" label="Assignment view">
+                <Icon href={svgUsers} />
+              </ToggleButton>
+              <ToggleButton value="sprint" label="Sprint view">
+                <Icon href={svgFastForward} />
+              </ToggleButton>
+            </ToggleButtonGroup>
+          }
         >
           <IconButton
             size="small"

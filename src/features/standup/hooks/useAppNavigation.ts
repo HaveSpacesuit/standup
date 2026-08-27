@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
 
-export type AppView = 'team-assignments' | 'qa-activity' | 'sprint-review'
+export type AppView = 'team-assignments' | 'qa-activity'
 
 type UseAppNavigationArgs = {
   patConfigured: boolean
@@ -18,10 +18,6 @@ type UseAppNavigationResult = {
 function getViewFromHash(hash: string): AppView {
   if (hash === '#qa-activity') {
     return 'qa-activity'
-  }
-
-  if (hash === '#sprint-review') {
-    return 'sprint-review'
   }
 
   if (hash === '#team-assignments' || !hash) {
@@ -77,9 +73,7 @@ export function useAppNavigation({
     document.title =
       activeView === 'qa-activity'
         ? 'Quality Assurance'
-        : activeView === 'sprint-review'
-          ? 'Sprint Review'
-          : 'Team Assignments'
+        : 'Team Assignments'
   }, [activeView])
 
   useEffect(() => {

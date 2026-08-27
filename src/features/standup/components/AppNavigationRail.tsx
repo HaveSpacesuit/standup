@@ -26,7 +26,6 @@ import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
 import svgUsers from '@stratakit/icons/users.svg'
 import svgClipboard from '@stratakit/icons/clipboard.svg'
-import svgFastForward from '@stratakit/icons/fast-forward.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
@@ -328,14 +327,6 @@ export function AppNavigationRail({
               label="Quality assurance"
               icon={`${svgClipboard}#icon-large`}
               active={activeView === 'qa-activity'}
-            />
-          </NavigationRail.ListItem>
-          <NavigationRail.ListItem>
-            <NavigationRail.Anchor
-              href="#sprint-review"
-              label="Sprint review"
-              icon={`${svgFastForward}#icon-large`}
-              active={activeView === 'sprint-review'}
             />
           </NavigationRail.ListItem>
         </NavigationRail.List>

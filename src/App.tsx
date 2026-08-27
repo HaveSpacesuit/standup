@@ -198,6 +198,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onSprintFilterChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, sprintFilter: next }),
           teamIterations,
           teamIterationsLoading,
+          visitedStatusesByItemId,
         }}
         qualityAssurancePageProps={{
           patConfigured,
@@ -223,21 +224,6 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           projectWorkItemStatesLoading,
           teamIterations,
           teamIterationsLoading,
-        }}
-        sprintSummaryPageProps={{
-          teamOptions: teamProfiles,
-          selectedTeamId,
-          onTeamChange,
-          teamManagementUrl,
-          patConfigured,
-          colorScheme,
-          isLoading: isTeamDataLoading,
-          workItemsError,
-          workItems: visibleBoardItems,
-          currentIterationName,
-          visitedStatusesByItemId,
-          members,
-          workItemAssignees,
         }}
       />
     </Box>

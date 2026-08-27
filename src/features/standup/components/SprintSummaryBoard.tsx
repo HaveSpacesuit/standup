@@ -11,6 +11,7 @@ import {
 } from '../utils/statusColumnStyles'
 import { sortWorkItemsBySprintStatusAndId } from '../utils/workItemSorting'
 import { WorkItemCard } from './WorkItemCard'
+import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 
 const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
 
@@ -25,6 +26,7 @@ type SprintSummaryBoardProps = {
   visitedStatusesByItemId: Record<number, StatusColumn[]>
   members: TeamMember[]
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
+  changeHighlightsByItemId: Record<number, ChangeHighlightState>
 }
 
 function createEmptyStatusRecord(): Record<StatusColumn, number> {
@@ -139,6 +141,7 @@ export function SprintSummaryBoard({
   visitedStatusesByItemId,
   members,
   workItemAssignees,
+  changeHighlightsByItemId,
 }: SprintSummaryBoardProps) {
   const theme = useTheme()
   const renderStatusColumnBackground = (status: StatusColumn, columnIndex: number) =>
@@ -409,6 +412,7 @@ export function SprintSummaryBoard({
                       hideSprint
                       footerPerson={footerPerson}
                       showFooterPersonWithEffort
+                      highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
                     />
                   </Box>
                   {sourceColumnIndex !== null ? (

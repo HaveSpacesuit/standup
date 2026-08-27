@@ -10,6 +10,7 @@ import type {
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { KanbanBoard } from '../components/KanbanBoard'
+import { SprintSummaryBoard } from '../components/SprintSummaryBoard'
 import { HiddenTagsDialog } from '../components/HiddenTagsDialog'
 import { PatMissingNotice } from '../components/PatMissingNotice'
 import { SprintSummaryBar } from '../components/SprintSummaryBar'
@@ -61,6 +62,7 @@ type TeamAssignmentsPageProps = {
   onSprintFilterChange: (next: AssignmentSprintFilter) => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
+  visitedStatusesByItemId: Record<number, import('../utils/statusColumnStyles').StatusColumn[]>
 }
 
 export function TeamAssignmentsPage({
@@ -104,8 +106,10 @@ export function TeamAssignmentsPage({
   onSprintFilterChange,
   teamIterations,
   teamIterationsLoading,
+  visitedStatusesByItemId,
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
+  const [isSprintView, setIsSprintView] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
 
   return (
@@ -128,6 +132,8 @@ export function TeamAssignmentsPage({
         onRefresh={onRefresh}
         onOpenTagRulesDialog={() => setTagRulesDialogOpen(true)}
         isTeamDataLoading={isTeamDataLoading}
+        isSprintView={isSprintView}
+        onSprintViewChange={setIsSprintView}
       />
 
       {!hasConfiguredTeams ? (
@@ -135,19 +141,34 @@ export function TeamAssignmentsPage({
       ) : (
         <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ flex: 1, minHeight: 0 }}>
-            <KanbanBoard
-              patConfigured={patConfigured}
-              isLoading={isTeamDataLoading}
-              colorScheme={colorScheme}
-              membersError={membersError}
-              workItemsError={workItemsError}
-              assigneesError={assigneesError}
-              members={members}
-              workItems={workItems}
-              currentIterationName={currentIterationName}
-              changeHighlightsByItemId={changeHighlightsByItemId}
-              workItemAssignees={workItemAssignees}
-            />
+            {isSprintView ? (
+              <SprintSummaryBoard
+                patConfigured={patConfigured}
+                isLoading={isTeamDataLoading}
+                colorScheme={colorScheme}
+                workItemsError={workItemsError}
+                workItems={workItems}
+                currentIterationName={currentIterationName}
+                visitedStatusesByItemId={visitedStatusesByItemId}
+                members={members}
+                workItemAssignees={workItemAssignees}
+                changeHighlightsByItemId={changeHighlightsByItemId}
+              />
+            ) : (
+              <KanbanBoard
+                patConfigured={patConfigured}
+                isLoading={isTeamDataLoading}
+                colorScheme={colorScheme}
+                membersError={membersError}
+                workItemsError={workItemsError}
+                assigneesError={assigneesError}
+                members={members}
+                workItems={workItems}
+                currentIterationName={currentIterationName}
+                changeHighlightsByItemId={changeHighlightsByItemId}
+                workItemAssignees={workItemAssignees}
+              />
+            )}
           </Box>
 
           <SprintSummaryBar

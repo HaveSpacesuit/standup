@@ -13,6 +13,7 @@ type TeamToolbarControlsProps = {
   selectedTeamId: string
   onTeamChange: (value: string) => void
   teamManagementUrl: string
+  beforeChildren?: ReactNode
   children?: ReactNode
 }
 
@@ -21,6 +22,7 @@ export function TeamToolbarControls({
   selectedTeamId,
   onTeamChange,
   teamManagementUrl,
+  beforeChildren,
   children,
 }: TeamToolbarControlsProps) {
   const hasConfiguredTeams = teamOptions.length > 0
@@ -31,6 +33,7 @@ export function TeamToolbarControls({
 
   return (
     <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 420 }}>
+      {beforeChildren}
       <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
         Team
       </Typography>
