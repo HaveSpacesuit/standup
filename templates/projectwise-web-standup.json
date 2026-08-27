@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "exportedAt": "2026-08-24T21:06:22.356Z",
+  "exportedAt": "2026-08-27T22:02:23.472Z",
   "teamProfile": {
     "id": "pw-web",
     "orgName": "bentleycs",
@@ -46,7 +46,7 @@
       "Bug",
       "Product Backlog Item"
     ],
-    "lookbackDays": 14,
+    "lookbackDays": 21,
     "sprintFilter": {
       "current": true,
       "next": true,

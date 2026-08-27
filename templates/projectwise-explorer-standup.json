@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "exportedAt": "2026-08-24T21:13:37.614Z",
+  "exportedAt": "2026-08-27T22:02:20.810Z",
   "teamProfile": {
     "id": "pw-explorer",
     "orgName": "bentleycs",
@@ -38,6 +38,11 @@
       "id": "1786139226107-3u8qst4",
       "tag": "UXWork",
       "action": "unlisted"
+    },
+    {
+      "id": "1787868073220-exlev22",
+      "tag": "PMreview",
+      "action": "unlisted"
     }
   ],
   "qaOptions": {
@@ -52,7 +57,7 @@
       "Bug",
       "Product Backlog Item"
     ],
-    "lookbackDays": 7,
+    "lookbackDays": 21,
     "sprintFilter": {
       "current": true,
       "next": true,
