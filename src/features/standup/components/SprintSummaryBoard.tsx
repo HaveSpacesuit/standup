@@ -139,31 +139,27 @@ export function SprintSummaryBoard({
   const renderStatusColumnBackground = (status: StatusColumn, columnIndex: number) =>
     getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme)
 
-  // The board only shows current-sprint items — that's the same set already queried for the
-  // effort flow chart's move history, so no additional ADO requests are needed for the arrows.
-  const currentSprintItems = useMemo(
-    () => (currentIterationName ? workItems.filter((item) => item.sprintName === currentIterationName) : workItems),
-    [workItems, currentIterationName],
-  )
-
   const statusItemCounts = useMemo(() => {
     const counts = createEmptyStatusRecord()
-    for (const item of currentSprintItems) {
+    for (const item of workItems) {
       counts[item.status] += 1
     }
     return counts
-  }, [currentSprintItems])
+  }, [workItems])
 
   const statusEffortTotals = useMemo(() => {
     const totals = createEmptyStatusRecord()
-    for (const item of currentSprintItems) {
+    for (const item of workItems) {
+      if (currentIterationName && item.sprintName !== currentIterationName) {
+        continue
+      }
       if (typeof item.effort !== 'number') {
         continue
       }
       totals[item.status] += item.effort
     }
     return totals
-  }, [currentSprintItems])
+  }, [workItems, currentIterationName])
 
   // A single global row order (grouped by status, then sprint/id) so each card gets its own row
   // and no other card ever sits to its left or right, leaving room for future move-history arrows.
@@ -171,7 +167,7 @@ export function SprintSummaryBoard({
     // Dedupe by id defensively: a stray duplicate (e.g. from an in-flight refetch) would otherwise
     // add an extra row whose arrow has no visible card paired with it.
     const uniqueItemsById = new Map<number, WorkItemSummary>()
-    for (const item of currentSprintItems) {
+    for (const item of workItems) {
       uniqueItemsById.set(item.id, item)
     }
 
@@ -183,7 +179,7 @@ export function SprintSummaryBoard({
       items.sort(sortWorkItemsBySprintAndId)
     }
     return STATUS_COLUMNS.flatMap((status) => grouped[status])
-  }, [currentSprintItems])
+  }, [workItems, currentIterationName])
 
   if (!patConfigured) {
     return (

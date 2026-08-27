@@ -13,6 +13,7 @@ type UseEffortFlowHistoryArgs = {
   team: { orgName: string; projectName: string }
   tagRules: TagRule[]
   workItems: WorkItemSummary[]
+  historyWorkItems?: WorkItemSummary[]
   iterationWindow: IterationWindowInfo
 }
 
@@ -112,13 +113,14 @@ export function useEffortFlowHistory({
   team,
   tagRules,
   workItems,
+  historyWorkItems = workItems,
   iterationWindow,
 }: UseEffortFlowHistoryArgs): UseEffortFlowHistoryResult {
   const [timelinesByItemId, setTimelinesByItemId] = useState<Record<number, TimelineEntry[]>>({})
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (!adoQueryEngine || workItems.length === 0) {
+    if (!adoQueryEngine || historyWorkItems.length === 0) {
       setTimelinesByItemId({})
       return
     }
@@ -127,7 +129,7 @@ export function useEffortFlowHistory({
     setIsLoading(true)
 
     Promise.all(
-      workItems.map(async (item) => {
+      historyWorkItems.map(async (item) => {
         try {
           const updates = await adoQueryEngine.getWorkItemUpdates(team, item.id, abortController.signal)
           return [item.id, buildItemTimeline(item, updates, tagRules)] as const
@@ -157,7 +159,7 @@ export function useEffortFlowHistory({
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, team, tagRules, workItems])
+  }, [adoQueryEngine, team, tagRules, workItems, historyWorkItems])
 
   const points = useMemo<EffortFlowPoint[]>(() => {
     const start = parseDateOnly(iterationWindow.current?.startDate)

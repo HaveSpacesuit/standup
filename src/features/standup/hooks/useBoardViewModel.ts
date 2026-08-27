@@ -267,6 +267,7 @@ export function useBoardViewModel({
     team: historyHighlightTeam,
     tagRules,
     workItems: currentSprintBoardItems,
+    historyWorkItems: visibleBoardItems,
     iterationWindow,
   })
 
