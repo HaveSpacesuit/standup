@@ -5,25 +5,11 @@ import type { WorkItemSummary } from '../../../ado/queryEngine'
 
 export type StatusPaletteKey = 'error' | 'info' | 'primary' | 'warning' | 'success'
 
-export type TagLayout = {
-  visibleTags: string[]
-  hiddenCount: number
-}
-
 export type PullRequestReviewIcon = {
   href: string
   color: string
   label: string
   count?: number
-}
-
-const TAG_ROW_UNIT_BUDGET = 34
-const TAG_BASE_UNITS = 5
-const TAG_PER_CHAR_UNITS = 1
-const TAG_MIN_VISIBLE = 1
-
-export function getTagBudget(sprintName?: string): number {
-  return Math.max(TAG_ROW_UNIT_BUDGET - (sprintName ? 10 : 0), 16)
 }
 
 /**
@@ -37,36 +23,6 @@ export function abbreviateState(state: string): string {
     return state
   }
   return words.map((word) => word.charAt(0).toUpperCase()).join('')
-}
-
-export function buildTagLayout(tags: string[], budget: number): TagLayout {
-  if (tags.length === 0) {
-    return { visibleTags: [], hiddenCount: 0 }
-  }
-
-  const visibleTags: string[] = []
-  let usedUnits = 0
-
-  for (let index = 0; index < tags.length; index += 1) {
-    const tag = tags[index]
-    const tagUnits = TAG_BASE_UNITS + Math.min(tag.length, 20) * TAG_PER_CHAR_UNITS
-    const remainingCount = tags.length - (index + 1)
-    const reservedOverflowUnits = remainingCount > 0 ? 8 : 0
-    const canFit = usedUnits + tagUnits + reservedOverflowUnits <= budget
-
-    if (canFit || visibleTags.length < TAG_MIN_VISIBLE) {
-      visibleTags.push(tag)
-      usedUnits += tagUnits
-      continue
-    }
-
-    break
-  }
-
-  return {
-    visibleTags,
-    hiddenCount: Math.max(tags.length - visibleTags.length, 0),
-  }
 }
 
 export function getStatusPaletteKey(status: WorkItemSummary['status']): StatusPaletteKey {

@@ -1,10 +1,9 @@
 import { Typography } from '@mui/material'
 import Box from '@mui/material/Box'
-import type { TagLayout } from './workItemCardDisplay'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 
 type WorkItemTagsProps = {
-  tagLayout: TagLayout
+  tags: string[]
   sprintName?: string
   showRolloverIndicator?: boolean
   rolloverIndicatorColor?: string
@@ -12,10 +11,9 @@ type WorkItemTagsProps = {
 
 type BoardTagBadgeProps = {
   label: string
-  isOverflow?: boolean
 }
 
-function BoardTagBadge({ label, isOverflow = false }: BoardTagBadgeProps) {
+function BoardTagBadge({ label }: BoardTagBadgeProps) {
   return (
     <Box
       component="span"
@@ -24,7 +22,7 @@ function BoardTagBadge({ label, isOverflow = false }: BoardTagBadgeProps) {
         display: 'inline-flex',
         alignItems: 'center',
         height: 16,
-        maxWidth: isOverflow ? 'none' : 110,
+        maxWidth: '100%',
         minWidth: 0,
         px: 0.75,
         borderRadius: 999,
@@ -39,7 +37,7 @@ function BoardTagBadge({ label, isOverflow = false }: BoardTagBadgeProps) {
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        flex: isOverflow ? '0 0 auto' : '0 1 auto',
+        flex: '0 1 auto',
       }}
     >
       <Box
@@ -57,8 +55,8 @@ function BoardTagBadge({ label, isOverflow = false }: BoardTagBadgeProps) {
   )
 }
 
-export function WorkItemTags({ tagLayout, sprintName, showRolloverIndicator = false, rolloverIndicatorColor }: WorkItemTagsProps) {
-  if (tagLayout.visibleTags.length === 0 && !sprintName) {
+export function WorkItemTags({ tags, sprintName, showRolloverIndicator = false, rolloverIndicatorColor }: WorkItemTagsProps) {
+  if (tags.length === 0 && !sprintName) {
     return null
   }
 
@@ -70,7 +68,7 @@ export function WorkItemTags({ tagLayout, sprintName, showRolloverIndicator = fa
         display: 'flex',
         flexWrap: 'nowrap',
         gap: 0.5,
-        alignItems: 'center',
+        alignItems: 'flex-start',
         minWidth: 0,
         justifyContent: 'space-between',
       }}
@@ -78,19 +76,16 @@ export function WorkItemTags({ tagLayout, sprintName, showRolloverIndicator = fa
       <Box
         sx={{
           display: 'flex',
-          flexWrap: 'nowrap',
+          flexWrap: 'wrap',
           gap: 0.5,
           alignItems: 'center',
           minWidth: 0,
-          overflow: 'hidden',
           flex: '1 1 auto',
         }}
       >
-        {tagLayout.visibleTags.map((tag) => (
+        {tags.map((tag) => (
           <BoardTagBadge key={tag} label={tag} />
         ))}
-
-        {tagLayout.hiddenCount > 0 ? <BoardTagBadge label={`+${tagLayout.hiddenCount}`} isOverflow /> : null}
       </Box>
 
       {sprintName ? (

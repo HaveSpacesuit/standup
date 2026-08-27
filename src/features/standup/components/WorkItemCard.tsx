@@ -8,9 +8,7 @@ import { WorkItemTags } from './WorkItemTags'
 import { PullRequestSection } from './PullRequestSection'
 import {
   abbreviateState,
-  buildTagLayout,
   getStatusPaletteKey,
-  getTagBudget,
 } from './workItemCardDisplay'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 
@@ -72,13 +70,11 @@ export function WorkItemCard({
   const sortedTags = [...(item.tags ?? [])].sort((left, right) =>
     left.localeCompare(right, undefined, { sensitivity: 'base' }),
   )
-  const tagBudget = getTagBudget(item.sprintName)
-  const tagLayout = buildTagLayout(sortedTags, tagBudget)
 
   const person = footerPerson?.identity
   const personName = person?.displayName ?? person?.uniqueName
   const showPerson = Boolean(!isPullRequestOnly && person && (personName || person.imageUrl))
-  const hasVisibleTags = tagLayout.visibleTags.length > 0
+  const hasVisibleTags = sortedTags.length > 0
   const showFooterEffort = !hideEffort && effortPlacement === 'footer' && typeof item.effort === 'number' && !isPullRequestOnly
   const showTagsRow = hasVisibleTags || (!showPerson && !showFooterEffort)
 
@@ -234,7 +230,7 @@ export function WorkItemCard({
 
             {showTagsRow ? (
               <WorkItemTags
-                tagLayout={tagLayout}
+                tags={sortedTags}
                 sprintName={showPerson || showFooterEffort ? undefined : item.sprintName}
                 showRolloverIndicator={showRolloverIndicator && !hideSprint}
                 rolloverIndicatorColor={accent}
