@@ -12,6 +12,7 @@ import {
   getStatusPaletteKey,
   getTagBudget,
 } from './workItemCardDisplay'
+import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 
 type WorkItemCardProps = {
   item: WorkItemSummary
@@ -26,6 +27,8 @@ type WorkItemCardProps = {
   effortPlacement?: 'badge' | 'footer'
   /** Hides the sprint metadata in the footer when the surrounding view already groups by sprint. */
   hideSprint?: boolean
+  /** Shows an assignments-only indicator when the item moved from the previous sprint into the current one. */
+  showRolloverIndicator?: boolean
   /** Places the footer person beside effort instead of replacing the effort block. */
   showFooterPersonWithEffort?: boolean
   /** A labeled person (e.g. "Created by" / "Assigned to") to show in the card footer. */
@@ -42,6 +45,7 @@ export function WorkItemCard({
   hideEffort = false,
   effortPlacement = 'badge',
   hideSprint = false,
+  showRolloverIndicator = false,
   showFooterPersonWithEffort = false,
   footerPerson = null,
 }: WorkItemCardProps) {
@@ -232,6 +236,8 @@ export function WorkItemCard({
               <WorkItemTags
                 tagLayout={tagLayout}
                 sprintName={showPerson || showFooterEffort ? undefined : item.sprintName}
+                showRolloverIndicator={showRolloverIndicator && !hideSprint}
+                rolloverIndicatorColor={accent}
               />
             ) : null}
 
@@ -328,12 +334,15 @@ export function WorkItemCard({
                     </Typography>
                   </Box>
                 ) : item.sprintName && !hideSprint ? (
-                  <Typography
-                    variant="body-sm"
-                    sx={{ ml: 0.5, flex: '0 0 auto', fontSize: 10, lineHeight: 1.1, color: 'text.secondary', opacity: 0.85, whiteSpace: 'nowrap' }}
-                  >
-                    Sprint {item.sprintName}
-                  </Typography>
+                  <Box sx={{ ml: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.35, flex: '0 0 auto', color: 'text.secondary', opacity: 0.85 }}>
+                    {showRolloverIndicator ? <RolloverSprintIndicator color={accent} /> : null}
+                    <Typography
+                      variant="body-sm"
+                      sx={{ fontSize: 10, lineHeight: 1.1, whiteSpace: 'nowrap' }}
+                    >
+                      Sprint {item.sprintName}
+                    </Typography>
+                  </Box>
                 ) : null}
               </Box>
             ) : null}

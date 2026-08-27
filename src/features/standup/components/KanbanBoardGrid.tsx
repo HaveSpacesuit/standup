@@ -24,6 +24,7 @@ type KanbanBoardGridProps = {
   renderStatusColumnBackground: (status: StatusColumn, columnIndex: number) => string
   onSetCellExpanded: (cellKey: string, expanded: boolean) => void
   changeHighlightsByItemId: Record<number, WorkItemCardHighlightState>
+  rolledOverItemIds: Record<number, boolean>
 }
 
 export function KanbanBoardGrid({
@@ -38,6 +39,7 @@ export function KanbanBoardGrid({
   renderStatusColumnBackground,
   onSetCellExpanded,
   changeHighlightsByItemId,
+  rolledOverItemIds,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
 
@@ -251,6 +253,7 @@ export function KanbanBoardGrid({
                             key={item.id}
                             item={item}
                             highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
+                            showRolloverIndicator={rolledOverItemIds[item.id] === true}
                             showState
                             effortPlacement="footer"
                           />

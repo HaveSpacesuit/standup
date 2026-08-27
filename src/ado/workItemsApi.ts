@@ -145,6 +145,11 @@ function resolveSprintName(fields: WorkItemApiItem['fields']): string | undefine
   return segments.length > 0 ? segments[segments.length - 1] : trimmed
 }
 
+function resolveIterationPath(fields: WorkItemApiItem['fields']): string | undefined {
+  const path = fields?.['System.IterationPath']
+  return typeof path === 'string' && path.trim() ? path.trim() : undefined
+}
+
 function resolveTags(fields: WorkItemApiItem['fields']): string[] {
   const rawTags = fields?.['System.Tags']
   if (typeof rawTags !== 'string') {
@@ -471,6 +476,7 @@ async function fetchWorkItemsByWiql(
         recentActivityAt: resolveRecentActivityAt(item.fields),
         tags: resolveTags(item.fields),
         sprintName: resolveSprintName(item.fields),
+        iterationPath: resolveIterationPath(item.fields),
         activePullRequests: activePullRequestsByWorkItem[item.id] ?? [],
         linkedPullRequestIds: (pullRequestRefsByWorkItem.get(item.id) ?? []).map((ref) => ref.pullRequestId),
         workItemUrl: `https://dev.azure.com/${encodeURIComponent(team.orgName)}/${encodeURIComponent(team.projectName)}/_workitems/edit/${item.id}`,

@@ -63,6 +63,7 @@ type TeamAssignmentsPageProps = {
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
   visitedStatusesByItemId: Record<number, import('../utils/statusColumnStyles').StatusColumn[]>
+  rolledOverItemIds: Record<number, boolean>
 }
 
 export function TeamAssignmentsPage({
@@ -107,6 +108,7 @@ export function TeamAssignmentsPage({
   teamIterations,
   teamIterationsLoading,
   visitedStatusesByItemId,
+  rolledOverItemIds,
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
   const [isSprintView, setIsSprintView] = useState(false)
@@ -166,6 +168,7 @@ export function TeamAssignmentsPage({
                 workItems={workItems}
                 currentIterationName={currentIterationName}
                 changeHighlightsByItemId={changeHighlightsByItemId}
+                rolledOverItemIds={rolledOverItemIds}
                 workItemAssignees={workItemAssignees}
               />
             )}

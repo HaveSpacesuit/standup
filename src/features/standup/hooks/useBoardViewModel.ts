@@ -16,6 +16,7 @@ import { useActiveAppView } from './useAppNavigation'
 import { useProjectWorkItemStates } from './useProjectWorkItemStates'
 import { useTeamIterations } from './useTeamIterations'
 import { useAssignmentQueryFilters } from './useAssignmentQueryFilters'
+import { useIterationRolloverFlags } from './useIterationRolloverFlags'
 import {
   applyTagRulesToItem,
   normalizeTeamMemberLabel,
@@ -63,6 +64,7 @@ type UseBoardViewModelResult = {
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
   visitedStatusesByItemId: Record<number, StatusColumn[]>
+  rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
   qaBuckets: import('../utils/qualityAssuranceBuckets').QualityAssuranceBucket[]
   qaBucketsLoading: boolean
@@ -271,6 +273,14 @@ export function useBoardViewModel({
     iterationWindow,
   })
 
+  const rolledOverItemIds = useIterationRolloverFlags({
+    adoQueryEngine: dataQueryEngine,
+    team: historyHighlightTeam,
+    workItems: visibleBoardItems,
+    iterationWindow,
+    teamIterations,
+  })
+
   useEffect(() => {
     if (!selectedMemberFilter) {
       return
@@ -321,6 +331,7 @@ export function useBoardViewModel({
     effortFlowPoints,
     effortFlowLoading,
     visitedStatusesByItemId,
+    rolledOverItemIds,
     workItemAssignees,
     qaBuckets,
     qaBucketsLoading,

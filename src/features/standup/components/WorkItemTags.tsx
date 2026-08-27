@@ -1,10 +1,13 @@
 import { Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import type { TagLayout } from './workItemCardDisplay'
+import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 
 type WorkItemTagsProps = {
   tagLayout: TagLayout
   sprintName?: string
+  showRolloverIndicator?: boolean
+  rolloverIndicatorColor?: string
 }
 
 type BoardTagBadgeProps = {
@@ -54,7 +57,7 @@ function BoardTagBadge({ label, isOverflow = false }: BoardTagBadgeProps) {
   )
 }
 
-export function WorkItemTags({ tagLayout, sprintName }: WorkItemTagsProps) {
+export function WorkItemTags({ tagLayout, sprintName, showRolloverIndicator = false, rolloverIndicatorColor }: WorkItemTagsProps) {
   if (tagLayout.visibleTags.length === 0 && !sprintName) {
     return null
   }
@@ -91,20 +94,19 @@ export function WorkItemTags({ tagLayout, sprintName }: WorkItemTagsProps) {
       </Box>
 
       {sprintName ? (
-        <Typography
-          variant="body-sm"
-          sx={{
-            ml: 0.5,
-            flex: '0 0 auto',
-            fontSize: 10,
-            lineHeight: 1.1,
-            color: 'text.secondary',
-            opacity: 0.85,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Sprint {sprintName}
-        </Typography>
+        <Box sx={{ ml: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.35, flex: '0 0 auto', color: 'text.secondary', opacity: 0.85 }}>
+          {showRolloverIndicator ? <RolloverSprintIndicator color={rolloverIndicatorColor} /> : null}
+          <Typography
+            variant="body-sm"
+            sx={{
+              fontSize: 10,
+              lineHeight: 1.1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Sprint {sprintName}
+          </Typography>
+        </Box>
       ) : null}
     </Box>
   )

@@ -107,6 +107,7 @@ export type WorkItemSummary = {
   recentActivityAt?: string
   tags?: string[]
   sprintName?: string
+  iterationPath?: string
   activePullRequests?: WorkItemPullRequestSummary[]
   linkedPullRequestIds?: number[]
   pullRequest?: WorkItemPullRequestSummary

@@ -26,6 +26,7 @@ type KanbanBoardProps = {
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
+  rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
@@ -53,6 +54,7 @@ export function KanbanBoard({
   workItems,
   currentIterationName,
   changeHighlightsByItemId,
+  rolledOverItemIds,
   workItemAssignees,
 }: KanbanBoardProps) {
   const theme = useTheme()
@@ -227,6 +229,7 @@ export function KanbanBoard({
         renderStatusColumnBackground={renderStatusColumnBackground}
         onSetCellExpanded={setCellExpanded}
         changeHighlightsByItemId={changeHighlightsByItemId}
+        rolledOverItemIds={rolledOverItemIds}
       />
     )
   }
