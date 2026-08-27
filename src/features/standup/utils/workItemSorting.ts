@@ -1,4 +1,5 @@
 import type { WorkItemSummary } from '../../../ado/queryEngine'
+import { STATUS_COLUMNS } from './statusColumnStyles'
 
 function getDisplayedItemId(item: WorkItemSummary): number {
   return item.kind === 'pull-request' ? item.pullRequest?.id ?? Math.abs(item.id) : item.id
@@ -19,8 +20,7 @@ export function sortWorkItemsBySprintStatusAndId(left: WorkItemSummary, right: W
     return sprintCompare
   }
 
-  const statusOrder = ['Blocked', 'New', 'Active', 'Review', 'Done'] as const
-  const statusCompare = statusOrder.indexOf(left.status) - statusOrder.indexOf(right.status)
+  const statusCompare = STATUS_COLUMNS.indexOf(left.status) - STATUS_COLUMNS.indexOf(right.status)
   if (statusCompare !== 0) {
     return statusCompare
   }

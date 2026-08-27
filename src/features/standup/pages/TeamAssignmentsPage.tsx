@@ -10,7 +10,7 @@ import type {
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { KanbanBoard } from '../components/KanbanBoard'
-import { SprintSummaryBoard } from '../components/SprintSummaryBoard'
+import { SprintViewBoard } from '../components/SprintSummaryBoard'
 import { HiddenTagsDialog } from '../components/HiddenTagsDialog'
 import { PatMissingNotice } from '../components/PatMissingNotice'
 import { SprintSummaryBar } from '../components/SprintSummaryBar'
@@ -142,7 +142,7 @@ export function TeamAssignmentsPage({
         <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ flex: 1, minHeight: 0 }}>
             {isSprintView ? (
-              <SprintSummaryBoard
+              <SprintViewBoard
                 patConfigured={patConfigured}
                 isLoading={isTeamDataLoading}
                 colorScheme={colorScheme}

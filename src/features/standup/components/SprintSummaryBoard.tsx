@@ -15,7 +15,7 @@ import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 
 const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
 
-type SprintSummaryBoardProps = {
+type SprintViewBoardProps = {
   patConfigured: boolean
   isLoading: boolean
   colorScheme: 'light' | 'dark'
@@ -131,7 +131,7 @@ function MoveHistoryArrow({
   )
 }
 
-export function SprintSummaryBoard({
+export function SprintViewBoard({
   patConfigured,
   isLoading,
   colorScheme,
@@ -142,7 +142,7 @@ export function SprintSummaryBoard({
   members,
   workItemAssignees,
   changeHighlightsByItemId,
-}: SprintSummaryBoardProps) {
+}: SprintViewBoardProps) {
   const theme = useTheme()
   const renderStatusColumnBackground = (status: StatusColumn, columnIndex: number) =>
     getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme)
@@ -185,7 +185,7 @@ export function SprintSummaryBoard({
     }
 
     return [...uniqueItemsById.values()].sort(sortWorkItemsBySprintStatusAndId)
-  }, [reviewItems, currentIterationName])
+  }, [reviewItems])
 
   if (!patConfigured) {
     return (
@@ -349,11 +349,18 @@ export function SprintSummaryBoard({
               gridAutoRows: 'max-content',
             }}
           >
-            {orderedItems.map((item, itemIndex) => {
-              const isFirstItemInSprint = itemIndex === 0 || item.sprintName !== orderedItems[itemIndex - 1]?.sprintName
-               const rowNumber = itemIndex + 1 + orderedItems.slice(0, itemIndex).filter((candidate, index) =>
-                index === 0 || candidate.sprintName !== orderedItems[index - 1]?.sprintName,
-              ).length
+            {(() => {
+              let sprintGroupCount = 0
+              let previousSprintName: string | undefined
+
+              return orderedItems.map((item, itemIndex) => {
+              const itemSprintName = item.sprintName ?? ''
+              const isFirstItemInSprint = itemIndex === 0 || itemSprintName !== previousSprintName
+              if (isFirstItemInSprint) {
+                sprintGroupCount += 1
+              }
+              previousSprintName = itemSprintName
+              const rowNumber = itemIndex + sprintGroupCount
               const currentColumnIndex = STATUS_COLUMNS.indexOf(item.status)
               const visitedStatuses = visitedStatusesByItemId[item.id] ?? []
               const sourceColumnIndex = findMoveHistorySourceColumnIndex(visitedStatuses, currentColumnIndex)
@@ -425,7 +432,8 @@ export function SprintSummaryBoard({
                   ) : null}
                 </Box>
               )
-            })}
+              })
+            })()}
           </Box>
         </Box>
       </Box>
