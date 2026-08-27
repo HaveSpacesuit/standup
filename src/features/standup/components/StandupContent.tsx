@@ -20,7 +20,7 @@ export function StandupContent({
 }: StandupContentProps) {
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-      {activeView === 'team-assignments' ? (
+      {activeView === 'development' ? (
         <TeamAssignmentsPage {...teamAssignmentsPageProps} />
       ) : (
         <QualityAssurancePage {...qualityAssurancePageProps} />

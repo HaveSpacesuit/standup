@@ -137,7 +137,7 @@ export function TeamAssignmentsPage({
       />
 
       {!hasConfiguredTeams ? (
-        <TeamConfigurationEmptyState pageLabel="Team assignments" />
+        <TeamConfigurationEmptyState pageLabel="Development" />
       ) : (
         <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ flex: 1, minHeight: 0 }}>

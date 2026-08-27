@@ -22,6 +22,7 @@ import svgSettings from '@stratakit/icons/settings.svg'
 import svgArrowUp from '@stratakit/icons/arrow-up.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
 import svgFastForward from '@stratakit/icons/fast-forward.svg'
+import svgDeveloper from '@stratakit/icons/developer.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
 
@@ -96,7 +97,7 @@ export function StandupToolbar({
   }
 
   return (
-    <PageToolbar iconHref={svgUsers} title="Team Assignments">
+    <PageToolbar iconHref={svgDeveloper} title="Development">
         <TextField
           size="small"
           placeholder="Quick filter cards"

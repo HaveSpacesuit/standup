@@ -24,8 +24,8 @@ import {
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
-import svgUsers from '@stratakit/icons/users.svg'
-import svgClipboard from '@stratakit/icons/clipboard.svg'
+import svgDeveloper from '@stratakit/icons/developer.svg'
+import svgInspection from '@stratakit/icons/inspection.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
@@ -315,17 +315,17 @@ export function AppNavigationRail({
         <NavigationRail.List>
           <NavigationRail.ListItem>
             <NavigationRail.Anchor
-              href="#team-assignments"
-              label="Team assignments"
-              icon={`${svgUsers}#icon-large`}
-              active={activeView === 'team-assignments'}
+              href="#development"
+              label="Development"
+              icon={`${svgDeveloper}#icon-large`}
+              active={activeView === 'development'}
             />
           </NavigationRail.ListItem>
           <NavigationRail.ListItem>
             <NavigationRail.Anchor
               href="#qa-activity"
               label="Quality assurance"
-              icon={`${svgClipboard}#icon-large`}
+              icon={`${svgInspection}#icon-large`}
               active={activeView === 'qa-activity'}
             />
           </NavigationRail.ListItem>
@@ -356,13 +356,13 @@ export function AppNavigationRail({
               App structure
             </Typography>
             <Typography variant="body-sm" color="text.secondary">
-              The app is organized around a navigation rail with two main pages: Team assignments and Quality assurance.
+              The app is organized around two main pages: Development and Quality assurance.
             </Typography>
           </Box>
 
           <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1.25, color: 'text.secondary' }}>
             <Typography component="li" variant="body-sm">
-              <strong>Team assignments</strong> groups work items by team member and board status, then adds PR-only cards for repository pull requests that aren&apos;t already mapped to visible work items.
+              <strong>Development</strong> provides Assignment and Sprint views for the team&apos;s work items.
             </Typography>
             <Typography component="li" variant="body-sm">
               <strong>Quality assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.

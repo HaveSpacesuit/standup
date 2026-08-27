@@ -2,7 +2,7 @@ import { type RefObject } from 'react'
 import { Box, IconButton, InputAdornment, TextField } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
-import svgClipboard from '@stratakit/icons/clipboard.svg'
+import svgInspection from '@stratakit/icons/inspection.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import { PageToolbar } from './PageToolbar'
@@ -40,7 +40,7 @@ export function QualityAssuranceToolbar({
   const hasConfiguredTeams = teamOptions.length > 0
 
   return (
-    <PageToolbar iconHref={svgClipboard} title="Quality Assurance">
+    <PageToolbar iconHref={svgInspection} title="Quality Assurance">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
         <TextField
           size="small"

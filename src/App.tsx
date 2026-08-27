@@ -130,7 +130,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     selectedMemberFilter,
     onMemberFilterChange,
     quickFilterInputRefs: {
-      'team-assignments': quickFilterInputRef,
+      development: quickFilterInputRef,
       'qa-activity': qualityAssuranceQuickFilterInputRef,
     },
   })

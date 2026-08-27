@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
 
-export type AppView = 'team-assignments' | 'qa-activity'
+export type AppView = 'development' | 'qa-activity'
 
 type UseAppNavigationArgs = {
   patConfigured: boolean
@@ -20,11 +20,11 @@ function getViewFromHash(hash: string): AppView {
     return 'qa-activity'
   }
 
-  if (hash === '#team-assignments' || !hash) {
-    return 'team-assignments'
+  if (hash === '#development' || !hash) {
+    return 'development'
   }
 
-  return 'team-assignments'
+  return 'development'
 }
 
 /** Tracks the URL-hash-driven active page, independent of the rest of the navigation
@@ -73,7 +73,7 @@ export function useAppNavigation({
     document.title =
       activeView === 'qa-activity'
         ? 'Quality Assurance'
-        : 'Team Assignments'
+        : 'Development'
   }, [activeView])
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export function useAppNavigation({
       }
 
       event.preventDefault()
-      const quickFilterInputRef = quickFilterInputRefs[activeView] ?? quickFilterInputRefs['team-assignments']
+      const quickFilterInputRef = quickFilterInputRefs[activeView] ?? quickFilterInputRefs.development
       quickFilterInputRef?.current?.focus()
       quickFilterInputRef?.current?.select()
     }
