@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { clearStoredPat, loadStoredPat, saveStoredPat, type StoredPatState } from '../../../adoAuth'
 import type { TeamProfile } from '../../../appSettings'
-import { loadTeamProfiles, saveTeamProfiles } from '../../../appSettings'
+import { saveTeamProfiles } from '../../../appSettings'
+import { loadTeamProfilesWithDefaults } from '../../../defaultTeamSeed'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import {
   ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY,
@@ -62,7 +63,7 @@ function loadCardHighlightOptions(storageKey: string): CardHighlightOptions {
 }
 
 export function useStandupAppState(): UseStandupAppStateResult {
-  const [teamProfiles, setTeamProfiles] = useState<TeamProfile[]>(loadTeamProfiles)
+  const [teamProfiles, setTeamProfiles] = useState<TeamProfile[]>(loadTeamProfilesWithDefaults)
   const [storedPatState, setStoredPatState] = useState<StoredPatState | null>(() => loadStoredPat())
   const [qaOptionsByTeam, setQaOptionsByTeam] = useState<Record<string, QaOptions>>(() =>
     buildQaOptionsByTeam(teamProfiles),
