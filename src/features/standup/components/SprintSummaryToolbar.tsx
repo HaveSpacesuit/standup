@@ -16,7 +16,7 @@ export function SprintSummaryToolbar({
   teamManagementUrl,
 }: SprintSummaryToolbarProps) {
   return (
-    <PageToolbar iconHref={svgFastForward} title="Sprint Summary">
+    <PageToolbar iconHref={svgFastForward} title="Sprint Review">
       <TeamToolbarControls
         teamOptions={teamOptions}
         selectedTeamId={selectedTeamId}

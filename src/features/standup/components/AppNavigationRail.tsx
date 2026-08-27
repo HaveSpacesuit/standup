@@ -332,10 +332,10 @@ export function AppNavigationRail({
           </NavigationRail.ListItem>
           <NavigationRail.ListItem>
             <NavigationRail.Anchor
-              href="#sprint-summary"
-              label="Sprint summary"
+              href="#sprint-review"
+              label="Sprint review"
               icon={`${svgFastForward}#icon-large`}
-              active={activeView === 'sprint-summary'}
+              active={activeView === 'sprint-review'}
             />
           </NavigationRail.ListItem>
         </NavigationRail.List>

@@ -210,7 +210,7 @@ export function SprintSummaryBoard({
       <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
         <CircularProgress size={18} />
         <Typography variant="body-sm" color="text.secondary">
-          Loading sprint summary...
+          Loading sprint review...
         </Typography>
       </Box>
     )

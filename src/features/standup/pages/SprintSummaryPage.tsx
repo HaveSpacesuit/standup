@@ -45,7 +45,7 @@ export function SprintSummaryPage({
       />
 
       {!hasConfiguredTeams ? (
-        <TeamConfigurationEmptyState pageLabel="Sprint summary" />
+        <TeamConfigurationEmptyState pageLabel="Sprint review" />
       ) : (
         <Box component="main" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <SprintSummaryBoard
