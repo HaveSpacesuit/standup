@@ -10,6 +10,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Typography,
   type SelectChangeEvent,
 } from '@mui/material'
 import type { RefObject } from 'react'
@@ -21,7 +22,7 @@ import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgArrowUp from '@stratakit/icons/arrow-up.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
-import svgFastForward from '@stratakit/icons/fast-forward.svg'
+import svgTimeline from '@stratakit/icons/timeline.svg'
 import svgDeveloper from '@stratakit/icons/developer.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
@@ -177,24 +178,29 @@ export function StandupToolbar({
           onTeamChange={onTeamChange}
           teamManagementUrl={teamManagementUrl}
           beforeChildren={
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={isSprintView ? 'sprint' : 'assignment'}
-              onChange={(_event, value: 'assignment' | 'sprint' | null) => {
-                if (value) {
-                  onSprintViewChange(value === 'sprint')
-                }
-              }}
-              aria-label="Assignments board view"
-            >
-              <ToggleButton value="assignment" label="Assignment view">
-                <Icon href={svgUsers} />
-              </ToggleButton>
-              <ToggleButton value="sprint" label="Sprint view">
-                <Icon href={svgFastForward} />
-              </ToggleButton>
-            </ToggleButtonGroup>
+            <>
+              <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                View
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={isSprintView ? 'sprint' : 'assignment'}
+                onChange={(_event, value: 'assignment' | 'sprint' | null) => {
+                  if (value) {
+                    onSprintViewChange(value === 'sprint')
+                  }
+                }}
+                aria-label="Assignments board view"
+              >
+                <ToggleButton value="assignment" label="Assignment view">
+                  <Icon href={svgUsers} />
+                </ToggleButton>
+                <ToggleButton value="sprint" label="Sprint view">
+                  <Icon href={svgTimeline} />
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </>
           }
         >
           <IconButton
