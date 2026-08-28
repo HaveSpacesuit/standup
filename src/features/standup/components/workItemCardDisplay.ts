@@ -55,21 +55,21 @@ export function getPullRequestReviewIcon(
       return {
         href: svgStatusPending,
         color: 'warning.main',
-        label: 'Waiting for author',
+        label: 'Waiting on author',
         count: 1,
       }
     case 'partially-approved':
       return {
         href: svgStatusSuccess,
         color: 'success.main',
-        label: 'Partially approved',
+        label: '1 approved',
         count: 1,
       }
     case 'fully-approved':
       return {
         href: svgStatusSuccess,
         color: 'success.main',
-        label: 'Fully approved',
+        label: '2+ approved',
         count: 2,
       }
     default:

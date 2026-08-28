@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material'
+import { Box, Tooltip, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import type { WorkItemPullRequestSummary } from '../../../ado/queryEngine'
 import { getIconUrlWithThemeColorValue } from '../utils/workItemIconColor'
@@ -32,24 +32,29 @@ export function PullRequestSection({ pullRequest, statusColor, emphasizeTitle = 
         }}
       >
         {reviewIcon ? (
-          <Box
-            component="span"
-            sx={{
-              float: 'right',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.2,
-              ml: 0.5,
-              mt: 0.1,
-              lineHeight: 0,
-              color: reviewIcon.color,
-            }}
-            aria-label={reviewIcon.label}
+          <Tooltip
+            title={reviewIcon.label}
+            arrow
           >
-            {Array.from({ length: Math.min(reviewIcon.count ?? 1, 2) }).map((_, index) => (
-              <Icon key={`${reviewIcon.label}-${index}`} href={reviewIcon.href} size="regular" />
-            ))}
-          </Box>
+            <Box
+              component="span"
+              sx={{
+                float: 'right',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.2,
+                ml: 0.5,
+                mt: 0.1,
+                lineHeight: 0,
+                color: reviewIcon.color,
+              }}
+              aria-label={reviewIcon.label}
+            >
+              {Array.from({ length: Math.min(reviewIcon.count ?? 1, 2) }).map((_, index) => (
+                <Icon key={`${reviewIcon.label}-${index}`} href={reviewIcon.href} size="regular" />
+              ))}
+            </Box>
+          </Tooltip>
         ) : null}
 
         <Typography
