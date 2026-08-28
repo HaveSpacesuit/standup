@@ -11,6 +11,7 @@ import {
 } from '../utils/statusColumnStyles'
 import { sortWorkItemsBySprintStatusAndId } from '../utils/workItemSorting'
 import { WorkItemCard } from './WorkItemCard'
+import { AdoErrorNotice } from './AdoErrorNotice'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 
 const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
@@ -198,13 +199,7 @@ export function SprintViewBoard({
   }
 
   if (workItemsError) {
-    return (
-      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="body-sm" color="error.main">
-          {workItemsError}
-        </Typography>
-      </Box>
-    )
+    return <AdoErrorNotice title="Unable to load work items" message={workItemsError} />
   }
 
   if (isLoading) {

@@ -9,6 +9,7 @@ import {
 } from '../utils/statusColumnStyles'
 import { KanbanBoardGrid, type BoardRowData } from './KanbanBoardGrid'
 import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
+import { AdoErrorNotice } from './AdoErrorNotice'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 
@@ -198,23 +199,11 @@ export function KanbanBoard({
       />
     )
   } else if (membersError) {
-    content = (
-      <Typography variant="body-sm" color="error.main">
-        {membersError}
-      </Typography>
-    )
+    content = <AdoErrorNotice title="Unable to load team members" message={membersError} />
   } else if (workItemsError) {
-    content = (
-      <Typography variant="body-sm" color="error.main">
-        {workItemsError}
-      </Typography>
-    )
+    content = <AdoErrorNotice title="Unable to load work items" message={workItemsError} />
   } else if (assigneesError) {
-    content = (
-      <Typography variant="body-sm" color="error.main">
-        {assigneesError}
-      </Typography>
-    )
+    content = <AdoErrorNotice title="Unable to resolve work item assignees" message={assigneesError} />
   } else {
     content = (
       <KanbanBoardGrid

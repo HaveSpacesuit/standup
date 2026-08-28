@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTheme } from '@mui/material/styles'
 import { QualityAssuranceLoadingState } from './QualityAssuranceLoadingState'
 import { WorkItemCard } from './WorkItemCard'
+import { AdoErrorNotice } from './AdoErrorNotice'
 import { getHighlightState } from '../hooks/useAdoHistoryHighlights'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
@@ -34,28 +35,8 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme, c
 
   if (error) {
     return (
-      <Box
-        component="main"
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 3,
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Card sx={{ width: '100%', maxWidth: 560 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="headline-sm" render={<h1 />} sx={{ fontWeight: 700, mb: 1 }}>
-              Unable to load QA activity
-            </Typography>
-            <Typography variant="body-sm" color="text.secondary">
-              {error}
-            </Typography>
-          </CardContent>
-        </Card>
+      <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
+        <AdoErrorNotice title="Unable to load QA activity" message={error} />
       </Box>
     )
   }
