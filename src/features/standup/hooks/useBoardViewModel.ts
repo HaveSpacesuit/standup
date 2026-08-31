@@ -193,10 +193,22 @@ export function useBoardViewModel({
     workItemsError,
   })
 
-  const boardItems = useMemo(
-    () => [...filteredWorkItems, ...pullRequestBoardItems],
-    [filteredWorkItems, pullRequestBoardItems],
-  )
+  const boardItems = useMemo(() => {
+    // The unlinked-PR query can go stale relative to the work items on the board, so drop any
+    // standalone PR card whose PR is already linked to a work item card.
+    const linkedPullRequestIds = new Set(
+      filteredWorkItems.flatMap((item) => [
+        ...(item.linkedPullRequestIds ?? []),
+        ...(item.activePullRequests ?? []).map((pullRequest) => pullRequest.id),
+      ]),
+    )
+
+    const standalonePullRequestItems = pullRequestBoardItems.filter(
+      (item) => item.pullRequest === undefined || !linkedPullRequestIds.has(item.pullRequest.id),
+    )
+
+    return [...filteredWorkItems, ...standalonePullRequestItems]
+  }, [filteredWorkItems, pullRequestBoardItems])
 
   const { workItemAssignees, assigneesLoading, assigneesError } = useWorkItemAssignees({
     adoQueryEngine: dataQueryEngine,
