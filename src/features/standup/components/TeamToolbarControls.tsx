@@ -50,7 +50,7 @@ export function TeamToolbarControls({
       <FormControl
         size="small"
         sx={{
-          minWidth: 140,
+          minWidth: 90,
           maxWidth: 270,
           flex: '1 1 auto',
         }}
@@ -74,7 +74,14 @@ export function TeamToolbarControls({
       </FormControl>
 
       <Tooltip title="Manage team">
-        <span>
+        <Box
+          component="span"
+          sx={{
+            '@container (max-width: 600px)': {
+              display: 'none',
+            },
+          }}
+        >
           {hasConfiguredTeams ? (
             <IconButton
               size="small"
@@ -95,9 +102,18 @@ export function TeamToolbarControls({
               <Icon href={svgUserAdd} />
             </IconButton>
           )}
-        </span>
+        </Box>
       </Tooltip>
-      <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider' }} />
+      <Divider
+        orientation="vertical"
+        flexItem
+        sx={{
+          borderColor: 'divider',
+          '@container (max-width: 600px)': {
+            display: 'none',
+          },
+        }}
+      />
 
       {children}
     </Box>

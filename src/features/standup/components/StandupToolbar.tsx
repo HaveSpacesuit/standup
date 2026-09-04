@@ -79,20 +79,36 @@ export function StandupToolbar({
   const getMember = (memberName: string) =>
     members.find((member) => member.displayName.localeCompare(memberName, undefined, { sensitivity: 'accent' }) === 0)
 
-  const renderMemberFilterOption = (memberName: string, size: number) => {
+  const renderMemberFilterOption = (memberName: string, size: number, hideTextOnNarrow = false) => {
     const member = getMember(memberName)
     const isAllMembers = !memberName
 
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
         <Avatar
           alt=""
           src={isAllMembers ? undefined : member?.imageUrl}
-          sx={{ width: size, height: size, fontSize: 10 }}
+          sx={{ width: size, height: size, fontSize: 10, flexShrink: 0 }}
         >
           {isAllMembers ? <Icon href={svgUsers} size="regular" /> : null}
         </Avatar>
-        {isAllMembers ? 'All team members' : memberName}
+        <Box
+          component="span"
+          sx={{
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            ...(hideTextOnNarrow
+              ? {
+                  '@container (max-width: 650px)': {
+                    display: 'none',
+                  },
+                }
+              : {}),
+          }}
+        >
+          {isAllMembers ? 'All team members' : memberName}
+        </Box>
       </Box>
     )
   }
@@ -107,7 +123,7 @@ export function StandupToolbar({
           inputRef={quickFilterInputRef}
           disabled={!patConfigured}
           sx={{
-            minWidth: 140,
+            minWidth: 90,
             maxWidth: 320,
             flex: '1 1 auto',
           }}
@@ -132,7 +148,7 @@ export function StandupToolbar({
         <FormControl
           size="small"
           sx={{
-            minWidth: 140,
+            minWidth: 52,
             maxWidth: 270,
             flex: '1 1 auto',
           }}
@@ -144,24 +160,32 @@ export function StandupToolbar({
             disabled={!patConfigured || memberFilterOptions.length === 0}
             renderValue={(value) => {
               if (!value || typeof value !== 'string') {
-                return renderMemberFilterOption('', 20)
+                return renderMemberFilterOption('', 20, true)
               }
 
-              return renderMemberFilterOption(value, 20)
+              return renderMemberFilterOption(value, 20, true)
             }}
           >
-            <MenuItem value="">{renderMemberFilterOption('', 24)}</MenuItem>
+            <MenuItem value="">{renderMemberFilterOption('', 24, false)}</MenuItem>
             {memberFilterOptions.map((memberName) => {
               return (
                 <MenuItem key={memberName} value={memberName}>
-                  {renderMemberFilterOption(memberName, 24)}
+                  {renderMemberFilterOption(memberName, 24, false)}
                 </MenuItem>
               )
             })}
           </Select>
         </FormControl>
 
-        <ButtonGroup size="small" >
+        <ButtonGroup
+          size="small"
+          sx={{
+            flexShrink: 0,
+            '@container (max-width: 700px)': {
+              display: 'none',
+            },
+          }}
+        >
           <IconButton
             size="small"
             aria-label="Select previous team member filter"

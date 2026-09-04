@@ -50,7 +50,7 @@ export function QualityAssuranceToolbar({
           inputRef={quickFilterInputRef}
           disabled={!patConfigured}
           sx={{
-            minWidth: 140,
+            minWidth: 90,
             maxWidth: 320,
             flex: '1 1 auto',
           }}

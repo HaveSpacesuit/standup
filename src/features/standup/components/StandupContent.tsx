@@ -19,7 +19,7 @@ export function StandupContent({
   qualityAssurancePageProps,
 }: StandupContentProps) {
   return (
-    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {activeView === 'development' ? (
         <TeamAssignmentsPage {...teamAssignmentsPageProps} />
       ) : (
