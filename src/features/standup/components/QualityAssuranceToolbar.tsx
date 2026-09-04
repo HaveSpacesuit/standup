@@ -49,7 +49,11 @@ export function QualityAssuranceToolbar({
           onChange={(event) => onQuickFilterInputChange(event.target.value)}
           inputRef={quickFilterInputRef}
           disabled={!patConfigured}
-          sx={{ minWidth: 230, maxWidth: 320 }}
+          sx={{
+            minWidth: 140,
+            maxWidth: 320,
+            flex: '1 1 auto',
+          }}
           slotProps={{
             input: {
               endAdornment: quickFilterInput ? (

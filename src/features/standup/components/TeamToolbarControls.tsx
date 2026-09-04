@@ -32,13 +32,29 @@ export function TeamToolbarControls({
   }
 
   return (
-    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 420 }}>
+    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flexShrink: 1 }}>
       {beforeChildren}
-      <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+      <Typography
+        variant="body-sm"
+        sx={{
+          fontWeight: 700,
+          whiteSpace: 'nowrap',
+          '@container (max-width: 960px)': {
+            display: 'none',
+          },
+        }}
+      >
         Team
       </Typography>
 
-      <FormControl size="small" sx={{ minWidth: 260, flex: 1 }}>
+      <FormControl
+        size="small"
+        sx={{
+          minWidth: 140,
+          maxWidth: 270,
+          flex: '1 1 auto',
+        }}
+      >
         <Select
           value={hasConfiguredTeams ? selectedTeamId : ''}
           onChange={handleTeamChange}

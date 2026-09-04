@@ -106,7 +106,11 @@ export function StandupToolbar({
           onChange={(event) => onQuickFilterInputChange(event.target.value)}
           inputRef={quickFilterInputRef}
           disabled={!patConfigured}
-          sx={{ minWidth: 230, maxWidth: 320 }}
+          sx={{
+            minWidth: 140,
+            maxWidth: 320,
+            flex: '1 1 auto',
+          }}
           slotProps={{
             input: {
               endAdornment: quickFilterInput ? (
@@ -125,7 +129,14 @@ export function StandupToolbar({
           }}
         />
 
-        <FormControl size="small" sx={{ minWidth: 210, maxWidth: 270 }}>
+        <FormControl
+          size="small"
+          sx={{
+            minWidth: 140,
+            maxWidth: 270,
+            flex: '1 1 auto',
+          }}
+        >
           <Select
             displayEmpty
             value={selectedMemberFilter}
@@ -179,7 +190,16 @@ export function StandupToolbar({
           teamManagementUrl={teamManagementUrl}
           beforeChildren={
             <>
-              <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <Typography
+                variant="body-sm"
+                sx={{
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  '@container (max-width: 960px)': {
+                    display: 'none',
+                  },
+                }}
+              >
                 View
               </Typography>
               <ToggleButtonGroup
