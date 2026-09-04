@@ -82,7 +82,7 @@ export function SprintSummaryBar({
           py: 0.5,
           height: 56,
           flexShrink: 0,
-          borderBottom: '1px solid',
+          borderTop: '1px solid',
           borderColor: 'divider',
           bgcolor: 'background.default',
           display: 'flex',
@@ -105,43 +105,75 @@ export function SprintSummaryBar({
   return (
     <Box
       sx={{
+        containerType: 'inline-size',
         px: 2,
         py: 0.5,
         height: 56,
+        minHeight: 56,
         flexShrink: 0,
-        borderBottom: '1px solid',
+        borderTop: '1px solid',
         borderColor: 'divider',
         bgcolor: 'background.default',
         display: 'flex',
         alignItems: 'center',
         gap: 2,
+        justifyContent: 'space-between',
       }}
     >
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
-          columnGap: 2,
-          flex: '1 1 0',
+          gap: 1.5,
+          flex: '1 1 0px',
           minWidth: 0,
+          justifyContent: 'flex-start',
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-              Current sprint: {current ? formatDateRange(current.startDate, current.finishDate) : 'Dates unavailable'}
-            </Typography>
-          </Box>
-          <Typography variant="caption-sm" color="text.secondary">
+        <Box sx={{ minWidth: 0, flex: '0 1 auto' }}>
+          <Typography
+            variant="body-sm"
+            sx={{
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+            title={current ? `Current sprint: ${formatDateRange(current.startDate, current.finishDate)}` : undefined}
+          >
+            <Box component="span" sx={{ '@container (max-width: 800px)': { display: 'none' } }}>
+              Current sprint:{' '}
+            </Box>
+            {current ? formatDateRange(current.startDate, current.finishDate) : 'Dates unavailable'}
+          </Typography>
+          <Typography
+            variant="caption-sm"
+            color="text.secondary"
+            sx={{
+              display: 'block',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+            title={current?.fullName ?? undefined}
+          >
             {current?.fullName ?? 'Unavailable'}
           </Typography>
         </Box>
         <Chip
           size="small"
           variant="outlined"
+          sx={{
+            flexShrink: 0,
+            '@container (max-width: 600px)': {
+              '& .MuiChip-label': {
+                px: 1,
+              },
+            },
+          }}
           label={
             daysRemaining === null
-              ? 'Days remaining: unavailable'
+              ? 'Days: unavailable'
               : `Days remaining: ${daysRemaining}`
           }
         />
@@ -149,12 +181,15 @@ export function SprintSummaryBar({
 
       <Box
         sx={{
-          flex: '1 1 0',
+          flex: '1 1 0px',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           minWidth: 0,
           height: '100%',
+          '@container (max-width: 500px)': {
+            display: 'none',
+          },
         }}
       >
         <Box
@@ -167,7 +202,7 @@ export function SprintSummaryBar({
             borderLeft: '1px solid',
             borderRight: '1px solid',
             borderColor: 'divider',
-            px: 3,
+            px: 1.5,
           }}
         >
           <Box sx={{ height: '100%', flex: 1, minWidth: 0 }}>
@@ -183,11 +218,33 @@ export function SprintSummaryBar({
         </Box>
       </Box>
 
-      <Box sx={{ flex: '1 1 0', minWidth: 0, textAlign: 'right' }}>
-        <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-          Next sprint: {next ? formatDateRange(next.startDate, next.finishDate) : 'Dates unavailable'}
+      <Box sx={{ flex: '1 1 0px', minWidth: 0, textAlign: 'right' }}>
+        <Typography
+          variant="body-sm"
+          sx={{
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+          title={next ? `Next sprint: ${formatDateRange(next.startDate, next.finishDate)}` : undefined}
+        >
+          <Box component="span" sx={{ '@container (max-width: 800px)': { display: 'none' } }}>
+            Next sprint:{' '}
+          </Box>
+          {next ? formatDateRange(next.startDate, next.finishDate) : 'Dates unavailable'}
         </Typography>
-        <Typography variant="caption-sm" color="text.secondary">
+        <Typography
+          variant="caption-sm"
+          color="text.secondary"
+          sx={{
+            display: 'block',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+          title={next?.fullName ?? undefined}
+        >
           {next?.fullName ?? 'Unavailable'}
         </Typography>
       </Box>
