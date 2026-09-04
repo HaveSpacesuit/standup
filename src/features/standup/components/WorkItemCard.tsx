@@ -78,6 +78,55 @@ export function WorkItemCard({
   const showFooterEffort = !hideEffort && effortPlacement === 'footer' && typeof item.effort === 'number' && !isPullRequestOnly
   const showTagsRow = hasVisibleTags || (!showPerson && !showFooterEffort)
 
+  const badgeNode = showState && item.state ? (
+    <Box
+      component="span"
+      sx={{
+        float: 'right',
+        ml: 0.75,
+        mb: 0.25,
+        px: 0.75,
+        py: 0.125,
+        maxWidth: 130,
+        borderRadius: 999,
+        border: '1px solid',
+        borderColor: `color-mix(in srgb, ${accent} 35%, transparent)`,
+        bgcolor: `color-mix(in srgb, ${accent} 14%, transparent)`,
+        color: accent,
+        fontSize: 10,
+        lineHeight: 1.5,
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+      title={item.state}
+    >
+      {abbreviateState(item.state)}
+    </Box>
+  ) : !hideEffort && effortPlacement === 'badge' && typeof item.effort === 'number' && !isPullRequestOnly ? (
+    <Box
+      component="span"
+      sx={{
+        float: 'right',
+        ml: 0.75,
+        mt: 0.125,
+        lineHeight: 0,
+      }}
+    >
+      <Badge
+        badgeContent={item.effort}
+        color={statusPaletteKey}
+        max={999}
+        inline
+        size="small"
+        showZero
+      >
+        <Box sx={{ width: 0, height: 0 }} />
+      </Badge>
+    </Box>
+  ) : null
+
   return (
     <Card
       elevation={2}
@@ -122,55 +171,6 @@ export function WorkItemCard({
           zIndex: 1,
         }}
       >
-        {showState && item.state ? (
-          <Box
-            component="span"
-            sx={{
-              float: 'right',
-              ml: 0.75,
-              mb: 0.25,
-              px: 0.75,
-              py: 0.125,
-              maxWidth: 130,
-              borderRadius: 999,
-              border: '1px solid',
-              borderColor: `color-mix(in srgb, ${accent} 35%, transparent)`,
-              bgcolor: `color-mix(in srgb, ${accent} 14%, transparent)`,
-              color: accent,
-              fontSize: 10,
-              lineHeight: 1.5,
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            title={item.state}
-          >
-            {abbreviateState(item.state)}
-          </Box>
-        ) : !hideEffort && effortPlacement === 'badge' && typeof item.effort === 'number' && !isPullRequestOnly ? (
-          <Box
-            component="span"
-            sx={{
-              float: 'right',
-              ml: 0.75,
-              mt: 0.125,
-              lineHeight: 0,
-            }}
-          >
-            <Badge
-              badgeContent={item.effort}
-              color={statusPaletteKey}
-              max={999}
-              inline
-              size="small"
-              showZero
-            >
-              <Box sx={{ width: 0, height: 0 }} />
-            </Badge>
-          </Box>
-        ) : null}
-
         {isPullRequestOnly && pullRequestOnly ? (
           <PullRequestSection pullRequest={pullRequestOnly} statusColor={accent} emphasizeTitle />
         ) : (
@@ -202,6 +202,7 @@ export function WorkItemCard({
                   wordBreak: 'break-word',
                 }}
               >
+                {badgeNode}
                 {item.workItemIconUrl ? (
                   <Box
                     component="img"

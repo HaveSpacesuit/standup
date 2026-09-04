@@ -14,6 +14,32 @@ type PullRequestSectionProps = {
 export function PullRequestSection({ pullRequest, statusColor, emphasizeTitle = false }: PullRequestSectionProps) {
   const reviewIcon = getPullRequestReviewIcon(pullRequest.reviewState)
 
+  const reviewIconNode = reviewIcon ? (
+    <Tooltip
+      title={reviewIcon.label}
+      arrow
+    >
+      <Box
+        component="span"
+        sx={{
+          float: 'right',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.2,
+          ml: 0.5,
+          mt: 0.1,
+          lineHeight: 0,
+          color: reviewIcon.color,
+        }}
+        aria-label={reviewIcon.label}
+      >
+        {Array.from({ length: Math.min(reviewIcon.count ?? 1, 2) }).map((_, index) => (
+          <Icon key={`${reviewIcon.label}-${index}`} href={reviewIcon.href} size="regular" />
+        ))}
+      </Box>
+    </Tooltip>
+  ) : null
+
   return (
     <Box sx={{ minWidth: 0 }}>
       <Box
@@ -32,32 +58,6 @@ export function PullRequestSection({ pullRequest, statusColor, emphasizeTitle = 
           },
         }}
       >
-        {reviewIcon ? (
-          <Tooltip
-            title={reviewIcon.label}
-            arrow
-          >
-            <Box
-              component="span"
-              sx={{
-                float: 'right',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.2,
-                ml: 0.5,
-                mt: 0.1,
-                lineHeight: 0,
-                color: reviewIcon.color,
-              }}
-              aria-label={reviewIcon.label}
-            >
-              {Array.from({ length: Math.min(reviewIcon.count ?? 1, 2) }).map((_, index) => (
-                <Icon key={`${reviewIcon.label}-${index}`} href={reviewIcon.href} size="regular" />
-              ))}
-            </Box>
-          </Tooltip>
-        ) : null}
-
         <Typography
           variant="body-sm"
           sx={{
@@ -69,6 +69,7 @@ export function PullRequestSection({ pullRequest, statusColor, emphasizeTitle = 
             wordBreak: 'break-word',
           }}
         >
+          {reviewIconNode}
           {pullRequest.iconUrl ? (
             <Box
               component="img"
