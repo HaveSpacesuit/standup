@@ -57,9 +57,17 @@ function getDaysRemainingInSprint(finishDate?: string): number | null {
     return 0
   }
 
-  const millisPerDay = 24 * 60 * 60 * 1000
-  const diff = endOfFinish.getTime() - startOfToday.getTime()
-  return Math.floor(diff / millisPerDay) + 1
+  let workingDays = 0
+  const current = new Date(startOfToday)
+  while (current <= endOfFinish) {
+    const dayOfWeek = current.getDay()
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      workingDays++
+    }
+    current.setDate(current.getDate() + 1)
+  }
+
+  return workingDays
 }
 
 export function SprintSummaryBar({
