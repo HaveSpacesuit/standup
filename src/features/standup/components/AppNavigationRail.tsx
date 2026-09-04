@@ -307,7 +307,24 @@ export function AppNavigationRail({
   return (
     <NavigationRail.Root>
       <NavigationRail.Header>
-        <Icon href={`${svgCalendar}#icon-large`} alt="Standup app" size="large" />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flex: 1, mr: 1 }}>
+          <Icon href={`${svgCalendar}#icon-large`} alt="Standup Check In" size="large" />
+          <Typography
+            variant="body-md"
+            sx={{
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: 'none',
+              '[data-_sk-expanded="true"] &': {
+                display: 'block',
+              },
+            }}
+          >
+            Standup Check In
+          </Typography>
+        </Box>
         <NavigationRail.ToggleButton />
       </NavigationRail.Header>
 
@@ -324,7 +341,7 @@ export function AppNavigationRail({
           <NavigationRail.ListItem>
             <NavigationRail.Anchor
               href="#qa-activity"
-              label="Quality assurance"
+              label="Quality Assurance"
               icon={`${svgInspection}#icon-large`}
               active={activeView === 'qa-activity'}
             />
@@ -349,14 +366,14 @@ export function AppNavigationRail({
       </NavigationRail.Content>
 
       <Dialog open={isHelpDialogOpen} onClose={() => setIsHelpDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Standup app help</DialogTitle>
+        <DialogTitle>Standup Check In Help</DialogTitle>
         <DialogContent dividers sx={{ display: 'grid', gap: 2, pt: 1 }}>
           <Box>
             <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
               App structure
             </Typography>
             <Typography variant="body-sm" color="text.secondary">
-              The app is organized around two main pages: Development and Quality assurance.
+              The app is organized around two main pages: Development and Quality Assurance.
             </Typography>
           </Box>
 
@@ -365,7 +382,7 @@ export function AppNavigationRail({
               <strong>Development</strong> provides Assignment and Sprint views for the team&apos;s work items.
             </Typography>
             <Typography component="li" variant="body-sm">
-              <strong>Quality assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.
+              <strong>Quality Assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.
             </Typography>
             <Typography component="li" variant="body-sm">
               <strong>Settings</strong> stores Azure DevOps credentials, team configuration, and app appearance preferences in browser storage.

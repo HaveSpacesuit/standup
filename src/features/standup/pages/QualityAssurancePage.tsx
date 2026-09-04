@@ -81,7 +81,7 @@ export function QualityAssurancePage({
       />
 
       {!hasConfiguredTeams ? (
-        <TeamConfigurationEmptyState pageLabel="Quality assurance" />
+        <TeamConfigurationEmptyState pageLabel="Quality Assurance" />
       ) : (
         <QualityAssuranceList
           isLoading={isLoading}

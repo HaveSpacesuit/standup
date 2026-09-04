@@ -70,11 +70,8 @@ export function useAppNavigation({
   }, [memberFilterOptions, onMemberFilterChange, patConfigured, selectedMemberFilter])
 
   useEffect(() => {
-    document.title =
-      activeView === 'qa-activity'
-        ? 'Quality Assurance'
-        : 'Development'
-  }, [activeView])
+    document.title = 'Standup Check In'
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
