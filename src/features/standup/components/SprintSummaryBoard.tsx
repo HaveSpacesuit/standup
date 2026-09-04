@@ -14,7 +14,7 @@ import { WorkItemCard } from './WorkItemCard'
 import { AdoErrorNotice } from './AdoErrorNotice'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 
-const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
+const BOARD_GRID_TEMPLATE = '175px repeat(5, minmax(200px, 1fr))'
 
 type SprintViewBoardProps = {
   patConfigured: boolean
@@ -227,7 +227,7 @@ export function SprintViewBoard({
       >
         <Box
           sx={{
-            minWidth: 1220,
+            minWidth: 1175,
             minHeight: '100%',
             display: 'flex',
             flexDirection: 'column',

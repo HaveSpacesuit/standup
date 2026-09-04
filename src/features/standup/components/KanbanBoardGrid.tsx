@@ -57,7 +57,7 @@ export function KanbanBoardGrid({
       >
         <Box
           sx={{
-            minWidth: 1220,
+            minWidth: 1175,
             minHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -163,7 +163,7 @@ export function KanbanBoardGrid({
               position: 'relative',
               flex: '1 1 auto',
               minHeight: 0,
-              minWidth: 1220,
+              minWidth: 1175,
               bgcolor: 'background.default',
             }}
           >
@@ -172,7 +172,7 @@ export function KanbanBoardGrid({
               sx={{
                 position: 'absolute',
                 inset: 0,
-                minWidth: 1220,
+                minWidth: 1175,
                 display: 'grid',
                 gridTemplateColumns: boardGridTemplate,
                 pointerEvents: 'none',
@@ -203,7 +203,7 @@ export function KanbanBoardGrid({
                 display: 'grid',
                 gridTemplateColumns: boardGridTemplate,
                 gridAutoRows: 'max-content',
-                minWidth: 1220,
+                minWidth: 1175,
               }}
             >
               {rows.map((row) => (

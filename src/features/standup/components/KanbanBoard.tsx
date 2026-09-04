@@ -13,7 +13,7 @@ import { AdoErrorNotice } from './AdoErrorNotice'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 
-const BOARD_GRID_TEMPLATE = '220px repeat(5, minmax(200px, 1fr))'
+const BOARD_GRID_TEMPLATE = '175px repeat(5, minmax(200px, 1fr))'
 const COLLAPSED_CELL_CARD_LIMIT = 3
 
 type KanbanBoardProps = {

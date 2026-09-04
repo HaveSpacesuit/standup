@@ -47,7 +47,7 @@ export function KanbanBoardLoadingState({
       </Box>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', scrollbarGutter: 'stable' }}>
-        <Box sx={{ minWidth: 1220, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ minWidth: 1175, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box
             sx={{
               position: 'sticky',
