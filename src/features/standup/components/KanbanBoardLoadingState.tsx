@@ -46,10 +46,13 @@ export function KanbanBoardLoadingState({
         </Box>
       </Box>
 
-      <Box sx={{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden' }}>
-        <Box sx={{ minWidth: 1220, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', scrollbarGutter: 'stable' }}>
+        <Box sx={{ minWidth: 1220, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box
             sx={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 3,
               display: 'grid',
               gridTemplateColumns: boardGridTemplate,
               borderBottom: '1px solid',
@@ -57,7 +60,18 @@ export function KanbanBoardLoadingState({
               bgcolor: 'background.paper',
             }}
           >
-            <Box sx={{ px: 2, py: 1.5 }}>
+            <Box
+              sx={{
+                position: 'sticky',
+                left: 0,
+                zIndex: 4,
+                px: 2,
+                py: 1.5,
+                borderRight: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+              }}
+            >
               <Skeleton variant="text" width={110} height={20} />
             </Box>
 
@@ -91,9 +105,13 @@ export function KanbanBoardLoadingState({
               >
                 <Box
                   sx={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 3,
                     px: 1.5,
                     py: 1.25,
                     borderBottom: '1px solid',
+                    borderRight: '1px solid',
                     borderColor: 'divider',
                     bgcolor: 'background.paper',
                   }}

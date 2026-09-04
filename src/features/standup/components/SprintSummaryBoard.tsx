@@ -214,13 +214,11 @@ export function SprintViewBoard({
   }
 
   return (
-    <Box sx={{ height: '100%', overflowX: 'auto' }}>
+    <Box sx={{ height: '100%' }}>
       <Box
         sx={{
-          minWidth: 1000,
           height: '100%',
-          overflowY: 'auto',
-          overflowX: 'hidden',
+          overflow: 'auto',
           scrollbarGutter: 'stable',
           bgcolor: 'background.default',
           display: 'flex',
@@ -229,29 +227,41 @@ export function SprintViewBoard({
       >
         <Box
           sx={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 3,
-            display: 'grid',
-            gridTemplateColumns: BOARD_GRID_TEMPLATE,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
+            minWidth: 1220,
+            minHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           <Box
             sx={{
-              px: 2,
-              py: 1.5,
+              position: 'sticky',
+              top: 0,
+              zIndex: 3,
+              display: 'grid',
+              gridTemplateColumns: BOARD_GRID_TEMPLATE,
               borderBottom: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
             }}
           >
-            <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
-              Sprint
-            </Typography>
-          </Box>
+            <Box
+              sx={{
+                position: 'sticky',
+                left: 0,
+                zIndex: 4,
+                px: 2,
+                py: 1.5,
+                borderBottom: '1px solid',
+                borderRight: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+              }}
+            >
+              <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                Sprint
+              </Typography>
+            </Box>
           {STATUS_COLUMNS.map((status, columnIndex) => (
             <Box
               key={status}
@@ -326,7 +336,16 @@ export function SprintViewBoard({
               pointerEvents: 'none',
             }}
           >
-            <Box sx={{ bgcolor: 'background.paper' }} />
+            <Box
+              sx={{
+                bgcolor: 'background.paper',
+                position: 'sticky',
+                left: 0,
+                zIndex: 1,
+                borderRight: '1px solid',
+                borderColor: 'divider',
+              }}
+            />
             {STATUS_COLUMNS.map((status, columnIndex) => (
               <Box
                 key={`background-${status}`}
@@ -388,8 +407,12 @@ export function SprintViewBoard({
                       sx={{
                         gridColumn: 1,
                         gridRow: rowNumber,
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 3,
                         px: 1.5,
                         py: 1,
+                        borderRight: '1px solid',
                         borderColor: 'divider',
                         bgcolor: 'background.paper',
                       }}
@@ -432,6 +455,5 @@ export function SprintViewBoard({
           </Box>
         </Box>
       </Box>
-    </Box>
-  )
+    </Box>  </Box>  )
 }

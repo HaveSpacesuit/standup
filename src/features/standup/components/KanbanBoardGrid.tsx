@@ -48,17 +48,17 @@ export function KanbanBoardGrid({
       <Box
         sx={{
           height: '100%',
-          overflowX: 'auto',
+          overflow: 'auto',
+          scrollbarGutter: 'stable',
+          bgcolor: 'background.default',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         <Box
           sx={{
             minWidth: 1220,
-            height: '100%',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            scrollbarGutter: 'stable',
-            bgcolor: 'background.default',
+            minHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
           }}
@@ -81,9 +81,13 @@ export function KanbanBoardGrid({
             >
               <Box
                 sx={{
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 4,
                   px: 2,
                   py: 1.5,
                   borderBottom: '1px solid',
+                  borderRight: '1px solid',
                   borderColor: 'divider',
                   bgcolor: 'background.paper',
                 }}
@@ -174,7 +178,16 @@ export function KanbanBoardGrid({
                 pointerEvents: 'none',
               }}
             >
-              <Box sx={{ bgcolor: 'background.paper' }} />
+              <Box
+                sx={{
+                  bgcolor: 'background.paper',
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 1,
+                  borderRight: '1px solid',
+                  borderColor: 'divider',
+                }}
+              />
               {STATUS_COLUMNS.map((status, columnIndex) => (
                 <Box
                   key={`background-${status}`}
@@ -197,9 +210,13 @@ export function KanbanBoardGrid({
                 <Box key={row.key} sx={{ display: 'contents' }}>
                 <Box
                   sx={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 3,
                     px: 1.5,
                     py: 1.25,
                     borderBottom: '1px solid',
+                    borderRight: '1px solid',
                     borderColor: 'divider',
                     bgcolor: 'background.paper',
                     display: 'flex',
