@@ -99,7 +99,17 @@ export function WorkItemTags({ tags, sprintName, showRolloverIndicator = false, 
               whiteSpace: 'nowrap',
             }}
           >
-            Sprint {sprintName}
+            <Box
+              component="span"
+              sx={{
+                '@container (max-width: 210px)': {
+                  display: 'none',
+                },
+              }}
+            >
+              Sprint{' '}
+            </Box>
+            {sprintName}
           </Typography>
         </Box>
       ) : null}

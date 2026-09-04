@@ -82,6 +82,7 @@ export function WorkItemCard({
     <Card
       elevation={2}
       sx={{
+        containerType: 'inline-size',
         position: 'relative',
         p: 1,
         border: '1px solid',
@@ -287,7 +288,15 @@ export function WorkItemCard({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '1 1 auto' }}>
                     <Typography
                       variant="body-sm"
-                      sx={{ fontSize: 10, color: 'text.secondary', flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                      sx={{
+                        fontSize: 10,
+                        color: 'text.secondary',
+                        flex: '0 0 auto',
+                        whiteSpace: 'nowrap',
+                        '@container (max-width: 210px)': {
+                          display: 'none',
+                        },
+                      }}
                     >
                       Effort
                     </Typography>
@@ -343,7 +352,17 @@ export function WorkItemCard({
                       variant="body-sm"
                       sx={{ fontSize: 10, lineHeight: 1.1, whiteSpace: 'nowrap' }}
                     >
-                      Sprint {item.sprintName}
+                      <Box
+                        component="span"
+                        sx={{
+                          '@container (max-width: 210px)': {
+                            display: 'none',
+                          },
+                        }}
+                      >
+                        Sprint{' '}
+                      </Box>
+                      {item.sprintName}
                     </Typography>
                   </Box>
                 ) : null}
