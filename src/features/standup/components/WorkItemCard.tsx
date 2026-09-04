@@ -184,6 +184,7 @@ export function WorkItemCard({
                 minWidth: 0,
                 color: 'text.primary',
                 textDecoration: 'none',
+                borderRadius: 1,
                 '&:hover': {
                   textDecoration: 'underline',
                 },

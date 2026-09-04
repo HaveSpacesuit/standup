@@ -26,6 +26,7 @@ export function PullRequestSection({ pullRequest, statusColor, emphasizeTitle = 
           minWidth: 0,
           color: emphasizeTitle ? 'text.primary' : 'text.secondary',
           textDecoration: 'none',
+          borderRadius: 1,
           '&:hover': {
             textDecoration: 'underline',
           },
