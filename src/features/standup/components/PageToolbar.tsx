@@ -23,6 +23,9 @@ export function PageToolbar({ iconHref, title, children }: PageToolbarProps) {
                 display: 'none',
               },
             },
+            '@container (max-width: 420px)': {
+              display: 'none',
+            },
           }}
         >
           <Icon href={`${iconHref}#icon-large`} size="large" />

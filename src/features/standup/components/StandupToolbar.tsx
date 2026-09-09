@@ -126,6 +126,9 @@ export function StandupToolbar({
             minWidth: 90,
             maxWidth: 320,
             flex: '1 1 auto',
+            '@container (max-width: 420px)': {
+              display: 'none',
+            },
           }}
           slotProps={{
             input: {
@@ -151,6 +154,9 @@ export function StandupToolbar({
             minWidth: 52,
             maxWidth: 270,
             flex: '1 1 auto',
+            '@container (max-width: 420px)': {
+              display: 'none',
+            },
           }}
         >
           <Select
