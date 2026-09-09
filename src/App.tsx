@@ -137,7 +137,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
   })
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', bgcolor: 'background.paper' }}>
+    <Box sx={{ height: '100dvh', display: 'flex', overflow: 'hidden', bgcolor: 'background.paper' }}>
       <PatEntryDialog open={!patConfigured} onPatSave={handlePatSave} patCreationUrl={patCreationUrl} />
 
       <AppNavigationRail
