@@ -55,11 +55,11 @@ export function WorkItemCard({
   const accent = accentColor ?? statusColor
   const isNew = highlightState === 'new'
   const isStale = highlightState === 'stale'
-  const newGlow = `0 0 0 1px color-mix(in srgb, ${statusColor} 72%, transparent), 0 0 14px color-mix(in srgb, ${statusColor} 42%, transparent)`
-  const newBackground = `color-mix(in srgb, ${statusColor} 8%, ${theme.palette.background.paper})`
+  const newGlow = `0 0 0 1px color-mix(in srgb, ${accent} 72%, transparent), 0 0 14px color-mix(in srgb, ${accent} 42%, transparent)`
+  const newBackground = `color-mix(in srgb, ${accent} 8%, ${theme.palette.background.paper})`
   const cardShadow = isNew ? newGlow : undefined
   const hoverShadow = isNew
-    ? `0 0 0 1px color-mix(in srgb, ${statusColor} 82%, transparent), 0 0 18px color-mix(in srgb, ${statusColor} 52%, transparent)`
+    ? `0 0 0 1px color-mix(in srgb, ${accent} 82%, transparent), 0 0 18px color-mix(in srgb, ${accent} 52%, transparent)`
     : undefined
 
   const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
