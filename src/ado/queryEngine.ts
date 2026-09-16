@@ -161,7 +161,7 @@ export class AdoQueryEngine {
     }), options?.forceRefresh)
   }
 
-  clearTeamWorkItemsCache(teamId?: string): void {
+  clearDevelopmentDataCache(teamId?: string): void {
     if (teamId) {
       // Team work-item cache keys can be compound (`${teamId}:types:<...>`) when type filters
       // are active, so clear every entry belonging to this team.
@@ -170,20 +170,29 @@ export class AdoQueryEngine {
           this.teamWorkItemsCache.delete(key)
         }
       }
-      // QA raw-data cache keys are compound (`${teamId}:<filters>`) when work-item-type or sprint
-      // filters are active, so clear every entry belonging to this team — not just the bare key.
-      for (const key of this.qaRawDataCache.keys()) {
-        if (key === teamId || key.startsWith(`${teamId}:`)) {
-          this.qaRawDataCache.delete(key)
-        }
-      }
       this.unlinkedPullRequestItemsCache.delete(teamId)
       return
     }
 
     this.teamWorkItemsCache.clear()
-    this.qaRawDataCache.clear()
     this.unlinkedPullRequestItemsCache.clear()
+  }
+
+  clearQualityAssuranceDataCache(teamId?: string): void {
+    if (teamId) {
+      for (const key of this.qaRawDataCache.keys()) {
+        if (key === teamId || key.startsWith(`${teamId}:`)) {
+          this.qaRawDataCache.delete(key)
+        }
+      }
+      return
+    }
+
+    this.qaRawDataCache.clear()
+  }
+
+  clearTeamIterationsCache(teamId: string): void {
+    this.teamIterationsCache.delete(teamId)
   }
 
   clearTeamMetadataCaches(
@@ -202,9 +211,15 @@ export class AdoQueryEngine {
     this.currentIterationCache.delete(iterationWindowCacheKey(team))
     this.teamSubjectDescriptorCache.delete(teamSubjectDescriptorCacheKey(team))
     this.teamIterationsCache.delete(team.id)
-    // Item-history cache isn't keyed by team (work item IDs are org-wide), so a per-team
-    // refresh simply clears it all — cheap to refetch and keeps "Refresh" meaning "reload everything".
-    this.workItemUpdatesCache.clear()
+  }
+
+  clearWorkItemUpdatesCache(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    itemIds: Iterable<number>,
+  ): void {
+    for (const itemId of itemIds) {
+      this.workItemUpdatesCache.delete(workItemUpdatesCacheKey(team, itemId))
+    }
   }
 
   async resolveWorkItemAssignee(

@@ -95,7 +95,8 @@ export function useBoardViewModel({
   assignmentOptionsByTeam,
   assignmentCardHighlightOptions,
 }: UseBoardViewModelArgs): UseBoardViewModelResult {
-  const [reloadNonce, setReloadNonce] = useState(0)
+  const [developmentReloadNonce, setDevelopmentReloadNonce] = useState(0)
+  const [qaReloadNonce, setQaReloadNonce] = useState(0)
 
   const {
     selectedTeamId,
@@ -129,21 +130,10 @@ export function useBoardViewModel({
   }, [pat])
   const dataQueryEngine = hasConfiguredTeam ? adoQueryEngine : null
 
-  const onRefresh = () => {
-    if (!selectedTeam) {
-      return
-    }
-
-    adoQueryEngine?.clearTeamWorkItemsCache(selectedTeam.id)
-    adoQueryEngine?.clearTeamMetadataCaches(selectedTeam)
-    forceRefreshRef.current = true
-    setReloadNonce((current) => current + 1)
-  }
-
   const { iterations: teamIterations, iterationsLoading: teamIterationsLoading } = useTeamIterations({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
-    reloadNonce,
+    reloadNonce: developmentReloadNonce + qaReloadNonce,
   })
 
   const {
@@ -169,7 +159,7 @@ export function useBoardViewModel({
   } = useTeamData({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
-    reloadNonce,
+    reloadNonce: developmentReloadNonce,
     forceRefreshRef,
     includeWorkItemTypes: selectedAssignmentWorkItemTypes,
     includeIterationPaths: selectedAssignmentIterationPaths,
@@ -230,7 +220,7 @@ export function useBoardViewModel({
   const { qaBuckets, qaBucketsLoading, qaBucketsError } = useQualityAssuranceBuckets({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
-    reloadNonce,
+    reloadNonce: qaReloadNonce,
     enabled: activeView === 'qa-activity',
     includeWorkItemTypes: qaOptionsByTeam?.[effectiveTeam.id]?.includeWorkItemTypes,
     includeIterationPaths: selectedIterationPaths,
@@ -292,6 +282,26 @@ export function useBoardViewModel({
     iterationWindow,
     teamIterations,
   })
+
+  const onRefresh = () => {
+    if (!selectedTeam || !adoQueryEngine) {
+      return
+    }
+
+    if (activeView === 'qa-activity') {
+      adoQueryEngine.clearQualityAssuranceDataCache(selectedTeam.id)
+      adoQueryEngine.clearTeamIterationsCache(selectedTeam.id)
+      adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, qaBuckets.flatMap((bucket) => bucket.items.map((item) => item.id)))
+      setQaReloadNonce((current) => current + 1)
+      return
+    }
+
+    adoQueryEngine.clearDevelopmentDataCache(selectedTeam.id)
+    adoQueryEngine.clearTeamMetadataCaches(selectedTeam)
+    adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, boardItems.map((item) => item.id))
+    forceRefreshRef.current = true
+    setDevelopmentReloadNonce((current) => current + 1)
+  }
 
   useEffect(() => {
     if (!selectedMemberFilter) {
