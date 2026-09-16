@@ -336,6 +336,7 @@ export function AppNavigationRail({
               label="Development"
               icon={`${svgDeveloper}#icon-large`}
               active={activeView === 'development'}
+              style={{inlineSize: 'unset'}}
             />
           </NavigationRail.ListItem>
           <NavigationRail.ListItem>
@@ -344,6 +345,7 @@ export function AppNavigationRail({
               label="Quality Assurance"
               icon={`${svgInspection}#icon-large`}
               active={activeView === 'qa-activity'}
+              style={{inlineSize: 'unset'}}
             />
           </NavigationRail.ListItem>
         </NavigationRail.List>
@@ -353,6 +355,7 @@ export function AppNavigationRail({
               icon={`${svgConfiguration}#icon-large`}
               label="Settings"
               onClick={() => setIsSettingsDialogOpen(true)}
+              style={{inlineSize: 'unset'}}
             />
           </NavigationRail.ListItem>
           <NavigationRail.ListItem>
@@ -360,6 +363,7 @@ export function AppNavigationRail({
               icon={`${svgHelp}#icon-large`}
               label="Help"
               onClick={() => setIsHelpDialogOpen(true)}
+              style={{inlineSize: 'unset'}}
             />
           </NavigationRail.ListItem>
         </NavigationRail.Footer>
