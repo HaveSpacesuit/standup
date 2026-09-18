@@ -1,5 +1,4 @@
 import {
-  Avatar,
   Box,
   ButtonGroup,
   FormControl,
@@ -16,6 +15,7 @@ import {
 import type { RefObject } from 'react'
 import { Icon } from '@stratakit/mui'
 import type { TeamMember } from '../../../ado/queryEngine'
+import { AdoAvatar } from './AdoAvatar'
 import svgUsers from '@stratakit/icons/users.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
@@ -85,13 +85,14 @@ export function StandupToolbar({
 
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-        <Avatar
+        <AdoAvatar
           alt=""
+          descriptor={member?.descriptor}
           src={isAllMembers ? undefined : member?.imageUrl}
           sx={{ width: size, height: size, fontSize: 10, flexShrink: 0 }}
         >
           {isAllMembers ? <Icon href={svgUsers} size="regular" /> : null}
-        </Avatar>
+        </AdoAvatar>
         <Box
           component="span"
           sx={{

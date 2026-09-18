@@ -4,10 +4,12 @@ import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { WorkItemCard } from './WorkItemCard'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
+import { AdoAvatar } from './AdoAvatar'
 
 export type BoardRowData = {
   key: string
   label: string
+  avatarDescriptor?: string
   avatarUrl?: string
   isUnassigned?: boolean
 }
@@ -227,7 +229,12 @@ export function KanbanBoardGrid({
                     {row.isUnassigned ? (
                       <Avatar sx={{ width: 28, height: 28 }} />
                     ) : (
-                      <Avatar alt={row.label} src={row.avatarUrl} sx={{ width: 28, height: 28 }} />
+                      <AdoAvatar
+                        alt={row.label}
+                        descriptor={row.avatarDescriptor}
+                        src={row.avatarUrl}
+                        sx={{ width: 28, height: 28 }}
+                      />
                     )}
                     <Typography variant="body-sm" sx={{ fontWeight: 500 }}>
                       {row.label}

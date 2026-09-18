@@ -83,6 +83,7 @@ export function KanbanBoard({
       .map((member) => ({
         key: member.displayName.toLowerCase(),
         label: member.displayName,
+        avatarDescriptor: member.descriptor,
         avatarUrl: member.imageUrl,
         isUnassigned: false,
       }))

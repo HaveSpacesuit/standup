@@ -1,5 +1,4 @@
 import {
-  Avatar,
   Card,
   CardContent,
   CircularProgress,
@@ -12,6 +11,7 @@ import {
 import Box from '@mui/material/Box'
 import { useMemo, type ReactNode } from 'react'
 import type { TeamMember } from '../../../ado/queryEngine'
+import { AdoAvatar } from './AdoAvatar'
 
 type TeamMembersCardProps = {
   patConfigured: boolean
@@ -76,7 +76,7 @@ export function TeamMembersCard({
           return (
             <ListItem key={key} disableGutters>
               <ListItemAvatar>
-                <Avatar alt={member.displayName} src={member.imageUrl} />
+                <AdoAvatar alt={member.displayName} descriptor={member.descriptor} src={member.imageUrl} />
               </ListItemAvatar>
               <ListItemText primary={member.displayName} secondary={member.uniqueName} />
             </ListItem>

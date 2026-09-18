@@ -1,8 +1,9 @@
-import { Avatar, Badge, Card, Typography } from '@mui/material'
+import { Badge, Card, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { IdentityRef } from '../../../ado/identity'
+import { AdoAvatar } from './AdoAvatar'
 import { getWorkItemIconUrlWithThemeColor } from '../utils/workItemIconColor'
 import { WorkItemTags } from './WorkItemTags'
 import { PullRequestSection } from './PullRequestSection'
@@ -316,7 +317,7 @@ export function WorkItemCard({
                     >
                       {footerPerson?.label}
                     </Typography>
-                    <Avatar
+                    <AdoAvatar
                       alt={personName ?? ''}
                       src={person.imageUrl}
                       sx={{ width: 16, height: 16, fontSize: 8, flex: '0 0 auto' }}
@@ -333,7 +334,7 @@ export function WorkItemCard({
 
                 {showPerson && showFooterPersonWithEffort && person ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '0 1 auto' }}>
-                    <Avatar
+                    <AdoAvatar
                       alt={personName ?? ''}
                       src={person.imageUrl}
                       sx={{ width: 16, height: 16, fontSize: 8, flex: '0 0 auto' }}
