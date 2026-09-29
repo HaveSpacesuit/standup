@@ -26,6 +26,10 @@ The QA activity page surfaces recently created and changed work items for review
 - work-item type filters
 - a compact review board for QA triage
 
+### Tests view
+
+The Tests page charts e2e pass percentages across a configurable lookback window (90 days by default) for each configured Azure DevOps build/YAML pipeline or classic release pipeline. Use Tests settings to set the number of days, enter the organization and project, type to search pipelines and stages, choose a test-publishing stage (or the whole build pipeline), and add it to the chart. The lookback window is saved in browser local storage and applies to all configured pipelines. Build history is filtered by finish time; release history is queried by creation time, then charted by the selected stage's completion time when available. Multiple pipelines appear as separate lines. Each point represents one run, including multiple runs on the same day; the x-axis shows dates and tooltips show exact times and run IDs. Click a point to open its build Tests tab or release summary in a new tab. The y-axis uses a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages to make differences near 100% easier to see. Each point is passed tests divided by executed test results, excluding `NotExecuted`, `Skipped`, `NotApplicable`, and `NotImpacted`. Tests must be published to Azure DevOps for the chart to find them; stages without executed test results are shown as missing data, not 0% passed. If test results cannot be loaded, the page or settings dialog reminds you to ensure your PAT has Test Management (Read) access. The refresh button reloads the latest results. Tests has no filter, view, or team controls; pipeline selections are saved in browser local storage.
+
 ### Team configuration
 
 Each team profile includes the Azure DevOps organization, project, area path, iteration path, team name, and repository. Teams can be managed in the UI and exported/imported as JSON for sharing between teammates.
@@ -44,7 +48,7 @@ Each team profile includes the Azure DevOps organization, project, area path, it
 src/
   App.tsx                  # top-level app shell and persistence
   ado/                     # Azure DevOps API helpers and query logic
-  features/standup/        # board, QA, and team-management UI
+  features/standup/        # board, QA, Tests, and team-management UI
   adoAuth.ts               # PAT storage and validation
   appSettings.ts           # persisted app settings and team profiles
   teamDataTransfer.ts      # team export/import helpers
@@ -68,6 +72,7 @@ The app validates a PAT before loading data. Required scopes include:
 - Graph (Read)
 - Project and Team (Read)
 - Release (Read)
+- Test Management (Read)
 - Work Items (Read)
 
 The Graph read scope is needed for resolving a team `subjectDescriptor` when building the direct "Manage team" deep link. If it is not available, the app falls back to the project team listing page.
@@ -134,8 +139,8 @@ The import path validates the payload before applying it, so malformed data is r
 - member filter for the current board
 - hidden-tag filters persisted per team
 - board toggles for work-item types and sprint scope
-- keyboard shortcut: Ctrl/Cmd + F focuses the quick filter input
-- tabbed navigation between Team Assignments and Quality Assurance views
+- keyboard shortcut: Ctrl/Cmd + F focuses the quick filter on Development and Quality Assurance
+- navigation between Development, Quality Assurance, and Tests pages
 
 ### Pull request behavior
 

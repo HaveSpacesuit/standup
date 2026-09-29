@@ -11,20 +11,26 @@ export type AdoRequestOptions = {
   params?: QueryParams
   body?: unknown
   signal?: AbortSignal
-  host?: 'dev.azure.com' | 'vssps.dev.azure.com'
+  host?: 'dev.azure.com' | 'vssps.dev.azure.com' | 'vsrm.dev.azure.com' | 'vstmr.dev.azure.com'
 }
 
 export interface AdoRequestClient {
   request<T>(options: AdoRequestOptions): Promise<T>
+  requestPage<T>(options: AdoRequestOptions): Promise<{ data: T; continuationToken: string | null }>
 }
 
 export const ADO_AUTH_ERROR_MESSAGE =
   'Azure DevOps rejected the personal access token. It is likely expired, revoked, or missing the required scopes. Open Settings to enter a new PAT.'
 
 export class AdoAuthError extends Error {
-  constructor() {
+  readonly status?: number
+  readonly host?: AdoRequestOptions['host']
+
+  constructor(status?: number, host?: AdoRequestOptions['host']) {
     super(ADO_AUTH_ERROR_MESSAGE)
     this.name = 'AdoAuthError'
+    this.status = status
+    this.host = host
   }
 }
 
@@ -62,6 +68,10 @@ export class AdoHttpClient implements AdoRequestClient {
   }
 
   async request<T>(options: AdoRequestOptions): Promise<T> {
+    return (await this.requestPage<T>(options)).data
+  }
+
+  async requestPage<T>(options: AdoRequestOptions): Promise<{ data: T; continuationToken: string | null }> {
     const host = options.host ?? 'dev.azure.com'
     const url = new URL(`https://${host}/${encodeURIComponent(options.orgName)}${options.path}`)
     const params = options.params ?? {}
@@ -90,7 +100,7 @@ export class AdoHttpClient implements AdoRequestClient {
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
 
     if (response.status === 401 || response.status === 403 || response.status === 203) {
-      throw new AdoAuthError()
+      throw new AdoAuthError(response.status, host)
     }
 
     if (!response.ok) {
@@ -105,6 +115,9 @@ export class AdoHttpClient implements AdoRequestClient {
       throw new AdoAuthError()
     }
 
-    return (await response.json()) as T
+    return {
+      data: (await response.json()) as T,
+      continuationToken: response.headers.get('x-ms-continuationtoken'),
+    }
   }
 }

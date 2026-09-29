@@ -26,6 +26,7 @@ import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
 import svgDeveloper from '@stratakit/icons/developer.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
+import svgReport from '@stratakit/icons/report.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
@@ -348,6 +349,15 @@ export function AppNavigationRail({
               style={{inlineSize: 'unset'}}
             />
           </NavigationRail.ListItem>
+          <NavigationRail.ListItem>
+            <NavigationRail.Anchor
+              href="#tests"
+              label="Tests"
+              icon={`${svgReport}#icon-large`}
+              active={activeView === 'tests'}
+              style={{inlineSize: 'unset'}}
+            />
+          </NavigationRail.ListItem>
         </NavigationRail.List>
         <NavigationRail.Footer>
           <NavigationRail.ListItem>
@@ -377,7 +387,7 @@ export function AppNavigationRail({
               App structure
             </Typography>
             <Typography variant="body-sm" color="text.secondary">
-              The app is organized around two main pages: Development and Quality Assurance.
+              The app is organized around three main pages: Development, Quality Assurance, and Tests.
             </Typography>
           </Box>
 
@@ -387,6 +397,9 @@ export function AppNavigationRail({
             </Typography>
             <Typography component="li" variant="body-sm">
               <strong>Quality Assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.
+            </Typography>
+            <Typography component="li" variant="body-sm">
+              <strong>Tests</strong> charts e2e test pass rates across configured build and release pipeline stages.
             </Typography>
             <Typography component="li" variant="body-sm">
               <strong>Settings</strong> stores Azure DevOps credentials, team configuration, and app appearance preferences in browser storage.
@@ -399,7 +412,7 @@ export function AppNavigationRail({
             </Typography>
             <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1, color: 'text.secondary' }}>
               <Typography component="li" variant="body-sm">
-                <strong>Azure DevOps access</strong> requires a PAT with Build, Code, Graph, Project and Team, Release, and Work Items read scopes.
+                <strong>Azure DevOps access</strong> requires a PAT with Build, Code, Graph, Project and Team, Release, Test Management, and Work Items read scopes.
               </Typography>
               <Typography component="li" variant="body-sm">
                 <strong>Teams</strong> lets you define an org, project, area path, iteration path, team name, and repository. Each team stores its own QA and assignment options.
@@ -419,7 +432,7 @@ export function AppNavigationRail({
                 Use the quick filter in the toolbar to match work item IDs, titles, sprint details, tags, PR titles, and team member names.
               </Typography>
               <Typography component="li" variant="body-sm">
-                Ctrl+F (or Cmd+F on macOS) focuses the current page&apos;s quick filter, and the member filter can be cycled with Ctrl+Up and Ctrl+Down.
+                Ctrl+F (or Cmd+F on macOS) focuses the quick filter on Development and Quality Assurance. The Development member filter can be cycled with Ctrl+Up and Ctrl+Down.
               </Typography>
               <Typography component="li" variant="body-sm">
                 Team profiles and saved per-team options persist in local storage so the app can restore the currently selected setup on reload.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
 
-export type AppView = 'development' | 'qa-activity'
+export type AppView = 'development' | 'qa-activity' | 'tests'
 
 type UseAppNavigationArgs = {
   patConfigured: boolean
@@ -16,6 +16,10 @@ type UseAppNavigationResult = {
 }
 
 function getViewFromHash(hash: string): AppView {
+  if (hash === '#tests') {
+    return 'tests'
+  }
+
   if (hash === '#qa-activity') {
     return 'qa-activity'
   }
@@ -87,7 +91,7 @@ export function useAppNavigation({
         const isCycleUpShortcut = event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'ArrowUp'
         const isCycleDownShortcut = event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'ArrowDown'
 
-        if (!isTypingTarget && (isCycleUpShortcut || isCycleDownShortcut)) {
+        if (activeView === 'development' && !isTypingTarget && (isCycleUpShortcut || isCycleDownShortcut)) {
           event.preventDefault()
           onMemberFilterCycle(isCycleUpShortcut ? -1 : 1)
         }
@@ -95,10 +99,12 @@ export function useAppNavigation({
         return
       }
 
-      event.preventDefault()
-      const quickFilterInputRef = quickFilterInputRefs[activeView] ?? quickFilterInputRefs.development
-      quickFilterInputRef?.current?.focus()
-      quickFilterInputRef?.current?.select()
+      const quickFilterInputRef = quickFilterInputRefs[activeView]
+      if (quickFilterInputRef) {
+        event.preventDefault()
+        quickFilterInputRef.current?.focus()
+        quickFilterInputRef.current?.select()
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)

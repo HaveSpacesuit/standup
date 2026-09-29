@@ -10,6 +10,7 @@ export const REQUIRED_PAT_SCOPES = [
   'Graph (Read)',
   'Project and Team (Read)',
   'Release (Read)',
+  'Test Management (Read)',
   'Work Items (Read)',
 ] as const
 

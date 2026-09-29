@@ -158,6 +158,11 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
 
       <StandupContent
         activeView={activeView}
+        testsPageProps={{
+          pat: storedPatState?.pat ?? null,
+          defaultOrg: teamProfiles.find((team) => team.id === selectedTeamId)?.orgName ?? '',
+          defaultProject: teamProfiles.find((team) => team.id === selectedTeamId)?.projectName ?? '',
+        }}
         teamAssignmentsPageProps={{
           patConfigured,
           colorScheme,
