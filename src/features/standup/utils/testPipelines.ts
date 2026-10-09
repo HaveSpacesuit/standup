@@ -5,6 +5,11 @@ export function testStageLabel(stageName: string): string {
   return stageName === ALL_TEST_STAGES ? 'Entire pipeline' : stageName
 }
 
+export const PASS_RATE_TICKS = [0, 50, 75, 90, 95, 98, 100]
+
+// Log-scales the failure rate so differences near 100% are visible.
+export const passRatePosition = (percent: number) => Math.log10(1 + 100 - percent)
+
 export type TestPipeline = {
   id: string
   orgName: string

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Box, CircularProgress, IconButton, Typography } from '@mui/material'
+import { Alert, Box, IconButton, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgReport from '@stratakit/icons/report.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
@@ -8,6 +8,7 @@ import { AdoHttpClient } from '../../../ado/httpClient'
 import { loadTestPoints } from '../../../ado/testPipelinesApi'
 import { PageToolbar } from '../components/PageToolbar'
 import { TestPassChart, type TestSeries } from '../components/TestPassChart'
+import { TestsLoadingState } from '../components/TestsLoadingState'
 import { TestsSettingsDialog } from '../components/TestsSettingsDialog'
 import {
   DEFAULT_TEST_LOOKBACK_DAYS, loadTestLookbackDays, loadTestPipelines,
@@ -114,7 +115,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
         {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
-        {loading && <Typography variant="body-sm">Loading test results… <CircularProgress size={16} /></Typography>}
+        {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} />}
         {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
         {pipelines.length === 0 && !error && (
           <Typography variant="body-md" color="text.secondary">
@@ -124,12 +125,12 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         {pat && pipelines.length > 0 && !loading && series.every(({ points }) => points.length === 0) && !error && (
           <Alert severity="info">No published test results were found for the selected stages in the last {lookbackDays} days.</Alert>
         )}
-        {series.some(({ points }) => points.length > 0) && (
+        {!loading && series.some(({ points }) => points.length > 0) && (
           <Box sx={{ height: 480, flexShrink: 0 }}>
             <TestPassChart series={series.filter(({ points }) => points.length > 0)} />
           </Box>
         )}
-        {series.filter(({ points }) => points.length === 0).map(({ pipeline }) => (
+        {!loading && series.filter(({ points }) => points.length === 0).map(({ pipeline }) => (
           <Alert key={pipeline.id} severity="info">No published results for {pipeline.name} · {testStageLabel(pipeline.stageName)} in the last {lookbackDays} days.</Alert>
         ))}
       </Box>

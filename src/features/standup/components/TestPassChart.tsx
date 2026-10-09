@@ -4,14 +4,11 @@ import { useTheme } from '@mui/material/styles'
 import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend, type Scale, type TooltipItem } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import type { TestPoint } from '../../../ado/testPipelinesApi'
-import { testStageLabel, type TestPipeline } from '../utils/testPipelines'
+import { PASS_RATE_TICKS as passRateTicks, passRatePosition, testStageLabel, type TestPipeline } from '../utils/testPipelines'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
 export type TestSeries = { pipeline: TestPipeline; points: TestPoint[] }
-
-const passRateTicks = [0, 50, 75, 90, 95, 98, 100]
-const passRatePosition = (percent: number) => Math.log10(1 + 100 - percent)
 
 function testRunUrl(pipeline: TestPipeline, runId: number): string {
   const base = `https://dev.azure.com/${encodeURIComponent(pipeline.orgName)}/${encodeURIComponent(pipeline.projectName)}`
