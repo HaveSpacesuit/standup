@@ -9,6 +9,9 @@ import { PASS_RATE_TICKS as passRateTicks, passRatePosition, testStageLabel, typ
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
 export type TestSeries = { pipeline: TestPipeline; points: TestPoint[] }
+export type TestChartRange = { start: number; end: number }
+
+const X_TICK_COUNT = 7
 
 function testRunUrl(pipeline: TestPipeline, runId: number): string {
   const base = `https://dev.azure.com/${encodeURIComponent(pipeline.orgName)}/${encodeURIComponent(pipeline.projectName)}`
@@ -17,7 +20,7 @@ function testRunUrl(pipeline: TestPipeline, runId: number): string {
     : `${base}/_releaseProgress?releaseId=${runId}&_a=release-pipeline-progress`
 }
 
-export function TestPassChart({ series }: { series: TestSeries[] }) {
+export function TestPassChart({ series, range }: { series: TestSeries[]; range: TestChartRange }) {
   const theme = useTheme()
   const [colors, setColors] = useState<string[]>([])
 
@@ -88,8 +91,13 @@ export function TestPassChart({ series }: { series: TestSeries[] }) {
       },
       x: {
         type: 'linear' as const,
+        min: range.start,
+        max: range.end,
+        afterBuildTicks: (scale: Scale) => {
+          const step = (range.end - range.start) / (X_TICK_COUNT - 1)
+          scale.ticks = Array.from({ length: X_TICK_COUNT }, (_, index) => ({ value: range.start + step * index }))
+        },
         ticks: {
-          maxTicksLimit: 8,
           callback: (value: number | string) => new Date(Number(value)).toLocaleString(undefined, {
             month: 'numeric', day: 'numeric', year: 'numeric',
           }),

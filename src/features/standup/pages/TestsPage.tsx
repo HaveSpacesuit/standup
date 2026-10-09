@@ -12,7 +12,7 @@ import { TestsLoadingState } from '../components/TestsLoadingState'
 import { TestsSettingsDialog } from '../components/TestsSettingsDialog'
 import {
   DEFAULT_TEST_LOOKBACK_DAYS, loadTestLookbackDays, loadTestPipelines,
-  saveTestLookbackDays, saveTestPipelines, testStageLabel, type TestPipeline,
+  saveTestLookbackDays, saveTestPipelines, testLookbackStart, testStageLabel, type TestPipeline,
 } from '../utils/testPipelines'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
 
@@ -39,6 +39,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
   const [lookbackStorageError, setLookbackStorageError] = useState(storedLookback.error)
   const [error, setError] = useState<string | null>(stored.error)
   const [series, setSeries] = useState<TestSeries[]>([])
+  const [range, setRange] = useState<{ start: number; end: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [refreshNonce, setRefreshNonce] = useState(0)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
@@ -79,12 +80,14 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
     const controller = new AbortController()
     setLoading(true)
     setError(null)
+    const fetchedAt = Date.now()
     Promise.allSettled(pipelines.map(async (pipeline) => ({
       pipeline,
       points: await loadTestPoints(client, pipeline, lookbackDays, controller.signal),
     }))).then((results) => {
       if (controller.signal.aborted) return
       setSeries(results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []))
+      setRange({ start: new Date(testLookbackStart(lookbackDays, fetchedAt)).getTime(), end: fetchedAt })
       const failures = results.flatMap((result, index) =>
         result.status === 'rejected'
           ? [`${pipelines[index].name}: ${testPipelineErrorMessage(result.reason)}`]
@@ -125,9 +128,9 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         {pat && pipelines.length > 0 && !loading && series.every(({ points }) => points.length === 0) && !error && (
           <Alert severity="info">No published test results were found for the selected stages in the last {lookbackDays} days.</Alert>
         )}
-        {!loading && series.some(({ points }) => points.length > 0) && (
+        {!loading && range && series.some(({ points }) => points.length > 0) && (
           <Box sx={{ height: 480, flexShrink: 0 }}>
-            <TestPassChart series={series.filter(({ points }) => points.length > 0)} />
+            <TestPassChart series={series.filter(({ points }) => points.length > 0)} range={range} />
           </Box>
         )}
         {!loading && series.filter(({ points }) => points.length === 0).map(({ pipeline }) => (

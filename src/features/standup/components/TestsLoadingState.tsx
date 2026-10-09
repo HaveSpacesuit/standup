@@ -29,10 +29,12 @@ const pulse = keyframes`
 
 const maxPosition = passRatePosition(0)
 const percentToTop = (percent: number) => (passRatePosition(percent) / maxPosition) * 100
+// Runs rarely begin exactly at the start of the lookback window, so traces start partway in.
+const TRACE_START_X = [12, 22, 30, 18]
 
-function tracePoints(pattern: readonly number[]) {
+function tracePoints(pattern: readonly number[], startX: number) {
   return pattern
-    .map((percent, index) => `${(index / (pattern.length - 1)) * 100},${percentToTop(percent)}`)
+    .map((percent, index) => `${startX + (index / (pattern.length - 1)) * (98 - startX)},${percentToTop(percent)}`)
     .join(' ')
 }
 
@@ -145,7 +147,7 @@ export function TestsLoadingState({ pipelineCount, lookbackDays }: TestsLoadingS
             {TRACE_PATTERNS.slice(0, traceCount).map((pattern, index) => (
               <polyline
                 key={`tests-loading-trace-${index}`}
-                points={tracePoints(pattern)}
+                points={tracePoints(pattern, TRACE_START_X[index])}
                 fill="none"
                 stroke="currentColor"
                 strokeOpacity={0.22}
