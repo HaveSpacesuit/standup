@@ -1,3 +1,5 @@
+import type { TestPoint } from '../../../ado/testPipelinesApi'
+
 export type TestPipelineKind = 'build' | 'release'
 export const ALL_TEST_STAGES = '__all__'
 
@@ -57,6 +59,65 @@ export function filterTestPointsByPassRate<T extends { passed: number; total: nu
 ): T[] {
   validateTestPassRateFilter(filter)
   return filter.enabled ? points.filter((point) => (point.passed / point.total) * 100 > filter.threshold) : points
+}
+
+export type TestDailyMode = 'lowest' | 'average' | 'highest'
+export type TestDailyOptions = { enabled: boolean; mode: TestDailyMode }
+export const DEFAULT_TEST_DAILY_OPTIONS: TestDailyOptions = { enabled: false, mode: 'highest' }
+const DAILY_STORAGE_KEY = 'standup:test-daily-options'
+
+function isTestDailyMode(value: unknown): value is TestDailyMode {
+  return value === 'lowest' || value === 'average' || value === 'highest'
+}
+
+export function loadTestDailyOptions(): TestDailyOptions {
+  const stored = localStorage.getItem(DAILY_STORAGE_KEY)
+  if (stored === null) return { ...DEFAULT_TEST_DAILY_OPTIONS }
+  const parsed: unknown = JSON.parse(stored)
+  if (!parsed || typeof parsed !== 'object' || !('enabled' in parsed) || typeof parsed.enabled !== 'boolean'
+    || !('mode' in parsed) || !isTestDailyMode(parsed.mode)) {
+    throw new Error('Saved Tests daily options are invalid. Correct or remove them from browser storage.')
+  }
+  return { enabled: parsed.enabled, mode: parsed.mode }
+}
+
+export function saveTestDailyOptions(options: TestDailyOptions): void {
+  if (typeof options.enabled !== 'boolean' || !isTestDailyMode(options.mode)) {
+    throw new Error('Choose lowest, average, or highest for daily test results.')
+  }
+  localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(options))
+}
+
+export type TestChartPoint = TestPoint | { date: string; passRate: number; runCount: number; runId?: undefined }
+
+export function testPointPassRate(point: TestChartPoint): number {
+  return 'passRate' in point ? point.passRate : (point.passed / point.total) * 100
+}
+
+export function groupTestPointsByDay(points: TestPoint[], options: TestDailyOptions): TestChartPoint[] {
+  if (!options.enabled) return points
+  const days = new Map<string, TestPoint[]>()
+  for (const point of points) {
+    const date = new Date(point.date)
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+    const group = days.get(key)
+    if (group) group.push(point)
+    else days.set(key, [point])
+  }
+  return [...days.values()].map((group): TestChartPoint => {
+    const sorted = [...group].sort((left, right) => Date.parse(left.date) - Date.parse(right.date) || left.runId - right.runId)
+    if (options.mode === 'average' && sorted.length > 1) {
+      return {
+        date: sorted[0].date,
+        passRate: sorted.reduce((sum, point) => sum + testPointPassRate(point) / sorted.length, 0),
+        runCount: sorted.length,
+      }
+    }
+    return sorted.reduce((selected, point) => {
+      const difference = testPointPassRate(point) - testPointPassRate(selected)
+      return (options.mode === 'lowest' ? difference < 0 : difference > 0) ? point : selected
+    })
+  }).sort((left, right) => Date.parse(left.date) - Date.parse(right.date))
 }
 
 export const DEFAULT_TEST_LOOKBACK_DAYS = 90

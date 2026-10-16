@@ -3,12 +3,11 @@ import { Box } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend, type Scale, type TooltipItem } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import type { TestPoint } from '../../../ado/testPipelinesApi'
-import { PASS_RATE_TICKS as passRateTicks, passRatePosition, testStageLabel, type TestPipeline } from '../utils/testPipelines'
+import { PASS_RATE_TICKS as passRateTicks, passRatePosition, testPointPassRate, testStageLabel, type TestChartPoint, type TestPipeline } from '../utils/testPipelines'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
-export type TestSeries = { pipeline: TestPipeline; points: TestPoint[] }
+export type TestSeries = { pipeline: TestPipeline; points: TestChartPoint[] }
 export type TestChartRange = { start: number; end: number }
 
 const X_TICK_COUNT = 7
@@ -49,7 +48,7 @@ export function TestPassChart({ series, range }: { series: TestSeries[]; range: 
           label: `${pipeline.name} · ${testStageLabel(pipeline.stageName)}`,
           data: points.map((point) => ({
             x: new Date(point.date).getTime(),
-            y: passRatePosition((point.passed / point.total) * 100),
+            y: passRatePosition(testPointPassRate(point)),
           })),
           borderColor: colors[index % colors.length] ?? theme.palette.primary.main,
           backgroundColor: colors[index % colors.length] ?? theme.palette.primary.main,
@@ -68,10 +67,12 @@ export function TestPassChart({ series, range }: { series: TestSeries[]; range: 
       if (!hit) return
       const selected = series[hit.datasetIndex]
       const point = selected?.points[hit.index]
-      if (point) window.open(testRunUrl(selected.pipeline, point.runId), '_blank', 'noopener,noreferrer')
+      if (point?.runId !== undefined) window.open(testRunUrl(selected.pipeline, point.runId), '_blank', 'noopener,noreferrer')
     },
-    onHover: (_event: unknown, elements: Array<unknown>, chart: ChartJS) => {
-      chart.canvas.style.cursor = elements.length ? 'pointer' : 'default'
+    onHover: (_event: unknown, elements: Array<{ datasetIndex: number; index: number }>, chart: ChartJS) => {
+      const hit = elements[0]
+      const point = hit ? series[hit.datasetIndex]?.points[hit.index] : undefined
+      chart.canvas.style.cursor = point?.runId !== undefined ? 'pointer' : 'default'
     },
     interaction: { mode: 'nearest' as const, intersect: true },
     scales: {
@@ -108,15 +109,23 @@ export function TestPassChart({ series, range }: { series: TestSeries[]; range: 
       legend: { position: 'bottom' as const },
       tooltip: {
         callbacks: {
-          title: (items: TooltipItem<'line'>[]) =>
-            items[0]?.parsed.x != null ? new Date(items[0].parsed.x).toLocaleString() : '',
+          title: (items: TooltipItem<'line'>[]) => {
+            const hit = items[0]
+            const point = hit ? series[hit.datasetIndex]?.points[hit.dataIndex] : undefined
+            if (!point) return ''
+            const date = new Date(point.date)
+            return 'passRate' in point ? date.toLocaleDateString() : date.toLocaleString()
+          },
           label: (context: TooltipItem<'line'>) => {
             const point = series[context.datasetIndex]?.points[context.dataIndex]
-            return point ? `${context.dataset.label}: ${((point.passed / point.total) * 100).toFixed(2)}% passed` : ''
+            return point ? `${context.dataset.label}: ${testPointPassRate(point).toFixed(2)}% passed` : ''
           },
           afterLabel: (context: { datasetIndex: number; dataIndex: number }) => {
             const point = series[context.datasetIndex]?.points[context.dataIndex]
-            return point ? `${point.passed} / ${point.total} passed · run ${point.runId} · click to open in Azure DevOps` : ''
+            if (!point) return ''
+            return 'passRate' in point
+              ? `Daily average of ${point.runCount} runs · no individual run link`
+              : `${point.passed} / ${point.total} passed · run ${point.runId} · click to open in Azure DevOps`
           },
         },
       },

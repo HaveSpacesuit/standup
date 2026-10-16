@@ -5,7 +5,7 @@ import svgReport from '@stratakit/icons/report.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import { AdoHttpClient } from '../../../ado/httpClient'
-import { loadTestPoints } from '../../../ado/testPipelinesApi'
+import { loadTestPoints, type TestPoint } from '../../../ado/testPipelinesApi'
 import { PageToolbar } from '../components/PageToolbar'
 import { TestPassChart, type TestSeries } from '../components/TestPassChart'
 import { TestsLoadingState } from '../components/TestsLoadingState'
@@ -15,6 +15,7 @@ import {
   saveTestLookbackDays, saveTestPipelines, testLookbackStart, testStageLabel, type TestPipeline,
   DEFAULT_TEST_PASS_RATE_FILTER, filterTestPointsByPassRate, loadTestPassRateFilter,
   saveTestPassRateFilter, type TestPassRateFilter,
+  DEFAULT_TEST_DAILY_OPTIONS, groupTestPointsByDay, loadTestDailyOptions, saveTestDailyOptions, type TestDailyOptions,
 } from '../utils/testPipelines'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
 
@@ -48,16 +49,41 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
   })
   const [passRateFilter, setPassRateFilter] = useState(storedPassRateFilter.filter)
   const [passRateFilterStorageError, setPassRateFilterStorageError] = useState(storedPassRateFilter.error)
+  const [storedDailyOptions] = useState(() => {
+    try {
+      return { options: loadTestDailyOptions(), error: null }
+    } catch (cause) {
+      return { options: DEFAULT_TEST_DAILY_OPTIONS, error: cause instanceof Error ? cause.message : String(cause) }
+    }
+  })
+  const [dailyOptions, setDailyOptions] = useState(storedDailyOptions.options)
+  const [dailyStorageError, setDailyStorageError] = useState(storedDailyOptions.error)
   const [error, setError] = useState<string | null>(stored.error)
-  const [series, setSeries] = useState<TestSeries[]>([])
+  const [series, setSeries] = useState<Array<{ pipeline: TestPipeline; points: TestPoint[] }>>([])
   const [range, setRange] = useState<{ start: number; end: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [refreshNonce, setRefreshNonce] = useState(0)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
-  const filteredSeries = useMemo(
-    () => series.map((entry) => ({ ...entry, points: filterTestPointsByPassRate(entry.points, passRateFilter) })),
-    [series, passRateFilter],
+  const filteredSeries = useMemo<TestSeries[]>(
+    () => series.map((entry) => ({
+      ...entry,
+      points: groupTestPointsByDay(filterTestPointsByPassRate(entry.points, passRateFilter), dailyOptions),
+    })),
+    [series, passRateFilter, dailyOptions],
   )
+
+  const updateDailyOptions = (next: TestDailyOptions) => {
+    try {
+      saveTestDailyOptions(next)
+      setDailyOptions(next)
+      setDailyStorageError(null)
+      return null
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      setDailyStorageError(message)
+      return message
+    }
+  }
 
   const updatePassRateFilter = (next: TestPassRateFilter) => {
     try {
@@ -142,11 +168,13 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
       <Box component="main" sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Typography render={<h1 />} variant="headline-sm">E2E test pass rates</Typography>
         <Typography variant="body-sm" color="text.secondary">
-          Passed / executed test results (excluding skipped and NotImpacted), per completed build or release stage. Each point is one run; the vertical scale expands differences near 100%.
+          Passed / executed test results (excluding skipped and NotImpacted), per completed build or release stage.
+          {' '}{dailyOptions.enabled ? 'Each point is one daily result per pipeline (local time).' : 'Each point is one run.'} The vertical scale expands differences near 100%.
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
         {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
         {passRateFilterStorageError && <Alert severity="error">{passRateFilterStorageError}</Alert>}
+        {dailyStorageError && <Alert severity="error">{dailyStorageError}</Alert>}
         {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} />}
         {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
         {pipelines.length === 0 && !error && (
@@ -176,6 +204,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         pipelines={pipelines} onChange={updatePipelines}
         lookbackDays={lookbackDays} onLookbackDaysChange={updateLookbackDays}
         passRateFilter={passRateFilter} onPassRateFilterChange={updatePassRateFilter}
+        dailyOptions={dailyOptions} onDailyOptionsChange={updateDailyOptions}
       />
     </>
   )

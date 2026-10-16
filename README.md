@@ -42,7 +42,14 @@ a percentage from 0 to 100 inclusive to hide chart points at or below that pass 
 example, 0 excludes 0% results and 20 excludes results at 20% or lower; 100 hides all results.
 Decimal thresholds are supported. The setting is saved in browser local storage and applies
 to all configured pipelines without refetching results. Disabling it restores the hidden points.
-Run the filter regression tests with `node --experimental-strip-types --test tests/testPassRateFilter.test.ts`.
+Options also includes "Show at most one result per pipeline per day" (unchecked by default).
+Choose Lowest result, Average result, or Highest result. Days use the browser's local timezone,
+and the pass rate filter is applied to individual runs before grouping. Average is the arithmetic
+mean of run percentages, not weighted by test count. Multi-run averages have no run link;
+single-run days and lowest/highest selections retain their original run links. Ties select the
+earliest run (then the lowest run ID). Daily options are saved in browser local storage.
+
+Run the Tests data regression tests with `node --experimental-strip-types --test tests/*.test.ts`.
 
 ### Team configuration
 

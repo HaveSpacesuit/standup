@@ -5,7 +5,7 @@ import {
 } from '@mui/material'
 import { AdoHttpClient } from '../../../ado/httpClient'
 import { listTestPipelineDefinitions, listTestStages, type Definition, type StageOption } from '../../../ado/testPipelinesApi'
-import { testLookbackStart, testStageLabel, validateTestPassRateFilter, type TestPassRateFilter, type TestPipeline, type TestPipelineKind } from '../utils/testPipelines'
+import { testLookbackStart, testStageLabel, validateTestPassRateFilter, type TestDailyOptions, type TestPassRateFilter, type TestPipeline, type TestPipelineKind } from '../utils/testPipelines'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
 
 type Props = {
@@ -20,11 +20,14 @@ type Props = {
   onLookbackDaysChange: (days: number) => string | null
   passRateFilter: TestPassRateFilter
   onPassRateFilterChange: (filter: TestPassRateFilter) => string | null
+  dailyOptions: TestDailyOptions
+  onDailyOptionsChange: (options: TestDailyOptions) => string | null
 }
 
 export function TestsSettingsDialog({
   open, onClose, pat, defaultOrg, defaultProject, pipelines, onChange, lookbackDays, onLookbackDaysChange,
   passRateFilter, onPassRateFilterChange,
+  dailyOptions, onDailyOptionsChange,
 }: Props) {
   const [activeTab, setActiveTab] = useState(0)
   const [orgName, setOrgName] = useState(defaultOrg)
@@ -42,6 +45,7 @@ export function TestsSettingsDialog({
   const [lookbackError, setLookbackError] = useState<string | null>(null)
   const [thresholdInput, setThresholdInput] = useState(String(passRateFilter.threshold))
   const [thresholdError, setThresholdError] = useState<string | null>(null)
+  const [dailyError, setDailyError] = useState<string | null>(null)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
 
   useEffect(() => {
@@ -218,6 +222,31 @@ export function TestsSettingsDialog({
             helperText={thresholdError ?? 'Exclude chart points with a pass rate less than or equal to this percentage (0–100).'}
             slotProps={{ htmlInput: { min: 0, max: 100, step: 'any' } }}
           />
+          <FormControlLabel
+            control={<Checkbox checked={dailyOptions.enabled} onChange={(_event, checked) => {
+              setDailyError(onDailyOptionsChange({ ...dailyOptions, enabled: checked }))
+            }} />}
+            label="Show at most one result per pipeline per day"
+          />
+          <FormControl fullWidth disabled={!dailyOptions.enabled}>
+            <InputLabel id="test-daily-mode-label">Daily result</InputLabel>
+            <Select labelId="test-daily-mode-label" label="Daily result" value={dailyOptions.mode} onChange={(event) => {
+              const mode = event.target.value
+              if (mode === 'lowest' || mode === 'average' || mode === 'highest') {
+                setDailyError(onDailyOptionsChange({ ...dailyOptions, mode }))
+              }
+            }}>
+              <MenuItem value="lowest">Lowest result</MenuItem>
+              <MenuItem value="average">Average result</MenuItem>
+              <MenuItem value="highest">Highest result</MenuItem>
+            </Select>
+          </FormControl>
+          <Typography variant="body-sm" color="text.secondary">
+            Groups runs by your local calendar day, after applying the pass rate filter.
+            Average gives each run equal weight. When multiple runs are averaged, the point
+            does not represent a specific run and cannot link to a test run.
+          </Typography>
+          {dailyError && <Alert severity="error">{dailyError}</Alert>}
         </Stack>
         )}
         {activeTab === 1 && (
