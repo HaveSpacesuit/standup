@@ -23,6 +23,42 @@ export type TestPipeline = {
 
 const STORAGE_KEY = 'standup:test-pipelines'
 const LOOKBACK_STORAGE_KEY = 'standup:test-lookback-days'
+const PASS_RATE_FILTER_STORAGE_KEY = 'standup:test-pass-rate-filter'
+export type TestPassRateFilter = { enabled: boolean; threshold: number }
+export const DEFAULT_TEST_PASS_RATE_FILTER: TestPassRateFilter = { enabled: false, threshold: 0 }
+
+export function validateTestPassRateFilter(filter: TestPassRateFilter): void {
+  if (typeof filter.enabled !== 'boolean' || !Number.isFinite(filter.threshold) || filter.threshold < 0 || filter.threshold > 100) {
+    throw new Error('Test pass rate threshold must be a number between 0 and 100 inclusive.')
+  }
+}
+
+export function loadTestPassRateFilter(): TestPassRateFilter {
+  const stored = localStorage.getItem(PASS_RATE_FILTER_STORAGE_KEY)
+  if (stored === null) return { ...DEFAULT_TEST_PASS_RATE_FILTER }
+  const parsed: unknown = JSON.parse(stored)
+  if (!parsed || typeof parsed !== 'object' || !('enabled' in parsed) || !('threshold' in parsed)
+    || typeof parsed.enabled !== 'boolean' || typeof parsed.threshold !== 'number') {
+    throw new Error('Saved Tests pass rate filter is invalid. Correct or remove it from browser storage.')
+  }
+  const filter = { enabled: parsed.enabled, threshold: parsed.threshold }
+  validateTestPassRateFilter(filter)
+  return filter
+}
+
+export function saveTestPassRateFilter(filter: TestPassRateFilter): void {
+  validateTestPassRateFilter(filter)
+  localStorage.setItem(PASS_RATE_FILTER_STORAGE_KEY, JSON.stringify(filter))
+}
+
+export function filterTestPointsByPassRate<T extends { passed: number; total: number }>(
+  points: T[],
+  filter: TestPassRateFilter,
+): T[] {
+  validateTestPassRateFilter(filter)
+  return filter.enabled ? points.filter((point) => (point.passed / point.total) * 100 > filter.threshold) : points
+}
+
 export const DEFAULT_TEST_LOOKBACK_DAYS = 90
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
 

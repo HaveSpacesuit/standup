@@ -13,6 +13,8 @@ import { TestsSettingsDialog } from '../components/TestsSettingsDialog'
 import {
   DEFAULT_TEST_LOOKBACK_DAYS, loadTestLookbackDays, loadTestPipelines,
   saveTestLookbackDays, saveTestPipelines, testLookbackStart, testStageLabel, type TestPipeline,
+  DEFAULT_TEST_PASS_RATE_FILTER, filterTestPointsByPassRate, loadTestPassRateFilter,
+  saveTestPassRateFilter, type TestPassRateFilter,
 } from '../utils/testPipelines'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
 
@@ -37,12 +39,38 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
   })
   const [lookbackDays, setLookbackDays] = useState(storedLookback.days)
   const [lookbackStorageError, setLookbackStorageError] = useState(storedLookback.error)
+  const [storedPassRateFilter] = useState(() => {
+    try {
+      return { filter: loadTestPassRateFilter(), error: null }
+    } catch (cause) {
+      return { filter: DEFAULT_TEST_PASS_RATE_FILTER, error: cause instanceof Error ? cause.message : String(cause) }
+    }
+  })
+  const [passRateFilter, setPassRateFilter] = useState(storedPassRateFilter.filter)
+  const [passRateFilterStorageError, setPassRateFilterStorageError] = useState(storedPassRateFilter.error)
   const [error, setError] = useState<string | null>(stored.error)
   const [series, setSeries] = useState<TestSeries[]>([])
   const [range, setRange] = useState<{ start: number; end: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [refreshNonce, setRefreshNonce] = useState(0)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
+  const filteredSeries = useMemo(
+    () => series.map((entry) => ({ ...entry, points: filterTestPointsByPassRate(entry.points, passRateFilter) })),
+    [series, passRateFilter],
+  )
+
+  const updatePassRateFilter = (next: TestPassRateFilter) => {
+    try {
+      saveTestPassRateFilter(next)
+      setPassRateFilter(next)
+      setPassRateFilterStorageError(null)
+      return null
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      setPassRateFilterStorageError(message)
+      return message
+    }
+  }
 
   const updatePipelines = (next: TestPipeline[]) => {
     try {
@@ -118,6 +146,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
         {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
+        {passRateFilterStorageError && <Alert severity="error">{passRateFilterStorageError}</Alert>}
         {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} />}
         {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
         {pipelines.length === 0 && !error && (
@@ -128,9 +157,12 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         {pat && pipelines.length > 0 && !loading && series.every(({ points }) => points.length === 0) && !error && (
           <Alert severity="info">No published test results were found for the selected stages in the last {lookbackDays} days.</Alert>
         )}
-        {!loading && range && series.some(({ points }) => points.length > 0) && (
+        {!loading && filteredSeries.some((entry, index) => entry.points.length === 0 && series[index].points.length > 0) && (
+          <Alert severity="info">Some pipelines have no chart points above the {passRateFilter.threshold}% pass rate threshold. Lower the threshold or disable the filter in Tests settings to show more results.</Alert>
+        )}
+        {!loading && range && filteredSeries.some(({ points }) => points.length > 0) && (
           <Box sx={{ height: 480, flexShrink: 0 }}>
-            <TestPassChart series={series.filter(({ points }) => points.length > 0)} range={range} />
+            <TestPassChart series={filteredSeries.filter(({ points }) => points.length > 0)} range={range} />
           </Box>
         )}
         {!loading && series.filter(({ points }) => points.length === 0).map(({ pipeline }) => (
@@ -143,6 +175,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         defaultOrg={defaultOrg} defaultProject={defaultProject}
         pipelines={pipelines} onChange={updatePipelines}
         lookbackDays={lookbackDays} onLookbackDaysChange={updateLookbackDays}
+        passRateFilter={passRateFilter} onPassRateFilterChange={updatePassRateFilter}
       />
     </>
   )

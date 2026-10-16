@@ -37,6 +37,12 @@ The Tests page charts e2e pass percentages across a configurable lookback window
 
 Tests settings uses two tabs: Options contains the lookback window, and Pipelines contains
 the configured pipeline list and controls for adding or removing pipelines.
+Options also includes an optional pass rate filter (unchecked by default). Enable it and enter
+a percentage from 0 to 100 inclusive to hide chart points at or below that pass rate. For
+example, 0 excludes 0% results and 20 excludes results at 20% or lower; 100 hides all results.
+Decimal thresholds are supported. The setting is saved in browser local storage and applies
+to all configured pipelines without refetching results. Disabling it restores the hidden points.
+Run the filter regression tests with `node --experimental-strip-types --test tests/testPassRateFilter.test.ts`.
 
 ### Team configuration
 

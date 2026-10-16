@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import {
-  Alert, Autocomplete, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControl, InputLabel, MenuItem, Select, Stack, Tab, Tabs, TextField, Typography,
+  Alert, Autocomplete, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
+  FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack, Tab, Tabs, TextField, Typography,
 } from '@mui/material'
 import { AdoHttpClient } from '../../../ado/httpClient'
 import { listTestPipelineDefinitions, listTestStages, type Definition, type StageOption } from '../../../ado/testPipelinesApi'
-import { testLookbackStart, testStageLabel, type TestPipeline, type TestPipelineKind } from '../utils/testPipelines'
+import { testLookbackStart, testStageLabel, validateTestPassRateFilter, type TestPassRateFilter, type TestPipeline, type TestPipelineKind } from '../utils/testPipelines'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
 
 type Props = {
@@ -18,10 +18,13 @@ type Props = {
   onChange: (pipelines: TestPipeline[]) => string | null
   lookbackDays: number
   onLookbackDaysChange: (days: number) => string | null
+  passRateFilter: TestPassRateFilter
+  onPassRateFilterChange: (filter: TestPassRateFilter) => string | null
 }
 
 export function TestsSettingsDialog({
   open, onClose, pat, defaultOrg, defaultProject, pipelines, onChange, lookbackDays, onLookbackDaysChange,
+  passRateFilter, onPassRateFilterChange,
 }: Props) {
   const [activeTab, setActiveTab] = useState(0)
   const [orgName, setOrgName] = useState(defaultOrg)
@@ -37,6 +40,8 @@ export function TestsSettingsDialog({
   const [error, setError] = useState<string | null>(null)
   const [lookbackInput, setLookbackInput] = useState(String(lookbackDays))
   const [lookbackError, setLookbackError] = useState<string | null>(null)
+  const [thresholdInput, setThresholdInput] = useState(String(passRateFilter.threshold))
+  const [thresholdError, setThresholdError] = useState<string | null>(null)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
 
   useEffect(() => {
@@ -49,6 +54,26 @@ export function TestsSettingsDialog({
       setLookbackError(null)
     }
   }, [open, lookbackDays])
+
+  useEffect(() => {
+    if (open) {
+      setThresholdInput(String(passRateFilter.threshold))
+      setThresholdError(null)
+    }
+  }, [open, passRateFilter.threshold])
+
+  const savePassRateFilter = (enabled = passRateFilter.enabled) => {
+    try {
+      if (enabled && !thresholdInput.trim()) {
+        throw new Error('Enter a pass rate threshold between 0 and 100 inclusive.')
+      }
+      const next = { enabled, threshold: enabled ? Number(thresholdInput) : passRateFilter.threshold }
+      validateTestPassRateFilter(next)
+      setThresholdError(onPassRateFilterChange(next))
+    } catch (cause) {
+      setThresholdError(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
 
   const saveLookback = () => {
     const days = Number(lookbackInput)
@@ -171,6 +196,27 @@ export function TestsSettingsDialog({
             error={Boolean(lookbackError)}
             helperText={lookbackError ?? 'Query test results from this many days ago through today.'}
             slotProps={{ htmlInput: { min: 1, step: 1 } }}
+          />
+          <FormControlLabel
+            control={<Checkbox checked={passRateFilter.enabled} onChange={(_event, checked) => savePassRateFilter(checked)} />}
+            label="Exclude results at or below a pass rate"
+          />
+          <TextField
+            label="Pass rate threshold (%)"
+            type="number"
+            disabled={!passRateFilter.enabled}
+            value={thresholdInput}
+            onChange={(event) => {
+              setThresholdInput(event.target.value)
+              setThresholdError(null)
+            }}
+            onBlur={() => savePassRateFilter()}
+            onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+              if (event.key === 'Enter') event.currentTarget.blur()
+            }}
+            error={Boolean(thresholdError)}
+            helperText={thresholdError ?? 'Exclude chart points with a pass rate less than or equal to this percentage (0–100).'}
+            slotProps={{ htmlInput: { min: 0, max: 100, step: 'any' } }}
           />
         </Stack>
         )}
