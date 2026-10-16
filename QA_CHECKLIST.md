@@ -271,6 +271,14 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify each item is placed in the correct group based on its state/history/timing.
 - [ ] Verify state transitions into and out of QA are represented accurately.
 - [ ] Verify recently created items appear in Newly added according to the lookback window.
+- [ ] Configure Approved in both Needs follow-up and Newly added. Verify a recently created
+      Approved item with no QA-ready history appears only in Newly added.
+- [ ] With the same overlapping state groups, verify an item that recently entered Ready for QA
+      and returned to Approved appears only in Needs follow-up, including multi-hop transitions.
+- [ ] Verify an older Approved item with only recent reassignment does not fall into Newly added
+      through the overlapping-state fallback.
+- [ ] Verify overlapping development/new states do not override Ready for QA, Recently completed,
+      or explicit column tags.
 - [ ] Verify tag-grouped cards appear under the intended tags and ungrouped items remain visible.
 - [ ] Verify item counts, order, metadata, links, highlights, and empty groups are correct.
 - [ ] Verify long and missing metadata is safe and readable.

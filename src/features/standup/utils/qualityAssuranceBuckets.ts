@@ -329,6 +329,15 @@ export function classifyQualityAssuranceItem(
     return 'new'
   }
 
+  // Shared development/new states use QA history first, then creation time for new work.
+  if (
+    currentStateGroup === 'development' &&
+    matchesStateGroup(item.state, config.stateGroups.new) &&
+    isNewCandidate(item, config)
+  ) {
+    return 'new'
+  }
+
   // Fresh items in an unclassified ('other') state fall into "Newly added" as a catch-all — but
   // only when the user hasn't explicitly configured the new-column states. Once configured, we
   // trust that list exactly (an item then reaches "Newly added" only via a new state or new tag).

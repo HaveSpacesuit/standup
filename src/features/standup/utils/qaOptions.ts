@@ -12,9 +12,10 @@ export type QaTagFilterRule = {
 }
 
 /**
- * State/tag classifiers that override the built-in project defaults.
- * Each group is a list of state names or tag partial-match strings.
- * Items are classified into the first group that matches (testing → done → development → new).
+ * State classifiers that override the built-in project defaults.
+ * Each group is a list of state names, matched exactly and case-insensitively.
+ * Testing and done take precedence. Shared development/new states route to follow-up after
+ * recent QA-ready activity, or to Newly added when recently created without that activity.
  */
 export type QaStateGroupOverrides = {
   /** States/tags that mean "ready for QA" (maps to Ready for QA column) */
