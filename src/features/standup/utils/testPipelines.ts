@@ -120,7 +120,7 @@ export function groupTestPointsByDay(points: TestPoint[], options: TestDailyOpti
   }).sort((left, right) => Date.parse(left.date) - Date.parse(right.date))
 }
 
-export const DEFAULT_TEST_LOOKBACK_DAYS = 90
+export const DEFAULT_TEST_LOOKBACK_DAYS = 60
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
 
 export function testLookbackStart(days: number, now = Date.now()): string {
