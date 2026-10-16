@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import {
   Alert, Autocomplete, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography,
+  FormControl, InputLabel, MenuItem, Select, Stack, Tab, Tabs, TextField, Typography,
 } from '@mui/material'
 import { AdoHttpClient } from '../../../ado/httpClient'
 import { listTestPipelineDefinitions, listTestStages, type Definition, type StageOption } from '../../../ado/testPipelinesApi'
@@ -23,6 +23,7 @@ type Props = {
 export function TestsSettingsDialog({
   open, onClose, pat, defaultOrg, defaultProject, pipelines, onChange, lookbackDays, onLookbackDaysChange,
 }: Props) {
+  const [activeTab, setActiveTab] = useState(0)
   const [orgName, setOrgName] = useState(defaultOrg)
   const [projectName, setProjectName] = useState(defaultProject)
   const [kind, setKind] = useState<TestPipelineKind>('build')
@@ -37,6 +38,10 @@ export function TestsSettingsDialog({
   const [lookbackInput, setLookbackInput] = useState(String(lookbackDays))
   const [lookbackError, setLookbackError] = useState<string | null>(null)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
+
+  useEffect(() => {
+    if (open) setActiveTab(0)
+  }, [open])
 
   useEffect(() => {
     if (open) {
@@ -135,13 +140,22 @@ export function TestsSettingsDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Tests settings</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          <Typography variant="body-sm" color="text.secondary">
-            Choose a pipeline and the stage that publishes its e2e test results.
-          </Typography>
+      <DialogContent sx={{ display: 'flex', gap: 2, pt: 1, minHeight: 420 }}>
+        <Tabs
+          orientation="vertical"
+          aria-label="Tests settings"
+          value={activeTab}
+          onChange={(_event, value: number) => setActiveTab(value)}
+          sx={{ borderRight: 1, borderColor: 'divider', minWidth: 160, flexShrink: 0 }}
+        >
+          <Tab id="tests-options-tab" aria-controls="tests-options-panel" label="Options" sx={{ alignItems: 'flex-start' }} />
+          <Tab id="tests-pipelines-tab" aria-controls="tests-pipelines-panel" label="Pipelines" sx={{ alignItems: 'flex-start' }} />
+        </Tabs>
+        <Box sx={{ flex: 1, minWidth: 0, maxHeight: 480, overflowY: 'auto', pr: 0.5 }}>
+        {activeTab === 0 && (
+        <Stack role="tabpanel" id="tests-options-panel" aria-labelledby="tests-options-tab" spacing={2} sx={{ pt: 1 }}>
           <TextField
             label="Lookback (days)"
             type="number"
@@ -158,6 +172,13 @@ export function TestsSettingsDialog({
             helperText={lookbackError ?? 'Query test results from this many days ago through today.'}
             slotProps={{ htmlInput: { min: 1, step: 1 } }}
           />
+        </Stack>
+        )}
+        {activeTab === 1 && (
+        <Stack role="tabpanel" id="tests-pipelines-panel" aria-labelledby="tests-pipelines-tab" spacing={2} sx={{ pt: 1 }}>
+          <Typography variant="body-sm" color="text.secondary">
+            Choose a pipeline and the stage that publishes its e2e test results.
+          </Typography>
           {error && <Alert severity="error">{error}</Alert>}
           {!pat && <Alert severity="warning">Add a PAT with Test Management (Read), Build (Read), and Release (Read) access in app Settings.</Alert>}
           {pipelines.map((entry) => (
@@ -227,6 +248,8 @@ export function TestsSettingsDialog({
             && <Alert severity="info">No stages found. Run this pipeline and publish test results to Azure DevOps first.</Alert>}
           <Button variant="contained" disabled={!selectedDefinition || !selectedStage || !pat} onClick={addPipeline}>Add pipeline</Button>
         </Stack>
+        )}
+        </Box>
       </DialogContent>
       <DialogActions><Button onClick={onClose}>Close</Button></DialogActions>
     </Dialog>
