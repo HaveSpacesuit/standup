@@ -154,7 +154,6 @@ export function AppNavigationRail({
     setTeamError(null)
     setDraftPatValue(patValue)
     setPatError(null)
-    setActiveTab('azure-devops')
   }, [isSettingsDialogOpen, patValue, selectedTeamId, teamProfiles])
 
   const handleTeamSelection = (teamId: string) => {
@@ -364,7 +363,10 @@ export function AppNavigationRail({
             <NavigationRail.Button
               icon={`${svgConfiguration}#icon-large`}
               label="Settings"
-              onClick={() => setIsSettingsDialogOpen(true)}
+              onClick={() => {
+                setActiveTab('azure-devops')
+                setIsSettingsDialogOpen(true)
+              }}
               style={{inlineSize: 'unset'}}
             />
           </NavigationRail.ListItem>
