@@ -36,7 +36,7 @@ export function useVisibleBoardItems({
   )
 
   const memberFilterOptions = useMemo(() => {
-    const labels = new Set<string>()
+    const labels = new Set<string>(selectedMemberFilter ? [selectedMemberFilter] : [])
 
     for (const item of quickFilterMatchedBoardItems) {
       const assignee = workItemAssignees[item.id]
@@ -48,7 +48,7 @@ export function useVisibleBoardItems({
     }
 
     return sortTeamMemberLabels([...labels])
-  }, [quickFilterMatchedBoardItems, workItemAssignees])
+  }, [quickFilterMatchedBoardItems, selectedMemberFilter, workItemAssignees])
 
   const visibleBoardItems = useMemo(
     () =>
