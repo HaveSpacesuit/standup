@@ -13,6 +13,10 @@ export type TeamProfile = {
 export const TEAM_PROFILES_STORAGE_KEY = 'standup:team-profiles'
 const DEFAULT_PAT_ORGANIZATION = 'bentleycs'
 
+export function getTeamProfileLabel(team: TeamProfile): string {
+  return `${team.displayName} (${team.orgName}/${team.projectName})`
+}
+
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false

@@ -34,7 +34,7 @@ import svgArrowUp from '@stratakit/icons/arrow-up.svg'
 import svgHelp from '@stratakit/icons/help.svg'
 import svgInfo from '@stratakit/icons/info.svg'
 import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
-import type { TeamProfile } from '../../../appSettings'
+import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
 import type { AppView } from '../hooks/useAppNavigation'
 
 function FieldHint({ tip }: { tip: string }) {
@@ -597,13 +597,13 @@ export function AppNavigationRail({
                           <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', gap: 1 }}>
                             <ListItemText
                               sx={{ width: '100%', m: 0 }}
-                              primary={<Typography component="span" sx={{ display: 'block' }}>{team.displayName}</Typography>}
+                              primary={<Typography component="span" sx={{ display: 'block' }}>{getTeamProfileLabel(team)}</Typography>}
                             />
                             <Stack direction="row" spacing={0.25}>
                               <Button
                                 size="small"
                                 variant="text"
-                                aria-label={`Move ${team.displayName} up`}
+                                aria-label={`Move ${getTeamProfileLabel(team)} up`}
                                 disabled={isCreatingTeam || teamProfiles[0]?.id === team.id}
                                 onClick={(event) => {
                                   event.stopPropagation()
@@ -616,7 +616,7 @@ export function AppNavigationRail({
                               <Button
                                 size="small"
                                 variant="text"
-                                aria-label={`Move ${team.displayName} down`}
+                                aria-label={`Move ${getTeamProfileLabel(team)} down`}
                                 disabled={isCreatingTeam || teamProfiles[teamProfiles.length - 1]?.id === team.id}
                                 onClick={(event) => {
                                   event.stopPropagation()
