@@ -242,6 +242,11 @@ export class AdoQueryEngine {
     itemId: number,
     _signal?: AbortSignal,
   ): Promise<WorkItemUpdate[]> {
+    // PR-only cards use synthetic negative IDs, not Azure DevOps work-item IDs.
+    if (itemId <= 0) {
+      return []
+    }
+
     const cacheKey = workItemUpdatesCacheKey(team, itemId)
     return this.getOrLoadCached(this.workItemUpdatesCache, cacheKey, async () => {
       const response = await this.client.request<WorkItemUpdatesResponse>({
