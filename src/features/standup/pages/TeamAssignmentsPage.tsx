@@ -145,7 +145,7 @@ export function TeamAssignmentsPage({
       ) : (
         <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
           {patConfigured && pullRequestBoardItemsError ? (
-            <Alert severity="warning" sx={{ m: 1, mb: 0 }}>
+            <Alert role="alert" severity="warning" sx={{ m: 1, mb: 0 }}>
               <AlertTitle>Pull request data unavailable</AlertTitle>
               {pullRequestBoardItemsError} Check that your Azure DevOps PAT has Code (Read) access and your account can access the repository, then refresh to try again.
             </Alert>

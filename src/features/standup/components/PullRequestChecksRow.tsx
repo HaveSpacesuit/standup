@@ -36,6 +36,7 @@ function formatAge(value: string | undefined): string {
 
 export function PullRequestChecksRow({ pullRequest }: PullRequestChecksRowProps) {
   const checks = getChecksPresentation(pullRequest.checks)
+  const isUnavailable = !pullRequest.checks || pullRequest.checks.state === 'unavailable'
   const age = pullRequest.status === 'completed' ? '' : formatAge(pullRequest.recentActivityAt)
 
   return (
@@ -52,9 +53,10 @@ export function PullRequestChecksRow({ pullRequest }: PullRequestChecksRowProps)
                 fontWeight: 400,
                 lineHeight: 1.2,
                 minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                overflow: isUnavailable ? 'visible' : 'hidden',
+                overflowWrap: isUnavailable ? 'anywhere' : 'normal',
+                textOverflow: isUnavailable ? 'clip' : 'ellipsis',
+                whiteSpace: isUnavailable ? 'normal' : 'nowrap',
               }}
             >
               {checks.text}

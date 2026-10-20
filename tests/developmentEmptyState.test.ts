@@ -116,6 +116,7 @@ test('PR failures show recovery guidance without hiding work-item cards', () => 
   })
 
   assert.match(html, /Pull request data unavailable/)
+  assert.match(html, /role="alert"/)
   assert.match(html, /Check that your Azure DevOps PAT has Code \(Read\) access/)
   assert.match(html, /Keep this work item visible/)
 })
