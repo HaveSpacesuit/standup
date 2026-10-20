@@ -1,6 +1,6 @@
 import type { TeamProfile } from '../appSettings'
 import { AdoAuthError, type AdoRequestClient } from './httpClient'
-import type { PullRequestCheckDetail, WorkItemPullRequestSummary } from './types'
+import type { PullRequestCheckDetail, PullRequestCheckState, WorkItemPullRequestSummary } from './types'
 
 type PolicyEvaluationListResponse = {
   value?: PolicyEvaluationApiResponse[]
@@ -39,13 +39,14 @@ const INCLUDED_POLICY_TYPES = new Set([
   'status',
 ])
 
-const CHECK_STATE_RANK: Record<'passing' | 'pending' | 'failing', number> = {
+const CHECK_STATE_RANK: Record<PullRequestCheckState, number> = {
+  skipped: -1,
   passing: 0,
   pending: 1,
   failing: 2,
 }
 
-function normalizePolicyEvaluationState(statusValue: string | undefined): 'passing' | 'pending' | 'failing' {
+function normalizePolicyEvaluationState(statusValue: string | undefined): PullRequestCheckState {
   const normalizedStatus = statusValue?.trim().toLowerCase()
   if (normalizedStatus === 'approved') {
     return 'passing'
@@ -55,8 +56,8 @@ function normalizePolicyEvaluationState(statusValue: string | undefined): 'passi
     return 'failing'
   }
 
-  if (normalizedStatus === 'queued' || normalizedStatus === 'running' || normalizedStatus === 'notapplicable') {
-    return 'pending'
+  if (normalizedStatus === 'notapplicable') {
+    return 'skipped'
   }
 
   return 'pending'
@@ -64,7 +65,7 @@ function normalizePolicyEvaluationState(statusValue: string | undefined): 'passi
 
 function resolvePolicyEvaluationCheckState(
   evaluation: PolicyEvaluationApiResponse,
-): 'passing' | 'pending' | 'failing' {
+): PullRequestCheckState {
   const normalizedStatus = evaluation.status?.trim().toLowerCase()
 
   // Policy checks can report "queued" when a previously passing run has expired.
@@ -119,7 +120,7 @@ function resolvePullRequestChecksSummary(
   const failingChecks = checks.filter((check) => check.state === 'failing')
   const failing = failingChecks.length
   const failingNames = failingChecks.map((check) => check.name)
-  const state = failing > 0 ? 'failing' : pending > 0 ? 'pending' : 'passing'
+  const state = failing > 0 ? 'failing' : pending > 0 ? 'pending' : passing > 0 ? 'passing' : 'skipped'
 
   return {
     state,
