@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react'
-import { Box } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import type {
   IterationWindowInfo,
   ResolvedWorkItemAssignee,
@@ -142,6 +142,13 @@ export function TeamAssignmentsPage({
         <TeamConfigurationEmptyState pageLabel="Development" />
       ) : (
         <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
+          {patConfigured && !isTeamDataLoading && !membersError && !workItemsError && !assigneesError && workItems.length === 0 ? (
+            <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
+              {quickFilterInput.trim() || selectedMemberFilter
+                ? 'No cards match your filters. Clear the quick filter or select All team members to restore cards.'
+                : 'No cards available for this team and sprint selection. Try Refresh, choose another team, or adjust sprint, work-item type, and hidden-tag filters in Assignments options.'}
+            </Typography>
+          ) : null}
           <Box sx={{ flex: 1, minHeight: 0 }}>
             {isSprintView ? (
               <SprintViewBoard

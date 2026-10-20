@@ -10,7 +10,6 @@ type UseBoardPreferencesResult = {
   setQuickFilterInput: (value: string) => void
   selectedMemberFilter: string
   onMemberFilterChange: (memberLabel: string) => void
-  setSelectedMemberFilter: (value: string) => void
   tagRules: TagRule[]
   tagRulesByTeam: Record<string, TagRule[]>
   setTagRules: (value: TagRule[] | ((previous: TagRule[]) => TagRule[])) => void
@@ -99,7 +98,6 @@ export function useBoardPreferences(teamProfiles: TeamProfile[]): UseBoardPrefer
     setQuickFilterInput,
     selectedMemberFilter,
     onMemberFilterChange: setSelectedMemberFilter,
-    setSelectedMemberFilter,
     tagRules,
     tagRulesByTeam,
     setTagRules,

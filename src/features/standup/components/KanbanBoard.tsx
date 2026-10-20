@@ -178,6 +178,12 @@ export function KanbanBoard({
     content = <AdoErrorNotice title="Unable to load work items" message={workItemsError} />
   } else if (assigneesError) {
     content = <AdoErrorNotice title="Unable to resolve work item assignees" message={assigneesError} />
+  } else if (workItems.length === 0) {
+    content = (
+      <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
+        No cards match the current filters. Try adjusting the quick filter or member selection.
+      </Typography>
+    )
   } else {
     content = (
       <KanbanBoardGrid
