@@ -2,11 +2,9 @@ import { Box, Divider, FormControl, IconButton, MenuItem, Select, Tooltip, Typog
 import type { ReactNode } from 'react'
 import { Icon } from '@stratakit/mui'
 import svgUserAdd from '@stratakit/icons/user-add.svg'
+import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
 
-export type TeamOption = {
-  id: string
-  displayName: string
-}
+export type TeamOption = TeamProfile
 
 type TeamToolbarControlsProps = {
   teamOptions: TeamOption[]
@@ -63,7 +61,7 @@ export function TeamToolbarControls({
         >
           {hasConfiguredTeams ? teamOptions.map((team) => (
             <MenuItem key={team.id} value={team.id}>
-              {team.displayName}
+              {getTeamProfileLabel(team)}
             </MenuItem>
           )) : (
             <MenuItem value="" disabled>
