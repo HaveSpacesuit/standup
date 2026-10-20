@@ -66,7 +66,7 @@ export function getChecksPresentation(checks: WorkItemPullRequestSummary['checks
     return {
       iconHref: svgError,
       color: 'error.main',
-      text: formatCheckList(requiredFailing),
+      text: `Required checks failing: ${formatCheckList(requiredFailing)}`,
       optionalItems: skippedItems,
     }
   }
@@ -76,7 +76,7 @@ export function getChecksPresentation(checks: WorkItemPullRequestSummary['checks
     return {
       iconHref: svgStopwatch,
       color: 'warning.main',
-      text: formatCheckList(requiredPending),
+      text: `Required checks pending: ${formatCheckList(requiredPending)}`,
       optionalItems: skippedItems,
     }
   }
