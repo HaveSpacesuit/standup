@@ -73,6 +73,10 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify the shell remains usable while data is loading and that loading controls are disabled
       where appropriate.
 - [ ] Verify navigation rail/toolbar icons have meaningful accessible names and tooltips.
+- [ ] Without a PAT or configured team, hover disabled Development and QA options/Refresh buttons;
+      verify their tooltips appear, clicks do nothing, and no MUI disabled-child Tooltip warnings occur.
+- [ ] With access and a team configured, verify those tooltips and actions still work; while loading,
+      verify disabled Refresh still shows its tooltip without MUI warnings.
 - [ ] Verify the current view is visually and programmatically distinguishable.
 - [ ] Verify the app does not leak the PAT into visible text, query strings, links, or console logs.
 

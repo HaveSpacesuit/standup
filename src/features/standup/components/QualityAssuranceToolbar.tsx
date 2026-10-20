@@ -1,5 +1,5 @@
 import { type RefObject } from 'react'
-import { Box, IconButton, InputAdornment, TextField } from '@mui/material'
+import { Box, IconButton, InputAdornment, TextField, Tooltip } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
@@ -79,22 +79,30 @@ export function QualityAssuranceToolbar({
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
       >
-        <IconButton
-          size="small"
-          label="QA options"
-          onClick={onOpenOptions}
-          disabled={!patConfigured || !hasConfiguredTeams}
-        >
-          <Icon href={svgSettings} />
-        </IconButton>
-        <IconButton
-          size="small"
-          label="Refresh"
-          onClick={onRefresh}
-          disabled={!patConfigured || !hasConfiguredTeams || isLoading}
-        >
-          <Icon href={svgCloudSync}  />
-        </IconButton>
+        <Tooltip title="QA options">
+          <span>
+            <IconButton
+              size="small"
+              aria-label="QA options"
+              onClick={onOpenOptions}
+              disabled={!patConfigured || !hasConfiguredTeams}
+            >
+              <Icon href={svgSettings} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Refresh">
+          <span>
+            <IconButton
+              size="small"
+              aria-label="Refresh"
+              onClick={onRefresh}
+              disabled={!patConfigured || !hasConfiguredTeams || isLoading}
+            >
+              <Icon href={svgCloudSync}  />
+            </IconButton>
+          </span>
+        </Tooltip>
       </TeamToolbarControls>
     </PageToolbar>
   )
