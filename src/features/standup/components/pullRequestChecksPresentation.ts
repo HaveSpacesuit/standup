@@ -45,6 +45,21 @@ export function getChecksPresentation(checks: WorkItemPullRequestSummary['checks
 
   const requiredChecks = checks.checks.filter((check) => !check.optional)
   const optionalChecks = checks.checks.filter((check) => check.optional)
+  const skippedChecks = checks.checks.filter((check) => check.state === 'skipped').map(formatCheckName)
+  const skippedItems = skippedChecks.length > 0
+    ? [{
+        iconHref: svgValidate,
+        color: 'text.secondary',
+        text: `Not applicable: ${formatCheckList(skippedChecks)}`,
+      }]
+    : []
+
+  if (skippedChecks.length === checks.checks.length) {
+    return {
+      ...skippedItems[0],
+      optionalItems: [],
+    }
+  }
 
   const requiredFailing = requiredChecks.filter((check) => check.state === 'failing').map(formatCheckName)
   if (requiredFailing.length > 0) {
@@ -52,7 +67,7 @@ export function getChecksPresentation(checks: WorkItemPullRequestSummary['checks
       iconHref: svgError,
       color: 'error.main',
       text: formatCheckList(requiredFailing),
-      optionalItems: [],
+      optionalItems: skippedItems,
     }
   }
 
@@ -62,7 +77,7 @@ export function getChecksPresentation(checks: WorkItemPullRequestSummary['checks
       iconHref: svgStopwatch,
       color: 'warning.main',
       text: formatCheckList(requiredPending),
-      optionalItems: [],
+      optionalItems: skippedItems,
     }
   }
 
@@ -74,6 +89,7 @@ export function getChecksPresentation(checks: WorkItemPullRequestSummary['checks
     color: 'success.main',
     text: undefined,
     optionalItems: [
+      ...skippedItems,
       ...(optionalFailing.length > 0
         ? [{
             iconHref: svgError,

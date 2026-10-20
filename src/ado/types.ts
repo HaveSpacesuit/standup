@@ -76,7 +76,7 @@ export type PullRequestApiResponse = {
   }
 }
 
-export type PullRequestCheckState = 'passing' | 'pending' | 'failing'
+export type PullRequestCheckState = 'passing' | 'pending' | 'failing' | 'skipped'
 
 export type PullRequestChecksAggregateState = PullRequestCheckState | 'none' | 'unavailable'
 

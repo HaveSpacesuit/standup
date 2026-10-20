@@ -104,19 +104,106 @@ test('unavailable check guidance wraps instead of being ellipsized', () => {
   assert.match(pendingHtml, /white-space:nowrap/)
 })
 
-test('queued policy evaluations remain pending', async () => {
-  const checks = await fetchPolicyEvaluationChecksSummary(
-    createClient({
-      value: [{
-        status: 'queued',
-        configuration: { type: { displayName: 'Build' } },
-      }],
-    }),
-    team,
-    123,
-    'project-id',
-  )
+for (const status of ['queued', 'running']) {
+  test(`${status} policy evaluations remain pending`, async () => {
+    const checks = await fetchPolicyEvaluationChecksSummary(
+      createClient({
+        value: [{
+          status,
+          configuration: { type: { displayName: 'Build' } },
+        }],
+      }),
+      team,
+      123,
+      'project-id',
+    )
 
-  assert.equal(checks?.state, 'pending')
-  assert.equal(getChecksPresentation(checks).text, 'Build')
-})
+    assert.equal(checks?.state, 'pending')
+    assert.equal(getChecksPresentation(checks).text, 'Build')
+    assert.equal(getChecksPresentation(checks).color, 'warning.main')
+  })
+}
+
+function policyEvaluation(status: string, name = 'QA Build validation', isBlocking = true) {
+  return {
+    status,
+    configuration: {
+      isBlocking,
+      type: { displayName: 'Build' },
+      settings: { displayName: name },
+    },
+  }
+}
+
+for (const status of ['notApplicable', ' NOTAPPLICABLE ']) {
+  for (const isBlocking of [true, false]) {
+    test(`${status} policy (blocking: ${isBlocking}) is neutral and terminal`, async () => {
+      const checks = await fetchPolicyEvaluationChecksSummary(
+        createClient({ count: 1, value: [policyEvaluation(status, undefined, isBlocking)] }),
+        team,
+        123,
+        'project-id',
+      )
+
+      assert.equal(checks.state, 'skipped')
+      assert.equal(checks.total, 1)
+      assert.equal(checks.pending, 0)
+      assert.equal(checks.passing, 0)
+      assert.equal(checks.failing, 0)
+      assert.equal(checks.checks[0].state, 'skipped')
+      const presentation = getChecksPresentation(checks)
+      assert.equal(presentation.color, 'text.secondary')
+      assert.equal(presentation.text, 'Not applicable: QA Build validation')
+      assert.notEqual(presentation.iconHref, getChecksPresentation({
+        ...checks,
+        checks: [{ ...checks.checks[0], state: 'pending', optional: false }],
+      }).iconHref)
+
+      const html = renderToStaticMarkup(createElement(
+        Root,
+        null,
+        createElement(PullRequestChecksRow, {
+          pullRequest: { id: 123, title: 'Example', url: '', checks },
+        }),
+      ))
+      assert.match(html, /Not applicable: QA Build validation/)
+      assert.doesNotMatch(html, /Required checks passing/)
+    })
+  }
+}
+
+for (const [status, expectedState] of [
+  ['approved', 'passing'],
+  ['running', 'pending'],
+  ['rejected', 'failing'],
+  ['broken', 'failing'],
+] as const) {
+  test(`skipped policies do not mask ${status} checks`, async () => {
+    for (const duplicateName of [true, false]) {
+      const checks = await fetchPolicyEvaluationChecksSummary(
+        createClient({
+          value: [
+            policyEvaluation('notApplicable'),
+            policyEvaluation(status, duplicateName ? undefined : 'Other build'),
+            policyEvaluation('notApplicable'),
+          ],
+        }),
+        team,
+        123,
+        'project-id',
+      )
+
+      assert.equal(checks.state, expectedState)
+      assert.equal(checks.total, duplicateName ? 1 : 2)
+      assert.equal(checks.checks.find((check: { state: string }) => check.state !== 'skipped')?.state, expectedState)
+      const presentation = getChecksPresentation(checks)
+      assert.equal(presentation.color, expectedState === 'passing'
+        ? 'success.main'
+        : expectedState === 'pending' ? 'warning.main' : 'error.main')
+      if (!duplicateName) {
+        assert.ok(presentation.optionalItems.some((item: { text: string, color: string }) =>
+          item.text === 'Not applicable: QA Build validation' && item.color === 'text.secondary'))
+      }
+    }
+  })
+}
