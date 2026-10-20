@@ -325,7 +325,7 @@ export function classifyQualityAssuranceItem(
     return 'done'
   }
 
-  if (currentStateGroup === 'new') {
+  if (currentStateGroup === 'new' && isNewCandidate(item, config)) {
     return 'new'
   }
 
