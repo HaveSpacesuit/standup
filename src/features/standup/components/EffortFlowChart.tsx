@@ -154,16 +154,19 @@ function renderExternalTooltip(
 
 export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'compact' }: EffortFlowChartProps) {
   const theme = useTheme()
+  const themeTextColor = (theme.vars || theme).palette.text.primary
   const tooltipElRef = useRef<HTMLDivElement | null>(null)
 
   // The color-scheme attribute that drives the theme's CSS custom properties is only applied to
   // the DOM after this render commits, so resolving colors during render would read the *previous*
   // scheme. Re-resolve in a layout effect, which runs after that attribute is in place.
   const [statusColors, setStatusColors] = useState(() => resolveStatusColors(theme.palette, colorScheme))
+  const [textColor, setTextColor] = useState(() => resolveCssColor(themeTextColor))
 
   useLayoutEffect(() => {
     setStatusColors(resolveStatusColors(theme.palette, colorScheme))
-  }, [theme.palette, colorScheme])
+    setTextColor(resolveCssColor(themeTextColor))
+  }, [theme.palette, colorScheme, themeTextColor])
 
   useLayoutEffect(() => {
     const el = createTooltipEl()
@@ -207,13 +210,13 @@ export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'com
       layout: { padding: 0 },
       interaction: { mode: 'index' as const, intersect: false },
       scales: {
-        x: { stacked: true, display: detailed, offset: false },
+        x: { stacked: true, display: detailed, offset: false, ticks: { color: textColor } },
         // Fix min/max to the exact data range (no auto headroom) so the stacked area fills the
         // full canvas height instead of leaving blank space above the tallest band.
-        y: { stacked: true, display: detailed, min: 0, max: maxTotal || 1, grace: detailed ? undefined : 0 },
+        y: { stacked: true, display: detailed, min: 0, max: maxTotal || 1, grace: detailed ? undefined : 0, ticks: { color: textColor } },
       },
       plugins: {
-        legend: { display: detailed, position: 'bottom' as const },
+        legend: { display: detailed, position: 'bottom' as const, labels: { color: textColor } },
         // Datasets stack bottom-up (Blocked at bottom, Done at top) — reverse so the tooltip
         // reads top-down in the same visual order as the chart.
         tooltip: {
@@ -224,7 +227,7 @@ export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'com
         },
       },
     }
-  }, [points, variant])
+  }, [points, variant, textColor])
 
   if (points.length === 0) {
     return (
