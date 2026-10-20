@@ -50,9 +50,7 @@ export function parseStoredTagRules(value: string | null, legacyHiddenTagsValue?
           })
         }
 
-        if (next.length > 0) {
-          return next
-        }
+        return next
       }
     } catch {
       // Fall back to defaults below.
