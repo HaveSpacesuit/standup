@@ -122,6 +122,7 @@ export function useEffortFlowHistory({
   useEffect(() => {
     if (!adoQueryEngine || historyWorkItems.length === 0) {
       setTimelinesByItemId({})
+      setIsLoading(false)
       return
     }
 
