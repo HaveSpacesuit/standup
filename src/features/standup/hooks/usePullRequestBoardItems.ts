@@ -52,6 +52,7 @@ export function usePullRequestBoardItems({
     }
 
     const abortController = new AbortController()
+    setPullRequestBoardItems([])
     setPullRequestBoardItemsLoading(true)
     setPullRequestBoardItemsError(null)
 

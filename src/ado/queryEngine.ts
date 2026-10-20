@@ -170,7 +170,11 @@ export class AdoQueryEngine {
           this.teamWorkItemsCache.delete(key)
         }
       }
-      this.unlinkedPullRequestItemsCache.delete(teamId)
+      for (const key of this.unlinkedPullRequestItemsCache.keys()) {
+        if (key.startsWith(`${teamId}:`)) {
+          this.unlinkedPullRequestItemsCache.delete(key)
+        }
+      }
       return
     }
 
@@ -297,7 +301,13 @@ export class AdoQueryEngine {
     _signal?: AbortSignal,
     options?: { forceRefresh?: boolean },
   ): Promise<WorkItemSummary[]> {
-    const cacheKey = team.id
+    const cacheKey = `${team.id}:${JSON.stringify([team.orgName.toLowerCase(), team.projectName.toLowerCase(), team.repoName.toLowerCase()])}`
+    // Keep only the current repository configuration so switching back also reloads PRs.
+    for (const key of this.unlinkedPullRequestItemsCache.keys()) {
+      if (key !== cacheKey && key.startsWith(`${team.id}:`)) {
+        this.unlinkedPullRequestItemsCache.delete(key)
+      }
+    }
     return this.getOrLoadCached(this.unlinkedPullRequestItemsCache, cacheKey, () => fetchUnlinkedActivePullRequestItems(
       this.client,
       team,
