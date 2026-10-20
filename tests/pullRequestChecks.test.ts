@@ -56,7 +56,7 @@ test('a policy permission failure reports checks unavailable with access guidanc
   assert.match(getChecksPresentation(checks).text ?? '', /access denied; verify policy permissions/)
 })
 
-test('unavailable check guidance wraps instead of being ellipsized', () => {
+test('required check states are announced and unavailable guidance wraps instead of being ellipsized', () => {
   const basePullRequest = {
     id: 123,
     title: 'Example pull request',
@@ -99,9 +99,29 @@ test('unavailable check guidance wraps instead of being ellipsized', () => {
       },
     }),
   ))
+  const failingHtml = renderToStaticMarkup(createElement(
+    Root,
+    null,
+    createElement(PullRequestChecksRow, {
+      pullRequest: {
+        ...basePullRequest,
+        checks: {
+          state: 'failing',
+          total: 1,
+          passing: 0,
+          pending: 0,
+          failing: 1,
+          failingNames: ['Build'],
+          checks: [{ name: 'Build', state: 'failing', optional: false, expired: false, source: 'status' }],
+        },
+      },
+    }),
+  ))
 
   assert.match(unavailableHtml, /white-space:normal/)
   assert.match(pendingHtml, /white-space:nowrap/)
+  assert.match(pendingHtml, /Required checks pending: Build/)
+  assert.match(failingHtml, /Required checks failing: Build/)
 })
 
 for (const status of ['queued', 'running']) {
@@ -119,7 +139,7 @@ for (const status of ['queued', 'running']) {
     )
 
     assert.equal(checks?.state, 'pending')
-    assert.equal(getChecksPresentation(checks).text, 'Build')
+    assert.equal(getChecksPresentation(checks).text, 'Required checks pending: Build')
     assert.equal(getChecksPresentation(checks).color, 'warning.main')
   })
 }
@@ -200,6 +220,9 @@ for (const [status, expectedState] of [
       assert.equal(presentation.color, expectedState === 'passing'
         ? 'success.main'
         : expectedState === 'pending' ? 'warning.main' : 'error.main')
+      if (expectedState === 'pending' || expectedState === 'failing') {
+        assert.equal(presentation.text, `Required checks ${expectedState}: ${duplicateName ? 'QA Build validation' : 'Other build'}`)
+      }
       if (!duplicateName) {
         assert.ok(presentation.optionalItems.some((item: { text: string, color: string }) =>
           item.text === 'Not applicable: QA Build validation' && item.color === 'text.secondary'))
