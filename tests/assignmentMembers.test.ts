@@ -18,6 +18,13 @@ test('assignment rows include every configured member, including members with no
   )
 })
 
+test('individual member selection shows only that member row', () => {
+  assert.deepEqual(
+    getAssignmentMemberRows(members, ' morgan lane ').map(({ label }) => label),
+    ['Morgan Lane'],
+  )
+})
+
 test('member filter options come from team membership and are sorted', () => {
   assert.deepEqual(getAssignmentMemberFilterOptions(members), ['Alex Rivers', 'Morgan Lane'])
 })

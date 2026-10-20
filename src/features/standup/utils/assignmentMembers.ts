@@ -8,10 +8,18 @@ export type AssignmentMemberRow = {
   isUnassigned: false
 }
 
-export function getAssignmentMemberRows(members: TeamMember[]): AssignmentMemberRow[] {
+export function getAssignmentMemberRows(
+  members: TeamMember[],
+  selectedMemberLabel = '',
+): AssignmentMemberRow[] {
   const getFirstName = (displayName: string) => displayName.trim().split(/\s+/)[0] ?? ''
+  const visibleMembers = selectedMemberLabel
+    ? members.filter(
+        (member) => member.displayName.trim().toLowerCase() === selectedMemberLabel.trim().toLowerCase(),
+      )
+    : members
 
-  return [...members]
+  return [...visibleMembers]
     .sort((a, b) => {
       const firstNameCompare = getFirstName(a.displayName).localeCompare(getFirstName(b.displayName))
       if (firstNameCompare !== 0) {

@@ -25,6 +25,7 @@ type KanbanBoardProps = {
   workItemsError: string | null
   assigneesError: string | null
   members: TeamMember[]
+  selectedMemberFilter: string
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
@@ -40,6 +41,7 @@ export function KanbanBoard({
   workItemsError,
   assigneesError,
   members,
+  selectedMemberFilter,
   workItems,
   currentIterationName,
   changeHighlightsByItemId,
@@ -57,7 +59,7 @@ export function KanbanBoard({
       return !assignee || assignee.kind === 'unassigned'
     })
 
-    const memberRows = getAssignmentMemberRows(members)
+    const memberRows = getAssignmentMemberRows(members, selectedMemberFilter)
 
     return hasUnassignedItems
       ? [
@@ -69,7 +71,7 @@ export function KanbanBoard({
           },
         ]
       : memberRows
-  }, [members, workItems, workItemAssignees])
+  }, [members, selectedMemberFilter, workItems, workItemAssignees])
 
   const rowLookup = useMemo(() => {
     return rows.reduce<Record<string, BoardRowData>>((acc, row) => {
