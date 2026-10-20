@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { DEFAULT_AZDO_API_VERSION } from '../../../adoAuth'
 import { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
@@ -17,10 +17,7 @@ import { useProjectWorkItemStates } from './useProjectWorkItemStates'
 import { useTeamIterations } from './useTeamIterations'
 import { useAssignmentQueryFilters } from './useAssignmentQueryFilters'
 import { useIterationRolloverFlags } from './useIterationRolloverFlags'
-import {
-  applyTagRulesToItem,
-  normalizeTeamMemberLabel,
-} from '../utils/boardFilters'
+import { applyTagRulesToItem } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { QaOptions } from '../utils/qaOptions'
 import { resolveSelectedIterationPaths } from '../utils/qaOptions'
@@ -105,7 +102,6 @@ export function useBoardViewModel({
     setQuickFilterInput,
     selectedMemberFilter,
     onMemberFilterChange,
-    setSelectedMemberFilter,
     tagRules,
     tagRulesByTeam,
     setTagRules,
@@ -236,6 +232,7 @@ export function useBoardViewModel({
 
   const { memberFilterOptions, visibleBoardItems } = useVisibleBoardItems({
     boardItems,
+    members,
     quickFilterInput,
     selectedMemberFilter,
     workItemAssignees,
@@ -302,20 +299,6 @@ export function useBoardViewModel({
     forceRefreshRef.current = true
     setDevelopmentReloadNonce((current) => current + 1)
   }
-
-  useEffect(() => {
-    if (!selectedMemberFilter) {
-      return
-    }
-
-    const selectedStillExists = memberFilterOptions.some(
-      (memberName) => normalizeTeamMemberLabel(memberName) === normalizeTeamMemberLabel(selectedMemberFilter),
-    )
-
-    if (!selectedStillExists) {
-      setSelectedMemberFilter('')
-    }
-  }, [memberFilterOptions, selectedMemberFilter, setSelectedMemberFilter])
 
   const teamManagementUrl = useTeamManagementUrl({
     adoQueryEngine: dataQueryEngine,

@@ -1,14 +1,16 @@
 import { useMemo } from 'react'
-import type { ResolvedWorkItemAssignee, WorkItemSummary } from '../../../ado/queryEngine'
+import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import {
   matchesQuickFilter,
   matchesTeamMemberFilter,
   normalizeQuickFilterText,
   sortTeamMemberLabels,
 } from '../utils/boardFilters'
+import { getAssignmentMemberFilterOptions } from '../utils/assignmentMembers'
 
 type UseVisibleBoardItemsArgs = {
   boardItems: WorkItemSummary[]
+  members?: TeamMember[]
   quickFilterInput: string
   selectedMemberFilter: string
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
@@ -21,6 +23,7 @@ type UseVisibleBoardItemsResult = {
 
 export function useVisibleBoardItems({
   boardItems,
+  members = [],
   quickFilterInput,
   selectedMemberFilter,
   workItemAssignees,
@@ -36,7 +39,11 @@ export function useVisibleBoardItems({
   )
 
   const memberFilterOptions = useMemo(() => {
-    const labels = new Set<string>()
+    if (members.length > 0) {
+      return getAssignmentMemberFilterOptions(members)
+    }
+
+    const labels = new Set<string>(selectedMemberFilter ? [selectedMemberFilter] : [])
 
     for (const item of quickFilterMatchedBoardItems) {
       const assignee = workItemAssignees[item.id]
@@ -48,7 +55,7 @@ export function useVisibleBoardItems({
     }
 
     return sortTeamMemberLabels([...labels])
-  }, [quickFilterMatchedBoardItems, workItemAssignees])
+  }, [members, quickFilterMatchedBoardItems, selectedMemberFilter, workItemAssignees])
 
   const visibleBoardItems = useMemo(
     () =>

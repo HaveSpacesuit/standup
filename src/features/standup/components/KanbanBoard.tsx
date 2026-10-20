@@ -12,6 +12,7 @@ import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
 import { AdoErrorNotice } from './AdoErrorNotice'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
+import { getAssignmentMemberRows } from '../utils/assignmentMembers'
 
 const BOARD_GRID_TEMPLATE = '175px repeat(5, minmax(200px, 1fr))'
 const COLLAPSED_CELL_CARD_LIMIT = 3
@@ -24,24 +25,12 @@ type KanbanBoardProps = {
   workItemsError: string | null
   assigneesError: string | null
   members: TeamMember[]
+  selectedMemberFilter: string
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
   rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
-}
-
-function sortMembers(members: TeamMember[]): TeamMember[] {
-  const getFirstName = (displayName: string) => displayName.trim().split(/\s+/)[0] ?? ''
-
-  return [...members].sort((a, b) => {
-    const firstNameCompare = getFirstName(a.displayName).localeCompare(getFirstName(b.displayName))
-    if (firstNameCompare !== 0) {
-      return firstNameCompare
-    }
-
-    return a.displayName.localeCompare(b.displayName)
-  })
 }
 
 export function KanbanBoard({
@@ -52,6 +41,7 @@ export function KanbanBoard({
   workItemsError,
   assigneesError,
   members,
+  selectedMemberFilter,
   workItems,
   currentIterationName,
   changeHighlightsByItemId,
@@ -62,31 +52,14 @@ export function KanbanBoard({
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
   const renderStatusColumnBackground = (status: StatusColumn, columnIndex: number) =>
     getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme)
-  const sortedMembers = useMemo(() => sortMembers(members), [members])
 
   const rows = useMemo<BoardRowData[]>(() => {
-    const membersWithItems = new Set(
-      workItems
-        .map((item) => workItemAssignees[item.id])
-        .filter((assignee): assignee is ResolvedWorkItemAssignee => Boolean(assignee))
-        .filter((assignee) => assignee.kind === 'team-member')
-        .map((assignee) => assignee.label.toLowerCase()),
-    )
-
     const hasUnassignedItems = workItems.some((item) => {
       const assignee = workItemAssignees[item.id]
       return !assignee || assignee.kind === 'unassigned'
     })
 
-    const memberRows = sortedMembers
-      .filter((member) => membersWithItems.has(member.displayName.toLowerCase()))
-      .map((member) => ({
-        key: member.displayName.toLowerCase(),
-        label: member.displayName,
-        avatarDescriptor: member.descriptor,
-        avatarUrl: member.imageUrl,
-        isUnassigned: false,
-      }))
+    const memberRows = getAssignmentMemberRows(members, selectedMemberFilter)
 
     return hasUnassignedItems
       ? [
@@ -98,7 +71,7 @@ export function KanbanBoard({
           },
         ]
       : memberRows
-  }, [sortedMembers, workItems, workItemAssignees])
+  }, [members, selectedMemberFilter, workItems, workItemAssignees])
 
   const rowLookup = useMemo(() => {
     return rows.reduce<Record<string, BoardRowData>>((acc, row) => {
@@ -205,6 +178,12 @@ export function KanbanBoard({
     content = <AdoErrorNotice title="Unable to load work items" message={workItemsError} />
   } else if (assigneesError) {
     content = <AdoErrorNotice title="Unable to resolve work item assignees" message={assigneesError} />
+  } else if (workItems.length === 0) {
+    content = (
+      <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
+        No cards match the current filters. Try adjusting the quick filter or member selection.
+      </Typography>
+    )
   } else {
     content = (
       <KanbanBoardGrid
