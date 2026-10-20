@@ -197,6 +197,7 @@ export function AppNavigationRail({
   }
 
   const handleClearPat = () => {
+    setIsSettingsDialogOpen(false)
     onPatClear()
     setDraftPatValue('')
     setPatError(null)

@@ -88,6 +88,11 @@ Prepare data that exercises both populated and empty states:
 - [ ] Open Settings and save a replacement PAT.
 - [ ] Clear the PAT; verify credentials are removed, data-dependent controls are disabled, and the
       access dialog/notice returns as designed.
+- [ ] Clear the PAT from Settings > ADO; after the transition settles, verify Settings is closed
+      and only the Azure DevOps access dialog and one backdrop remain mounted.
+- [ ] Verify Escape and backdrop clicks cannot dismiss the access dialog after clearing the PAT.
+      Re-enter a PAT; verify no dialog/backdrop remains and Settings does not reopen automatically.
+- [ ] Reopen Settings after restoring access, then close it; verify no dialog/backdrop remains.
 - [ ] Cancel/close settings after editing the PAT without saving; verify the previous value remains.
 - [ ] Reload after saving a remembered PAT; verify it is restored.
 - [ ] Reload after saving a session-only PAT; verify behavior matches the selected storage mode.
