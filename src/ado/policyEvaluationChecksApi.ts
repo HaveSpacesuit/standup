@@ -1,5 +1,5 @@
 import type { TeamProfile } from '../appSettings'
-import type { AdoRequestClient } from './httpClient'
+import { AdoAuthError, type AdoRequestClient } from './httpClient'
 import type { PullRequestCheckDetail, WorkItemPullRequestSummary } from './types'
 
 type PolicyEvaluationListResponse = {
@@ -101,10 +101,10 @@ function upsertCheck(
 
 function resolvePullRequestChecksSummary(
   checks: PullRequestCheckDetail[],
-): WorkItemPullRequestSummary['checks'] {
+): NonNullable<WorkItemPullRequestSummary['checks']> {
   if (checks.length === 0) {
     return {
-      state: 'pending',
+      state: 'none',
       total: 0,
       passing: 0,
       pending: 0,
@@ -129,6 +129,21 @@ function resolvePullRequestChecksSummary(
     failing,
     failingNames,
     checks,
+  }
+}
+
+function unavailableChecksSummary(
+  unavailableReason: NonNullable<WorkItemPullRequestSummary['checks']>['unavailableReason'],
+): NonNullable<WorkItemPullRequestSummary['checks']> {
+  return {
+    state: 'unavailable',
+    unavailableReason,
+    total: 0,
+    passing: 0,
+    pending: 0,
+    failing: 0,
+    failingNames: [],
+    checks: [],
   }
 }
 
@@ -173,9 +188,13 @@ export async function fetchPolicyEvaluationChecksSummary(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
   pullRequestId: number,
-  projectId: string,
+  projectId: string | null,
   signal?: AbortSignal,
-): Promise<WorkItemPullRequestSummary['checks'] | null> {
+): Promise<NonNullable<WorkItemPullRequestSummary['checks']>> {
+  if (!projectId) {
+    return unavailableChecksSummary('request-failed')
+  }
+
   const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${pullRequestId}`
 
   try {
@@ -210,12 +229,14 @@ export async function fetchPolicyEvaluationChecksSummary(
       })
     }
 
-    if (checksByName.size === 0) {
-      return null
+    return resolvePullRequestChecksSummary([...checksByName.values()])
+  } catch (error) {
+    if (signal?.aborted) {
+      throw error
     }
 
-    return resolvePullRequestChecksSummary([...checksByName.values()])
-  } catch {
-    return null
+    return unavailableChecksSummary(error instanceof AdoAuthError && error.status === 403
+      ? 'access-denied'
+      : 'request-failed')
   }
 }

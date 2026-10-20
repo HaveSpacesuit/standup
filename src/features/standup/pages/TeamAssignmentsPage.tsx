@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Alert, AlertTitle, Box, Typography } from '@mui/material'
 import type {
   IterationWindowInfo,
   ResolvedWorkItemAssignee,
@@ -40,6 +40,7 @@ type TeamAssignmentsPageProps = {
   isTeamDataLoading: boolean
   membersError: string | null
   workItemsError: string | null
+  pullRequestBoardItemsError: string | null
   assigneesError: string | null
   members: TeamMember[]
   workItems: WorkItemSummary[]
@@ -85,6 +86,7 @@ export function TeamAssignmentsPage({
   isTeamDataLoading,
   membersError,
   workItemsError,
+  pullRequestBoardItemsError,
   assigneesError,
   members,
   workItems,
@@ -142,6 +144,12 @@ export function TeamAssignmentsPage({
         <TeamConfigurationEmptyState pageLabel="Development" />
       ) : (
         <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
+          {patConfigured && pullRequestBoardItemsError ? (
+            <Alert role="alert" severity="warning" sx={{ m: 1, mb: 0 }}>
+              <AlertTitle>Pull request data unavailable</AlertTitle>
+              {pullRequestBoardItemsError} Check that your Azure DevOps PAT has Code (Read) access and your account can access the repository, then refresh to try again.
+            </Alert>
+          ) : null}
           {patConfigured && !isTeamDataLoading && !membersError && !workItemsError && !assigneesError && workItems.length === 0 ? (
             <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
               {quickFilterInput.trim() || selectedMemberFilter

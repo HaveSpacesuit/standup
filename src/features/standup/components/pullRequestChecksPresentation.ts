@@ -23,11 +23,22 @@ function formatCheckList(names: string[]): string {
 }
 
 export function getChecksPresentation(checks: WorkItemPullRequestSummary['checks']): PullRequestChecksPresentation {
-  if (!checks || checks.checks.length === 0) {
+  if (!checks || checks.state === 'unavailable') {
     return {
-      iconHref: svgStopwatch,
+      iconHref: svgError,
       color: 'warning.main',
-      text: 'Checks pending',
+      text: checks?.unavailableReason === 'access-denied'
+        ? 'Checks unavailable — access denied; verify policy permissions'
+        : 'Checks unavailable — try refreshing',
+      optionalItems: [],
+    }
+  }
+
+  if (checks.state === 'none' || checks.checks.length === 0) {
+    return {
+      iconHref: svgValidate,
+      color: 'text.secondary',
+      text: 'No applicable checks',
       optionalItems: [],
     }
   }

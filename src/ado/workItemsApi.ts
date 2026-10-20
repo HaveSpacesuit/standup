@@ -286,9 +286,7 @@ async function fetchActivePullRequestsByWorkItem(
 
         const pullRequestId = pullRequest.pullRequestId ?? ref.pullRequestId
         const [checks, readyForReviewAt] = await Promise.all([
-          projectId
-            ? fetchPolicyEvaluationChecksSummary(client, team, pullRequestId, projectId, signal).then((value) => value ?? undefined)
-            : Promise.resolve(undefined),
+          fetchPolicyEvaluationChecksSummary(client, team, pullRequestId, projectId, signal),
           fetchPullRequestReadyForReviewAt(client, team, ref.repositoryId, pullRequestId, signal),
         ])
 

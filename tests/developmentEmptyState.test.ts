@@ -46,6 +46,7 @@ const props: PageProps = {
   isTeamDataLoading: false,
   membersError: null,
   workItemsError: null,
+  pullRequestBoardItemsError: null,
   assigneesError: null,
   members: [],
   workItems: [],
@@ -106,4 +107,16 @@ test('empty guidance does not replace loading, errors, missing configuration, or
   ]) {
     assert.doesNotMatch(render(overrides), /No cards (?:available|match your filters)/)
   }
+})
+
+test('PR failures show recovery guidance without hiding work-item cards', () => {
+  const html = render({
+    pullRequestBoardItemsError: 'Azure DevOps rejected access to pull requests.',
+    workItems: [{ id: 456, title: 'Keep this work item visible', status: 'Active' }],
+  })
+
+  assert.match(html, /Pull request data unavailable/)
+  assert.match(html, /role="alert"/)
+  assert.match(html, /Check that your Azure DevOps PAT has Code \(Read\) access/)
+  assert.match(html, /Keep this work item visible/)
 })

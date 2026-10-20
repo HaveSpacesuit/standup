@@ -51,6 +51,7 @@ type UseBoardViewModelResult = {
   isTeamDataLoading: boolean
   membersError: string | null
   workItemsError: string | null
+  pullRequestBoardItemsError: string | null
   assigneesError: string | null
   members: TeamMember[]
   visibleBoardItems: WorkItemSummary[]
@@ -167,7 +168,7 @@ export function useBoardViewModel({
     [workItems, tagRules],
   )
 
-  const { pullRequestBoardItems, pullRequestBoardItemsLoading } = usePullRequestBoardItems({
+  const { pullRequestBoardItems, pullRequestBoardItemsLoading, pullRequestBoardItemsError } = usePullRequestBoardItems({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
     currentIteration,
@@ -326,6 +327,7 @@ export function useBoardViewModel({
     isTeamDataLoading,
     membersError,
     workItemsError,
+    pullRequestBoardItemsError,
     assigneesError,
     members,
     visibleBoardItems,
