@@ -215,8 +215,8 @@ async function fetchPullRequestItems(
       const readyForReviewAt = typeof pullRequestId === 'number'
         ? await fetchPullRequestReadyForReviewAt(client, team, pullRequest.repository?.id?.trim(), pullRequestId, signal)
         : undefined
-      const checks = projectId && typeof pullRequestId === 'number'
-        ? await fetchPolicyEvaluationChecksSummary(client, team, pullRequestId, projectId, signal).then((value) => value ?? undefined)
+      const checks = typeof pullRequestId === 'number'
+        ? await fetchPolicyEvaluationChecksSummary(client, team, pullRequestId, projectId, signal)
         : undefined
 
       return mapPullRequestToWorkItemSummary(

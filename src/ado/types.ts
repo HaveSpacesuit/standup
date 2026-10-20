@@ -76,9 +76,9 @@ export type PullRequestApiResponse = {
   }
 }
 
-export type PullRequestChecksAggregateState = 'passing' | 'pending' | 'failing'
+export type PullRequestCheckState = 'passing' | 'pending' | 'failing'
 
-export type PullRequestCheckState = PullRequestChecksAggregateState
+export type PullRequestChecksAggregateState = PullRequestCheckState | 'none' | 'unavailable'
 
 export type PullRequestCheckDetail = {
   name: string
@@ -90,6 +90,7 @@ export type PullRequestCheckDetail = {
 
 export type PullRequestChecksSummary = {
   state: PullRequestChecksAggregateState
+  unavailableReason?: 'access-denied' | 'request-failed'
   total: number
   passing: number
   pending: number
