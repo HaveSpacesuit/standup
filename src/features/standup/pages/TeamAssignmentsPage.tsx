@@ -172,6 +172,7 @@ export function TeamAssignmentsPage({
                 workItemsError={workItemsError}
                 assigneesError={assigneesError}
                 members={members}
+                selectedMemberFilter={selectedMemberFilter}
                 workItems={workItems}
                 currentIterationName={currentIterationName}
                 changeHighlightsByItemId={changeHighlightsByItemId}

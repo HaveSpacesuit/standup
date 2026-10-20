@@ -232,6 +232,7 @@ export function useBoardViewModel({
 
   const { memberFilterOptions, visibleBoardItems } = useVisibleBoardItems({
     boardItems,
+    members,
     quickFilterInput,
     selectedMemberFilter,
     workItemAssignees,
