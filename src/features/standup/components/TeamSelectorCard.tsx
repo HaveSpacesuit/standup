@@ -1,7 +1,7 @@
 import { Button, Card, CardContent, FormControl, MenuItem, Select, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import type { SelectChangeEvent } from '@mui/material'
-import type { TeamProfile } from '../../../appSettings'
+import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
 
 type TeamSelectorCardProps = {
   teams: TeamProfile[]
@@ -29,7 +29,7 @@ export function TeamSelectorCard({
             <Select value={selectedTeamId} onChange={onTeamChange}>
               {teams.map((team) => (
                 <MenuItem key={team.id} value={team.id}>
-                  {team.displayName}
+                  {getTeamProfileLabel(team)}
                 </MenuItem>
               ))}
             </Select>
