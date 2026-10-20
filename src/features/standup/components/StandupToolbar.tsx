@@ -9,6 +9,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
   type SelectChangeEvent,
 } from '@mui/material'
@@ -254,22 +255,30 @@ export function StandupToolbar({
             </>
           }
         >
-          <IconButton
-            size="small"
-            label="Assignments options"
-            onClick={onOpenTagRulesDialog}
-            disabled={!patConfigured || !hasConfiguredTeams}
-          >
-            <Icon href={svgSettings} />
-          </IconButton>
-          <IconButton
-            size="small"
-            label="Refresh"
-            onClick={onRefresh}
-            disabled={!patConfigured || !hasConfiguredTeams || isTeamDataLoading}
-          >
-            <Icon href={svgCloudSync} />
-          </IconButton>
+          <Tooltip title="Assignments options">
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Assignments options"
+                onClick={onOpenTagRulesDialog}
+                disabled={!patConfigured || !hasConfiguredTeams}
+              >
+                <Icon href={svgSettings} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Refresh">
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Refresh"
+                onClick={onRefresh}
+                disabled={!patConfigured || !hasConfiguredTeams || isTeamDataLoading}
+              >
+                <Icon href={svgCloudSync} />
+              </IconButton>
+            </span>
+          </Tooltip>
         </TeamToolbarControls>
     </PageToolbar>
   )
