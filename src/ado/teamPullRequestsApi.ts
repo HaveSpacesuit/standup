@@ -69,7 +69,7 @@ function shouldIncludePullRequest(
   }
 
   if (status === 'completed') {
-    return isWithinCurrentIteration(pullRequest.creationDate, currentIteration)
+    return isWithinCurrentIteration(pullRequest.closedDate, currentIteration)
   }
 
   return false
