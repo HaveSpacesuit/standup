@@ -120,6 +120,7 @@ export function matchesQuickFilter(
     item.title,
     item.workItemType ?? '',
     item.sprintName ?? '',
+    item.iterationPath ?? '',
     assignee?.label ?? '',
     ...(item.tags ?? []),
     ...(item.activePullRequests ?? []).flatMap((pullRequest) => [

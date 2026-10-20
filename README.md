@@ -156,7 +156,7 @@ The import path validates the payload before applying it, so malformed data is r
 
 ### Filtering and navigation
 
-- quick text filter across work item IDs, titles, types, sprint labels, tags, PR IDs, PR titles, and assignee names
+- quick text filter across work item IDs, titles, types, sprint labels and full iteration paths, tags, PR IDs, PR titles, and assignee names
 - member filter for the current board
 - hidden-tag filters persisted per team
 - board toggles for work-item types and sprint scope

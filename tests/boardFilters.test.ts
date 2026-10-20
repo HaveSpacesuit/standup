@@ -46,6 +46,8 @@ const server = await createServer({
 })
 after(() => server.close())
 const { useVisibleBoardItems } = await server.ssrLoadModule('/src/features/standup/hooks/useVisibleBoardItems.ts')
+const { useQualityAssurancePageModel } = await server.ssrLoadModule('/src/features/standup/hooks/useQualityAssurancePageModel.ts')
+const { parseStoredQaOptions } = await server.ssrLoadModule('/src/features/standup/utils/qaOptions.ts')
 
 const boardItems: WorkItemSummary[] = [
   { id: 101, title: 'First task', state: 'Active', status: 'Active' },
@@ -102,3 +104,43 @@ test('explicitly changing or clearing the member filter permits another memberâ€
   }
   assert.deepEqual(filterBoard('', '').visibleBoardItems, boardItems)
 })
+
+function filterQa(quickFilterInput: string, items: WorkItemSummary[]): WorkItemSummary[] {
+  function Board() {
+    const result = useQualityAssurancePageModel({
+      buckets: [{ id: 'needs-testing', title: 'Ready for QA', items }],
+      qaOptions: parseStoredQaOptions(null),
+    })
+    if (result.quickFilterInput !== quickFilterInput) {
+      result.onQuickFilterInputChange(quickFilterInput)
+    }
+    return encodeURIComponent(JSON.stringify(result.filteredBuckets[0].items))
+  }
+  return JSON.parse(decodeURIComponent(renderToStaticMarkup(createElement(Board))))
+}
+
+const sprintItems: WorkItemSummary[] = [
+  { ...boardItems[0], sprintName: '2026 14', iterationPath: 'beconnect\\PW Web\\2026 14' },
+  { ...boardItems[1], sprintName: '2026 15', iterationPath: 'beconnect\\PW Web\\2026 15' },
+  { ...boardItems[2], sprintName: '2026 14', iterationPath: 'beconnect\\Other Project\\2026 14' },
+  { ...boardItems[3] },
+]
+
+for (const [surface, filter] of [
+  ['Development', (query: string) => filterBoard(query, '', sprintItems).visibleBoardItems],
+  ['QA', (query: string) => filterQa(query, sprintItems)],
+] as const) {
+  test(`${surface} quick filter matches sprint labels and full iteration paths`, () => {
+    assert.deepEqual(filter('2026 14').map((item) => item.id), [101, 103])
+    for (const query of [
+      'beconnect\\PW Web\\2026 14',
+      'BEConnect\\pw web\\2026 14',
+      '  beconnect\\PW Web\\2026 14  ',
+    ]) {
+      assert.deepEqual(filter(query).map((item) => item.id), [101])
+    }
+    assert.deepEqual(filter('beconnect\\PW Web\\2026 99'), [])
+    assert.deepEqual(filter('Another member').map((item) => item.id), [2059722])
+    assert.deepEqual(filter(''), sprintItems)
+  })
+}
