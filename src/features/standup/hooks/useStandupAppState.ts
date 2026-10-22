@@ -87,8 +87,9 @@ function buildQaCardHighlightOptionsByTeam(teamProfiles: TeamProfile[]): Record<
 }
 
 export function useStandupAppState(): UseStandupAppStateResult {
-  const [teamProfiles, setTeamProfiles] = useState<TeamProfile[]>(loadTeamProfilesWithDefaults)
-  const teamProfilesSnapshot = useRef(localStorage.getItem(TEAM_PROFILES_STORAGE_KEY))
+  const [initialTeamProfiles] = useState(loadTeamProfilesWithDefaults)
+  const [teamProfiles, setTeamProfiles] = useState<TeamProfile[]>(initialTeamProfiles.teamProfiles)
+  const teamProfilesSnapshot = useRef(initialTeamProfiles.snapshot)
   const [storedPatState, setStoredPatState] = useState<StoredPatState | null>(() => loadStoredPat())
   const [qaOptionsByTeam, setQaOptionsByTeam] = useState<Record<string, QaOptions>>(() =>
     buildQaOptionsByTeam(teamProfiles),

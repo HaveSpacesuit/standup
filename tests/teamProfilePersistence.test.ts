@@ -84,6 +84,34 @@ test('a tab can save repeatedly after its own writes', (t) => {
   assert.deepEqual(JSON.parse(storage.getItem(TEAM_PROFILES_STORAGE_KEY)!), profiles)
 })
 
+test('a storage change during initialization leaves the tab stale', (t) => {
+  const { storage } = setup(t)
+  const changedProfiles = [{ ...web, displayName: 'Changed during initialization' }, explorer]
+  const changedSnapshot = JSON.stringify(changedProfiles)
+  const getItem = storage.getItem
+  let profileReads = 0
+  storage.getItem = (key) => {
+    const value = getItem(key)
+    if (key === TEAM_PROFILES_STORAGE_KEY) {
+      profileReads += 1
+      if (profileReads === 2) {
+        storage.setItem(TEAM_PROFILES_STORAGE_KEY, changedSnapshot)
+      }
+    } else if (profileReads === 1) {
+      storage.setItem(TEAM_PROFILES_STORAGE_KEY, changedSnapshot)
+    }
+    return value
+  }
+
+  const tab = useStandupAppState()
+
+  assert.throws(
+    () => tab.handleTeamProfilesChange([{ ...web, displayName: 'Stale save' }, explorer]),
+    /changed in another tab.*Reload/,
+  )
+  assert.equal(getItem(TEAM_PROFILES_STORAGE_KEY), changedSnapshot)
+})
+
 for (const operation of ['remove', 'add', 'reorder', 'import'] as const) {
   test(`a stale ${operation} leaves profiles and per-team options untouched`, (t) => {
     const { storage, values } = setup(t)
