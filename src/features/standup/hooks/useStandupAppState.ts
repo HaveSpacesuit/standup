@@ -105,8 +105,9 @@ export function useStandupAppState(): UseStandupAppStateResult {
   )
 
   const persistTeamProfiles = async (nextTeamProfiles: TeamProfile[]) => {
+    const expectedSnapshot = teamProfilesSnapshot.current
     await navigator.locks.request('standup:team-profiles', () => {
-      if (localStorage.getItem(TEAM_PROFILES_STORAGE_KEY) !== teamProfilesSnapshot.current) {
+      if (localStorage.getItem(TEAM_PROFILES_STORAGE_KEY) !== expectedSnapshot) {
         throw new Error('Team profiles changed in another tab. Reload this page before changing teams.')
       }
 
