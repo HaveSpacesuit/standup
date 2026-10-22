@@ -12,7 +12,7 @@ type UseTeamDataTransferActionsArgs = {
   qaOptionsByTeam: Record<string, QaOptions>
   assignmentOptionsByTeam: Record<string, AssignmentOptions>
   tagRulesByTeam: Record<string, TagRule[]>
-  replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => void
+  replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => Promise<void>
   setAssignmentOptionsForTeam: (teamId: string, options: AssignmentOptions) => void
   setQaOptionsForTeam: (teamId: string, options: QaOptions) => void
   setTagRulesForTeam: (teamId: string, rules: TagRule[]) => void
@@ -21,7 +21,7 @@ type UseTeamDataTransferActionsArgs = {
 
 type UseTeamDataTransferActionsResult = {
   handleExportTeamData: (teamId: string) => void
-  handleImportTeamData: (jsonText: string) => void
+  handleImportTeamData: (jsonText: string) => Promise<void>
 }
 
 function toDownloadFileName(displayName: string): string {
@@ -61,14 +61,14 @@ export function useTeamDataTransferActions({
     URL.revokeObjectURL(downloadUrl)
   }, [assignmentOptionsByTeam, qaOptionsByTeam, tagRulesByTeam, teamProfiles])
 
-  const handleImportTeamData = useCallback((jsonText: string) => {
+  const handleImportTeamData = useCallback(async (jsonText: string) => {
     const importedData = parseImportedTeamData(jsonText)
     const importedTeamId = importedData.teamProfile.id
     const nextTeamProfiles = teamProfiles.some((team) => team.id === importedTeamId)
       ? teamProfiles.map((team) => (team.id === importedTeamId ? importedData.teamProfile : team))
       : [...teamProfiles, importedData.teamProfile]
 
-    replaceTeamProfiles(nextTeamProfiles)
+    await replaceTeamProfiles(nextTeamProfiles)
     setAssignmentOptionsForTeam(importedTeamId, importedData.assignmentOptions)
     setQaOptionsForTeam(importedTeamId, importedData.qaOptions)
     setTagRulesForTeam(importedTeamId, importedData.assignmentTagRules)

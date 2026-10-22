@@ -59,10 +59,10 @@ type AppNavigationRailProps = {
   onPatSave: (pat: string) => void
   onPatClear: () => void
   onExportTeamData: (teamId: string) => void
-  onImportTeamData: (jsonText: string) => void
+  onImportTeamData: (jsonText: string) => Promise<void>
   selectedTeamId: string
   teamProfiles: TeamProfile[]
-  onTeamProfilesChange: (teamProfiles: TeamProfile[]) => void
+  onTeamProfilesChange: (teamProfiles: TeamProfile[]) => Promise<void>
   patCreationUrl: string
 }
 
@@ -203,9 +203,9 @@ export function AppNavigationRail({
     setPatError(null)
   }
 
-  const persistTeamProfiles = (nextTeamProfiles: TeamProfile[]): boolean => {
+  const persistTeamProfiles = async (nextTeamProfiles: TeamProfile[]): Promise<boolean> => {
     try {
-      onTeamProfilesChange(nextTeamProfiles)
+      await onTeamProfilesChange(nextTeamProfiles)
       return true
     } catch (error) {
       setTeamError(error instanceof Error ? error.message : 'Unable to save team profiles.')
@@ -213,7 +213,7 @@ export function AppNavigationRail({
     }
   }
 
-  const handleSaveTeam = () => {
+  const handleSaveTeam = async () => {
     const trimmedTeamProfile: TeamProfile = {
       ...draftTeamProfile,
       displayName: draftTeamProfile.displayName.trim(),
@@ -235,7 +235,7 @@ export function AppNavigationRail({
       ? [...teamProfiles, trimmedTeamProfile]
       : teamProfiles.map((team) => (team.id === trimmedTeamProfile.id ? trimmedTeamProfile : team))
 
-    if (!persistTeamProfiles(nextTeamProfiles)) {
+    if (!await persistTeamProfiles(nextTeamProfiles)) {
       return
     }
     setEditingTeamId(trimmedTeamProfile.id)
@@ -244,7 +244,7 @@ export function AppNavigationRail({
     setTeamError(null)
   }
 
-  const handleRemoveTeam = () => {
+  const handleRemoveTeam = async () => {
     if (isCreatingTeam) {
       const fallbackTeam = resolveEditableTeamProfile(teamProfiles, selectedTeamId)
       setEditingTeamId(fallbackTeam.id)
@@ -255,7 +255,7 @@ export function AppNavigationRail({
     }
 
     const nextTeamProfiles = teamProfiles.filter((team) => team.id !== draftTeamProfile.id)
-    if (!persistTeamProfiles(nextTeamProfiles)) {
+    if (!await persistTeamProfiles(nextTeamProfiles)) {
       return
     }
 
@@ -290,7 +290,7 @@ export function AppNavigationRail({
 
     try {
       const jsonText = await file.text()
-      onImportTeamData(jsonText)
+      await onImportTeamData(jsonText)
       setTeamError(null)
       setActiveTab('teams')
     } catch (error) {
@@ -298,7 +298,7 @@ export function AppNavigationRail({
     }
   }
 
-  const handleMoveTeam = (teamId: string, direction: 'up' | 'down') => {
+  const handleMoveTeam = async (teamId: string, direction: 'up' | 'down') => {
     const currentIndex = teamProfiles.findIndex((team) => team.id === teamId)
     if (currentIndex < 0) {
       return
@@ -312,7 +312,7 @@ export function AppNavigationRail({
     const nextTeamProfiles = [...teamProfiles]
     const [movedTeam] = nextTeamProfiles.splice(currentIndex, 1)
     nextTeamProfiles.splice(targetIndex, 0, movedTeam)
-    if (!persistTeamProfiles(nextTeamProfiles)) {
+    if (!await persistTeamProfiles(nextTeamProfiles)) {
       return
     }
     setEditingTeamId(teamId)

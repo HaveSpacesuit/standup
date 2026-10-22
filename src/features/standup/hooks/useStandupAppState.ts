@@ -30,8 +30,8 @@ type UseStandupAppStateResult = {
   qaCardHighlightOptionsByTeam: Record<string, CardHighlightOptions>
   assignmentCardHighlightOptions: CardHighlightOptions
   assignmentOptionsByTeam: Record<string, AssignmentOptions>
-  handleTeamProfilesChange: (nextTeamProfiles: TeamProfile[]) => void
-  replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => void
+  handleTeamProfilesChange: (nextTeamProfiles: TeamProfile[]) => Promise<void>
+  replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => Promise<void>
   handlePatSave: (pat: string) => void
   handlePatClear: () => void
   setQaOptionsForTeam: (teamId: string, next: QaOptions) => void
@@ -104,18 +104,20 @@ export function useStandupAppState(): UseStandupAppStateResult {
     buildAssignmentOptionsByTeam(teamProfiles),
   )
 
-  const persistTeamProfiles = (nextTeamProfiles: TeamProfile[]) => {
-    if (localStorage.getItem(TEAM_PROFILES_STORAGE_KEY) !== teamProfilesSnapshot.current) {
-      throw new Error('Team profiles changed in another tab. Reload this page before changing teams.')
-    }
+  const persistTeamProfiles = async (nextTeamProfiles: TeamProfile[]) => {
+    await navigator.locks.request('standup:team-profiles', () => {
+      if (localStorage.getItem(TEAM_PROFILES_STORAGE_KEY) !== teamProfilesSnapshot.current) {
+        throw new Error('Team profiles changed in another tab. Reload this page before changing teams.')
+      }
 
-    saveTeamProfiles(nextTeamProfiles)
-    teamProfilesSnapshot.current = JSON.stringify(nextTeamProfiles)
-    setTeamProfiles(nextTeamProfiles)
+      saveTeamProfiles(nextTeamProfiles)
+      teamProfilesSnapshot.current = JSON.stringify(nextTeamProfiles)
+      setTeamProfiles(nextTeamProfiles)
+    })
   }
 
-  const handleTeamProfilesChange = (nextTeamProfiles: TeamProfile[]) => {
-    persistTeamProfiles(nextTeamProfiles)
+  const handleTeamProfilesChange = async (nextTeamProfiles: TeamProfile[]) => {
+    await persistTeamProfiles(nextTeamProfiles)
     const nextTeamIds = new Set(nextTeamProfiles.map((team) => team.id))
 
     for (const team of teamProfiles) {

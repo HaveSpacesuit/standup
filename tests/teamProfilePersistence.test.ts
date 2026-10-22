@@ -38,8 +38,18 @@ const explorer: TeamProfile = { ...web, id: 'explorer', displayName: 'ProjectWis
 
 function setup(t: TestContext) {
   const values = new Map<string, string>()
+  let lockTail = Promise.resolve()
+  let onProfilesRead: (() => void) | null = null
   const storage = {
-    getItem: (key: string) => values.get(key) ?? null,
+    getItem: (key: string) => {
+      const value = values.get(key) ?? null
+      if (key === TEAM_PROFILES_STORAGE_KEY && onProfilesRead) {
+        const callback = onProfilesRead
+        onProfilesRead = null
+        callback()
+      }
+      return value
+    },
     setItem: (key: string, value: string) => { values.set(key, value) },
     removeItem: (key: string) => { values.delete(key) },
   }
@@ -51,36 +61,59 @@ function setup(t: TestContext) {
       else Reflect.deleteProperty(globalThis, name)
     })
   }
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      locks: {
+        request: async (_name: string, callback: () => unknown) => {
+          const previous = lockTail
+          let release!: () => void
+          lockTail = new Promise<void>((resolve) => { release = resolve })
+          await previous
+          try {
+            return await callback()
+          } finally {
+            release()
+          }
+        },
+      },
+    },
+  })
+  t.after(() => {
+    if (navigatorDescriptor) Object.defineProperty(globalThis, 'navigator', navigatorDescriptor)
+    else Reflect.deleteProperty(globalThis, 'navigator')
+  })
   storage.setItem(TEAM_PROFILES_STORAGE_KEY, JSON.stringify([web, explorer]))
-  return { storage, values }
+  return { storage, values, onProfilesRead: (callback: () => void) => { onProfilesRead = callback } }
 }
 
-test('a stale tab cannot overwrite an unrelated team rename', (t) => {
+test('a stale tab cannot overwrite an unrelated team rename', async (t) => {
   const { storage } = setup(t)
   const tabA = useStandupAppState()
   const tabB = useStandupAppState()
   const savedProfiles = [{ ...web, displayName: 'QA Web edited in tab A' }, explorer]
 
-  tabA.handleTeamProfilesChange(savedProfiles)
-  assert.throws(
-    () => tabB.handleTeamProfilesChange([web, { ...explorer, displayName: 'QA Explorer edited in tab B' }]),
+  await tabA.handleTeamProfilesChange(savedProfiles)
+  await assert.rejects(
+    tabB.handleTeamProfilesChange([web, { ...explorer, displayName: 'QA Explorer edited in tab B' }]),
     /changed in another tab.*Reload/,
   )
   assert.deepEqual(JSON.parse(storage.getItem(TEAM_PROFILES_STORAGE_KEY)!), savedProfiles)
 
   const reloadedTabB = useStandupAppState()
   const updatedProfiles = [savedProfiles[0], { ...explorer, displayName: 'QA Explorer edited in tab B' }]
-  reloadedTabB.handleTeamProfilesChange(updatedProfiles)
+  await reloadedTabB.handleTeamProfilesChange(updatedProfiles)
   assert.deepEqual(JSON.parse(storage.getItem(TEAM_PROFILES_STORAGE_KEY)!), updatedProfiles)
 })
 
-test('a tab can save repeatedly after its own writes', (t) => {
+test('a tab can save repeatedly after its own writes', async (t) => {
   const { storage } = setup(t)
   const tab = useStandupAppState()
   const renamedWeb = { ...web, displayName: 'Renamed Web' }
-  tab.handleTeamProfilesChange([renamedWeb, explorer])
+  await tab.handleTeamProfilesChange([renamedWeb, explorer])
   const profiles = [renamedWeb, { ...explorer, displayName: 'Renamed Explorer' }]
-  tab.handleTeamProfilesChange(profiles)
+  await tab.handleTeamProfilesChange(profiles)
   assert.deepEqual(JSON.parse(storage.getItem(TEAM_PROFILES_STORAGE_KEY)!), profiles)
 })
 
@@ -113,7 +146,7 @@ test('a storage change during initialization leaves the tab stale', (t) => {
 })
 
 for (const operation of ['remove', 'add', 'reorder', 'import'] as const) {
-  test(`a stale ${operation} leaves profiles and per-team options untouched`, (t) => {
+  test(`a stale ${operation} leaves profiles and per-team options untouched`, async (t) => {
     const { storage, values } = setup(t)
     const tab = useStandupAppState()
     for (const key of ['standup:qa-options', 'standup:qa-card-highlight-options', 'standup:assignment-options', 'standup:tag-rules']) {
@@ -128,27 +161,54 @@ for (const operation of ['remove', 'add', 'reorder', 'import'] as const) {
       import: [web, { ...explorer, displayName: 'Imported Explorer' }],
     }[operation]
 
-    assert.throws(
-      () => operation === 'import' ? tab.replaceTeamProfiles(profiles) : tab.handleTeamProfilesChange(profiles),
+    await assert.rejects(
+      operation === 'import' ? tab.replaceTeamProfiles(profiles) : tab.handleTeamProfilesChange(profiles),
       /changed in another tab.*Reload/,
     )
     assert.deepEqual(values, before)
   })
 }
 
-test('clearing profiles in another tab cannot be undone by a stale save', (t) => {
+test('clearing profiles in another tab cannot be undone by a stale save', async (t) => {
   const { storage } = setup(t)
   const tab = useStandupAppState()
   storage.removeItem(TEAM_PROFILES_STORAGE_KEY)
-  assert.throws(() => tab.handleTeamProfilesChange([web, explorer]), /changed in another tab.*Reload/)
+  await assert.rejects(tab.handleTeamProfilesChange([web, explorer]), /changed in another tab.*Reload/)
   assert.equal(storage.getItem(TEAM_PROFILES_STORAGE_KEY), null)
 })
 
-test('removing a team still cleans up its options when the snapshot is current', (t) => {
+test('removing a team still cleans up its options when the snapshot is current', async (t) => {
   const { storage } = setup(t)
   const tab = useStandupAppState()
   storage.setItem('standup:tag-rules:explorer', '[]')
-  tab.handleTeamProfilesChange([web])
+  await tab.handleTeamProfilesChange([web])
   assert.deepEqual(JSON.parse(storage.getItem(TEAM_PROFILES_STORAGE_KEY)!), [web])
   assert.equal(storage.getItem('standup:tag-rules:explorer'), null)
+})
+
+test('overlapping saves across tabs are serialized and do not overwrite', async (t) => {
+  const { storage, onProfilesRead } = setup(t)
+  const tabA = useStandupAppState()
+  const tabB = useStandupAppState()
+  const tabAProfiles = [{ ...web, displayName: 'Saved in tab A' }, explorer]
+  const tabBProfiles = [web, { ...explorer, displayName: 'Saved in tab B' }]
+  let tabBSave: Promise<void> | undefined
+  let resolveTabBSave!: (value: PromiseSettledResult<void>) => void
+  const tabBResult = new Promise<PromiseSettledResult<void>>((resolve) => { resolveTabBSave = resolve })
+
+  onProfilesRead(() => {
+    tabBSave = tabB.handleTeamProfilesChange(tabBProfiles)
+    void tabBSave.then(
+      () => resolveTabBSave({ status: 'fulfilled', value: undefined }),
+      (reason) => resolveTabBSave({ status: 'rejected', reason }),
+    )
+  })
+
+  await tabA.handleTeamProfilesChange(tabAProfiles)
+  const tabBOutcome = await tabBResult
+
+  assert.ok(tabBSave)
+  assert.equal(tabBOutcome.status, 'rejected')
+  assert.match(String(tabBOutcome.reason), /changed in another tab.*Reload/)
+  assert.deepEqual(JSON.parse(storage.getItem(TEAM_PROFILES_STORAGE_KEY)!), tabAProfiles)
 })
