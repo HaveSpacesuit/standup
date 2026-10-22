@@ -138,11 +138,12 @@ test('a storage change during initialization leaves the tab stale', (t) => {
 
   const tab = useStandupAppState()
 
-  assert.throws(
+  return assert.rejects(
     () => tab.handleTeamProfilesChange([{ ...web, displayName: 'Stale save' }, explorer]),
     /changed in another tab.*Reload/,
-  )
-  assert.equal(getItem(TEAM_PROFILES_STORAGE_KEY), changedSnapshot)
+  ).then(() => {
+    assert.equal(getItem(TEAM_PROFILES_STORAGE_KEY), changedSnapshot)
+  })
 })
 
 for (const operation of ['remove', 'add', 'reorder', 'import'] as const) {
