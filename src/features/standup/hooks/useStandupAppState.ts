@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { clearStoredPat, loadStoredPat, saveStoredPat, type StoredPatState } from '../../../adoAuth'
 import type { TeamProfile } from '../../../appSettings'
-import { saveTeamProfiles } from '../../../appSettings'
+import { saveTeamProfiles, TEAM_PROFILES_STORAGE_KEY } from '../../../appSettings'
 import { loadTeamProfilesWithDefaults } from '../../../defaultTeamSeed'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import {
@@ -88,6 +88,7 @@ function buildQaCardHighlightOptionsByTeam(teamProfiles: TeamProfile[]): Record<
 
 export function useStandupAppState(): UseStandupAppStateResult {
   const [teamProfiles, setTeamProfiles] = useState<TeamProfile[]>(loadTeamProfilesWithDefaults)
+  const teamProfilesSnapshot = useRef(localStorage.getItem(TEAM_PROFILES_STORAGE_KEY))
   const [storedPatState, setStoredPatState] = useState<StoredPatState | null>(() => loadStoredPat())
   const [qaOptionsByTeam, setQaOptionsByTeam] = useState<Record<string, QaOptions>>(() =>
     buildQaOptionsByTeam(teamProfiles),
@@ -103,11 +104,17 @@ export function useStandupAppState(): UseStandupAppStateResult {
   )
 
   const persistTeamProfiles = (nextTeamProfiles: TeamProfile[]) => {
+    if (localStorage.getItem(TEAM_PROFILES_STORAGE_KEY) !== teamProfilesSnapshot.current) {
+      throw new Error('Team profiles changed in another tab. Reload this page before changing teams.')
+    }
+
     saveTeamProfiles(nextTeamProfiles)
+    teamProfilesSnapshot.current = JSON.stringify(nextTeamProfiles)
     setTeamProfiles(nextTeamProfiles)
   }
 
   const handleTeamProfilesChange = (nextTeamProfiles: TeamProfile[]) => {
+    persistTeamProfiles(nextTeamProfiles)
     const nextTeamIds = new Set(nextTeamProfiles.map((team) => team.id))
 
     for (const team of teamProfiles) {
@@ -119,7 +126,6 @@ export function useStandupAppState(): UseStandupAppStateResult {
       }
     }
 
-    persistTeamProfiles(nextTeamProfiles)
     setQaOptionsByTeam((previous) => Object.fromEntries(
       Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
     ))

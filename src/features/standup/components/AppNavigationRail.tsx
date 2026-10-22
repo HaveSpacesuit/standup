@@ -203,6 +203,16 @@ export function AppNavigationRail({
     setPatError(null)
   }
 
+  const persistTeamProfiles = (nextTeamProfiles: TeamProfile[]): boolean => {
+    try {
+      onTeamProfilesChange(nextTeamProfiles)
+      return true
+    } catch (error) {
+      setTeamError(error instanceof Error ? error.message : 'Unable to save team profiles.')
+      return false
+    }
+  }
+
   const handleSaveTeam = () => {
     const trimmedTeamProfile: TeamProfile = {
       ...draftTeamProfile,
@@ -225,7 +235,9 @@ export function AppNavigationRail({
       ? [...teamProfiles, trimmedTeamProfile]
       : teamProfiles.map((team) => (team.id === trimmedTeamProfile.id ? trimmedTeamProfile : team))
 
-    onTeamProfilesChange(nextTeamProfiles)
+    if (!persistTeamProfiles(nextTeamProfiles)) {
+      return
+    }
     setEditingTeamId(trimmedTeamProfile.id)
     setDraftTeamProfile(trimmedTeamProfile)
     setIsCreatingTeam(false)
@@ -243,7 +255,9 @@ export function AppNavigationRail({
     }
 
     const nextTeamProfiles = teamProfiles.filter((team) => team.id !== draftTeamProfile.id)
-    onTeamProfilesChange(nextTeamProfiles)
+    if (!persistTeamProfiles(nextTeamProfiles)) {
+      return
+    }
 
     const fallbackTeam = resolveEditableTeamProfile(nextTeamProfiles, selectedTeamId)
     setEditingTeamId(fallbackTeam.id)
@@ -298,7 +312,9 @@ export function AppNavigationRail({
     const nextTeamProfiles = [...teamProfiles]
     const [movedTeam] = nextTeamProfiles.splice(currentIndex, 1)
     nextTeamProfiles.splice(targetIndex, 0, movedTeam)
-    onTeamProfilesChange(nextTeamProfiles)
+    if (!persistTeamProfiles(nextTeamProfiles)) {
+      return
+    }
     setEditingTeamId(teamId)
     setDraftTeamProfile(movedTeam)
     setIsCreatingTeam(false)
