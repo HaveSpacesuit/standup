@@ -4,6 +4,7 @@ import type { AppView } from '../hooks/useAppNavigation'
 import { QualityAssurancePage } from '../pages/QualityAssurancePage'
 import { TeamAssignmentsPage } from '../pages/TeamAssignmentsPage'
 import { TestsPage } from '../pages/TestsPage'
+import { ContentErrorBoundary } from './ContentErrorBoundary'
 
 type TeamAssignmentsPageProps = ComponentProps<typeof TeamAssignmentsPage>
 type QualityAssurancePageProps = ComponentProps<typeof QualityAssurancePage>
@@ -23,13 +24,15 @@ export function StandupContent({
 }: StandupContentProps) {
   return (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {activeView === 'development' ? (
-        <TeamAssignmentsPage {...teamAssignmentsPageProps} />
-      ) : activeView === 'qa-activity' ? (
-        <QualityAssurancePage {...qualityAssurancePageProps} />
-      ) : (
-        <TestsPage {...testsPageProps} />
-      )}
+      <ContentErrorBoundary key={`${activeView}:${teamAssignmentsPageProps.selectedTeamId}`}>
+        {activeView === 'development' ? (
+          <TeamAssignmentsPage {...teamAssignmentsPageProps} />
+        ) : activeView === 'qa-activity' ? (
+          <QualityAssurancePage {...qualityAssurancePageProps} />
+        ) : (
+          <TestsPage {...testsPageProps} />
+        )}
+      </ContentErrorBoundary>
     </Box>
   )
 }
