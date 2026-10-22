@@ -95,6 +95,9 @@ export function QaOptionsDialog({
     ...options,
     lookbackDays: normalizeQaLookbackDays(options.lookbackDays),
   }))
+  const [cardHighlightDraft, setCardHighlightDraft] = useState<CardHighlightOptions>(() =>
+    normalizeCardHighlightOptions(cardHighlightOptions),
+  )
   const [newTagInput, setNewTagInput] = useState('')
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
   const [tagGroupInputs, setTagGroupInputs] = useState<Record<StateGroupKey, string>>({
@@ -102,7 +105,7 @@ export function QaOptionsDialog({
   })
   const [activeTab, setActiveTab] = useState(0)
   const updateCardHighlightOptions = (changes: Partial<CardHighlightOptions>) => {
-    onCardHighlightOptionsChange(normalizeCardHighlightOptions({ ...cardHighlightOptions, ...changes }))
+    setCardHighlightDraft((current) => normalizeCardHighlightOptions({ ...current, ...changes }))
   }
 
   useEffect(() => {
@@ -111,6 +114,7 @@ export function QaOptionsDialog({
         ...options,
         lookbackDays: normalizeQaLookbackDays(options.lookbackDays),
       })
+      setCardHighlightDraft(normalizeCardHighlightOptions(cardHighlightOptions))
       setNewTagInput('')
       setNewIterationPathInput('')
       setTagGroupInputs({ testing: '', done: '', development: '', new: '' })
@@ -144,6 +148,7 @@ export function QaOptionsDialog({
 
   const handleClose = () => {
     onChange(draft)
+    onCardHighlightOptionsChange(cardHighlightDraft)
     onClose()
   }
 
@@ -668,7 +673,7 @@ export function QaOptionsDialog({
               size="small"
               type="number"
               label="Fresh threshold (days)"
-              value={cardHighlightOptions.freshDays}
+              value={cardHighlightDraft.freshDays}
               slotProps={{ htmlInput: { min: 1, max: 365, step: 1 } }}
               onChange={(event) => {
                 const value = Number(event.target.value)
@@ -681,7 +686,7 @@ export function QaOptionsDialog({
               size="small"
               type="number"
               label="Stale threshold (days)"
-              value={cardHighlightOptions.staleDays}
+              value={cardHighlightDraft.staleDays}
               slotProps={{ htmlInput: { min: 1, max: 365, step: 1 } }}
               onChange={(event) => {
                 const value = Number(event.target.value)
