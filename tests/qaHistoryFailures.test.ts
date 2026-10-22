@@ -124,3 +124,21 @@ test('QA history warning is accessible and does not hide the unavailable card', 
   assert.match(html, /History unavailable/)
   assert.match(html, /Keep this card visible/)
 })
+
+test('QA history warning remains visible when no cards match the filters', () => {
+  const html = renderToStaticMarkup(createElement(
+    Root,
+    null,
+    createElement(QualityAssuranceList, {
+      isLoading: false,
+      error: null,
+      historyWarning: 'Unable to load history for 1 work item. QA membership may be incomplete.',
+      buckets: [],
+      colorScheme: 'light',
+    }),
+  ))
+
+  assert.match(html, /role="alert"/)
+  assert.match(html, /Unable to load history for 1 work item/)
+  assert.match(html, /No QA items/)
+})

@@ -60,6 +60,11 @@ export function QualityAssuranceList({ isLoading, error, historyWarning, buckets
       >
         <Card sx={{ width: '100%', maxWidth: 560 }}>
           <CardContent sx={{ p: 3 }}>
+            {historyWarning ? (
+              <Alert severity="warning" role="alert" sx={{ mb: 1.5 }}>
+                {historyWarning}
+              </Alert>
+            ) : null}
             <Typography variant="headline-sm" render={<h1 />} sx={{ fontWeight: 700, mb: 1 }}>
               No QA items
             </Typography>
