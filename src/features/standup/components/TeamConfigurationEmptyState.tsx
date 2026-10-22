@@ -20,7 +20,7 @@ export function TeamConfigurationEmptyState({ pageLabel }: TeamConfigurationEmpt
     >
       <Card sx={{ width: '100%', maxWidth: 640 }}>
         <CardContent sx={{ p: 3 }}>
-          <Typography variant="headline-sm" render={<h1 />} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant="headline-sm" render={<h2 />} sx={{ fontWeight: 700, mb: 1 }}>
             Configure at least one team
           </Typography>
           <Typography variant="body-sm" color="text.secondary">

@@ -116,7 +116,7 @@ export function StandupToolbar({
   }
 
   return (
-    <PageToolbar iconHref={svgDeveloper} title="Development">
+    <PageToolbar iconHref={svgDeveloper} title="Development" isPageTitle>
         <TextField
           size="small"
           placeholder="Quick filter cards"
