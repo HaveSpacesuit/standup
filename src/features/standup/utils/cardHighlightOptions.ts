@@ -8,8 +8,13 @@ export const DEFAULT_CARD_HIGHLIGHT_OPTIONS: CardHighlightOptions = {
   staleDays: 7,
 }
 
-export const QA_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY = 'standup:qa-card-highlight-options'
+export const LEGACY_QA_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY = 'standup:qa-card-highlight-options'
+export const QA_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY_PREFIX = 'standup:qa-card-highlight-options'
 export const ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY = 'standup:assignments-card-highlight-options'
+
+export function qaCardHighlightOptionsStorageKey(teamId: string): string {
+  return `${QA_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY_PREFIX}:${teamId}`
+}
 
 function normalizeWholeNumber(value: number | undefined | null, fallback: number): number {
   if (value === undefined || value === null || !Number.isFinite(value)) {

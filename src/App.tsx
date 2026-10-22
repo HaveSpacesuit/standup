@@ -10,7 +10,7 @@ import { useStandupAppState } from './features/standup/hooks/useStandupAppState'
 import { useTeamDataTransferActions } from './features/standup/hooks/useTeamDataTransferActions'
 import { buildPatCreationUrl, resolvePatOrganization } from './appSettings'
 import type { AssignmentOptions } from './features/standup/utils/assignmentOptions'
-import type { CardHighlightOptions } from './features/standup/utils/cardHighlightOptions'
+import { DEFAULT_CARD_HIGHLIGHT_OPTIONS, type CardHighlightOptions } from './features/standup/utils/cardHighlightOptions'
 import type { QaOptions } from './features/standup/utils/qaOptions'
 import { createDefaultAssignmentOptions, createDefaultQaOptions } from './features/standup/utils/standupOptionDefaults'
 
@@ -27,7 +27,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     storedPatState,
     patConfigured,
     qaOptionsByTeam,
-    qaCardHighlightOptions,
+    qaCardHighlightOptionsByTeam,
     assignmentCardHighlightOptions,
     assignmentOptionsByTeam,
     handleTeamProfilesChange,
@@ -88,6 +88,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
   })
 
   const qaOptions = qaOptionsByTeam[selectedTeamId] ?? createDefaultQaOptions()
+  const qaCardHighlightOptions = qaCardHighlightOptionsByTeam[selectedTeamId] ?? DEFAULT_CARD_HIGHLIGHT_OPTIONS
   const assignmentOptions = assignmentOptionsByTeam[selectedTeamId] ?? createDefaultAssignmentOptions()
   const patCreationUrl = buildPatCreationUrl(resolvePatOrganization(teamProfiles))
 
@@ -96,7 +97,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
   }
 
   const handleQaCardHighlightOptionsChange = (next: CardHighlightOptions) => {
-    setQaCardHighlightOptionsPersisted(next)
+    setQaCardHighlightOptionsPersisted(selectedTeamId, next)
   }
 
   const handleAssignmentCardHighlightOptionsChange = (next: CardHighlightOptions) => {
