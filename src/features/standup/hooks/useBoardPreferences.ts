@@ -18,7 +18,7 @@ type UseBoardPreferencesResult = {
 
 const TAG_RULES_STORAGE_KEY = 'standup:tag-rules'
 const LEGACY_HIDDEN_TAGS_STORAGE_KEY = 'standup:hidden-tags'
-const SELECTED_TEAM_STORAGE_KEY = 'standup:selected-team-id'
+export const SELECTED_TEAM_STORAGE_KEY = 'standup:selected-team-id'
 
 export function tagRulesStorageKey(teamId: string): string {
   return `${TAG_RULES_STORAGE_KEY}:${teamId}`
