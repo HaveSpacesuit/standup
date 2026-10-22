@@ -3,10 +3,21 @@ import { after, test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import * as ts from 'typescript'
-import { createElement } from 'react'
+import { createElement, memo, useState } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
+import { JSDOM } from 'jsdom'
 import type { ResolvedWorkItemAssignee, WorkItemSummary } from '../src/ado/queryEngine.ts'
+
+const dom = new JSDOM('<!doctype html><html><body></body></html>')
+Object.assign(globalThis, {
+  window: dom.window,
+  document: dom.window.document,
+  HTMLElement: dom.window.HTMLElement,
+  Node: dom.window.Node,
+  MutationObserver: dom.window.MutationObserver,
+})
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator })
 
 const defaultRules = [
   { id: 'default-blocked', tag: 'blocked', action: 'Blocked' },
@@ -44,10 +55,15 @@ const server = await createServer({
   configFile: false,
   server: { middlewareMode: true },
 })
-after(() => server.close())
+after(() => {
+  server.close()
+  dom.window.close()
+})
 const { useVisibleBoardItems } = await server.ssrLoadModule('/src/features/standup/hooks/useVisibleBoardItems.ts')
 const { useQualityAssurancePageModel } = await server.ssrLoadModule('/src/features/standup/hooks/useQualityAssurancePageModel.ts')
 const { parseStoredQaOptions } = await server.ssrLoadModule('/src/features/standup/utils/qaOptions.ts')
+const { createRoot } = await import('react-dom/client')
+const { flushSync } = await import('react-dom')
 
 const boardItems: WorkItemSummary[] = [
   { id: 101, title: 'First task', state: 'Active', status: 'Active' },
@@ -87,6 +103,118 @@ test('zero quick-filter matches and empty board data retain the selected member 
   for (const result of [filterBoard('no matching cards'), filterBoard('', 'Bennet Dela Rosa', [])]) {
     assert.deepEqual(result.visibleBoardItems, [])
     assert.deepEqual(result.memberFilterOptions, ['Bennet Dela Rosa'])
+  }
+})
+
+test('large boards retain the unique matching work item alongside PR-only cards', () => {
+  const workItems: WorkItemSummary[] = Array.from({ length: 1000 }, (_, index) => ({
+    id: 9000000 + index,
+    title: `Work item ${index}`,
+    state: 'Active',
+    status: 'Active',
+    sprintName: 'Current sprint',
+    iterationPath: 'Project\\Team\\Current sprint',
+  }))
+  const pullRequestItems: WorkItemSummary[] = Array.from({ length: 200 }, (_, index) => ({
+    id: 9100000 + index,
+    kind: 'pull-request',
+    title: `Pull request ${index}`,
+    status: 'Review',
+    pullRequest: {
+      id: 9200000 + index,
+      title: `Pull request ${index}`,
+      url: `https://example.test/pull-request/${index}`,
+    },
+  }))
+
+  assert.deepEqual(
+    filterBoard('0999', '', [...workItems, ...pullRequestItems]).visibleBoardItems.map((item) => item.id),
+    [9000999],
+  )
+})
+
+test('client filtering keeps typing responsive and avoids rerendering unchanged cards', async () => {
+  const workItems: WorkItemSummary[] = Array.from({ length: 1000 }, (_, index) => ({
+    id: 9000000 + index,
+    title: `Work item ${index}`,
+    state: 'Active',
+    status: 'Active',
+  }))
+  const pullRequestItems: WorkItemSummary[] = Array.from({ length: 200 }, (_, index) => ({
+    id: 9100000 + index,
+    kind: 'pull-request',
+    title: `Pull request ${index}`,
+    status: 'Review',
+    pullRequest: {
+      id: 9200000 + index,
+      title: `Pull request ${index}`,
+      url: `https://example.test/pull-request/${index}`,
+    },
+  }))
+  const items = [...workItems, ...pullRequestItems]
+
+  const cardRenderCounts = new Map<number, number>()
+  const cardSource = readFileSync(new URL('../src/features/standup/components/WorkItemCard.tsx', import.meta.url), 'utf8')
+  assert.match(cardSource, /export const WorkItemCard = memo\(/)
+  const MemoizedCard = memo(function CountedCard({ item }: { item: WorkItemSummary }) {
+    cardRenderCounts.set(item.id, (cardRenderCounts.get(item.id) ?? 0) + 1)
+    return createElement('div', { 'data-card-id': item.id })
+  })
+
+  function ClientBoard() {
+    const [quickFilterInput, setQuickFilterInput] = useState('')
+    const { visibleBoardItems } = useVisibleBoardItems({
+      boardItems: items,
+      quickFilterInput,
+      selectedMemberFilter: '',
+      workItemAssignees: {},
+    })
+
+    return createElement(
+      'div',
+      null,
+      createElement('input', {
+        'aria-label': 'Quick filter',
+        value: quickFilterInput,
+        onChange: (event: { target: { value: string } }) => setQuickFilterInput(event.target.value),
+      }),
+      createElement('output', { 'data-testid': 'filter-result' }, JSON.stringify(visibleBoardItems.map(({ id }) => id))),
+      ...visibleBoardItems
+        .filter((item) => item.status === 'Active')
+        .slice(0, 3)
+        .map((item) => createElement(MemoizedCard, { key: item.id, item })),
+    )
+  }
+
+  const host = dom.window.document.createElement('div')
+  dom.window.document.body.append(host)
+  const root = createRoot(host)
+  try {
+    flushSync(() => root.render(createElement(ClientBoard)))
+
+    const input = host.querySelector('input')!
+    const output = host.querySelector('output')!
+    const initialResult = output.textContent
+    assert.deepEqual([...cardRenderCounts.entries()], [[9000000, 1], [9000001, 1], [9000002, 1]])
+
+    const setNativeInputValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!
+    for (const query of ['0', '09', '099', '0999']) {
+      flushSync(() => {
+        setNativeInputValue.call(input, query)
+        input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+      })
+      assert.equal(input.value, query)
+      assert.equal(output.textContent, initialResult)
+      assert.deepEqual([...cardRenderCounts.entries()], [[9000000, 1], [9000001, 1], [9000002, 1]])
+    }
+
+    for (let attempt = 0; attempt < 50 && output.textContent !== '[9000999]'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    assert.deepEqual(JSON.parse(output.textContent!), [9000999])
+  } finally {
+    flushSync(() => root.unmount())
+    host.remove()
   }
 })
 

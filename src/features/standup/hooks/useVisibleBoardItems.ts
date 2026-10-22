@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useDeferredValue, useMemo } from 'react'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import {
   matchesQuickFilter,
@@ -28,9 +28,10 @@ export function useVisibleBoardItems({
   selectedMemberFilter,
   workItemAssignees,
 }: UseVisibleBoardItemsArgs): UseVisibleBoardItemsResult {
+  const deferredQuickFilterInput = useDeferredValue(quickFilterInput)
   const normalizedQuickFilterText = useMemo(
-    () => normalizeQuickFilterText(quickFilterInput),
-    [quickFilterInput],
+    () => normalizeQuickFilterText(deferredQuickFilterInput),
+    [deferredQuickFilterInput],
   )
 
   const quickFilterMatchedBoardItems = useMemo(
