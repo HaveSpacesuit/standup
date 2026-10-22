@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
-import { useMemo, useState, type ReactNode } from 'react'
+import { memo, useMemo, useState, type ReactNode } from 'react'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import {
   getStatusColumnBackground,
@@ -33,7 +33,7 @@ type KanbanBoardProps = {
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
 
-export function KanbanBoard({
+export const KanbanBoard = memo(function KanbanBoard({
   patConfigured,
   isLoading,
   colorScheme,
@@ -204,4 +204,4 @@ export function KanbanBoard({
   }
 
   return <Box sx={{ height: '100%' }}>{content}</Box>
-}
+})

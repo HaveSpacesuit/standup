@@ -1,6 +1,7 @@
 import { Badge, Card, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
+import { memo } from 'react'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { IdentityRef } from '../../../ado/identity'
 import { AdoAvatar } from './AdoAvatar'
@@ -36,7 +37,7 @@ type WorkItemCardProps = {
 
 export type WorkItemCardHighlightState = 'new' | 'stale' | 'none'
 
-export function WorkItemCard({
+export const WorkItemCard = memo(function WorkItemCard({
   item,
   highlightState = 'none',
   accentColor,
@@ -375,4 +376,4 @@ export function WorkItemCard({
       </Box>
     </Card>
   )
-}
+})

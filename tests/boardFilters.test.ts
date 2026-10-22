@@ -90,6 +90,33 @@ test('zero quick-filter matches and empty board data retain the selected member 
   }
 })
 
+test('large boards retain the unique matching work item alongside PR-only cards', () => {
+  const workItems: WorkItemSummary[] = Array.from({ length: 1000 }, (_, index) => ({
+    id: 9000000 + index,
+    title: `Work item ${index}`,
+    state: 'Active',
+    status: 'Active',
+    sprintName: 'Current sprint',
+    iterationPath: 'Project\\Team\\Current sprint',
+  }))
+  const pullRequestItems: WorkItemSummary[] = Array.from({ length: 200 }, (_, index) => ({
+    id: 9100000 + index,
+    kind: 'pull-request',
+    title: `Pull request ${index}`,
+    status: 'Review',
+    pullRequest: {
+      id: 9200000 + index,
+      title: `Pull request ${index}`,
+      url: `https://example.test/pull-request/${index}`,
+    },
+  }))
+
+  assert.deepEqual(
+    filterBoard('0999', '', [...workItems, ...pullRequestItems]).visibleBoardItems.map((item) => item.id),
+    [9000999],
+  )
+})
+
 test('quick text and member filters are combined with AND', () => {
   assert.deepEqual(filterBoard('  FIRST TASK  ').visibleBoardItems.map((item) => item.id), [101])
   assert.deepEqual(filterBoard('Jacob Gearhart').visibleBoardItems, [])
