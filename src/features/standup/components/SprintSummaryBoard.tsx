@@ -286,7 +286,7 @@ export function SprintViewBoard({
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
-                    <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                    <Typography render={<h2 />} variant="body-sm" sx={{ fontWeight: 700 }}>
                       {status}
                     </Typography>
                     <Box

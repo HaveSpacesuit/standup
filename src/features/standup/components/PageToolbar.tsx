@@ -5,10 +5,11 @@ import { Icon } from '@stratakit/mui'
 type PageToolbarProps = {
   iconHref: string
   title: string
+  isPageTitle?: boolean
   children?: ReactNode
 }
 
-export function PageToolbar({ iconHref, title, children }: PageToolbarProps) {
+export function PageToolbar({ iconHref, title, isPageTitle = false, children }: PageToolbarProps) {
   return (
     <AppBar position="static" sx={{ containerType: 'inline-size', flexShrink: 0 }}>
       <Toolbar sx={{ gap: 1, px: 1.5, minWidth: 0, overflow: 'hidden' }}>
@@ -18,18 +19,36 @@ export function PageToolbar({ iconHref, title, children }: PageToolbarProps) {
             alignItems: 'center',
             gap: 1.5,
             flexShrink: 0,
-            '@container (max-width: 800px)': {
-              '& .MuiTypography-root': {
-                display: 'none',
-              },
-            },
-            '@container (max-width: 420px)': {
-              display: 'none',
-            },
           }}
         >
-          <Icon href={`${iconHref}#icon-large`} size="large" />
-          <Typography variant="body-lg" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+          <Box
+            component="span"
+            sx={{
+              display: 'flex',
+              '@container (max-width: 420px)': { display: 'none' },
+            }}
+          >
+            <Icon href={`${iconHref}#icon-large`} size="large" />
+          </Box>
+          <Typography
+            render={isPageTitle ? <h1 /> : undefined}
+            variant="body-lg"
+            sx={{
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+              '@container (max-width: 800px)': {
+                position: 'absolute',
+                width: 1,
+                height: 1,
+                p: 0,
+                m: -1,
+                overflow: 'hidden',
+                clipPath: 'inset(50%)',
+                whiteSpace: 'nowrap',
+                border: 0,
+              },
+            }}
+          >
             {title}
           </Typography>
         </Box>

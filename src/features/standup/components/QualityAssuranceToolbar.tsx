@@ -40,7 +40,7 @@ export function QualityAssuranceToolbar({
   const hasConfiguredTeams = teamOptions.length > 0
 
   return (
-    <PageToolbar iconHref={svgInspection} title="Quality Assurance">
+    <PageToolbar iconHref={svgInspection} title="Quality Assurance" isPageTitle>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
         <TextField
           size="small"

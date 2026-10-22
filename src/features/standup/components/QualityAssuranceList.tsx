@@ -59,7 +59,7 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme, c
       >
         <Card sx={{ width: '100%', maxWidth: 560 }}>
           <CardContent sx={{ p: 3 }}>
-            <Typography variant="headline-sm" render={<h1 />} sx={{ fontWeight: 700, mb: 1 }}>
+            <Typography variant="headline-sm" render={<h2 />} sx={{ fontWeight: 700, mb: 1 }}>
               No QA items
             </Typography>
             <Typography variant="body-sm" color="text.secondary">
@@ -104,7 +104,9 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme, c
 
           return (
             <Card
+              component="article"
               key={bucket.id}
+              aria-labelledby={`qa-column-${bucket.id}`}
               sx={{
                 minWidth: 0,
                 height: '100%',
@@ -136,7 +138,12 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme, c
                     }}
                   />
                   <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, flex: 1, minWidth: 0 }}>
-                    <Typography variant="body-md" sx={{ fontWeight: 700 }}>
+                    <Typography
+                      id={`qa-column-${bucket.id}`}
+                      render={<h2 />}
+                      variant="body-md"
+                      sx={{ fontWeight: 700 }}
+                    >
                       {bucket.title}
                     </Typography>
                     <Typography variant="body-sm" sx={{ fontWeight: 700, color: accentColor, flex: '0 0 auto' }}>
