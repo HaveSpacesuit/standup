@@ -379,7 +379,12 @@ export function bucketQualityAssuranceItems(
       continue
     }
 
-    if (!bucketId) {
+    const needsHistoryToVerifyNewBucket = failedUpdateIds.has(item.id)
+      && bucketId === 'new'
+      && resolveTagBucket(item, config) === null
+      && resolveStateGroup(item.state, config) === 'development'
+
+    if (!bucketId || needsHistoryToVerifyNewBucket) {
       if (failedUpdateIds.has(item.id)) {
         buckets['history-unavailable'].push(item)
       }
