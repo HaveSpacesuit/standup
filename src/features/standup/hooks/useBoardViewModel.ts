@@ -67,6 +67,7 @@ type UseBoardViewModelResult = {
   qaBuckets: import('../utils/qualityAssuranceBuckets').QualityAssuranceBucket[]
   qaBucketsLoading: boolean
   qaBucketsError: string | null
+  qaHistoryWarning: string | null
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   selectedAssignmentWorkItemTypes: string[]
@@ -214,7 +215,7 @@ export function useBoardViewModel({
     [sprintFilter, teamIterations],
   )
 
-  const { qaBuckets, qaBucketsLoading, qaBucketsError } = useQualityAssuranceBuckets({
+  const { qaBuckets, qaBucketsLoading, qaBucketsError, qaHistoryWarning } = useQualityAssuranceBuckets({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
     reloadNonce: qaReloadNonce,
@@ -343,6 +344,7 @@ export function useBoardViewModel({
     qaBuckets,
     qaBucketsLoading,
     qaBucketsError,
+    qaHistoryWarning,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,

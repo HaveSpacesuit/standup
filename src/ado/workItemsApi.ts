@@ -537,8 +537,9 @@ async function fetchQualityAssuranceWorkItemUpdates(
   workItemIds: number[],
   signal?: AbortSignal,
   fetchWorkItemUpdates?: (workItemId: number, signal?: AbortSignal) => Promise<WorkItemUpdate[]>,
-): Promise<Record<number, WorkItemUpdate[]>> {
+): Promise<{ updatesByItemId: Record<number, WorkItemUpdate[]>; failedItemIds: number[] }> {
   const result: Record<number, WorkItemUpdate[]> = {}
+  const failedItemIds: number[] = []
 
   await mapWithConcurrency(workItemIds, 6, async (workItemId) => {
     try {
@@ -550,10 +551,11 @@ async function fetchQualityAssuranceWorkItemUpdates(
       result[workItemId] = updates
     } catch {
       result[workItemId] = []
+      failedItemIds.push(workItemId)
     }
   })
 
-  return result
+  return { updatesByItemId: result, failedItemIds: failedItemIds.sort((left, right) => left - right) }
 }
 
 function normalizeUpdates(response: WorkItemUpdatesResponse) {
@@ -567,6 +569,7 @@ function normalizeUpdates(response: WorkItemUpdatesResponse) {
 export type QualityAssuranceRawData = {
   candidates: WorkItemSummary[]
   updatesByItemId: Record<number, WorkItemUpdate[]>
+  failedUpdateItemIds: number[]
 }
 
 export async function fetchQualityAssuranceRawData(
@@ -583,7 +586,7 @@ export async function fetchQualityAssuranceRawData(
   const lookbackDays = normalizeQaLookbackDays(options?.lookbackDays ?? DEFAULT_QA_LOOKBACK_DAYS)
   const wiqlQuery = buildQaBucketCandidatesWiql(team.projectName, team.areaPath, lookbackDays, options?.includeWorkItemTypes, options?.includeIterationPaths)
   const candidates = await fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
-  const updatesByItemId = await fetchQualityAssuranceWorkItemUpdates(
+  const { updatesByItemId, failedItemIds } = await fetchQualityAssuranceWorkItemUpdates(
     client,
     team,
     candidates.map((item) => item.id),
@@ -591,5 +594,5 @@ export async function fetchQualityAssuranceRawData(
     options?.fetchWorkItemUpdates,
   )
 
-  return { candidates, updatesByItemId }
+  return { candidates, updatesByItemId, failedUpdateItemIds: failedItemIds }
 }

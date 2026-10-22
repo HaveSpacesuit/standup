@@ -1,4 +1,4 @@
-import { Box, Button, Card, CardContent, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Typography } from '@mui/material'
 import { useState } from 'react'
 import { useTheme } from '@mui/material/styles'
 import { QualityAssuranceLoadingState } from './QualityAssuranceLoadingState'
@@ -20,12 +20,13 @@ const COLLAPSED_ITEM_LIMIT = 8
 type QualityAssuranceListProps = {
   isLoading: boolean
   error: string | null
+  historyWarning: string | null
   buckets: QualityAssuranceBucket[]
   colorScheme: 'light' | 'dark'
   cardHighlightOptions?: CardHighlightOptions
 }
 
-export function QualityAssuranceList({ isLoading, error, buckets, colorScheme, cardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS }: QualityAssuranceListProps) {
+export function QualityAssuranceList({ isLoading, error, historyWarning, buckets, colorScheme, cardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS }: QualityAssuranceListProps) {
   const theme = useTheme()
   const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({})
 
@@ -59,6 +60,11 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme, c
       >
         <Card sx={{ width: '100%', maxWidth: 560 }}>
           <CardContent sx={{ p: 3 }}>
+            {historyWarning ? (
+              <Alert severity="warning" role="alert" sx={{ mb: 1.5 }}>
+                {historyWarning}
+              </Alert>
+            ) : null}
             <Typography variant="headline-sm" render={<h2 />} sx={{ fontWeight: 700, mb: 1 }}>
               No QA items
             </Typography>
@@ -82,6 +88,11 @@ export function QualityAssuranceList({ isLoading, error, buckets, colorScheme, c
         bgcolor: 'background.default',
       }}
     >
+      {historyWarning ? (
+        <Alert severity="warning" role="alert" sx={{ maxWidth: 1600, mx: 'auto', mb: 1.5 }}>
+          {historyWarning}
+        </Alert>
+      ) : null}
       <Box
         sx={{
           maxWidth: 1600,

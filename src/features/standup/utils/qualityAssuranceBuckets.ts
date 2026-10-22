@@ -4,7 +4,7 @@ import type { QaStateGroupOverrides, QaTagGroups } from './qaOptions'
 import { sortWorkItemsBySprintAndId } from './workItemSorting'
 import { DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays } from './qaOptions'
 
-export type QualityAssuranceBucketId = 'new' | 'needs-testing' | 'needs-development' | 'done'
+export type QualityAssuranceBucketId = 'new' | 'needs-testing' | 'needs-development' | 'done' | 'history-unavailable'
 
 export type QualityAssuranceBucket = {
   id: QualityAssuranceBucketId
@@ -356,23 +356,38 @@ export function bucketQualityAssuranceItems(
   items: WorkItemSummary[],
   updatesByItemId: Record<number, WorkItemUpdate[]>,
   config: QualityAssuranceProjectConfig,
+  failedUpdateItemIds: number[] = [],
 ): QualityAssuranceBucket[] {
+  const failedUpdateIds = new Set(failedUpdateItemIds)
   const buckets: Record<QualityAssuranceBucketId, WorkItemSummary[]> = {
     new: [],
     'needs-testing': [],
     'needs-development': [],
     done: [],
+    'history-unavailable': [],
   }
 
   for (const item of items) {
     const updates = updatesByItemId[item.id] ?? []
     const bucketId = classifyQualityAssuranceItem(item, updates, config)
-    if (!bucketId) {
-      continue
-    }
 
     // Skip items whose only recent activity is low-impact noise (e.g. Backlog Priority reorder).
     if (!hasRecentHighImpactActivity(item, updates, config)) {
+      if (failedUpdateIds.has(item.id)) {
+        buckets['history-unavailable'].push(item)
+      }
+      continue
+    }
+
+    const needsHistoryToVerifyNewBucket = failedUpdateIds.has(item.id)
+      && bucketId === 'new'
+      && resolveTagBucket(item, config) === null
+      && resolveStateGroup(item.state, config) === 'development'
+
+    if (!bucketId || needsHistoryToVerifyNewBucket) {
+      if (failedUpdateIds.has(item.id)) {
+        buckets['history-unavailable'].push(item)
+      }
       continue
     }
 
@@ -383,10 +398,16 @@ export function bucketQualityAssuranceItems(
     buckets[key] = buckets[key].sort(sortWorkItemsBySprintAndId)
   }
 
-  return [
+  const result: QualityAssuranceBucket[] = [
     { id: 'new', title: 'Newly added', items: buckets.new },
     { id: 'needs-development', title: 'Needs follow-up', items: buckets['needs-development'] },
     { id: 'needs-testing', title: 'Ready for QA', items: buckets['needs-testing'] },
     { id: 'done', title: 'Recently completed', items: buckets.done },
   ]
+
+  if (buckets['history-unavailable'].length > 0) {
+    result.push({ id: 'history-unavailable', title: 'History unavailable', items: buckets['history-unavailable'] })
+  }
+
+  return result
 }
