@@ -117,7 +117,21 @@ test('a tab can save repeatedly after its own writes', async (t) => {
   assert.deepEqual(JSON.parse(storage.getItem(TEAM_PROFILES_STORAGE_KEY)!), profiles)
 })
 
-test('a storage change during initialization leaves the tab stale', (t) => {
+test('overlapping same-tab saves reject the stale mutation', async (t) => {
+  const { storage } = setup(t)
+  const tab = useStandupAppState()
+  const firstProfiles = [{ ...web, displayName: 'First save' }, explorer]
+  const secondProfiles = [web, { ...explorer, displayName: 'Second save' }]
+
+  const firstSave = tab.handleTeamProfilesChange(firstProfiles)
+  const secondSave = tab.handleTeamProfilesChange(secondProfiles)
+
+  await firstSave
+  await assert.rejects(secondSave, /changed in another tab.*Reload/)
+  assert.deepEqual(JSON.parse(storage.getItem(TEAM_PROFILES_STORAGE_KEY)!), firstProfiles)
+})
+
+test('a storage change during initialization leaves the tab stale', async (t) => {
   const { storage } = setup(t)
   const changedProfiles = [{ ...web, displayName: 'Changed during initialization' }, explorer]
   const changedSnapshot = JSON.stringify(changedProfiles)
@@ -138,12 +152,11 @@ test('a storage change during initialization leaves the tab stale', (t) => {
 
   const tab = useStandupAppState()
 
-  return assert.rejects(
+  await assert.rejects(
     () => tab.handleTeamProfilesChange([{ ...web, displayName: 'Stale save' }, explorer]),
     /changed in another tab.*Reload/,
-  ).then(() => {
-    assert.equal(getItem(TEAM_PROFILES_STORAGE_KEY), changedSnapshot)
-  })
+  )
+  assert.equal(getItem(TEAM_PROFILES_STORAGE_KEY), changedSnapshot)
 })
 
 for (const operation of ['remove', 'add', 'reorder', 'import'] as const) {
