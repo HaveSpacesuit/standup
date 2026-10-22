@@ -8,6 +8,7 @@ const BUCKET_ACCENT: Record<QualityAssuranceBucketId, QaAccentPaletteKey> = {
   'needs-testing': 'warning',
   'needs-development': 'error',
   done: 'success',
+  'history-unavailable': 'warning',
 }
 
 export const QUALITY_ASSURANCE_BUCKET_ORDER: readonly QualityAssuranceBucketId[] = [
