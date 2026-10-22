@@ -51,7 +51,7 @@ type WorkItemsBatchResponse = {
 type WorkItemApiItem = {
   id?: number
   fields?: {
-    'System.Title'?: string
+    'System.Title'?: unknown
     'System.CreatedDate'?: unknown
     'System.ChangedDate'?: unknown
     'System.IterationPath'?: unknown
@@ -468,7 +468,9 @@ async function fetchWorkItemsByWiql(
       return {
         id: item.id,
         kind: 'work-item',
-        title: item.fields?.['System.Title'] ?? `Work Item ${item.id}`,
+        title: typeof item.fields?.['System.Title'] === 'string'
+          ? item.fields['System.Title']
+          : `Work Item ${item.id}`,
         createdAt: resolveCreatedAt(item.fields),
         state: typeof item.fields?.['System.State'] === 'string' ? item.fields?.['System.State'] : undefined,
         recentActivityAt: resolveRecentActivityAt(item.fields),
