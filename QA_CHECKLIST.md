@@ -278,6 +278,8 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify cards are grouped into Ready for QA, Recently completed, Needs follow-up, and Newly
       added (or the configured equivalents).
 - [ ] Verify each item is placed in the correct group based on its state/history/timing.
+- [ ] Fail one or more work-item `/updates` requests; verify successfully loaded cards remain visible,
+      affected cards appear under History unavailable, and a warning offers Refresh recovery.
 - [ ] Verify state transitions into and out of QA are represented accurately.
 - [ ] Verify recently created items appear in Newly added according to the lookback window.
 - [ ] Configure Approved in both Needs follow-up and Newly added. Verify a recently created
@@ -351,6 +353,8 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify a failed optional request (history, PR checks, identity, or PR query) does not hide
       successfully loaded core work items.
 - [ ] Verify retry/refresh after each error recovers after the service is restored.
+- [ ] Restore QA history after a failed `/updates` request and Refresh; verify the unavailable bucket
+      clears and cards return to their verified QA columns.
 - [ ] Verify aborting or superseding a request does not show a misleading error toast.
 - [ ] Verify errors are visible in dark mode and accessible to screen readers.
 

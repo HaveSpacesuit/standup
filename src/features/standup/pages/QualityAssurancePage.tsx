@@ -24,6 +24,7 @@ type QualityAssurancePageProps = {
   onRefresh: () => void
   isLoading: boolean
   newItemsError: string | null
+  historyWarning: string | null
   qaOptions: QaOptions
   onQaOptionsChange: (next: QaOptions) => void
   cardHighlightOptions: CardHighlightOptions
@@ -50,6 +51,7 @@ export function QualityAssurancePage({
   onRefresh,
   isLoading,
   newItemsError,
+  historyWarning,
   qaOptions,
   onQaOptionsChange,
   cardHighlightOptions,
@@ -86,6 +88,7 @@ export function QualityAssurancePage({
         <QualityAssuranceList
           isLoading={isLoading}
           error={newItemsError}
+          historyWarning={historyWarning}
           buckets={buckets}
           colorScheme={colorScheme}
           cardHighlightOptions={cardHighlightOptions}

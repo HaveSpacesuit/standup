@@ -23,6 +23,7 @@ type UseQualityAssuranceBucketsResult = {
   qaBuckets: QualityAssuranceBucket[]
   qaBucketsLoading: boolean
   qaBucketsError: string | null
+  qaHistoryWarning: string | null
 }
 
 export function useQualityAssuranceBuckets({
@@ -116,12 +117,17 @@ export function useQualityAssuranceBuckets({
     }
 
     const config = resolveQualityAssuranceProjectConfig(selectedTeam, stateGroupOverrides, tagGroups, lookbackDays)
-    return bucketQualityAssuranceItems(rawData.candidates, rawData.updatesByItemId, config)
+    return bucketQualityAssuranceItems(rawData.candidates, rawData.updatesByItemId, config, rawData.failedUpdateItemIds)
   }, [rawData, selectedTeam, stateGroupOverrides, tagGroups, lookbackDays])
+
+  const qaHistoryWarning = rawData?.failedUpdateItemIds.length
+    ? `Unable to load history for ${rawData.failedUpdateItemIds.length} work item${rawData.failedUpdateItemIds.length === 1 ? '' : 's'}. QA membership may be incomplete; items without a verified column are shown under History unavailable. Refresh to retry.`
+    : null
 
   return {
     qaBuckets,
     qaBucketsLoading,
     qaBucketsError,
+    qaHistoryWarning,
   }
 }
