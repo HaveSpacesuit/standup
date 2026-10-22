@@ -241,7 +241,52 @@ export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'com
 
   return (
     <Box sx={{ height: '100%', width: '100%', minWidth: 0 }}>
-      <Line data={data} options={options} />
+      <Line
+        data={data}
+        options={options}
+        role="img"
+        aria-label="Effort flow chart showing daily effort totals by status during the current sprint"
+      />
+      {variant === 'detailed' && (
+        <Box component="details" sx={{ mt: 2 }}>
+          <Box component="summary" sx={{ cursor: 'pointer' }}>
+            View effort flow data table
+          </Box>
+          <Box sx={{ overflowX: 'auto' }}>
+            <Box
+              component="table"
+              sx={{
+                borderCollapse: 'collapse',
+                color: 'text.primary',
+                mt: 1,
+                width: '100%',
+                '& th, & td': { borderBottom: '1px solid', borderColor: 'divider', px: 1, py: 0.5, textAlign: 'right' },
+                '& th:first-of-type, & td:first-of-type': { textAlign: 'left' },
+              }}
+            >
+              <caption>Daily effort totals by status</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  {STATUS_COLUMNS.map((status) => (
+                    <th key={status} scope="col">{status}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {points.map((point) => (
+                  <tr key={point.date}>
+                    <th scope="row">{formatDateLabel(point.date)}</th>
+                    {STATUS_COLUMNS.map((status) => (
+                      <td key={status}>{point[status] ?? 'No data'}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Box>
   )
 }
