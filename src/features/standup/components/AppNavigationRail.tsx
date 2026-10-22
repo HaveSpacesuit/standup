@@ -35,6 +35,7 @@ import svgHelp from '@stratakit/icons/help.svg'
 import svgInfo from '@stratakit/icons/info.svg'
 import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
 import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
+import { validateTeamProfile, type TeamProfileFormField } from '../utils/teamProfileValidation'
 import type { AppView } from '../hooks/useAppNavigation'
 
 function FieldHint({ tip }: { tip: string }) {
@@ -78,8 +79,6 @@ const EMPTY_TEAM_PROFILE_FIELDS = {
   repoName: '',
 }
 
-type TeamProfileFormField = keyof typeof EMPTY_TEAM_PROFILE_FIELDS
-
 const FIELD_HINTS: Record<TeamProfileFormField, string> = {
   displayName: 'The name shown in the team selector and as the board title. Use a short, recognisable label such as "ProjectWise Web".',
   orgName: 'Your Azure DevOps organisation name — the subdomain after dev.azure.com, e.g. "bentleycs".',
@@ -95,21 +94,6 @@ function createDraftTeamProfile(): TeamProfile {
     id: `team-${crypto.randomUUID()}`,
     ...EMPTY_TEAM_PROFILE_FIELDS,
   }
-}
-
-function validateTeamProfile(teamProfile: TeamProfile): string | null {
-  const requiredFields: Array<[keyof typeof EMPTY_TEAM_PROFILE_FIELDS, string]> = [
-    ['displayName', 'Display name'],
-    ['orgName', 'Organization'],
-    ['projectName', 'Project'],
-    ['teamName', 'Azure DevOps team name'],
-    ['repoName', 'Repository name'],
-    ['areaPath', 'Area path'],
-    ['iterationPath', 'Iteration path'],
-  ]
-
-  const missingField = requiredFields.find(([field]) => !teamProfile[field].trim())
-  return missingField ? `${missingField[1]} is required.` : null
 }
 
 function resolveEditableTeamProfile(teamProfiles: TeamProfile[], selectedTeamId: string): TeamProfile {
@@ -137,10 +121,13 @@ export function AppNavigationRail({
   const [draftTeamProfile, setDraftTeamProfile] = useState<TeamProfile>(() => resolveEditableTeamProfile(teamProfiles, selectedTeamId))
   const [isCreatingTeam, setIsCreatingTeam] = useState(false)
   const [teamError, setTeamError] = useState<string | null>(null)
+  const [teamValidationField, setTeamValidationField] = useState<TeamProfileFormField | null>(null)
   const [draftPatValue, setDraftPatValue] = useState(patValue)
   const [patError, setPatError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SettingsTab>('azure-devops')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const patInputRef = useRef<HTMLInputElement | null>(null)
+  const teamFieldRefs = useRef<Partial<Record<TeamProfileFormField, HTMLInputElement | null>>>({})
 
   useEffect(() => {
     if (!isSettingsDialogOpen) {
@@ -152,6 +139,7 @@ export function AppNavigationRail({
     setDraftTeamProfile(activeTeamProfile)
     setIsCreatingTeam(teamProfiles.length === 0)
     setTeamError(null)
+    setTeamValidationField(null)
     setDraftPatValue(patValue)
     setPatError(null)
   }, [isSettingsDialogOpen, patValue, selectedTeamId, teamProfiles])
@@ -166,6 +154,7 @@ export function AppNavigationRail({
     setDraftTeamProfile(nextTeamProfile)
     setIsCreatingTeam(false)
     setTeamError(null)
+    setTeamValidationField(null)
   }
 
   const handleDraftFieldChange = (field: TeamProfileFormField, value: string) => {
@@ -173,7 +162,14 @@ export function AppNavigationRail({
       ...current,
       [field]: value,
     }))
-    setTeamError(null)
+    if (teamValidationField === field) {
+      if (value.trim()) {
+        setTeamError(null)
+        setTeamValidationField(null)
+      }
+    } else if (!teamValidationField) {
+      setTeamError(null)
+    }
   }
 
   const handleAddTeam = () => {
@@ -182,12 +178,14 @@ export function AppNavigationRail({
     setDraftTeamProfile(nextDraft)
     setIsCreatingTeam(true)
     setTeamError(null)
+    setTeamValidationField(null)
   }
 
   const handleSavePat = () => {
     const trimmedPat = draftPatValue.trim()
     if (!trimmedPat) {
       setPatError('Azure DevOps PAT is required.')
+      patInputRef.current?.focus()
       return
     }
 
@@ -217,7 +215,9 @@ export function AppNavigationRail({
 
     const validationError = validateTeamProfile(trimmedTeamProfile)
     if (validationError) {
-      setTeamError(validationError)
+      setTeamError(validationError.message)
+      setTeamValidationField(validationError.field)
+      teamFieldRefs.current[validationError.field]?.focus()
       return
     }
 
@@ -230,6 +230,7 @@ export function AppNavigationRail({
     setDraftTeamProfile(trimmedTeamProfile)
     setIsCreatingTeam(false)
     setTeamError(null)
+    setTeamValidationField(null)
   }
 
   const handleRemoveTeam = () => {
@@ -239,6 +240,7 @@ export function AppNavigationRail({
       setDraftTeamProfile(fallbackTeam)
       setIsCreatingTeam(false)
       setTeamError(null)
+      setTeamValidationField(null)
       return
     }
 
@@ -250,11 +252,13 @@ export function AppNavigationRail({
     setDraftTeamProfile(fallbackTeam)
     setIsCreatingTeam(false)
     setTeamError(null)
+    setTeamValidationField(null)
   }
 
   const handleExportCurrentTeam = () => {
     try {
       setTeamError(null)
+      setTeamValidationField(null)
       onExportTeamData(editingTeamId)
     } catch (error) {
       setTeamError(error instanceof Error ? error.message : 'Unable to export team data.')
@@ -263,6 +267,7 @@ export function AppNavigationRail({
 
   const handleImportButtonClick = () => {
     setTeamError(null)
+    setTeamValidationField(null)
     fileInputRef.current?.click()
   }
 
@@ -278,9 +283,11 @@ export function AppNavigationRail({
       const jsonText = await file.text()
       onImportTeamData(jsonText)
       setTeamError(null)
+      setTeamValidationField(null)
       setActiveTab('teams')
     } catch (error) {
       setTeamError(error instanceof Error ? error.message : 'Unable to import team data.')
+      setTeamValidationField(null)
     }
   }
 
@@ -303,6 +310,7 @@ export function AppNavigationRail({
     setDraftTeamProfile(movedTeam)
     setIsCreatingTeam(false)
     setTeamError(null)
+    setTeamValidationField(null)
   }
 
   return (
@@ -505,16 +513,21 @@ export function AppNavigationRail({
                   </Typography>
                 </Box>
 
-                {patError ? <Alert severity="error">{patError}</Alert> : null}
+                {patError ? <Alert severity="error" role="alert" aria-live="assertive">{patError}</Alert> : null}
 
                 <TextField
                   label="Personal access token"
                   type="password"
+                  inputRef={patInputRef}
                   value={draftPatValue}
                   onChange={(event) => {
                     setDraftPatValue(event.target.value)
-                    setPatError(null)
+                    if (event.target.value.trim()) {
+                      setPatError(null)
+                    }
                   }}
+                  error={Boolean(patError)}
+                  helperText={patError}
                   fullWidth
                   placeholder="Paste your Azure DevOps PAT"
                 />
@@ -564,7 +577,7 @@ export function AppNavigationRail({
                   </Typography>
                 </Box>
 
-                {teamError ? <Alert severity="error">{teamError}</Alert> : null}
+                {teamError ? <Alert severity="error" role="alert" aria-live="assertive">{teamError}</Alert> : null}
 
                 <Box
                   sx={{
@@ -658,52 +671,73 @@ export function AppNavigationRail({
                     >
                       <TextField
                         label="Display name"
+                        inputRef={(element) => { teamFieldRefs.current.displayName = element }}
                         value={draftTeamProfile.displayName}
                         onChange={(event) => handleDraftFieldChange('displayName', event.target.value)}
+                        error={teamValidationField === 'displayName'}
+                        helperText={teamValidationField === 'displayName' ? teamError : undefined}
                         fullWidth
                         slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.displayName} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Organization"
+                        inputRef={(element) => { teamFieldRefs.current.orgName = element }}
                         value={draftTeamProfile.orgName}
                         onChange={(event) => handleDraftFieldChange('orgName', event.target.value)}
+                        error={teamValidationField === 'orgName'}
+                        helperText={teamValidationField === 'orgName' ? teamError : undefined}
                         fullWidth
                         slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.orgName} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Project"
+                        inputRef={(element) => { teamFieldRefs.current.projectName = element }}
                         value={draftTeamProfile.projectName}
                         onChange={(event) => handleDraftFieldChange('projectName', event.target.value)}
+                        error={teamValidationField === 'projectName'}
+                        helperText={teamValidationField === 'projectName' ? teamError : undefined}
                         fullWidth
                         slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.projectName} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Azure DevOps team name"
+                        inputRef={(element) => { teamFieldRefs.current.teamName = element }}
                         value={draftTeamProfile.teamName}
                         onChange={(event) => handleDraftFieldChange('teamName', event.target.value)}
+                        error={teamValidationField === 'teamName'}
+                        helperText={teamValidationField === 'teamName' ? teamError : undefined}
                         fullWidth
                         slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.teamName} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Repository name"
+                        inputRef={(element) => { teamFieldRefs.current.repoName = element }}
                         value={draftTeamProfile.repoName}
                         onChange={(event) => handleDraftFieldChange('repoName', event.target.value)}
+                        error={teamValidationField === 'repoName'}
+                        helperText={teamValidationField === 'repoName' ? teamError : undefined}
                         fullWidth
                         slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.repoName} /></InputAdornment> } }}
                       />
                       <Box />
                       <TextField
                         label="Area path"
+                        inputRef={(element) => { teamFieldRefs.current.areaPath = element }}
                         value={draftTeamProfile.areaPath}
                         onChange={(event) => handleDraftFieldChange('areaPath', event.target.value)}
+                        error={teamValidationField === 'areaPath'}
+                        helperText={teamValidationField === 'areaPath' ? teamError : undefined}
                         fullWidth
                         sx={{ gridColumn: { sm: '1 / -1' } }}
                         slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.areaPath} /></InputAdornment> } }}
                       />
                       <TextField
                         label="Iteration path"
+                        inputRef={(element) => { teamFieldRefs.current.iterationPath = element }}
                         value={draftTeamProfile.iterationPath}
                         onChange={(event) => handleDraftFieldChange('iterationPath', event.target.value)}
+                        error={teamValidationField === 'iterationPath'}
+                        helperText={teamValidationField === 'iterationPath' ? teamError : undefined}
                         fullWidth
                         sx={{ gridColumn: { sm: '1 / -1' } }}
                         slotProps={{ input: { endAdornment: <InputAdornment position="end"><FieldHint tip={FIELD_HINTS.iterationPath} /></InputAdornment> } }}
