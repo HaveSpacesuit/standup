@@ -17,6 +17,7 @@ type UseTeamIterationsResult = {
 
 type IterationLoadState = {
   requestKey: string
+  queryEngine: AdoQueryEngine | null
   iterations: TeamIterationOption[]
   loading: boolean
   error: string | null
@@ -37,34 +38,36 @@ export function useTeamIterations({
   ])
   const [loadState, setLoadState] = useState<IterationLoadState>({
     requestKey: '',
+    queryEngine: null,
     iterations: [],
     loading: false,
     error: null,
   })
-  const currentState = loadState.requestKey === requestKey
+  const currentState = loadState.requestKey === requestKey && loadState.queryEngine === adoQueryEngine
     ? loadState
-    : { requestKey, iterations: [], loading: Boolean(adoQueryEngine), error: null }
+    : { requestKey, queryEngine: adoQueryEngine, iterations: [], loading: Boolean(adoQueryEngine), error: null }
 
   useEffect(() => {
     if (!adoQueryEngine) {
-      setLoadState({ requestKey, iterations: [], loading: false, error: null })
+      setLoadState({ requestKey, queryEngine: null, iterations: [], loading: false, error: null })
       return
     }
 
     const abortController = new AbortController()
-    setLoadState({ requestKey, iterations: [], loading: true, error: null })
+    setLoadState({ requestKey, queryEngine: adoQueryEngine, iterations: [], loading: true, error: null })
 
     adoQueryEngine
       .getTeamIterations(selectedTeam, abortController.signal)
       .then((result) => {
         if (!abortController.signal.aborted) {
-          setLoadState({ requestKey, iterations: result, loading: false, error: null })
+          setLoadState({ requestKey, queryEngine: adoQueryEngine, iterations: result, loading: false, error: null })
         }
       })
       .catch((error: unknown) => {
         if (!abortController.signal.aborted) {
           setLoadState({
             requestKey,
+            queryEngine: adoQueryEngine,
             iterations: [],
             loading: false,
             error: toErrorMessage(error, 'Unknown error while loading team iterations.'),
