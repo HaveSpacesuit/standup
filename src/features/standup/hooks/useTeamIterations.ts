@@ -33,6 +33,7 @@ export function useTeamIterations({
     selectedTeam.projectName,
     selectedTeam.teamName,
     selectedTeam.iterationPath,
+    reloadNonce,
   ])
   const [loadState, setLoadState] = useState<IterationLoadState>({
     requestKey: '',
