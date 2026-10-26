@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AdoQueryEngine, TeamIterationOption } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
-import { isAbortError } from './queryErrors'
+import { isAbortError, toErrorMessage } from './queryErrors'
 
 type UseTeamIterationsArgs = {
   adoQueryEngine: AdoQueryEngine | null
@@ -12,6 +12,14 @@ type UseTeamIterationsArgs = {
 type UseTeamIterationsResult = {
   iterations: TeamIterationOption[]
   iterationsLoading: boolean
+  iterationsError: string | null
+}
+
+type IterationLoadState = {
+  requestKey: string
+  iterations: TeamIterationOption[]
+  loading: boolean
+  error: string | null
 }
 
 export function useTeamIterations({
@@ -19,41 +27,58 @@ export function useTeamIterations({
   selectedTeam,
   reloadNonce,
 }: UseTeamIterationsArgs): UseTeamIterationsResult {
-  const [iterations, setIterations] = useState<TeamIterationOption[]>([])
-  const [iterationsLoading, setIterationsLoading] = useState(false)
+  const requestKey = JSON.stringify([
+    selectedTeam.id,
+    selectedTeam.orgName,
+    selectedTeam.projectName,
+    selectedTeam.teamName,
+    selectedTeam.iterationPath,
+  ])
+  const [loadState, setLoadState] = useState<IterationLoadState>({
+    requestKey: '',
+    iterations: [],
+    loading: false,
+    error: null,
+  })
+  const currentState = loadState.requestKey === requestKey
+    ? loadState
+    : { requestKey, iterations: [], loading: Boolean(adoQueryEngine), error: null }
 
   useEffect(() => {
     if (!adoQueryEngine) {
-      setIterations([])
-      setIterationsLoading(false)
+      setLoadState({ requestKey, iterations: [], loading: false, error: null })
       return
     }
 
     const abortController = new AbortController()
-    setIterationsLoading(true)
+    setLoadState({ requestKey, iterations: [], loading: true, error: null })
 
     adoQueryEngine
       .getTeamIterations(selectedTeam, abortController.signal)
       .then((result) => {
         if (!abortController.signal.aborted) {
-          setIterations(result)
+          setLoadState({ requestKey, iterations: result, loading: false, error: null })
         }
       })
       .catch((error: unknown) => {
         if (!abortController.signal.aborted && !isAbortError(error)) {
-          setIterations([])
-        }
-      })
-      .finally(() => {
-        if (!abortController.signal.aborted) {
-          setIterationsLoading(false)
+          setLoadState({
+            requestKey,
+            iterations: [],
+            loading: false,
+            error: toErrorMessage(error, 'Unknown error while loading team iterations.'),
+          })
         }
       })
 
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, selectedTeam, reloadNonce])
+  }, [adoQueryEngine, selectedTeam, requestKey, reloadNonce])
 
-  return { iterations, iterationsLoading }
+  return {
+    iterations: currentState.iterations,
+    iterationsLoading: currentState.loading,
+    iterationsError: currentState.error,
+  }
 }

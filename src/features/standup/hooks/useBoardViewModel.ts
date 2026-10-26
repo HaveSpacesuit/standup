@@ -78,6 +78,7 @@ type UseBoardViewModelResult = {
   retryProjectWorkItemStates: () => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
+  teamIterationsError: string | null
 }
 
 const EMPTY_TEAM_PROFILE: TeamProfile = {
@@ -132,11 +133,16 @@ export function useBoardViewModel({
   }, [pat])
   const dataQueryEngine = hasConfiguredTeam ? adoQueryEngine : null
 
-  const { iterations: teamIterations, iterationsLoading: teamIterationsLoading } = useTeamIterations({
+  const {
+    iterations: teamIterations,
+    iterationsLoading: teamIterationsLoading,
+    iterationsError: teamIterationsError,
+  } = useTeamIterations({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
     reloadNonce: developmentReloadNonce + qaReloadNonce,
   })
+  const scopedQueryEngine = teamIterationsLoading || teamIterationsError ? null : dataQueryEngine
 
   const {
     selectedAssignmentIterationPaths,
@@ -159,7 +165,7 @@ export function useBoardViewModel({
     currentIteration,
     iterationWindow,
   } = useTeamData({
-    adoQueryEngine: dataQueryEngine,
+    adoQueryEngine: scopedQueryEngine,
     selectedTeam: effectiveTeam,
     reloadNonce: developmentReloadNonce,
     forceRefreshRef,
@@ -174,7 +180,7 @@ export function useBoardViewModel({
   )
 
   const { pullRequestBoardItems, pullRequestBoardItemsLoading, pullRequestBoardItemsError } = usePullRequestBoardItems({
-    adoQueryEngine: dataQueryEngine,
+    adoQueryEngine: scopedQueryEngine,
     selectedTeam: effectiveTeam,
     currentIteration,
     members,
@@ -209,7 +215,7 @@ export function useBoardViewModel({
     assigneesHistoryWarning,
     retryAssigneeHistory,
   } = useWorkItemAssignees({
-    adoQueryEngine: dataQueryEngine,
+    adoQueryEngine: scopedQueryEngine,
     team: effectiveTeam,
     members,
     membersLoading,
@@ -226,7 +232,7 @@ export function useBoardViewModel({
   )
 
   const { qaBuckets, qaBucketsLoading, qaBucketsError, qaHistoryWarning } = useQualityAssuranceBuckets({
-    adoQueryEngine: dataQueryEngine,
+    adoQueryEngine: scopedQueryEngine,
     selectedTeam: effectiveTeam,
     reloadNonce: qaReloadNonce,
     enabled: activeView === 'qa-activity',
@@ -266,7 +272,7 @@ export function useBoardViewModel({
   )
 
   const changeHighlightsByItemId = useAdoHistoryHighlights({
-    adoQueryEngine: dataQueryEngine,
+    adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
     tagRules,
     workItems: boardItems,
@@ -282,7 +288,7 @@ export function useBoardViewModel({
   )
 
   const { points: effortFlowPoints, isLoading: effortFlowLoading, visitedStatusesByItemId } = useEffortFlowHistory({
-    adoQueryEngine: dataQueryEngine,
+    adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
     tagRules,
     workItems: currentSprintBoardItems,
@@ -291,7 +297,7 @@ export function useBoardViewModel({
   })
 
   const rolledOverItemIds = useIterationRolloverFlags({
-    adoQueryEngine: dataQueryEngine,
+    adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
     workItems: visibleBoardItems,
     iterationWindow,
@@ -327,7 +333,7 @@ export function useBoardViewModel({
     selectedTeam: effectiveTeam,
   })
 
-  const isTeamDataLoading = membersLoading || workItemsLoading || pullRequestBoardItemsLoading || assigneesLoading
+  const isTeamDataLoading = teamIterationsLoading || membersLoading || workItemsLoading || pullRequestBoardItemsLoading || assigneesLoading
 
   return {
     selectedTeamId,
@@ -373,5 +379,6 @@ export function useBoardViewModel({
     retryProjectWorkItemStates,
     teamIterations,
     teamIterationsLoading,
+    teamIterationsError,
   }
 }

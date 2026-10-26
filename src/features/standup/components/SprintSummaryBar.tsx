@@ -10,6 +10,7 @@ import { parseDateOnly } from '../utils/dateOnly'
 type SprintSummaryBarProps = {
   iterationWindow: IterationWindowInfo
   isLoading?: boolean
+  error?: string | null
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
   colorScheme: 'light' | 'dark'
@@ -73,6 +74,7 @@ function getDaysRemainingInSprint(finishDate?: string): number | null {
 export function SprintSummaryBar({
   iterationWindow,
   isLoading = false,
+  error,
   effortFlowPoints,
   effortFlowLoading,
   colorScheme,
@@ -106,6 +108,29 @@ export function SprintSummaryBar({
           <Skeleton variant="text" width={220} />
           <Skeleton variant="rounded" width={150} height={24} />
         </Box>
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box
+        role="status"
+        sx={{
+          px: 2,
+          py: 0.5,
+          height: 56,
+          flexShrink: 0,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.default',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <Typography variant="body-sm" color="error">
+          Sprint summary unavailable — team iteration metadata could not be loaded.
+        </Typography>
       </Box>
     )
   }

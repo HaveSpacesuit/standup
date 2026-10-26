@@ -219,6 +219,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onSprintFilterChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, sprintFilter: next }),
           teamIterations,
           teamIterationsLoading,
+          teamIterationsError,
           visitedStatusesByItemId,
           rolledOverItemIds,
         }}
@@ -250,6 +251,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           retryProjectWorkItemStates,
           teamIterations,
           teamIterationsLoading,
+          teamIterationsError,
         }}
       />
     </Box>

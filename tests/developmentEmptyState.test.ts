@@ -71,6 +71,7 @@ const props: PageProps = {
   onSprintFilterChange: noop,
   teamIterations: [],
   teamIterationsLoading: false,
+  teamIterationsError: null,
   visitedStatusesByItemId: {},
   rolledOverItemIds: {},
 }
@@ -138,4 +139,19 @@ test('unavailable assignee history warns and retries without hiding the work ite
   assert.match(html, />Retry</)
   assert.match(html, /Keep this work item visible/)
   assert.match(html, /Assignee unavailable/)
+})
+
+test('iteration metadata failure identifies the operation, withholds board results, and avoids empty-date fallbacks', () => {
+  const html = render({
+    teamIterationsError: '503 Service Unavailable: diagnostic detail',
+    workItems: [{ id: 456, title: 'Do not show degraded-scope results', status: 'Active' }],
+  })
+
+  assert.match(html, /Unable to load team iterations/)
+  assert.match(html, /team settings\/iterations request failed/)
+  assert.match(html, /Board results are withheld because the sprint selection could not be verified/)
+  assert.match(html, />Retry</)
+  assert.match(html, /Sprint summary unavailable/)
+  assert.doesNotMatch(html, /Do not show degraded-scope results/)
+  assert.doesNotMatch(html, /Dates unavailable|Days: unavailable|Effort flow unavailable/)
 })
