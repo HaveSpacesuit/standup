@@ -710,7 +710,13 @@ export function QaOptionsDialog({
 
       <DialogActions>
         {recoveryWarning ? (
-          <Button onClick={() => { onChange(options); onClose() }}>Use default QA options</Button>
+          <Button onClick={() => {
+            onChange(options)
+            if (cardHighlightDraft.freshDays !== cardHighlightOptions.freshDays || cardHighlightDraft.staleDays !== cardHighlightOptions.staleDays) {
+              onCardHighlightOptionsChange(cardHighlightDraft)
+            }
+            onClose()
+          }}>Use default QA options</Button>
         ) : null}
         <Button onClick={handleClose}>Close</Button>
       </DialogActions>
