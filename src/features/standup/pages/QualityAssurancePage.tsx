@@ -111,9 +111,7 @@ export function QualityAssurancePage({
         </Alert>
       ) : (
         <QualityAssuranceList
-          isLoading={isLoading || teamIterationsLoading}
-
-          isLoading={isLoading}
+          isLoading={isLoading || teamIterationsLoading}
           error={newItemsError}
           historyWarning={historyWarning}
           buckets={buckets}
