@@ -34,6 +34,8 @@ type QualityAssurancePageProps = {
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
+  projectWorkItemStatesError?: string | null
+  retryProjectWorkItemStates?: () => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
 }
@@ -62,6 +64,8 @@ export function QualityAssurancePage({
   projectWorkItemStates,
   projectWorkItemTypes,
   projectWorkItemStatesLoading,
+  projectWorkItemStatesError,
+  retryProjectWorkItemStates,
   teamIterations,
   teamIterationsLoading,
 }: QualityAssurancePageProps) {
@@ -115,6 +119,8 @@ export function QualityAssurancePage({
           projectWorkItemStates={projectWorkItemStates}
           projectWorkItemTypes={projectWorkItemTypes}
           projectWorkItemStatesLoading={projectWorkItemStatesLoading}
+          projectWorkItemStatesError={projectWorkItemStatesError}
+          retryProjectWorkItemStates={retryProjectWorkItemStates}
           teamIterations={teamIterations}
           teamIterationsLoading={teamIterationsLoading}
         />

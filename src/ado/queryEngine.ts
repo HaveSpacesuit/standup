@@ -84,6 +84,10 @@ export class AdoQueryEngine {
     return this.getOrLoadCached(this.projectWorkItemStatesCache, cacheKey, () => fetchProjectWorkItemTypeInfo(this.client, team))
   }
 
+  clearProjectWorkItemTypesCache(team: Pick<TeamProfile, 'orgName' | 'projectName'>): void {
+    this.projectWorkItemStatesCache.delete(orgProjectCacheKey(team))
+  }
+
   async getProjectWorkItemStates(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
     signal?: AbortSignal,

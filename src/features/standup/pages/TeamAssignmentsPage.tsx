@@ -57,6 +57,8 @@ type TeamAssignmentsPageProps = {
   onCardHighlightOptionsChange: (next: CardHighlightOptions) => void
   projectWorkItemTypes: string[]
   projectWorkItemTypesLoading: boolean
+  projectWorkItemStatesError?: string | null
+  retryProjectWorkItemStates?: () => void
   includeWorkItemTypes: string[]
   onIncludeWorkItemTypesChange: (next: string[]) => void
   sprintFilter: AssignmentSprintFilter
@@ -103,6 +105,8 @@ export function TeamAssignmentsPage({
   onCardHighlightOptionsChange,
   projectWorkItemTypes,
   projectWorkItemTypesLoading,
+  projectWorkItemStatesError,
+  retryProjectWorkItemStates,
   includeWorkItemTypes,
   onIncludeWorkItemTypesChange,
   sprintFilter,
@@ -207,6 +211,8 @@ export function TeamAssignmentsPage({
             onCardHighlightOptionsChange={onCardHighlightOptionsChange}
             projectWorkItemTypes={projectWorkItemTypes}
             projectWorkItemTypesLoading={projectWorkItemTypesLoading}
+            projectWorkItemStatesError={projectWorkItemStatesError}
+            retryProjectWorkItemStates={retryProjectWorkItemStates}
             includeWorkItemTypes={includeWorkItemTypes}
             onIncludeWorkItemTypesChange={onIncludeWorkItemTypesChange}
             sprintFilter={sprintFilter}
