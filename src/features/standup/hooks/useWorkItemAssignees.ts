@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   AdoQueryEngine,
   ResolvedWorkItemAssignee,
@@ -44,9 +44,11 @@ export function useWorkItemAssignees({
   const [assigneesLoading, setAssigneesLoading] = useState(false)
   const [assigneesError, setAssigneesError] = useState<string | null>(null)
   const [historyRetryNonce, setHistoryRetryNonce] = useState(0)
+  const historyRetryInProgress = useRef(false)
 
   useEffect(() => {
     if (!adoQueryEngine) {
+      historyRetryInProgress.current = false
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -54,6 +56,7 @@ export function useWorkItemAssignees({
     }
 
     if (membersLoading || workItemsLoading) {
+      historyRetryInProgress.current = false
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -61,6 +64,7 @@ export function useWorkItemAssignees({
     }
 
     if (membersError || workItemsError) {
+      historyRetryInProgress.current = false
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -68,6 +72,7 @@ export function useWorkItemAssignees({
     }
 
     if (workItems.length === 0) {
+      historyRetryInProgress.current = false
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -85,7 +90,9 @@ export function useWorkItemAssignees({
       return lookup
     }, {})
 
-    setAssigneesLoading(true)
+    if (!historyRetryInProgress.current) {
+      setAssigneesLoading(true)
+    }
     setAssigneesError(null)
 
     mapWithConcurrency(
@@ -126,6 +133,7 @@ export function useWorkItemAssignees({
       .finally(() => {
         if (!abortController.signal.aborted) {
           setAssigneesLoading(false)
+          historyRetryInProgress.current = false
         }
       })
 
@@ -154,6 +162,9 @@ export function useWorkItemAssignees({
     assigneesHistoryWarning: unavailableCount > 0
       ? `Work-item history is unavailable for ${unavailableCount} item${unavailableCount === 1 ? '' : 's'}, so the team assignee could not be verified. These cards remain visible under Assignee unavailable; no historical assignment is inferred.`
       : null,
-    retryAssigneeHistory: () => setHistoryRetryNonce((current) => current + 1),
+    retryAssigneeHistory: () => {
+      historyRetryInProgress.current = true
+      setHistoryRetryNonce((current) => current + 1)
+    },
   }
 }
