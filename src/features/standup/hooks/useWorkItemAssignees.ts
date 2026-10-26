@@ -26,6 +26,8 @@ type UseWorkItemAssigneesResult = {
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
   assigneesLoading: boolean
   assigneesError: string | null
+  assigneesHistoryWarning: string | null
+  retryAssigneeHistory: () => void
 }
 
 export function useWorkItemAssignees({
@@ -41,6 +43,7 @@ export function useWorkItemAssignees({
   const [workItemAssignees, setWorkItemAssignees] = useState<Record<number, ResolvedWorkItemAssignee>>({})
   const [assigneesLoading, setAssigneesLoading] = useState(false)
   const [assigneesError, setAssigneesError] = useState<string | null>(null)
+  const [historyRetryNonce, setHistoryRetryNonce] = useState(0)
 
   useEffect(() => {
     if (!adoQueryEngine) {
@@ -138,11 +141,19 @@ export function useWorkItemAssignees({
     workItems,
     workItemsError,
     workItemsLoading,
+    historyRetryNonce,
   ])
+
+  const unavailableCount = Object.values(workItemAssignees)
+    .filter((assignee) => assignee.kind === 'history-unavailable').length
 
   return {
     workItemAssignees,
     assigneesLoading,
     assigneesError,
+    assigneesHistoryWarning: unavailableCount > 0
+      ? `Work-item history is unavailable for ${unavailableCount} item${unavailableCount === 1 ? '' : 's'}, so the team assignee could not be verified. These cards remain visible under Assignee unavailable; no historical assignment is inferred.`
+      : null,
+    retryAssigneeHistory: () => setHistoryRetryNonce((current) => current + 1),
   }
 }

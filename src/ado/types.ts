@@ -125,7 +125,7 @@ export type TeamMemberLookup = Record<string, string>
 
 export type ResolvedWorkItemAssignee = {
   label: string
-  kind: 'team-member' | 'unassigned'
+  kind: 'team-member' | 'unassigned' | 'history-unavailable'
 }
 
 export type WorkItemFieldUpdate = {

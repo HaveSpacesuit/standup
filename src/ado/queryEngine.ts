@@ -266,7 +266,11 @@ export class AdoQueryEngine {
         },
       })
 
-      return response.value ?? []
+      if (!response || !Array.isArray(response.value)) {
+        throw new Error('Azure DevOps returned an invalid work-item history response.')
+      }
+
+      return response.value
     })
   }
 

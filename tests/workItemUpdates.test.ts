@@ -8,6 +8,7 @@ const server = await createServer({
 })
 after(() => server.close())
 const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
+const { WorkItemAssigneeResolver } = await server.ssrLoadModule('/src/ado/assigneeResolver.ts')
 
 const team = { orgName: 'example-org', projectName: 'example-project' }
 
@@ -42,4 +43,37 @@ test('mixed card history loads and caches real work-item updates only', async (t
       'https://dev.azure.com/example-org/example-project/_apis/wit/workItems/456/updates?api-version=7.1',
     ],
   )
+})
+
+test('malformed work-item history responses fail and are not cached', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => Response.json({ value: 'unexpected' }))
+  const engine = new AdoQueryEngine('')
+
+  await assert.rejects(engine.getWorkItemUpdates(team, 123), /invalid work-item history response/i)
+  await assert.rejects(engine.getWorkItemUpdates(team, 123), /invalid work-item history response/i)
+  assert.equal(fetchMock.mock.callCount(), 2)
+})
+
+test('failed history only marks unresolved attribution unavailable, preserving known current assignees', async () => {
+  let historyRequests = 0
+  const resolver = new WorkItemAssigneeResolver(async () => {
+    historyRequests += 1
+    throw new Error('503 Service Unavailable')
+  })
+  const lookup = { 'member@example.com': 'Team Member' }
+
+  const knownAssignee = await resolver.resolveWorkItemAssignee(
+    team,
+    lookup,
+    { id: 1, assignedTo: { uniqueName: 'member@example.com' }, status: 'Active', title: 'Known' },
+  )
+  const unavailableAssignee = await resolver.resolveWorkItemAssignee(
+    team,
+    lookup,
+    { id: 2, assignedTo: { displayName: 'Former member' }, status: 'Active', title: 'Unknown' },
+  )
+
+  assert.deepEqual(knownAssignee, { label: 'Team Member', kind: 'team-member' })
+  assert.deepEqual(unavailableAssignee, { label: 'Assignee unavailable', kind: 'history-unavailable' })
+  assert.equal(historyRequests, 1)
 })
