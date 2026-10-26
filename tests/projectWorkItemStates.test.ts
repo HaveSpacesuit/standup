@@ -134,3 +134,33 @@ for (const view of ['development', 'qa-activity']) {
     assert.equal(result!.membersError, null)
   })
 }
+
+test('iteration-window failures block board results after team iteration metadata loads', async (t) => {
+  dom.window.history.replaceState(null, '', '/#development')
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    const url = new URL(String(input))
+    if (url.pathname.includes('/_apis/projects/') && url.pathname.includes('/teams/')) {
+      return Response.json({ id: 'team-id' })
+    }
+    if (url.pathname.endsWith('/_apis/work/teamsettings/iterations')) {
+      return url.searchParams.has('$timeframe')
+        ? Response.json({ message: 'Iteration window unavailable' }, { status: 503 })
+        : Response.json({ value: [] })
+    }
+    return Response.json({ value: [], workItems: [] })
+  })
+  const teamProfiles = [{ ...team, teamName: 'Example team', areaPath: 'Project', iterationPath: 'Project' }]
+  const assignmentOptionsByTeam = { [team.id]: createDefaultAssignmentOptions() }
+  let result: ReturnType<typeof useBoardViewModel>
+  function Board() {
+    result = useBoardViewModel({ pat: 'test-pat', teamProfiles, assignmentOptionsByTeam })
+    return null
+  }
+  const root = createRoot(document.createElement('div'))
+  t.after(() => act(() => root.unmount()))
+  await act(async () => root.render(createElement(Board)))
+
+  assert.match(result!.teamIterationsError, /503.*Iteration window unavailable/)
+  assert.equal(result!.workItemsError, null)
+  assert.equal(result!.isTeamDataLoading, false)
+})

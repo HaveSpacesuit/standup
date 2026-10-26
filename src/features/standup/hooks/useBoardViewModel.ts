@@ -136,13 +136,13 @@ export function useBoardViewModel({
   const {
     iterations: teamIterations,
     iterationsLoading: teamIterationsLoading,
-    iterationsError: teamIterationsError,
+    iterationsError: teamMetadataIterationsError,
   } = useTeamIterations({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
     reloadNonce: developmentReloadNonce + qaReloadNonce,
   })
-  const scopedQueryEngine = teamIterationsLoading || teamIterationsError ? null : dataQueryEngine
+  const scopedQueryEngine = teamIterationsLoading || teamMetadataIterationsError ? null : dataQueryEngine
 
   const {
     selectedAssignmentIterationPaths,
@@ -162,6 +162,7 @@ export function useBoardViewModel({
     workItemsLoading,
     workItemsError,
     iterationLoading,
+    iterationWindowError,
     currentIteration,
     iterationWindow,
   } = useTeamData({
@@ -173,6 +174,7 @@ export function useBoardViewModel({
     includeIterationPaths: selectedAssignmentIterationPaths,
     useDefaultIterationWindow: useDefaultAssignmentIterationWindow,
   })
+  const teamIterationsError = teamMetadataIterationsError ?? iterationWindowError
 
   const filteredWorkItems = useMemo(
     () => workItems.map((item) => applyTagRulesToItem(item, tagRules)).filter((item): item is WorkItemSummary => item !== null),

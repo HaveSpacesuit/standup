@@ -21,6 +21,7 @@ type UseTeamDataResult = {
   workItemsLoading: boolean
   workItemsError: string | null
   iterationLoading: boolean
+  iterationWindowError: string | null
   currentIteration: CurrentIterationInfo | null
   iterationWindow: IterationWindowInfo
 }
@@ -41,6 +42,7 @@ export function useTeamData({
   const [workItemsLoading, setWorkItemsLoading] = useState(false)
   const [workItemsError, setWorkItemsError] = useState<string | null>(null)
   const [iterationLoading, setIterationLoading] = useState(false)
+  const [iterationWindowError, setIterationWindowError] = useState<string | null>(null)
   const [currentIteration, setCurrentIteration] = useState<CurrentIterationInfo | null>(null)
   const [iterationWindow, setIterationWindow] = useState<IterationWindowInfo>({ current: null, next: null })
 
@@ -53,6 +55,7 @@ export function useTeamData({
       setWorkItemsError(null)
       setWorkItemsLoading(false)
       setIterationLoading(false)
+      setIterationWindowError(null)
       setCurrentIteration(null)
       setIterationWindow({ current: null, next: null })
       return
@@ -67,6 +70,7 @@ export function useTeamData({
     setWorkItemsLoading(true)
     setWorkItemsError(null)
     setIterationLoading(true)
+    setIterationWindowError(null)
 
     const loadTeamData = async () => {
       const [membersResult, workItemsResult, iterationWindowResult] = await Promise.allSettled([
@@ -116,6 +120,9 @@ export function useTeamData({
       } else if (!isAbortError(iterationWindowResult.reason)) {
         setIterationWindow({ current: null, next: null })
         setCurrentIteration(null)
+        setIterationWindowError(
+          toErrorMessage(iterationWindowResult.reason, 'Unknown error while loading the iteration window.'),
+        )
       }
 
       setMembersLoading(false)
@@ -132,6 +139,7 @@ export function useTeamData({
       setWorkItems([])
       setIterationWindow({ current: null, next: null })
       setCurrentIteration(null)
+      setIterationWindowError(toErrorMessage(error, 'Unknown error while loading the iteration window.'))
       setMembersError(toErrorMessage(error, 'Unknown error while loading team data.'))
       setWorkItemsError(toErrorMessage(error, 'Unknown error while loading team data.'))
       setMembersLoading(false)
@@ -152,6 +160,7 @@ export function useTeamData({
     workItemsLoading,
     workItemsError,
     iterationLoading,
+    iterationWindowError,
     currentIteration,
     iterationWindow,
   }
