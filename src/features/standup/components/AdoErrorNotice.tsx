@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { Box, Card, CardContent, Typography } from '@mui/material'
 import { isAdoAuthErrorMessage } from '../hooks/queryErrors'
 
@@ -8,10 +9,15 @@ type AdoErrorNoticeProps = {
 
 export function AdoErrorNotice({ title, message }: AdoErrorNoticeProps) {
   const isAuthError = isAdoAuthErrorMessage(message)
+  const titleId = useId()
+  const messageId = useId()
 
   return (
     <Box
       component="section"
+      role="alert"
+      aria-labelledby={titleId}
+      aria-describedby={messageId}
       sx={{
         height: '100%',
         display: 'flex',
@@ -30,10 +36,10 @@ export function AdoErrorNotice({ title, message }: AdoErrorNoticeProps) {
         }}
       >
         <CardContent sx={{ p: 3 }}>
-          <Typography variant="body-md" sx={{ fontWeight: 700, mb: 1 }} color={isAuthError ? undefined : 'error.main'}>
+          <Typography id={titleId} variant="body-md" sx={{ fontWeight: 700, mb: 1 }} color={isAuthError ? undefined : 'error.main'}>
             {isAuthError ? 'Azure DevOps PAT: Invalid or expired' : title}
           </Typography>
-          <Typography variant="body-sm" color="text.secondary">
+          <Typography id={messageId} variant="body-sm" color="text.secondary">
             {message}
           </Typography>
         </CardContent>
