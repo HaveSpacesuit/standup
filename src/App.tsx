@@ -80,6 +80,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
     projectWorkItemStatesLoading,
+    projectWorkItemStatesError,
+    retryProjectWorkItemStates,
     teamIterations,
     teamIterationsLoading,
   } = useBoardViewModel({
@@ -205,6 +207,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onCardHighlightOptionsChange: handleAssignmentCardHighlightOptionsChange,
           projectWorkItemTypes,
           projectWorkItemTypesLoading: projectWorkItemStatesLoading,
+          projectWorkItemStatesError,
+          retryProjectWorkItemStates,
           includeWorkItemTypes: selectedAssignmentWorkItemTypes,
           onIncludeWorkItemTypesChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, includeWorkItemTypes: next }),
           sprintFilter: assignmentOptions.sprintFilter,
@@ -238,6 +242,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           projectWorkItemStates,
           projectWorkItemTypes,
           projectWorkItemStatesLoading,
+          projectWorkItemStatesError,
+          retryProjectWorkItemStates,
           teamIterations,
           teamIterationsLoading,
         }}

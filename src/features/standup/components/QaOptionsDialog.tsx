@@ -37,6 +37,8 @@ type QaOptionsDialogProps = {
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
+  projectWorkItemStatesError?: string | null
+  retryProjectWorkItemStates?: () => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
 }
@@ -88,6 +90,8 @@ export function QaOptionsDialog({
   projectWorkItemStates,
   projectWorkItemTypes,
   projectWorkItemStatesLoading,
+  projectWorkItemStatesError,
+  retryProjectWorkItemStates,
   teamIterations,
   teamIterationsLoading,
 }: QaOptionsDialogProps) {
@@ -309,6 +313,12 @@ export function QaOptionsDialog({
               <CircularProgress size={16} />
               <Typography variant="body-sm" color="text.secondary">Loading types…</Typography>
             </Box>
+          ) : projectWorkItemStatesError ? (
+            <Alert severity="error" role="alert" action={
+              <Button onClick={retryProjectWorkItemStates}>Retry</Button>
+            }>
+              {projectWorkItemStatesError}
+            </Alert>
           ) : projectWorkItemTypes.length === 0 ? (
             <Typography variant="body-sm" color="text.secondary">
               No work item types found for this project.
@@ -592,6 +602,12 @@ export function QaOptionsDialog({
                       <CircularProgress size={16} />
                       <Typography variant="body-sm" color="text.secondary">Loading states…</Typography>
                     </Box>
+                  ) : projectWorkItemStatesError ? (
+                    <Alert severity="error" role="alert" action={
+                      <Button onClick={retryProjectWorkItemStates}>Retry</Button>
+                    }>
+                      {projectWorkItemStatesError}
+                    </Alert>
                   ) : projectWorkItemStates.length === 0 ? (
                     <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1 }}>
                       No states found for this project.

@@ -11,11 +11,11 @@ import {
 const server = await createServer({
   configFile: false,
   server: { middlewareMode: true, ws: false },
-  ssr: { noExternal: ['react', 'react/jsx-runtime', '@mui/material'] },
+  ssr: { noExternal: ['react', 'react/jsx-runtime', '@mui/material', /^@stratakit\//] },
   plugins: [{
     name: 'qa-options-dialog-test',
     enforce: 'pre',
-    resolveId: (id) => ['react', 'react/jsx-runtime', 'react/jsx-dev-runtime', '@mui/material'].includes(id) ? `\0qa-test:${id}` : undefined,
+    resolveId: (id) => ['react', 'react/jsx-runtime', 'react/jsx-dev-runtime', '@mui/material', '@stratakit/mui'].includes(id) ? `\0qa-test:${id}` : undefined,
     load: (id) => {
       if (id === '\0qa-test:react') return `
         let states = [], cursor = 0, dependencies = [], effects = []
@@ -47,14 +47,16 @@ const server = await createServer({
         export const Alert = 'Alert', Box = 'Box', Button = 'Button', Checkbox = 'Checkbox', Chip = 'Chip',
           CircularProgress = 'CircularProgress', Dialog = 'Dialog', DialogActions = 'DialogActions',
           DialogContent = 'DialogContent', DialogTitle = 'DialogTitle', FormControlLabel = 'FormControlLabel',
-          ListItemText = 'ListItemText', MenuItem = 'MenuItem', OutlinedInput = 'OutlinedInput',
+          IconButton = 'IconButton', ListItemText = 'ListItemText', MenuItem = 'MenuItem', OutlinedInput = 'OutlinedInput',
           Select = 'Select', Tab = 'Tab', Tabs = 'Tabs', TextField = 'TextField', Typography = 'Typography'
       `
+      if (id === '\0qa-test:@stratakit/mui') return `export const Icon = 'Icon'`
     },
   }],
 })
 after(() => server.close())
 const { QaOptionsDialog } = await server.ssrLoadModule('/src/features/standup/components/QaOptionsDialog.tsx')
+const { HiddenTagsDialog } = await server.ssrLoadModule('/src/features/standup/components/HiddenTagsDialog.tsx')
 const hooks = await server.ssrLoadModule('\0qa-test:react')
 const { useStandupAppState } = await server.ssrLoadModule('/src/features/standup/hooks/useStandupAppState.ts')
 
@@ -70,6 +72,76 @@ function find(element: unknown, match: (node: Element) => boolean): Element | un
     const node = element as Element
     return match(node) ? node : find(node.props.children, match)
   }
+}
+
+for (const [name, Component, typesTab] of [
+  ['QA', QaOptionsDialog, 0],
+  ['Assignments', HiddenTagsDialog, 'work-item-types'],
+] as const) {
+  test(`${name} options distinguish metadata failure, loading, empty results, and recovery`, () => {
+    hooks.reset()
+    let retries = 0
+    const props = {
+      open: true,
+      options: parseStoredQaOptions(null),
+      tagRules: [],
+      onChange: () => {},
+      onClose: () => {},
+      cardHighlightOptions: { freshDays: 1, staleDays: 7 },
+      onCardHighlightOptionsChange: () => {},
+      projectWorkItemStates: [],
+      projectWorkItemTypes: [] as string[],
+      projectWorkItemStatesLoading: false,
+      projectWorkItemTypesLoading: false,
+      projectWorkItemStatesError: 'Unable to load work item types and states: 503 Service Unavailable',
+      retryProjectWorkItemStates: () => { retries++ },
+      teamIterations: [],
+      teamIterationsLoading: false,
+    }
+    function render() {
+      hooks.beginRender()
+      const tree = Component(props)
+      hooks.flushEffects()
+      return tree
+    }
+    let tree = render()
+    const tabs = find(tree, (node) => node.type === 'Tabs')!
+    ;(tabs.props.onChange as Function)(null, typesTab)
+    tree = render()
+    const alert = find(tree, (node) => node.type === 'Alert' && node.props.role === 'alert')!
+    assert.ok(alert)
+    assert.match(String(alert.props.children), /work item types and states.*503/)
+    assert.equal(find(tree, (node) => node.props.children === 'No work item types found for this project.'), undefined)
+    const retry = find(alert.props.action, (node) => node.type === 'Button' && node.props.children === 'Retry')!
+    ;(retry.props.onClick as Function)()
+    assert.equal(retries, 1)
+
+    props.projectWorkItemStatesLoading = true
+    props.projectWorkItemTypesLoading = true
+    tree = render()
+    assert.ok(find(tree, (node) => node.props.children === 'Loading types…'))
+    assert.equal(find(tree, (node) => node.type === 'Alert'), undefined)
+
+    props.projectWorkItemStatesLoading = false
+    props.projectWorkItemTypesLoading = false
+    props.projectWorkItemStatesError = ''
+    tree = render()
+    assert.ok(find(tree, (node) => node.props.children === 'No work item types found for this project.'))
+    assert.equal(find(tree, (node) => node.type === 'Alert'), undefined)
+
+    props.projectWorkItemTypes = ['Bug', 'Product Backlog Item']
+    tree = render()
+    assert.ok(find(tree, (node) => node.type === 'MenuItem' && node.props.value === 'Bug'))
+    assert.ok(find(tree, (node) => node.type === 'MenuItem' && node.props.value === 'Product Backlog Item'))
+
+    if (name === 'QA') {
+      props.projectWorkItemStatesError = 'Unable to load work item types and states: 503 Service Unavailable'
+      ;(tabs.props.onChange as Function)(null, 4)
+      tree = render()
+      assert.ok(find(tree, (node) => node.type === 'Alert' && node.props.role === 'alert'))
+      assert.equal(find(tree, (node) => node.props.children === 'No states found for this project.'), undefined)
+    }
+  })
 }
 
 function setup(unreadable = false) {

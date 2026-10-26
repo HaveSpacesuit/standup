@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
@@ -40,6 +41,8 @@ type HiddenTagsDialogProps = {
   onCardHighlightOptionsChange: (next: CardHighlightOptions) => void
   projectWorkItemTypes?: string[]
   projectWorkItemTypesLoading?: boolean
+  projectWorkItemStatesError?: string | null
+  retryProjectWorkItemStates?: () => void
   includeWorkItemTypes?: string[]
   onIncludeWorkItemTypesChange?: (next: string[]) => void
   sprintFilter?: AssignmentSprintFilter
@@ -87,6 +90,8 @@ export function HiddenTagsDialog({
   onCardHighlightOptionsChange,
   projectWorkItemTypes = [],
   projectWorkItemTypesLoading = false,
+  projectWorkItemStatesError,
+  retryProjectWorkItemStates,
   includeWorkItemTypes = [],
   onIncludeWorkItemTypesChange,
   sprintFilter = { current: true, next: true, nextNext: false, iterationPaths: [] },
@@ -196,6 +201,12 @@ export function HiddenTagsDialog({
                     <CircularProgress size={16} />
                     <Typography variant="body-sm" color="text.secondary">Loading types…</Typography>
                   </Box>
+                ) : projectWorkItemStatesError ? (
+                  <Alert severity="error" role="alert" action={
+                    <Button onClick={retryProjectWorkItemStates}>Retry</Button>
+                  }>
+                    {projectWorkItemStatesError}
+                  </Alert>
                 ) : projectWorkItemTypes.length === 0 ? (
                   <Typography variant="body-sm" color="text.secondary">
                     No work item types found for this project.

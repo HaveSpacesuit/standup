@@ -72,6 +72,8 @@ type UseBoardViewModelResult = {
   projectWorkItemTypes: string[]
   selectedAssignmentWorkItemTypes: string[]
   projectWorkItemStatesLoading: boolean
+  projectWorkItemStatesError: string | null
+  retryProjectWorkItemStates: () => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
 }
@@ -227,7 +229,13 @@ export function useBoardViewModel({
     tagGroups: qaOptionsByTeam?.[effectiveTeam.id]?.tagGroups,
   })
 
-  const { workItemStates: projectWorkItemStates, workItemTypes: projectWorkItemTypes, workItemStatesLoading: projectWorkItemStatesLoading } = useProjectWorkItemStates({
+  const {
+    workItemStates: projectWorkItemStates,
+    workItemTypes: projectWorkItemTypes,
+    workItemStatesLoading: projectWorkItemStatesLoading,
+    workItemStatesError: projectWorkItemStatesError,
+    retryWorkItemStates: retryProjectWorkItemStates,
+  } = useProjectWorkItemStates({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
   })
@@ -286,6 +294,8 @@ export function useBoardViewModel({
     if (!selectedTeam || !adoQueryEngine) {
       return
     }
+
+    retryProjectWorkItemStates()
 
     if (activeView === 'qa-activity') {
       adoQueryEngine.clearQualityAssuranceDataCache(selectedTeam.id)
@@ -349,6 +359,8 @@ export function useBoardViewModel({
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
     projectWorkItemStatesLoading,
+    projectWorkItemStatesError,
+    retryProjectWorkItemStates,
     teamIterations,
     teamIterationsLoading,
   }

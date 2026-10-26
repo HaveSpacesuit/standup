@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AdoQueryEngine, ProjectWorkItemState } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
-import { isAbortError } from './queryErrors'
+import { isAbortError, toErrorMessage } from './queryErrors'
 
 type UseProjectWorkItemStatesArgs = {
   adoQueryEngine: AdoQueryEngine | null
@@ -12,6 +12,8 @@ type UseProjectWorkItemStatesResult = {
   workItemStates: ProjectWorkItemState[]
   workItemTypes: string[]
   workItemStatesLoading: boolean
+  workItemStatesError: string | null
+  retryWorkItemStates: () => void
 }
 
 export function useProjectWorkItemStates({
@@ -21,8 +23,16 @@ export function useProjectWorkItemStates({
   const [workItemStates, setWorkItemStates] = useState<ProjectWorkItemState[]>([])
   const [workItemTypes, setWorkItemTypes] = useState<string[]>([])
   const [workItemStatesLoading, setWorkItemStatesLoading] = useState(false)
+  const [workItemStatesError, setWorkItemStatesError] = useState<string | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
+
+  const retryWorkItemStates = () => {
+    adoQueryEngine?.clearProjectWorkItemTypesCache(selectedTeam)
+    setReloadNonce((current) => current + 1)
+  }
 
   useEffect(() => {
+    setWorkItemStatesError(null)
     if (!adoQueryEngine) {
       setWorkItemStates([])
       setWorkItemTypes([])
@@ -47,6 +57,7 @@ export function useProjectWorkItemStates({
         if (!abortController.signal.aborted && !isAbortError(error)) {
           setWorkItemStates([])
           setWorkItemTypes([])
+          setWorkItemStatesError(`Unable to load work item types and states: ${toErrorMessage(error, 'Unknown error')}`)
         }
       })
       .finally(() => {
@@ -58,7 +69,7 @@ export function useProjectWorkItemStates({
     return () => {
       abortController.abort()
     }
-  }, [adoQueryEngine, selectedTeam])
+  }, [adoQueryEngine, selectedTeam, reloadNonce])
 
-  return { workItemStates, workItemTypes, workItemStatesLoading }
+  return { workItemStates, workItemTypes, workItemStatesLoading, workItemStatesError, retryWorkItemStates }
 }
