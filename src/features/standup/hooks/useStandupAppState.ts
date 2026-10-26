@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { clearStoredPat, loadStoredPat, saveStoredPat, type StoredPatState } from '../../../adoAuth'
 import type { TeamProfile } from '../../../appSettings'
 import { saveTeamProfiles } from '../../../appSettings'
-import { loadTeamProfilesWithDefaults } from '../../../defaultTeamSeed'
+import { loadTeamProfilesWithDefaultsAndRecovery } from '../../../defaultTeamSeed'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import {
   ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY,
@@ -19,11 +19,13 @@ import {
   serializeAssignmentOptions,
 } from '../utils/assignmentOptions'
 import type { QaOptions } from '../utils/qaOptions'
-import { parseStoredQaOptions, qaOptionsStorageKey, serializeQaOptions } from '../utils/qaOptions'
+import { parseStoredQaOptionsWithRecovery, qaOptionsStorageKey, serializeQaOptions } from '../utils/qaOptions'
 import { SELECTED_TEAM_STORAGE_KEY, tagRulesStorageKey } from './useBoardPreferences'
 
 type UseStandupAppStateResult = {
   teamProfiles: TeamProfile[]
+  teamProfilesUnreadable: boolean
+  qaOptionsUnreadableByTeam: Record<string, boolean>
   storedPatState: StoredPatState | null
   patConfigured: boolean
   qaOptionsByTeam: Record<string, QaOptions>
@@ -40,11 +42,11 @@ type UseStandupAppStateResult = {
   setAssignmentOptionsForTeam: (teamId: string, next: AssignmentOptions) => void
 }
 
-function buildQaOptionsByTeam(teamProfiles: TeamProfile[]): Record<string, QaOptions> {
+function buildQaOptionsByTeam(teamProfiles: TeamProfile[]): Record<string, ReturnType<typeof parseStoredQaOptionsWithRecovery>> {
   return Object.fromEntries(
     teamProfiles.map((team) => [
       team.id,
-      parseStoredQaOptions(localStorage.getItem(qaOptionsStorageKey(team.id))),
+      parseStoredQaOptionsWithRecovery(localStorage.getItem(qaOptionsStorageKey(team.id))),
     ]),
   )
 }
@@ -87,11 +89,17 @@ function buildQaCardHighlightOptionsByTeam(teamProfiles: TeamProfile[]): Record<
 }
 
 export function useStandupAppState(): UseStandupAppStateResult {
-  const [teamProfiles, setTeamProfiles] = useState<TeamProfile[]>(loadTeamProfilesWithDefaults)
+  const [{ profiles: teamProfiles, unreadable: teamProfilesUnreadable }, setTeamProfiles] = useState(loadTeamProfilesWithDefaultsAndRecovery)
   const [storedPatState, setStoredPatState] = useState<StoredPatState | null>(() => loadStoredPat())
-  const [qaOptionsByTeam, setQaOptionsByTeam] = useState<Record<string, QaOptions>>(() =>
+  const [qaSettingsByTeam, setQaSettingsByTeam] = useState(() =>
     buildQaOptionsByTeam(teamProfiles),
   )
+  const qaOptionsByTeam = useMemo(() => Object.fromEntries(
+    Object.entries(qaSettingsByTeam).map(([teamId, result]) => [teamId, result.options]),
+  ), [qaSettingsByTeam])
+  const qaOptionsUnreadableByTeam = useMemo(() => Object.fromEntries(
+    Object.entries(qaSettingsByTeam).map(([teamId, result]) => [teamId, result.unreadable]),
+  ), [qaSettingsByTeam])
   const [qaCardHighlightOptionsByTeam, setQaCardHighlightOptionsByTeam] = useState<Record<string, CardHighlightOptions>>(() =>
     buildQaCardHighlightOptionsByTeam(teamProfiles),
   )
@@ -104,7 +112,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
 
   const persistTeamProfiles = (nextTeamProfiles: TeamProfile[]) => {
     saveTeamProfiles(nextTeamProfiles)
-    setTeamProfiles(nextTeamProfiles)
+    setTeamProfiles({ profiles: nextTeamProfiles, unreadable: false })
   }
 
   const handleTeamProfilesChange = (nextTeamProfiles: TeamProfile[]) => {
@@ -120,7 +128,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
     }
 
     persistTeamProfiles(nextTeamProfiles)
-    setQaOptionsByTeam((previous) => Object.fromEntries(
+    setQaSettingsByTeam((previous) => Object.fromEntries(
       Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
     ))
     setQaCardHighlightOptionsByTeam((previous) => Object.fromEntries(
@@ -141,8 +149,8 @@ export function useStandupAppState(): UseStandupAppStateResult {
   }
 
   const setQaOptionsForTeam = (teamId: string, next: QaOptions) => {
-    setQaOptionsByTeam((previous) => ({ ...previous, [teamId]: next }))
     localStorage.setItem(qaOptionsStorageKey(teamId), serializeQaOptions(next))
+    setQaSettingsByTeam((previous) => ({ ...previous, [teamId]: { options: next, unreadable: false } }))
   }
 
   const setQaCardHighlightOptionsPersisted = (teamId: string, next: CardHighlightOptions) => {
@@ -165,6 +173,8 @@ export function useStandupAppState(): UseStandupAppStateResult {
 
   return {
     teamProfiles,
+    teamProfilesUnreadable,
+    qaOptionsUnreadableByTeam,
     storedPatState,
     patConfigured: storedPatState !== null,
     qaOptionsByTeam,
