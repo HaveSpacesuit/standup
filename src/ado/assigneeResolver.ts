@@ -40,7 +40,19 @@ export class WorkItemAssigneeResolver {
       }
     }
 
-    const assignmentTrail = await this.getWorkItemAssignmentTrail(team, workItem.id, signal)
+    let assignmentTrail: IdentityRef[]
+    try {
+      assignmentTrail = await this.getWorkItemAssignmentTrail(team, workItem.id, signal)
+    } catch (error) {
+      if (signal?.aborted) {
+        throw error
+      }
+
+      return {
+        label: 'Assignee unavailable',
+        kind: 'history-unavailable',
+      }
+    }
 
     for (const identity of assignmentTrail) {
       const match = this.matchTeamMember(teamMemberLookup, identity)

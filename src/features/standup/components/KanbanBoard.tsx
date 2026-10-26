@@ -58,19 +58,28 @@ export const KanbanBoard = memo(function KanbanBoard({
       const assignee = workItemAssignees[item.id]
       return !assignee || assignee.kind === 'unassigned'
     })
+    const hasUnavailableAssignees = workItems.some(
+      (item) => workItemAssignees[item.id]?.kind === 'history-unavailable',
+    )
 
     const memberRows = getAssignmentMemberRows(members, selectedMemberFilter)
 
-    return hasUnassignedItems
-      ? [
-          ...memberRows,
-          {
+    return [
+      ...memberRows,
+      ...(hasUnassignedItems
+        ? [{
             key: '__unassigned__',
             label: 'Unassigned',
             isUnassigned: true,
-          },
-        ]
-      : memberRows
+          }]
+        : []),
+      ...(hasUnavailableAssignees
+        ? [{
+            key: '__assignee_history_unavailable__',
+            label: 'Assignee unavailable',
+          }]
+        : []),
+    ]
   }, [members, selectedMemberFilter, workItems, workItemAssignees])
 
   const rowLookup = useMemo(() => {
@@ -130,7 +139,11 @@ export const KanbanBoard = memo(function KanbanBoard({
 
     for (const item of workItems) {
       const assignee = workItemAssignees[item.id]
-      const assigneeKey = assignee?.kind === 'team-member' ? assignee.label.toLowerCase() : '__unassigned__'
+      const assigneeKey = assignee?.kind === 'team-member'
+        ? assignee.label.toLowerCase()
+        : assignee?.kind === 'history-unavailable'
+          ? '__assignee_history_unavailable__'
+          : '__unassigned__'
       const resolvedRow = rowLookup[assigneeKey]
       const rowKey = resolvedRow ? resolvedRow.key : '__unassigned__'
       const cellKey = `${rowKey}:${item.status}`

@@ -53,6 +53,8 @@ type UseBoardViewModelResult = {
   workItemsError: string | null
   pullRequestBoardItemsError: string | null
   assigneesError: string | null
+  assigneesHistoryWarning: string | null
+  retryAssigneeHistory: () => void
   members: TeamMember[]
   visibleBoardItems: WorkItemSummary[]
   currentIterationName: string | null
@@ -200,7 +202,13 @@ export function useBoardViewModel({
     return [...filteredWorkItems, ...standalonePullRequestItems]
   }, [filteredWorkItems, pullRequestBoardItems])
 
-  const { workItemAssignees, assigneesLoading, assigneesError } = useWorkItemAssignees({
+  const {
+    workItemAssignees,
+    assigneesLoading,
+    assigneesError,
+    assigneesHistoryWarning,
+    retryAssigneeHistory,
+  } = useWorkItemAssignees({
     adoQueryEngine: dataQueryEngine,
     team: effectiveTeam,
     members,
@@ -340,6 +348,8 @@ export function useBoardViewModel({
     workItemsError,
     pullRequestBoardItemsError,
     assigneesError,
+    assigneesHistoryWarning,
+    retryAssigneeHistory,
     members,
     visibleBoardItems,
     currentIterationName: currentIteration?.name ?? null,

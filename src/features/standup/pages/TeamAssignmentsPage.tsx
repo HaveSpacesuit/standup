@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react'
-import { Alert, AlertTitle, Box, Typography } from '@mui/material'
+import { Alert, AlertTitle, Box, Button, Typography } from '@mui/material'
 import type {
   IterationWindowInfo,
   ResolvedWorkItemAssignee,
@@ -42,6 +42,8 @@ type TeamAssignmentsPageProps = {
   workItemsError: string | null
   pullRequestBoardItemsError: string | null
   assigneesError: string | null
+  assigneesHistoryWarning: string | null
+  retryAssigneeHistory: () => void
   members: TeamMember[]
   workItems: WorkItemSummary[]
   currentIterationName: string | null
@@ -90,6 +92,8 @@ export function TeamAssignmentsPage({
   workItemsError,
   pullRequestBoardItemsError,
   assigneesError,
+  assigneesHistoryWarning,
+  retryAssigneeHistory,
   members,
   workItems,
   currentIterationName,
@@ -152,6 +156,17 @@ export function TeamAssignmentsPage({
             <Alert role="alert" severity="warning" sx={{ m: 1, mb: 0 }}>
               <AlertTitle>Pull request data unavailable</AlertTitle>
               {pullRequestBoardItemsError} Check that your Azure DevOps PAT has Code (Read) access and your account can access the repository, then refresh to try again.
+            </Alert>
+          ) : null}
+          {patConfigured && assigneesHistoryWarning ? (
+            <Alert
+              role="alert"
+              severity="warning"
+              action={<Button size="small" onClick={retryAssigneeHistory}>Retry</Button>}
+              sx={{ m: 1, mb: 0 }}
+            >
+              <AlertTitle>Assignee history unavailable</AlertTitle>
+              {assigneesHistoryWarning}
             </Alert>
           ) : null}
           {patConfigured && !isTeamDataLoading && !membersError && !workItemsError && !assigneesError && workItems.length === 0 ? (

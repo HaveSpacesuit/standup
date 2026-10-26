@@ -48,6 +48,8 @@ const props: PageProps = {
   workItemsError: null,
   pullRequestBoardItemsError: null,
   assigneesError: null,
+  assigneesHistoryWarning: null,
+  retryAssigneeHistory: noop,
   members: [],
   workItems: [],
   currentIterationName: 'Sprint',
@@ -119,4 +121,21 @@ test('PR failures show recovery guidance without hiding work-item cards', () => 
   assert.match(html, /role="alert"/)
   assert.match(html, /Check that your Azure DevOps PAT has Code \(Read\) access/)
   assert.match(html, /Keep this work item visible/)
+})
+
+test('unavailable assignee history warns and retries without hiding the work item', () => {
+  const html = render({
+    assigneesHistoryWarning:
+      'Work-item history is unavailable for 1 item, so the team assignee could not be verified.',
+    workItems: [{ id: 456, title: 'Keep this work item visible', status: 'Active' }],
+    workItemAssignees: {
+      456: { label: 'Assignee unavailable', kind: 'history-unavailable' },
+    },
+  })
+
+  assert.match(html, /Assignee history unavailable/)
+  assert.match(html, /team assignee could not be verified/)
+  assert.match(html, />Retry</)
+  assert.match(html, /Keep this work item visible/)
+  assert.match(html, /Assignee unavailable/)
 })
