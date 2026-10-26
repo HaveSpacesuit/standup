@@ -68,7 +68,7 @@ export function QualityAssurancePage({
   const [optionsOpen, setOptionsOpen] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
   const recoveryWarning = qaOptionsUnreadable
-    ? 'Saved QA options for this team could not be read. Defaults are in use: all work item types, a 21-day lookback, no sprint restrictions or hidden-tag filters, and default state/tag classification. The stored data has been kept. Back up this team’s “standup:qa-options” entry in browser local storage, then import a backup via Settings > Teams, edit QA Options and close to save, or choose Use default QA options to reset. Closing without changes keeps the unreadable data.'
+    ? `Saved QA options for this team could not be read. Defaults are in use: all work item types, a 21-day lookback, no sprint restrictions or hidden-tag filters, and default state/tag classification. The stored data has been kept. Back up this team’s “standup:qa-options:${selectedTeamId}” entry in browser local storage, then import a backup via Settings > Teams, edit QA Options and close to save, or choose Use default QA options to reset. Closing without changes keeps the unreadable data.`
     : undefined
 
   return (
