@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
@@ -20,7 +21,7 @@ import {
   Typography,
 } from '@mui/material'
 import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagGroups } from '../utils/qaOptions'
-import { createTagFilterRule, DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays } from '../utils/qaOptions'
+import { createTagFilterRule, DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays, serializeQaOptions } from '../utils/qaOptions'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { normalizeCardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
@@ -28,6 +29,7 @@ import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/que
 type QaOptionsDialogProps = {
   open: boolean
   options: QaOptions
+  recoveryWarning?: string
   onClose: () => void
   onChange: (next: QaOptions) => void
   cardHighlightOptions: CardHighlightOptions
@@ -78,6 +80,7 @@ function getTagGroups(options: QaOptions): QaTagGroups {
 export function QaOptionsDialog({
   open,
   options,
+  recoveryWarning,
   onClose,
   onChange,
   cardHighlightOptions,
@@ -147,8 +150,12 @@ export function QaOptionsDialog({
   }), [teamIterations])
 
   const handleClose = () => {
-    onChange(draft)
-    onCardHighlightOptionsChange(cardHighlightDraft)
+    if (serializeQaOptions(draft) !== serializeQaOptions(options)) {
+      onChange(draft)
+    }
+    if (cardHighlightDraft.freshDays !== cardHighlightOptions.freshDays || cardHighlightDraft.staleDays !== cardHighlightOptions.staleDays) {
+      onCardHighlightOptionsChange(cardHighlightDraft)
+    }
     onClose()
   }
 
@@ -254,6 +261,7 @@ export function QaOptionsDialog({
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
       <DialogTitle>QA Options</DialogTitle>
 
+      {recoveryWarning ? <Alert severity="warning" role="alert">{recoveryWarning}</Alert> : null}
       <DialogContent sx={{ display: 'flex', gap: 2, pt: 1, minHeight: 420 }}>
         <Tabs
           orientation="vertical"
@@ -701,6 +709,9 @@ export function QaOptionsDialog({
       </DialogContent>
 
       <DialogActions>
+        {recoveryWarning ? (
+          <Button onClick={() => { onChange(options); onClose() }}>Use default QA options</Button>
+        ) : null}
         <Button onClick={handleClose}>Close</Button>
       </DialogActions>
     </Dialog>

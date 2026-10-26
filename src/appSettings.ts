@@ -62,23 +62,28 @@ function parseStoredTeamProfile(value: unknown): TeamProfile | null {
 }
 
 export function loadTeamProfiles(): TeamProfile[] {
+  return loadTeamProfilesWithRecovery().profiles
+}
+
+export function loadTeamProfilesWithRecovery(): { profiles: TeamProfile[]; unreadable: boolean } {
   const stored = localStorage.getItem(TEAM_PROFILES_STORAGE_KEY)
-  if (!stored) {
-    return []
+  if (stored === null) {
+    return { profiles: [], unreadable: false }
   }
 
   try {
     const parsed = JSON.parse(stored)
     if (!Array.isArray(parsed)) {
-      return []
+      return { profiles: [], unreadable: true }
     }
 
-    return parsed.flatMap((entry) => {
+    const profiles = parsed.flatMap((entry) => {
       const teamProfile = parseStoredTeamProfile(entry)
       return teamProfile ? [teamProfile] : []
     })
+    return { profiles, unreadable: profiles.length !== parsed.length }
   } catch {
-    return []
+    return { profiles: [], unreadable: true }
   }
 }
 

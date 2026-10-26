@@ -24,6 +24,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
   const qualityAssuranceQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const {
     teamProfiles,
+    teamProfilesUnreadable,
+    qaOptionsUnreadableByTeam,
     storedPatState,
     patConfigured,
     qaOptionsByTeam,
@@ -161,6 +163,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
 
       <StandupContent
         activeView={activeView}
+        teamProfilesUnreadable={teamProfilesUnreadable}
         testsPageProps={{
           pat: storedPatState?.pat ?? null,
           defaultOrg: teamProfiles.find((team) => team.id === selectedTeamId)?.orgName ?? '',
@@ -228,6 +231,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           newItemsError: qaBucketsError,
           historyWarning: qaHistoryWarning,
           qaOptions,
+          qaOptionsUnreadable: qaOptionsUnreadableByTeam[selectedTeamId],
           onQaOptionsChange: handleQaOptionsChange,
           cardHighlightOptions: qaCardHighlightOptions,
           onCardHighlightOptionsChange: handleQaCardHighlightOptionsChange,

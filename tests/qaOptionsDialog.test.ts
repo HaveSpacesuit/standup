@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { createServer } from 'vite'
-import { parseStoredQaOptions } from '../src/features/standup/utils/qaOptions.ts'
+import { parseStoredQaOptions, qaOptionsStorageKey, serializeQaOptions } from '../src/features/standup/utils/qaOptions.ts'
 import {
   qaCardHighlightOptionsStorageKey,
   serializeCardHighlightOptions,
@@ -44,7 +44,7 @@ const server = await createServer({
         export const jsxDEV = jsx
       `
       if (id === '\0qa-test:@mui/material') return `
-        export const Box = 'Box', Button = 'Button', Checkbox = 'Checkbox', Chip = 'Chip',
+        export const Alert = 'Alert', Box = 'Box', Button = 'Button', Checkbox = 'Checkbox', Chip = 'Chip',
           CircularProgress = 'CircularProgress', Dialog = 'Dialog', DialogActions = 'DialogActions',
           DialogContent = 'DialogContent', DialogTitle = 'DialogTitle', FormControlLabel = 'FormControlLabel',
           ListItemText = 'ListItemText', MenuItem = 'MenuItem', OutlinedInput = 'OutlinedInput',
@@ -56,6 +56,7 @@ const server = await createServer({
 after(() => server.close())
 const { QaOptionsDialog } = await server.ssrLoadModule('/src/features/standup/components/QaOptionsDialog.tsx')
 const hooks = await server.ssrLoadModule('\0qa-test:react')
+const { useStandupAppState } = await server.ssrLoadModule('/src/features/standup/hooks/useStandupAppState.ts')
 
 type Element = { type: string; props: Record<string, unknown> }
 
@@ -71,17 +72,23 @@ function find(element: unknown, match: (node: Element) => boolean): Element | un
   }
 }
 
-function setup() {
+function setup(unreadable = false) {
   hooks.reset()
   let committed = { freshDays: 1, staleDays: 7 }
   const storageKey = qaCardHighlightOptionsStorageKey('team')
   const storage = new Map([[storageKey, serializeCardHighlightOptions(committed)]])
+  const qaStorageKey = qaOptionsStorageKey('team')
+  if (unreadable) storage.set(qaStorageKey, '{bad')
   const calls: string[] = []
   const props = {
     open: true,
-    options: parseStoredQaOptions(null),
+    options: parseStoredQaOptions(storage.get(qaStorageKey) ?? null),
+    recoveryWarning: unreadable ? 'Saved QA options could not be read. Defaults are in use.' : undefined,
     cardHighlightOptions: committed,
-    onChange: () => calls.push('options'),
+    onChange: (next: ReturnType<typeof parseStoredQaOptions>) => {
+      calls.push('options')
+      storage.set(qaStorageKey, serializeQaOptions(next))
+    },
     onCardHighlightOptionsChange: (next: CardHighlightOptions) => {
       calls.push('freshness')
       committed = next
@@ -121,7 +128,7 @@ function setup() {
   render()
   freshnessTab()
   return {
-    props, calls, storage, storageKey, render, node, change, freshnessTab,
+    props, calls, storage, storageKey, qaStorageKey, render, node, change, freshnessTab,
     committed: () => committed,
   }
 }
@@ -145,7 +152,7 @@ for (const closeVia of ['button', 'escapeKeyDown', 'backdropClick']) {
       const modal = dialog.node((node) => node.type === 'Dialog')
       ;(modal.props.onClose as (event: unknown, reason: string) => void)({}, closeVia)
     }
-    assert.deepEqual(dialog.calls, ['options', 'freshness', 'close'])
+    assert.deepEqual(dialog.calls, ['freshness', 'close'])
     assert.deepEqual(dialog.committed(), { freshDays: 30, staleDays: 40 })
     assert.equal(dialog.storage.get(dialog.storageKey), '{"freshDays":30,"staleDays":40}')
 
@@ -170,3 +177,107 @@ test('Freshness normalizes against the latest draft without committing', () => {
   assert.equal(dialog.node((node) => node.props.label === 'Stale threshold (days)').props.value, 365)
   assert.deepEqual(dialog.calls, [])
 })
+
+for (const closeVia of ['button', 'escapeKeyDown', 'backdropClick']) {
+  test(`unchanged defaults preserve unreadable QA data when closing via ${closeVia}`, () => {
+    const dialog = setup(true)
+    assert.match(String(dialog.node((node) => node.type === 'Alert').props.children), /could not be read/)
+    if (closeVia === 'button') {
+      const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Close')
+      ;(close.props.onClick as () => void)()
+    } else {
+      const modal = dialog.node((node) => node.type === 'Dialog')
+      ;(modal.props.onClose as (event: unknown, reason: string) => void)({}, closeVia)
+    }
+    assert.deepEqual(dialog.calls, ['close'])
+    assert.equal(dialog.storage.get(dialog.qaStorageKey), '{bad')
+  })
+}
+
+test('changing only freshness preserves unreadable QA options', () => {
+  const dialog = setup(true)
+  dialog.change('Fresh threshold (days)', '3')
+  const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Close')
+  ;(close.props.onClick as () => void)()
+  assert.deepEqual(dialog.calls, ['freshness', 'close'])
+  assert.equal(dialog.storage.get(dialog.qaStorageKey), '{bad')
+})
+
+test('editing QA options deliberately replaces unreadable data on close', () => {
+  const dialog = setup(true)
+  const tabs = dialog.node((node) => node.type === 'Tabs')
+  ;(tabs.props.onChange as (event: null, value: number) => void)(null, 1)
+  dialog.render()
+  dialog.change('Lookback window (days)', '14')
+  assert.equal(dialog.storage.get(dialog.qaStorageKey), '{bad')
+  const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Close')
+  ;(close.props.onClick as () => void)()
+  assert.deepEqual(dialog.calls, ['options', 'close'])
+  assert.equal(JSON.parse(dialog.storage.get(dialog.qaStorageKey)!).lookbackDays, 14)
+})
+
+test('explicitly accepting defaults replaces unreadable QA options', () => {
+  const dialog = setup(true)
+  const reset = dialog.node((node) => node.type === 'Button' && node.props.children === 'Use default QA options')
+  ;(reset.props.onClick as () => void)()
+  assert.deepEqual(dialog.calls, ['options', 'close'])
+  assert.equal(dialog.storage.get(dialog.qaStorageKey), serializeQaOptions(parseStoredQaOptions(null)))
+})
+
+test('app state preserves corrupt profiles without seeding and clears recovery after replacement', (t) => {
+  const storage = new Map([['standup:team-profiles', '{bad']])
+  setupAppStorage(storage, t)
+  hooks.reset()
+  hooks.beginRender()
+  let state = useStandupAppState()
+  assert.equal(state.teamProfilesUnreadable, true)
+  assert.deepEqual(state.teamProfiles, [])
+  assert.deepEqual([...storage], [['standup:team-profiles', '{bad']])
+  state.replaceTeamProfiles([])
+  hooks.beginRender()
+  state = useStandupAppState()
+  assert.equal(state.teamProfilesUnreadable, false)
+  assert.equal(storage.get('standup:team-profiles'), '[]')
+})
+
+test('QA recovery is team-specific and clears only after saving that team', (t) => {
+  const profile = {
+    orgName: 'org', projectName: 'project', displayName: 'Team',
+    areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+  }
+  const storage = new Map([
+    ['standup:team-profiles', JSON.stringify([{ ...profile, id: 'broken' }, { ...profile, id: 'valid' }])],
+    [qaOptionsStorageKey('broken'), '{bad'],
+    [qaOptionsStorageKey('valid'), serializeQaOptions({ ...parseStoredQaOptions(null), lookbackDays: 10 })],
+  ])
+  setupAppStorage(storage, t)
+  hooks.reset()
+  hooks.beginRender()
+  let state = useStandupAppState()
+  assert.deepEqual(state.qaOptionsUnreadableByTeam, { broken: true, valid: false })
+  assert.equal(state.qaOptionsByTeam.valid.lookbackDays, 10)
+  assert.equal(storage.get(qaOptionsStorageKey('broken')), '{bad')
+  state.setQaOptionsForTeam('broken', parseStoredQaOptions(null))
+  hooks.beginRender()
+  state = useStandupAppState()
+  assert.deepEqual(state.qaOptionsUnreadableByTeam, { broken: false, valid: false })
+  assert.equal(storage.get(qaOptionsStorageKey('broken')), serializeQaOptions(parseStoredQaOptions(null)))
+})
+
+function setupAppStorage(storage: Map<string, string>, t: import('node:test').TestContext) {
+  for (const [name, entries] of [['localStorage', storage], ['sessionStorage', new Map<string, string>()]] as const) {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, name)
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      value: {
+        getItem: (key: string) => entries.get(key) ?? null,
+        setItem: (key: string, value: string) => entries.set(key, value),
+        removeItem: (key: string) => entries.delete(key),
+      },
+    })
+    t.after(() => {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+      else Reflect.deleteProperty(globalThis, name)
+    })
+  }
+}

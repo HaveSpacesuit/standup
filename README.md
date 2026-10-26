@@ -152,6 +152,8 @@ From Settings > Teams, you can:
 
 The import path validates the payload before applying it, so malformed data is rejected rather than silently corrupting local settings.
 
+Unreadable saved team profiles or QA options produce a recovery warning. Only readable profiles are loaded; unreadable QA options use defaults (all types and sprints, a 21-day lookback, no hidden-tag filters, and default classification). Back up the affected browser local-storage entry before importing a team backup or saving a replacement configuration. Closing QA Options without changes preserves unreadable data; **Use default QA options** explicitly replaces it with defaults.
+
 ## Features and workflows
 
 ### Filtering and navigation

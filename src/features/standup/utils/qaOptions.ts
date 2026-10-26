@@ -198,6 +198,10 @@ function parseTagGroups(value: unknown): QaTagGroups | null {
 }
 
 export function parseStoredQaOptions(value: string | null): QaOptions {
+  return parseStoredQaOptionsWithRecovery(value).options
+}
+
+export function parseStoredQaOptionsWithRecovery(value: string | null): { options: QaOptions; unreadable: boolean } {
   const empty: QaOptions = {
     generalFilters: [],
     includeWorkItemTypes: [],
@@ -207,14 +211,14 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
     tagGroups: null,
   }
 
-  if (!value) {
-    return empty
+  if (value === null) {
+    return { options: empty, unreadable: false }
   }
 
   try {
     const parsed = JSON.parse(value)
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return empty
+      return { options: empty, unreadable: true }
     }
 
     // General filters are tag-only; parseTagRule drops any legacy work-item-type rules from
@@ -227,15 +231,18 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
       : []
 
     return {
-      generalFilters,
-      includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
-      lookbackDays: parseLookbackDays(parsed.lookbackDays),
-      sprintFilter: parseSprintFilter(parsed.sprintFilter),
-      stateGroups: parseStateGroups(parsed.stateGroups),
-      tagGroups: parseTagGroups(parsed.tagGroups),
+      options: {
+        generalFilters,
+        includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
+        lookbackDays: parseLookbackDays(parsed.lookbackDays),
+        sprintFilter: parseSprintFilter(parsed.sprintFilter),
+        stateGroups: parseStateGroups(parsed.stateGroups),
+        tagGroups: parseTagGroups(parsed.tagGroups),
+      },
+      unreadable: false,
     }
   } catch {
-    return empty
+    return { options: empty, unreadable: true }
   }
 }
 

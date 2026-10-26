@@ -1,4 +1,5 @@
 import { useState, type RefObject } from 'react'
+import { Alert } from '@mui/material'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { QualityAssuranceList } from '../components/QualityAssuranceList'
 import { QualityAssuranceToolbar } from '../components/QualityAssuranceToolbar'
@@ -26,6 +27,7 @@ type QualityAssurancePageProps = {
   newItemsError: string | null
   historyWarning: string | null
   qaOptions: QaOptions
+  qaOptionsUnreadable?: boolean
   onQaOptionsChange: (next: QaOptions) => void
   cardHighlightOptions: CardHighlightOptions
   onCardHighlightOptionsChange: (next: CardHighlightOptions) => void
@@ -53,6 +55,7 @@ export function QualityAssurancePage({
   newItemsError,
   historyWarning,
   qaOptions,
+  qaOptionsUnreadable,
   onQaOptionsChange,
   cardHighlightOptions,
   onCardHighlightOptionsChange,
@@ -64,6 +67,9 @@ export function QualityAssurancePage({
 }: QualityAssurancePageProps) {
   const [optionsOpen, setOptionsOpen] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
+  const recoveryWarning = qaOptionsUnreadable
+    ? 'Saved QA options for this team could not be read. Defaults are in use: all work item types, a 21-day lookback, no sprint restrictions or hidden-tag filters, and default state/tag classification. The stored data has been kept. Back up this team’s “standup:qa-options” entry in browser local storage, then import a backup via Settings > Teams, edit QA Options and close to save, or choose Use default QA options to reset. Closing without changes keeps the unreadable data.'
+    : undefined
 
   return (
     <>
@@ -82,6 +88,8 @@ export function QualityAssurancePage({
         isLoading={isLoading}
       />
 
+      {recoveryWarning ? <Alert severity="warning" role="alert">{recoveryWarning}</Alert> : null}
+
       {!hasConfiguredTeams ? (
         <TeamConfigurationEmptyState pageLabel="Quality Assurance" />
       ) : (
@@ -99,6 +107,7 @@ export function QualityAssurancePage({
         <QaOptionsDialog
           open={optionsOpen}
           options={qaOptions}
+          recoveryWarning={recoveryWarning}
           onClose={() => setOptionsOpen(false)}
           onChange={onQaOptionsChange}
           cardHighlightOptions={cardHighlightOptions}
