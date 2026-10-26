@@ -110,8 +110,9 @@ export function QualityAssurancePage({
           Azure DevOps team settings/iterations request failed: {teamIterationsError} QA results are withheld because the sprint selection could not be verified. Refresh to retry.
         </Alert>
       ) : (
-        <QualityAssuranceList
+        <QualityAssuranceList
           isLoading={isLoading || teamIterationsLoading}
+
           isLoading={isLoading}
           error={newItemsError}
           historyWarning={historyWarning}
