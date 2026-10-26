@@ -86,6 +86,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     retryProjectWorkItemStates,
     teamIterations,
     teamIterationsLoading,
+    teamIterationsError,
   } = useBoardViewModel({
     pat: storedPatState?.pat ?? null,
     teamProfiles,

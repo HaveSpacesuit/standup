@@ -84,6 +84,8 @@ test('successful empty board explains the result and suggests recovery', () => {
   const html = render()
   assert.match(html, /role="status"[^>]*>No cards available for this team and sprint selection/)
   assert.match(html, /Try Refresh, choose another team, or adjust sprint, work-item type, and hidden-tag filters in Assignments options/)
+  assert.match(html, /Dates unavailable/)
+  assert.match(html, /Days: unavailable/)
   assert.match(html, /Effort flow unavailable for this sprint/)
   assert.doesNotMatch(html, /Loading effort history/)
 })

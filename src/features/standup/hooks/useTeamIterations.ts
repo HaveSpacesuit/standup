@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AdoQueryEngine, TeamIterationOption } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
-import { isAbortError, toErrorMessage } from './queryErrors'
+import { toErrorMessage } from './queryErrors'
 
 type UseTeamIterationsArgs = {
   adoQueryEngine: AdoQueryEngine | null
@@ -61,7 +61,7 @@ export function useTeamIterations({
         }
       })
       .catch((error: unknown) => {
-        if (!abortController.signal.aborted && !isAbortError(error)) {
+        if (!abortController.signal.aborted) {
           setLoadState({
             requestKey,
             iterations: [],
