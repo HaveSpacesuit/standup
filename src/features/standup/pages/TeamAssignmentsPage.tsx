@@ -224,7 +224,7 @@ export function TeamAssignmentsPage({
 
           <SprintSummaryBar
             iterationWindow={iterationWindow}
-            isLoading={iterationLoading}
+            isLoading={iterationLoading || teamIterationsLoading}
             error={teamIterationsError}
             effortFlowPoints={effortFlowPoints}
             effortFlowLoading={effortFlowLoading}
