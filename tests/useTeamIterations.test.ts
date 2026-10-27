@@ -32,12 +32,14 @@ const team = {
 test('adding a PAT synchronously loads iterations even when the request key is unchanged', async (t) => {
   let adoQueryEngine: AdoQueryEngine | null = null
   let result: { iterationsLoading: boolean }
+  const loadingStates: boolean[] = []
   function Iterations() {
     result = useTeamIterations({
       adoQueryEngine,
       selectedTeam: team,
       reloadNonce: 0,
     })
+    loadingStates.push(result.iterationsLoading)
     return null
   }
   const root = createRoot(document.createElement('div'))
@@ -46,8 +48,10 @@ test('adding a PAT synchronously loads iterations even when the request key is u
 
   assert.equal(result!.iterationsLoading, false)
 
+  loadingStates.length = 0
   adoQueryEngine = { getTeamIterations: () => new Promise(() => {}) } as unknown as AdoQueryEngine
   act(() => root.render(createElement(Iterations)))
 
+  assert.equal(loadingStates[0], true)
   assert.equal(result!.iterationsLoading, true)
 })
