@@ -71,6 +71,7 @@ const props: PageProps = {
   onSprintFilterChange: noop,
   teamIterations: [],
   teamIterationsLoading: false,
+  teamIterationsError: null,
   visitedStatusesByItemId: {},
   rolledOverItemIds: {},
 }
@@ -83,6 +84,8 @@ test('successful empty board explains the result and suggests recovery', () => {
   const html = render()
   assert.match(html, /role="status"[^>]*>No cards available for this team and sprint selection/)
   assert.match(html, /Try Refresh, choose another team, or adjust sprint, work-item type, and hidden-tag filters in Assignments options/)
+  assert.match(html, /Dates unavailable/)
+  assert.match(html, /Days: unavailable/)
   assert.match(html, /Effort flow unavailable for this sprint/)
   assert.doesNotMatch(html, /Loading effort history/)
 })
@@ -138,4 +141,19 @@ test('unavailable assignee history warns and retries without hiding the work ite
   assert.match(html, />Retry</)
   assert.match(html, /Keep this work item visible/)
   assert.match(html, /Assignee unavailable/)
+})
+
+test('iteration metadata failure identifies the operation, withholds board results, and avoids empty-date fallbacks', () => {
+  const html = render({
+    teamIterationsError: '503 Service Unavailable: diagnostic detail',
+    workItems: [{ id: 456, title: 'Do not show degraded-scope results', status: 'Active' }],
+  })
+
+  assert.match(html, /Unable to load team iterations/)
+  assert.match(html, /team settings\/iterations request failed/)
+  assert.match(html, /Board results are withheld because the sprint selection could not be verified/)
+  assert.match(html, />Retry</)
+  assert.match(html, /Sprint summary unavailable/)
+  assert.doesNotMatch(html, /Do not show degraded-scope results/)
+  assert.doesNotMatch(html, /Dates unavailable|Days: unavailable|Effort flow unavailable/)
 })

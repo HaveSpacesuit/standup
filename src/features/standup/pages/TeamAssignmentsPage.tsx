@@ -67,6 +67,7 @@ type TeamAssignmentsPageProps = {
   onSprintFilterChange: (next: AssignmentSprintFilter) => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
+  teamIterationsError: string | null
   visitedStatusesByItemId: Record<number, import('../utils/statusColumnStyles').StatusColumn[]>
   rolledOverItemIds: Record<number, boolean>
 }
@@ -117,6 +118,7 @@ export function TeamAssignmentsPage({
   onSprintFilterChange,
   teamIterations,
   teamIterationsLoading,
+  teamIterationsError,
   visitedStatusesByItemId,
   rolledOverItemIds,
 }: TeamAssignmentsPageProps) {
@@ -152,6 +154,17 @@ export function TeamAssignmentsPage({
         <TeamConfigurationEmptyState pageLabel="Development" />
       ) : (
         <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
+          {patConfigured && teamIterationsError ? (
+            <Alert
+              role="alert"
+              severity="error"
+              action={<Button size="small" onClick={onRefresh}>Retry</Button>}
+              sx={{ m: 1, mb: 0 }}
+            >
+              <AlertTitle>Unable to load team iterations</AlertTitle>
+              Azure DevOps team settings/iterations request failed: {teamIterationsError} Board results are withheld because the sprint selection could not be verified. Refresh to retry.
+            </Alert>
+          ) : null}
           {patConfigured && pullRequestBoardItemsError ? (
             <Alert role="alert" severity="warning" sx={{ m: 1, mb: 0 }}>
               <AlertTitle>Pull request data unavailable</AlertTitle>
@@ -169,7 +182,7 @@ export function TeamAssignmentsPage({
               {assigneesHistoryWarning}
             </Alert>
           ) : null}
-          {patConfigured && !isTeamDataLoading && !membersError && !workItemsError && !assigneesError && workItems.length === 0 ? (
+          {patConfigured && !teamIterationsError && !isTeamDataLoading && !membersError && !workItemsError && !assigneesError && workItems.length === 0 ? (
             <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
               {quickFilterInput.trim() || selectedMemberFilter
                 ? 'No cards match your filters. Clear the quick filter or select All team members to restore cards.'
@@ -177,7 +190,7 @@ export function TeamAssignmentsPage({
             </Typography>
           ) : null}
           <Box sx={{ flex: 1, minHeight: 0 }}>
-            {isSprintView ? (
+            {teamIterationsError ? null : isSprintView ? (
               <SprintViewBoard
                 patConfigured={patConfigured}
                 isLoading={isTeamDataLoading}
@@ -211,7 +224,8 @@ export function TeamAssignmentsPage({
 
           <SprintSummaryBar
             iterationWindow={iterationWindow}
-            isLoading={iterationLoading}
+            isLoading={iterationLoading || teamIterationsLoading}
+            error={teamIterationsError}
             effortFlowPoints={effortFlowPoints}
             effortFlowLoading={effortFlowLoading}
             colorScheme={colorScheme}
