@@ -326,6 +326,7 @@ export function QaOptionsDialog({
           ) : (
             <Select
               multiple
+              aria-label="QA work item types"
               size="small"
               fullWidth
               displayEmpty
@@ -443,6 +444,7 @@ export function QaOptionsDialog({
             ) : (
               <Select
                 multiple
+                aria-label="QA additional sprints"
                 size="small"
                 fullWidth
                 displayEmpty
@@ -615,6 +617,7 @@ export function QaOptionsDialog({
                   ) : (
                     <Select
                       multiple
+                      aria-label={`${label} column states`}
                       size="small"
                       fullWidth
                       displayEmpty

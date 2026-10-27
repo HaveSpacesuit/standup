@@ -214,6 +214,7 @@ export function HiddenTagsDialog({
                 ) : (
                   <Select
                     multiple
+                    aria-label="Work item types"
                     size="small"
                     fullWidth
                     displayEmpty
@@ -302,6 +303,7 @@ export function HiddenTagsDialog({
                   ) : (
                     <Select
                       multiple
+                      aria-label="Additional sprints"
                       size="small"
                       fullWidth
                       displayEmpty
@@ -406,6 +408,7 @@ export function HiddenTagsDialog({
 
                         <Select
                           size="small"
+                          aria-label={`Destination for tag rule ${rule.tag.trim() || index + 1}`}
                           value={rule.action}
                           onChange={(event) => {
                             const nextRules = [...tagRules]
