@@ -42,6 +42,12 @@ test('Development and QA toolbar titles are top-level headings', () => {
   assert.doesNotMatch(render(createElement(PageToolbar, { iconHref: '', title: 'Tests' })), /<h1[^>]*>Tests<\/h1>/)
 })
 
+test('toolbar wrapping is opt-in so other pages retain their layout', () => {
+  const props = { iconHref: '', title: 'Development' }
+  assert.match(render(createElement(PageToolbar, { ...props, wrap: true })), /flex-wrap:wrap/)
+  assert.doesNotMatch(render(createElement(PageToolbar, props)), /flex-wrap:wrap/)
+})
+
 test('team and member selectors have stable accessible names', () => {
   const teamProps = {
     teamOptions: [],
@@ -57,7 +63,7 @@ test('team and member selectors have stable accessible names', () => {
     onRefresh: () => {},
     refreshDisabled: false,
   })), /aria-label="Team"/)
-  assert.match(render(createElement(StandupToolbar, {
+  const developmentToolbar = render(createElement(StandupToolbar, {
     patConfigured: false,
     quickFilterInput: '',
     onQuickFilterInputChange: () => {},
@@ -74,7 +80,9 @@ test('team and member selectors have stable accessible names', () => {
     isTeamDataLoading: false,
     isSprintView: false,
     onSprintViewChange: () => {},
-  })), /aria-label="Filter by team member"/)
+  }))
+  assert.match(developmentToolbar, /aria-label="Filter by team member"/)
+  assert.match(developmentToolbar, /flex-wrap:wrap/)
 })
 
 test('Development board exposes status and member labels as headings', () => {

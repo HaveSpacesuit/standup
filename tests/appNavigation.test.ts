@@ -27,11 +27,15 @@ function setup(t: TestContext, {
   modal = false,
   mounted = true,
   filterInsideModal = false,
+  focusable = true,
 } = {}) {
   const events = new EventTarget()
   const calls = { focus: 0, select: 0, cycle: [] as string[] }
   const input = {
-    focus: () => { calls.focus++ },
+    focus: () => {
+      calls.focus++
+      if (focusable) browserDocument.activeElement = input
+    },
     select: () => { calls.select++ },
   }
   const browserWindow = {
@@ -40,6 +44,7 @@ function setup(t: TestContext, {
     removeEventListener: events.removeEventListener.bind(events),
   }
   const browserDocument = {
+    activeElement: null as unknown,
     title: '',
     querySelector: (selector: string) => {
       assert.equal(selector, '[aria-modal="true"]')
@@ -124,6 +129,16 @@ test('an unmounted quick filter does not suppress browser Find', (t) => {
   assert.equal(press().defaultPrevented, false)
   assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
 })
+
+for (const view of ['development', 'qa-activity']) {
+  for (const modifier of ['ctrlKey', 'metaKey']) {
+    test(`${modifier}+F preserves browser Find when the ${view} filter cannot receive focus`, (t) => {
+      const { calls, press } = setup(t, { view, focusable: false })
+      assert.equal(press(undefined, { ctrlKey: modifier === 'ctrlKey', metaKey: modifier === 'metaKey' }).defaultPrevented, false)
+      assert.deepEqual(calls, { focus: 1, select: 0, cycle: [] })
+    })
+  }
+}
 
 test('member cycling still ignores editable targets and works from the toolbar', (t) => {
   const { calls, press } = setup(t)

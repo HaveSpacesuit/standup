@@ -6,13 +6,14 @@ type PageToolbarProps = {
   iconHref: string
   title: string
   isPageTitle?: boolean
+  wrap?: boolean
   children?: ReactNode
 }
 
-export function PageToolbar({ iconHref, title, isPageTitle = false, children }: PageToolbarProps) {
+export function PageToolbar({ iconHref, title, isPageTitle = false, wrap = false, children }: PageToolbarProps) {
   return (
     <AppBar position="static" sx={{ containerType: 'inline-size', flexShrink: 0 }}>
-      <Toolbar sx={{ gap: 1, px: 1.5, minWidth: 0, overflow: 'hidden' }}>
+      <Toolbar sx={{ gap: 1, px: 1.5, minWidth: 0, overflow: 'hidden', ...(wrap && { flexWrap: 'wrap', py: 1 }) }}>
         <Box
           sx={{
             display: 'flex',

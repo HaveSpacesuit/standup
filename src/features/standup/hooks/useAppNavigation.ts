@@ -106,9 +106,11 @@ export function useAppNavigation({
       const quickFilterInput = quickFilterInputRefs[activeView]?.current
       const activeModal = document.querySelector('[aria-modal="true"]')
       if (quickFilterInput && (!activeModal || activeModal.contains(quickFilterInput))) {
-        event.preventDefault()
         quickFilterInput.focus()
-        quickFilterInput.select()
+        if (document.activeElement === quickFilterInput) {
+          event.preventDefault()
+          quickFilterInput.select()
+        }
       }
     }
 
