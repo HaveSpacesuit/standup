@@ -19,6 +19,7 @@ import {
   Tabs,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material'
 import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagGroups } from '../utils/qaOptions'
 import { createTagFilterRule, DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays, serializeQaOptions } from '../utils/qaOptions'
@@ -95,6 +96,7 @@ export function QaOptionsDialog({
   teamIterations,
   teamIterationsLoading,
 }: QaOptionsDialogProps) {
+  const isMobile = useMediaQuery('(max-width:599.95px)')
   // Edit against a local draft so expensive query-affecting changes (the work item type
   // allow-list and sprint filter) are only committed — and the data reload only triggered —
   // when the dialog closes.
@@ -266,15 +268,26 @@ export function QaOptionsDialog({
       <DialogTitle>QA Options</DialogTitle>
 
       {recoveryWarning ? <Alert severity="warning" role="alert">{recoveryWarning}</Alert> : null}
-      <DialogContent sx={{ display: 'flex', gap: 2, pt: 1, minHeight: 420 }}>
+      <DialogContent sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 1, sm: 2 },
+        pt: 1,
+        minHeight: { xs: 0, sm: 420 },
+      }}>
         <Tabs
-          orientation="vertical"
+          orientation={isMobile ? 'horizontal' : 'vertical'}
+          variant={isMobile ? 'scrollable' : 'standard'}
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           value={activeTab}
           onChange={(_event, value: number) => setActiveTab(value)}
           sx={{
-            borderRight: 1,
+            width: { xs: '100%', sm: 'auto' },
+            borderRight: { xs: 0, sm: 1 },
+            borderBottom: { xs: 1, sm: 0 },
             borderColor: 'divider',
-            minWidth: 172,
+            minWidth: { xs: 0, sm: 172 },
             flexShrink: 0,
             '& .MuiTabs-flexContainer': {
               alignItems: 'stretch',
@@ -286,6 +299,7 @@ export function QaOptionsDialog({
               textTransform: 'none',
               minHeight: 44,
               px: 1.5,
+              whiteSpace: 'nowrap',
             },
           }}
         >
@@ -504,7 +518,12 @@ export function QaOptionsDialog({
               </Typography>
             )}
 
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 1,
+              alignItems: { xs: 'stretch', sm: 'center' },
+            }}>
               <TextField
                 size="small"
                 fullWidth
@@ -518,7 +537,7 @@ export function QaOptionsDialog({
                   }
                 }}
               />
-              <Button size="small" variant="outlined" onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
+              <Button size="small" variant="outlined" sx={{ width: { xs: '100%', sm: 'auto' } }} onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
                 Add
               </Button>
             </Box>
@@ -554,7 +573,12 @@ export function QaOptionsDialog({
             </Typography>
           )}
 
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 1,
+            alignItems: { xs: 'stretch', sm: 'center' },
+          }}>
             <TextField
               size="small"
               fullWidth
@@ -568,7 +592,7 @@ export function QaOptionsDialog({
                 }
               }}
             />
-            <Button size="small" variant="outlined" onClick={handleAddTag} disabled={!newTagInput.trim()}>
+            <Button size="small" variant="outlined" sx={{ width: { xs: '100%', sm: 'auto' } }} onClick={handleAddTag} disabled={!newTagInput.trim()}>
               Add
             </Button>
           </Box>
@@ -662,7 +686,13 @@ export function QaOptionsDialog({
                     </Box>
                   ) : null}
 
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: 1,
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                    mt: 1,
+                  }}>
                     <TextField
                       size="small"
                       fullWidth
@@ -676,7 +706,7 @@ export function QaOptionsDialog({
                         }
                       }}
                     />
-                    <Button size="small" variant="outlined" onClick={() => handleAddTagToGroup(key)} disabled={!tagGroupInputs[key].trim()}>
+                    <Button size="small" variant="outlined" sx={{ width: { xs: '100%', sm: 'auto' } }} onClick={() => handleAddTagToGroup(key)} disabled={!tagGroupInputs[key].trim()}>
                       Add
                     </Button>
                   </Box>

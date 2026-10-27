@@ -20,6 +20,7 @@ import {
   Tabs,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
@@ -102,6 +103,7 @@ export function HiddenTagsDialog({
   description = 'Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.',
   actionOptions = DEFAULT_TAG_RULE_ACTION_OPTIONS,
 }: HiddenTagsDialogProps) {
+  const isMobile = useMediaQuery('(max-width:599.95px)')
   const orderedRules = useMemo(() => tagRules, [tagRules])
   const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness'>('work-item-types')
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
@@ -168,16 +170,33 @@ export function HiddenTagsDialog({
       <DialogTitle>{title}</DialogTitle>
 
       <DialogContent sx={{ pt: 1, pb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: 'flex-start',
+          gap: { xs: 1, sm: 2 },
+          minWidth: 0,
+        }}>
           <Tabs
-            orientation="vertical"
+            orientation={isMobile ? 'horizontal' : 'vertical'}
+            variant={isMobile ? 'scrollable' : 'standard'}
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             value={activeTab}
             onChange={(_, value) => setActiveTab(value)}
             sx={{
-              borderRight: 1,
+              width: { xs: '100%', sm: 'auto' },
+              borderRight: { xs: 0, sm: 1 },
+              borderBottom: { xs: 1, sm: 0 },
               borderColor: 'divider',
-              minWidth: 160,
-              '& .MuiTab-root': { alignItems: 'flex-start', textAlign: 'left', justifyContent: 'flex-start' },
+              minWidth: { xs: 0, sm: 160 },
+              flexShrink: 0,
+              '& .MuiTab-root': {
+                alignItems: 'flex-start',
+                textAlign: 'left',
+                justifyContent: 'flex-start',
+                whiteSpace: 'nowrap',
+              },
             }}
           >
             <Tab label="Work item types" value="work-item-types" />
@@ -363,7 +382,12 @@ export function HiddenTagsDialog({
                     </Typography>
                   )}
 
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: 1,
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                  }}>
                     <TextField
                       size="small"
                       fullWidth
@@ -377,7 +401,7 @@ export function HiddenTagsDialog({
                         }
                       }}
                     />
-                    <Button size="small" variant="outlined" onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
+                    <Button size="small" variant="outlined" sx={{ width: { xs: '100%', sm: 'auto' } }} onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
                       Add
                     </Button>
                   </Box>
@@ -394,7 +418,13 @@ export function HiddenTagsDialog({
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {orderedRules.length > 0 ? (
                     orderedRules.map((rule, index) => (
-                      <Box key={rule.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 140px auto auto auto', gap: 1, alignItems: 'center' }}>
+                      <Box key={rule.id} sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: 'repeat(3, auto) minmax(0, 1fr)', sm: 'minmax(0, 1fr) 140px auto auto auto' },
+                        gap: 1,
+                        alignItems: 'center',
+                        minWidth: 0,
+                      }}>
                         <TextField
                           size="small"
                           placeholder="Tag match"
@@ -404,10 +434,12 @@ export function HiddenTagsDialog({
                             nextRules[index] = { ...rule, tag: event.target.value }
                             onChange(nextRules)
                           }}
+                          sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
                         />
 
                         <Select
                           size="small"
+                          sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
                           aria-label={`Destination for tag rule ${rule.tag.trim() || index + 1}`}
                           value={rule.action}
                           onChange={(event) => {
@@ -426,6 +458,7 @@ export function HiddenTagsDialog({
                         <IconButton
                           size="small"
                           aria-label="Move tag rule up"
+                          sx={{ gridRow: { xs: 3, sm: 'auto' }, gridColumn: { xs: '1 / 2', sm: 'auto' } }}
                           onClick={() => onChange(moveRule(tagRules, index, -1))}
                           disabled={index === 0}
                         >
@@ -435,6 +468,7 @@ export function HiddenTagsDialog({
                         <IconButton
                           size="small"
                           aria-label="Move tag rule down"
+                          sx={{ gridRow: { xs: 3, sm: 'auto' }, gridColumn: { xs: '2 / 3', sm: 'auto' } }}
                           onClick={() => onChange(moveRule(tagRules, index, 1))}
                           disabled={index === tagRules.length - 1}
                         >
@@ -444,6 +478,7 @@ export function HiddenTagsDialog({
                         <IconButton
                           size="small"
                           aria-label="Remove tag rule"
+                          sx={{ gridRow: { xs: 3, sm: 'auto' }, gridColumn: { xs: '3 / 4', sm: 'auto' } }}
                           onClick={() => onChange(tagRules.filter((candidate) => candidate.id !== rule.id))}
                         >
                           <Icon href={svgDismiss} />
