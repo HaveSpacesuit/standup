@@ -206,8 +206,9 @@ test('tabbed dialogs use compact navigation and responsive forms on mobile', () 
     onCardHighlightOptionsChange: () => {},
   })
   const ruleGrid = find(tagRulesTree, (node) => node.props.sx?.gridTemplateColumns)!
-  assert.equal(ruleGrid.props.sx.gridTemplateColumns.xs, 'minmax(0, 1fr) repeat(3, auto)')
+  assert.equal(ruleGrid.props.sx.gridTemplateColumns.xs, 'repeat(3, auto) minmax(0, 1fr)')
   assert.equal(ruleGrid.props.sx.gridTemplateColumns.sm, 'minmax(0, 1fr) 140px auto auto auto')
+  assert.equal(find(tagRulesTree, (node) => node.props.placeholder === 'Tag match')?.props.sx.gridColumn.xs, '1 / -1')
   assert.equal(find(tagRulesTree, (node) => node.type === 'Select')?.props.sx.gridColumn.xs, '1 / -1')
   material.setMobileViewport(false)
 })

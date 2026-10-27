@@ -420,7 +420,7 @@ export function HiddenTagsDialog({
                     orderedRules.map((rule, index) => (
                       <Box key={rule.id} sx={{
                         display: 'grid',
-                        gridTemplateColumns: { xs: 'minmax(0, 1fr) repeat(3, auto)', sm: 'minmax(0, 1fr) 140px auto auto auto' },
+                        gridTemplateColumns: { xs: 'repeat(3, auto) minmax(0, 1fr)', sm: 'minmax(0, 1fr) 140px auto auto auto' },
                         gap: 1,
                         alignItems: 'center',
                         minWidth: 0,
@@ -434,6 +434,7 @@ export function HiddenTagsDialog({
                             nextRules[index] = { ...rule, tag: event.target.value }
                             onChange(nextRules)
                           }}
+                          sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
                         />
 
                         <Select
@@ -457,6 +458,7 @@ export function HiddenTagsDialog({
                         <IconButton
                           size="small"
                           aria-label="Move tag rule up"
+                          sx={{ gridRow: { xs: 3, sm: 'auto' }, gridColumn: { xs: '1 / 2', sm: 'auto' } }}
                           onClick={() => onChange(moveRule(tagRules, index, -1))}
                           disabled={index === 0}
                         >
@@ -466,6 +468,7 @@ export function HiddenTagsDialog({
                         <IconButton
                           size="small"
                           aria-label="Move tag rule down"
+                          sx={{ gridRow: { xs: 3, sm: 'auto' }, gridColumn: { xs: '2 / 3', sm: 'auto' } }}
                           onClick={() => onChange(moveRule(tagRules, index, 1))}
                           disabled={index === tagRules.length - 1}
                         >
@@ -475,6 +478,7 @@ export function HiddenTagsDialog({
                         <IconButton
                           size="small"
                           aria-label="Remove tag rule"
+                          sx={{ gridRow: { xs: 3, sm: 'auto' }, gridColumn: { xs: '3 / 4', sm: 'auto' } }}
                           onClick={() => onChange(tagRules.filter((candidate) => candidate.id !== rule.id))}
                         >
                           <Icon href={svgDismiss} />
