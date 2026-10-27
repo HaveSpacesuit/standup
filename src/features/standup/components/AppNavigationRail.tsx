@@ -21,6 +21,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
@@ -115,6 +116,7 @@ export function AppNavigationRail({
   onTeamProfilesChange,
   patCreationUrl,
 }: AppNavigationRailProps) {
+  const isMobile = useMediaQuery('(max-width:599.95px)')
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
   const [editingTeamId, setEditingTeamId] = useState<string>(selectedTeamId)
@@ -460,15 +462,26 @@ export function AppNavigationRail({
 
       <Dialog open={isSettingsDialogOpen} onClose={() => setIsSettingsDialogOpen(false)} fullWidth maxWidth="md">
       <DialogTitle>Settings</DialogTitle>
-      <DialogContent sx={{ display: 'flex', gap: 2, pt: 1, minHeight: 420 }}>
+      <DialogContent sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 1, sm: 2 },
+        pt: 1,
+        minHeight: { xs: 0, sm: 420 },
+      }}>
         <Tabs
-            orientation="vertical"
+            orientation={isMobile ? 'horizontal' : 'vertical'}
+            variant={isMobile ? 'scrollable' : 'standard'}
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             value={activeTab}
             onChange={(_event, value: SettingsTab) => setActiveTab(value)}
             sx={{
-              borderRight: 1,
+              width: { xs: '100%', sm: 'auto' },
+              borderRight: { xs: 0, sm: 1 },
+              borderBottom: { xs: 1, sm: 0 },
               borderColor: 'divider',
-              minWidth: 140,
+              minWidth: { xs: 0, sm: 140 },
               flexShrink: 0,
               '& .MuiTabs-flexContainer': {
                 alignItems: 'stretch',
@@ -545,7 +558,7 @@ export function AppNavigationRail({
                   </Box>
                 </Box>
 
-                <Stack direction="row" spacing={1}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                   <Button size="small" variant="contained" onClick={handleSavePat}>
                     Use PAT
                   </Button>

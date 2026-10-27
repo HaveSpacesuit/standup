@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import {
   Alert, Autocomplete, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack, Tab, Tabs, TextField, Typography,
+  useMediaQuery,
 } from '@mui/material'
 import { AdoHttpClient } from '../../../ado/httpClient'
 import { listTestPipelineDefinitions, listTestStages, type Definition, type StageOption } from '../../../ado/testPipelinesApi'
@@ -29,6 +30,7 @@ export function TestsSettingsDialog({
   passRateFilter, onPassRateFilterChange,
   dailyOptions, onDailyOptionsChange,
 }: Props) {
+  const isMobile = useMediaQuery('(max-width:599.95px)')
   const [activeTab, setActiveTab] = useState(0)
   const [orgName, setOrgName] = useState(defaultOrg)
   const [projectName, setProjectName] = useState(defaultProject)
@@ -171,13 +173,29 @@ export function TestsSettingsDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Tests settings</DialogTitle>
-      <DialogContent sx={{ display: 'flex', gap: 2, pt: 1, minHeight: 420 }}>
+      <DialogContent sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 1, sm: 2 },
+        pt: 1,
+        minHeight: { xs: 0, sm: 420 },
+      }}>
         <Tabs
-          orientation="vertical"
+          orientation={isMobile ? 'horizontal' : 'vertical'}
+          variant={isMobile ? 'scrollable' : 'standard'}
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           aria-label="Tests settings"
           value={activeTab}
           onChange={(_event, value: number) => setActiveTab(value)}
-          sx={{ borderRight: 1, borderColor: 'divider', minWidth: 160, flexShrink: 0 }}
+          sx={{
+            width: { xs: '100%', sm: 'auto' },
+            borderRight: { xs: 0, sm: 1 },
+            borderBottom: { xs: 1, sm: 0 },
+            borderColor: 'divider',
+            minWidth: { xs: 0, sm: 160 },
+            flexShrink: 0,
+          }}
         >
           <Tab id="tests-options-tab" aria-controls="tests-options-panel" label="Options" sx={{ alignItems: 'flex-start' }} />
           <Tab id="tests-pipelines-tab" aria-controls="tests-pipelines-panel" label="Pipelines" sx={{ alignItems: 'flex-start' }} />

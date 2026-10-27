@@ -20,6 +20,7 @@ import {
   Tabs,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
@@ -102,6 +103,7 @@ export function HiddenTagsDialog({
   description = 'Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.',
   actionOptions = DEFAULT_TAG_RULE_ACTION_OPTIONS,
 }: HiddenTagsDialogProps) {
+  const isMobile = useMediaQuery('(max-width:599.95px)')
   const orderedRules = useMemo(() => tagRules, [tagRules])
   const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness'>('work-item-types')
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
@@ -168,15 +170,27 @@ export function HiddenTagsDialog({
       <DialogTitle>{title}</DialogTitle>
 
       <DialogContent sx={{ pt: 1, pb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: 'flex-start',
+          gap: { xs: 1, sm: 2 },
+          minWidth: 0,
+        }}>
           <Tabs
-            orientation="vertical"
+            orientation={isMobile ? 'horizontal' : 'vertical'}
+            variant={isMobile ? 'scrollable' : 'standard'}
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             value={activeTab}
             onChange={(_, value) => setActiveTab(value)}
             sx={{
-              borderRight: 1,
+              width: { xs: '100%', sm: 'auto' },
+              borderRight: { xs: 0, sm: 1 },
+              borderBottom: { xs: 1, sm: 0 },
               borderColor: 'divider',
-              minWidth: 160,
+              minWidth: { xs: 0, sm: 160 },
+              flexShrink: 0,
               '& .MuiTab-root': { alignItems: 'flex-start', textAlign: 'left', justifyContent: 'flex-start' },
             }}
           >
@@ -394,7 +408,13 @@ export function HiddenTagsDialog({
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {orderedRules.length > 0 ? (
                     orderedRules.map((rule, index) => (
-                      <Box key={rule.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 140px auto auto auto', gap: 1, alignItems: 'center' }}>
+                      <Box key={rule.id} sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: 'minmax(0, 1fr) repeat(3, auto)', sm: 'minmax(0, 1fr) 140px auto auto auto' },
+                        gap: 1,
+                        alignItems: 'center',
+                        minWidth: 0,
+                      }}>
                         <TextField
                           size="small"
                           placeholder="Tag match"
@@ -408,6 +428,7 @@ export function HiddenTagsDialog({
 
                         <Select
                           size="small"
+                          sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
                           aria-label={`Destination for tag rule ${rule.tag.trim() || index + 1}`}
                           value={rule.action}
                           onChange={(event) => {
