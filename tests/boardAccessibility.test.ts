@@ -22,6 +22,9 @@ after(() => server.close())
 
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { PageToolbar } = await server.ssrLoadModule('/src/features/standup/components/PageToolbar.tsx')
+const { StandupToolbar } = await server.ssrLoadModule('/src/features/standup/components/StandupToolbar.tsx')
+const { TeamToolbarControls } = await server.ssrLoadModule('/src/features/standup/components/TeamToolbarControls.tsx')
+const { TeamSelectorCard } = await server.ssrLoadModule('/src/features/standup/components/TeamSelectorCard.tsx')
 const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoardGrid.tsx')
 const { SprintViewBoard } = await server.ssrLoadModule('/src/features/standup/components/SprintSummaryBoard.tsx')
 const { QualityAssuranceList } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceList.tsx')
@@ -37,6 +40,41 @@ test('Development and QA toolbar titles are top-level headings', () => {
   }
 
   assert.doesNotMatch(render(createElement(PageToolbar, { iconHref: '', title: 'Tests' })), /<h1[^>]*>Tests<\/h1>/)
+})
+
+test('team and member selectors have stable accessible names', () => {
+  const teamProps = {
+    teamOptions: [],
+    selectedTeamId: '',
+    onTeamChange: () => {},
+    teamManagementUrl: '',
+  }
+  assert.match(render(createElement(TeamToolbarControls, teamProps)), /aria-label="Team"/)
+  assert.match(render(createElement(TeamSelectorCard, {
+    teams: [],
+    selectedTeamId: '',
+    onTeamChange: () => {},
+    onRefresh: () => {},
+    refreshDisabled: false,
+  })), /aria-label="Team"/)
+  assert.match(render(createElement(StandupToolbar, {
+    patConfigured: false,
+    quickFilterInput: '',
+    onQuickFilterInputChange: () => {},
+    onQuickFilterClear: () => {},
+    quickFilterInputRef: { current: null },
+    selectedMemberFilter: '',
+    memberFilterOptions: [],
+    members: [],
+    onMemberFilterChange: () => {},
+    onMemberFilterCycle: () => {},
+    ...teamProps,
+    onRefresh: () => {},
+    onOpenTagRulesDialog: () => {},
+    isTeamDataLoading: false,
+    isSprintView: false,
+    onSprintViewChange: () => {},
+  })), /aria-label="Filter by team member"/)
 })
 
 test('Development board exposes status and member labels as headings', () => {

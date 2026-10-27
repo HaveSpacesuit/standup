@@ -26,7 +26,7 @@ export function TeamSelectorCard({
             Team
           </Typography>
           <FormControl sx={{ minWidth: 260, flex: 1 }}>
-            <Select value={selectedTeamId} onChange={onTeamChange}>
+            <Select aria-label="Team" value={selectedTeamId} onChange={onTeamChange}>
               {teams.map((team) => (
                 <MenuItem key={team.id} value={team.id}>
                   {getTeamProfileLabel(team)}

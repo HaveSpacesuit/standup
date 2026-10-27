@@ -54,6 +54,7 @@ export function TeamToolbarControls({
         }}
       >
         <Select
+          aria-label="Team"
           value={hasConfiguredTeams ? selectedTeamId : ''}
           onChange={handleTeamChange}
           displayEmpty

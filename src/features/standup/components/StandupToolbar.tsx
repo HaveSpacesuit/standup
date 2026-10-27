@@ -162,6 +162,7 @@ export function StandupToolbar({
           }}
         >
           <Select
+            aria-label="Filter by team member"
             displayEmpty
             value={selectedMemberFilter}
             onChange={handleMemberFilterChange}

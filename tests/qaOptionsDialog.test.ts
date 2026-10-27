@@ -74,6 +74,87 @@ function find(element: unknown, match: (node: Element) => boolean): Element | un
   }
 }
 
+function findAll(element: unknown, match: (node: Element) => boolean, results: Element[] = []): Element[] {
+  if (Array.isArray(element)) {
+    for (const child of element) findAll(child, match, results)
+  } else if (element && typeof element === 'object' && 'props' in element) {
+    const node = element as Element
+    if (match(node)) results.push(node)
+    findAll(node.props.children, match, results)
+  }
+  return results
+}
+
+test('Assignments selectors have purpose and tag-rule context in accessible names', () => {
+  hooks.reset()
+  const props = {
+    open: true,
+    tagRules: [{ id: 'one', tag: 'Blocked', action: 'Blocked' }],
+    onChange: () => {},
+    onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 },
+    onCardHighlightOptionsChange: () => {},
+    projectWorkItemTypes: ['Bug'],
+    includeWorkItemTypes: [],
+    onIncludeWorkItemTypesChange: () => {},
+    sprintFilter: { current: true, next: true, nextNext: false, iterationPaths: [] },
+    onSprintFilterChange: () => {},
+    teamIterations: [{ name: 'Sprint 1', path: 'Project\\Sprint 1', timeFrame: 'current' }],
+    teamIterationsLoading: false,
+  }
+  function render() {
+    hooks.beginRender()
+    return HiddenTagsDialog(props)
+  }
+
+  let tree = render()
+  assert.equal(find(tree, (node) => node.type === 'Select')?.props['aria-label'], 'Work item types')
+  const tabs = find(tree, (node) => node.type === 'Tabs')!
+  ;(tabs.props.onChange as (event: null, value: string) => void)(null, 'sprints')
+  tree = render()
+  assert.equal(find(tree, (node) => node.type === 'Select')?.props['aria-label'], 'Additional sprints')
+  ;(tabs.props.onChange as (event: null, value: string) => void)(null, 'tag-rules')
+  tree = render()
+  assert.equal(find(tree, (node) => node.type === 'Select')?.props['aria-label'], 'Destination for tag rule Blocked')
+})
+
+test('QA selectors have purpose and column context in accessible names', () => {
+  hooks.reset()
+  const props = {
+    open: true,
+    options: parseStoredQaOptions(null),
+    onChange: () => {},
+    onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 },
+    onCardHighlightOptionsChange: () => {},
+    projectWorkItemStates: [{ name: 'Active' }],
+    projectWorkItemTypes: ['Bug'],
+    projectWorkItemStatesLoading: false,
+    teamIterations: [{ name: 'Sprint 1', path: 'Project\\Sprint 1', timeFrame: 'current' }],
+    teamIterationsLoading: false,
+  }
+  function render() {
+    hooks.beginRender()
+    return QaOptionsDialog(props)
+  }
+
+  let tree = render()
+  assert.equal(find(tree, (node) => node.type === 'Select')?.props['aria-label'], 'QA work item types')
+  const tabs = find(tree, (node) => node.type === 'Tabs')!
+  ;(tabs.props.onChange as (event: null, value: number) => void)(null, 2)
+  tree = render()
+  assert.equal(find(tree, (node) => node.type === 'Select')?.props['aria-label'], 'QA additional sprints')
+  ;(tabs.props.onChange as (event: null, value: number) => void)(null, 4)
+  tree = render()
+  const stateSelects = findAll(tree, (node) => node.type === 'Select')
+  assert.deepEqual(stateSelects.map((select) => select.props['aria-label']), [
+    'Ready for QA column states',
+    'Recently completed column states',
+    'Needs follow-up column states',
+    'Newly added column states',
+  ])
+})
+
 for (const [name, Component, typesTab] of [
   ['QA', QaOptionsDialog, 0],
   ['Assignments', HiddenTagsDialog, 'work-item-types'],
