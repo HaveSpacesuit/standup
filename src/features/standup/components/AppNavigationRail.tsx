@@ -493,6 +493,7 @@ export function AppNavigationRail({
                 textTransform: 'none',
                 minHeight: 44,
                 px: 1.5,
+                whiteSpace: 'nowrap',
               },
             }}
           >
@@ -558,7 +559,7 @@ export function AppNavigationRail({
                   </Box>
                 </Box>
 
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Stack direction="row" spacing={1}>
                   <Button size="small" variant="contained" onClick={handleSavePat}>
                     Use PAT
                   </Button>
@@ -757,7 +758,7 @@ export function AppNavigationRail({
                       />
                     </Box>
 
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                       <Button size="small" onClick={handleExportCurrentTeam} disabled={isCreatingTeam}>
                         Export team data
                       </Button>

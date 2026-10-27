@@ -299,6 +299,7 @@ export function QaOptionsDialog({
               textTransform: 'none',
               minHeight: 44,
               px: 1.5,
+              whiteSpace: 'nowrap',
             },
           }}
         >
@@ -517,7 +518,12 @@ export function QaOptionsDialog({
               </Typography>
             )}
 
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 1,
+              alignItems: { xs: 'stretch', sm: 'center' },
+            }}>
               <TextField
                 size="small"
                 fullWidth
@@ -531,7 +537,7 @@ export function QaOptionsDialog({
                   }
                 }}
               />
-              <Button size="small" variant="outlined" onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
+              <Button size="small" variant="outlined" sx={{ width: { xs: '100%', sm: 'auto' } }} onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
                 Add
               </Button>
             </Box>
@@ -567,7 +573,12 @@ export function QaOptionsDialog({
             </Typography>
           )}
 
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 1,
+            alignItems: { xs: 'stretch', sm: 'center' },
+          }}>
             <TextField
               size="small"
               fullWidth
@@ -581,7 +592,7 @@ export function QaOptionsDialog({
                 }
               }}
             />
-            <Button size="small" variant="outlined" onClick={handleAddTag} disabled={!newTagInput.trim()}>
+            <Button size="small" variant="outlined" sx={{ width: { xs: '100%', sm: 'auto' } }} onClick={handleAddTag} disabled={!newTagInput.trim()}>
               Add
             </Button>
           </Box>
@@ -675,7 +686,13 @@ export function QaOptionsDialog({
                     </Box>
                   ) : null}
 
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: 1,
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                    mt: 1,
+                  }}>
                     <TextField
                       size="small"
                       fullWidth
@@ -689,7 +706,7 @@ export function QaOptionsDialog({
                         }
                       }}
                     />
-                    <Button size="small" variant="outlined" onClick={() => handleAddTagToGroup(key)} disabled={!tagGroupInputs[key].trim()}>
+                    <Button size="small" variant="outlined" sx={{ width: { xs: '100%', sm: 'auto' } }} onClick={() => handleAddTagToGroup(key)} disabled={!tagGroupInputs[key].trim()}>
                       Add
                     </Button>
                   </Box>

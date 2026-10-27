@@ -191,7 +191,12 @@ export function HiddenTagsDialog({
               borderColor: 'divider',
               minWidth: { xs: 0, sm: 160 },
               flexShrink: 0,
-              '& .MuiTab-root': { alignItems: 'flex-start', textAlign: 'left', justifyContent: 'flex-start' },
+              '& .MuiTab-root': {
+                alignItems: 'flex-start',
+                textAlign: 'left',
+                justifyContent: 'flex-start',
+                whiteSpace: 'nowrap',
+              },
             }}
           >
             <Tab label="Work item types" value="work-item-types" />
@@ -377,7 +382,12 @@ export function HiddenTagsDialog({
                     </Typography>
                   )}
 
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: 1,
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                  }}>
                     <TextField
                       size="small"
                       fullWidth
@@ -391,7 +401,7 @@ export function HiddenTagsDialog({
                         }
                       }}
                     />
-                    <Button size="small" variant="outlined" onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
+                    <Button size="small" variant="outlined" sx={{ width: { xs: '100%', sm: 'auto' } }} onClick={handleAddIterationPath} disabled={!newIterationPathInput.trim()}>
                       Add
                     </Button>
                   </Box>

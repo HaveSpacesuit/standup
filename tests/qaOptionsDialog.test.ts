@@ -44,6 +44,9 @@ const server = await createServer({
         export const jsxDEV = jsx
       `
       if (id === '\0qa-test:@mui/material') return `
+        let mobileViewport = false
+        export const setMobileViewport = value => { mobileViewport = value }
+        export const useMediaQuery = () => mobileViewport
         export const Alert = 'Alert', Box = 'Box', Button = 'Button', Checkbox = 'Checkbox', Chip = 'Chip',
           CircularProgress = 'CircularProgress', Dialog = 'Dialog', DialogActions = 'DialogActions',
           DialogContent = 'DialogContent', DialogTitle = 'DialogTitle', FormControlLabel = 'FormControlLabel',
@@ -57,6 +60,7 @@ const server = await createServer({
 after(() => server.close())
 const { QaOptionsDialog } = await server.ssrLoadModule('/src/features/standup/components/QaOptionsDialog.tsx')
 const { HiddenTagsDialog } = await server.ssrLoadModule('/src/features/standup/components/HiddenTagsDialog.tsx')
+const material = await server.ssrLoadModule('\0qa-test:@mui/material')
 const hooks = await server.ssrLoadModule('\0qa-test:react')
 const { useStandupAppState } = await server.ssrLoadModule('/src/features/standup/hooks/useStandupAppState.ts')
 
@@ -153,6 +157,59 @@ test('QA selectors have purpose and column context in accessible names', () => {
     'Needs follow-up column states',
     'Newly added column states',
   ])
+})
+
+test('tabbed dialogs use compact navigation and responsive forms on mobile', () => {
+  material.setMobileViewport(true)
+  hooks.reset()
+  hooks.beginRender()
+  const qaTree = QaOptionsDialog({
+    open: true,
+    options: parseStoredQaOptions(null),
+    onChange: () => {},
+    onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 },
+    onCardHighlightOptionsChange: () => {},
+    projectWorkItemStates: [],
+    projectWorkItemTypes: [],
+    projectWorkItemStatesLoading: false,
+    teamIterations: [],
+    teamIterationsLoading: false,
+  })
+  const qaTabs = find(qaTree, (node) => node.type === 'Tabs')!
+  assert.equal(qaTabs.props.orientation, 'horizontal')
+  assert.equal(qaTabs.props.variant, 'scrollable')
+  assert.deepEqual(find(qaTree, (node) => node.type === 'DialogContent')?.props.sx.flexDirection, {
+    xs: 'column',
+    sm: 'row',
+  })
+
+  hooks.reset()
+  hooks.beginRender()
+  const assignmentTree = HiddenTagsDialog({
+    open: true,
+    tagRules: [{ id: 'one', tag: 'Blocked', action: 'Blocked' }],
+    onChange: () => {},
+    onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 },
+    onCardHighlightOptionsChange: () => {},
+  })
+  const assignmentTabs = find(assignmentTree, (node) => node.type === 'Tabs')!
+  ;(assignmentTabs.props.onChange as Function)(null, 'tag-rules')
+  hooks.beginRender()
+  const tagRulesTree = HiddenTagsDialog({
+    open: true,
+    tagRules: [{ id: 'one', tag: 'Blocked', action: 'Blocked' }],
+    onChange: () => {},
+    onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 },
+    onCardHighlightOptionsChange: () => {},
+  })
+  const ruleGrid = find(tagRulesTree, (node) => node.props.sx?.gridTemplateColumns)!
+  assert.equal(ruleGrid.props.sx.gridTemplateColumns.xs, 'minmax(0, 1fr) repeat(3, auto)')
+  assert.equal(ruleGrid.props.sx.gridTemplateColumns.sm, 'minmax(0, 1fr) 140px auto auto auto')
+  assert.equal(find(tagRulesTree, (node) => node.type === 'Select')?.props.sx.gridColumn.xs, '1 / -1')
+  material.setMobileViewport(false)
 })
 
 for (const [name, Component, typesTab] of [

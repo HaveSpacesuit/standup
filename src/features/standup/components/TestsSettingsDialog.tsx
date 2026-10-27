@@ -195,6 +195,7 @@ export function TestsSettingsDialog({
             borderColor: 'divider',
             minWidth: { xs: 0, sm: 160 },
             flexShrink: 0,
+            '& .MuiTab-root': { whiteSpace: 'nowrap' },
           }}
         >
           <Tab id="tests-options-tab" aria-controls="tests-options-panel" label="Options" sx={{ alignItems: 'flex-start' }} />
