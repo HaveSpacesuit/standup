@@ -23,6 +23,7 @@ after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { PageToolbar } = await server.ssrLoadModule('/src/features/standup/components/PageToolbar.tsx')
 const { StandupToolbar } = await server.ssrLoadModule('/src/features/standup/components/StandupToolbar.tsx')
+const { QualityAssuranceToolbar } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceToolbar.tsx')
 const { TeamToolbarControls } = await server.ssrLoadModule('/src/features/standup/components/TeamToolbarControls.tsx')
 const { TeamSelectorCard } = await server.ssrLoadModule('/src/features/standup/components/TeamSelectorCard.tsx')
 const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoardGrid.tsx')
@@ -46,6 +47,35 @@ test('toolbar wrapping is opt-in so other pages retain their layout', () => {
   const props = { iconHref: '', title: 'Development' }
   assert.match(render(createElement(PageToolbar, { ...props, wrap: true })), /flex-wrap:wrap/)
   assert.doesNotMatch(render(createElement(PageToolbar, props)), /flex-wrap:wrap/)
+})
+
+test('QA toolbar allows controls to wrap without hiding its actions', () => {
+  const html = render(createElement(QualityAssuranceToolbar, {
+    patConfigured: true,
+    teamOptions: [{
+      id: 'team', displayName: 'Team', orgName: 'example-org', projectName: 'example-project',
+      areaPath: '', iterationPath: '', teamName: 'Team', repoName: '',
+    }],
+    selectedTeamId: 'team',
+    onTeamChange: () => {},
+    teamManagementUrl: '',
+    quickFilterInput: '',
+    onQuickFilterInputChange: () => {},
+    onQuickFilterClear: () => {},
+    quickFilterInputRef: { current: null },
+    onRefresh: () => {},
+    onOpenOptions: () => {},
+    isLoading: false,
+  }))
+
+  assert.match(html, /flex-wrap:wrap/)
+  assert.match(html, /placeholder="Quick filter cards"/)
+  assert.match(html, /aria-label="Team"/)
+  for (const label of ['QA options', 'Refresh']) {
+    const button = html.match(new RegExp(`<button[^>]*aria-label="${label}"[^>]*>`))
+    assert.ok(button)
+    assert.doesNotMatch(button[0], /\bdisabled/)
+  }
 })
 
 test('team and member selectors have stable accessible names', () => {
