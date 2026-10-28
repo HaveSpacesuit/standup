@@ -18,6 +18,12 @@ export const REQUIRED_PAT_SCOPES = [
 const LOCAL_STORAGE_PAT_KEY = 'standup:azdo-pat'
 const SESSION_STORAGE_PAT_KEY = 'standup:azdo-pat-session'
 
+let patSessionController = new AbortController()
+
+export function getPatSessionSignal(): AbortSignal {
+  return patSessionController.signal
+}
+
 function normalizePat(value: string | null | undefined): string | null {
   const normalized = value?.trim() ?? ''
   return normalized ? normalized : null
@@ -52,6 +58,8 @@ export function saveStoredPat(pat: string): StoredPatState {
 }
 
 export function clearStoredPat(): void {
+  patSessionController.abort()
+  patSessionController = new AbortController()
   localStorage.removeItem(LOCAL_STORAGE_PAT_KEY)
   sessionStorage.removeItem(SESSION_STORAGE_PAT_KEY)
 }
