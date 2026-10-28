@@ -36,30 +36,6 @@ export class AdoAuthError extends Error {
   }
 }
 
-const MAX_ERROR_BODY_LENGTH = 500
-
-function summarizeErrorBody(body: string, contentType: string): string {
-  if (!body.trim()) {
-    return 'no error details returned'
-  }
-
-  if (contentType.includes('application/json')) {
-    try {
-      const parsed: unknown = JSON.parse(body)
-      const message = (parsed as { message?: unknown }).message
-      if (typeof message === 'string' && message.trim()) {
-        return message
-      }
-    } catch {
-      // fall through to the truncated raw body
-    }
-  } else if (contentType.includes('text/html')) {
-    return 'the server returned an HTML page instead of an API response'
-  }
-
-  return body.length > MAX_ERROR_BODY_LENGTH ? `${body.slice(0, MAX_ERROR_BODY_LENGTH)}…` : body
-}
-
 export class AdoHttpClient implements AdoRequestClient {
   private readonly pat: string
   private readonly defaultApiVersion: string
@@ -113,10 +89,7 @@ export class AdoHttpClient implements AdoRequestClient {
     }
 
     if (!response.ok) {
-      const errorBody = await response.text()
-      throw new Error(
-        `Azure DevOps query failed (${response.status} ${response.statusText}): ${summarizeErrorBody(errorBody, contentType)}`,
-      )
+      throw new Error(`Azure DevOps query failed (HTTP ${response.status}). Try refreshing.`)
     }
 
     // ADO answers unauthenticated requests with a sign-in page instead of an API error.
