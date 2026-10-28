@@ -45,6 +45,8 @@ type PullRequestDetailsResponse = {
   isDraft?: boolean
 }
 
+type PullRequestDetailsLookup = Map<string, Promise<PullRequestDetailsResponse | null>>
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function parseAssignedIdentityKey(value: unknown): string {
@@ -119,20 +121,25 @@ async function fetchPullRequestDetails(
   repositoryId: string,
   pullRequestId: number,
   signal: AbortSignal,
+  lookup: PullRequestDetailsLookup,
 ): Promise<PullRequestDetailsResponse | null> {
-  try {
-    return await adoQueryEngine.request<PullRequestDetailsResponse>({
-      method: 'GET',
-      orgName: team.orgName,
-      path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${pullRequestId}`,
-      params: {
-        'api-version': '7.1',
-      },
-      signal,
-    })
-  } catch {
-    return null
+  const cacheKey = JSON.stringify([team.orgName, team.projectName, repositoryId, pullRequestId])
+  const cached = lookup.get(cacheKey)
+  if (cached) {
+    return cached
   }
+
+  const request = adoQueryEngine.request<PullRequestDetailsResponse>({
+    method: 'GET',
+    orgName: team.orgName,
+    path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${pullRequestId}`,
+    params: {
+      'api-version': '7.1',
+    },
+    signal,
+  }).catch(() => null)
+  lookup.set(cacheKey, request)
+  return request
 }
 
 async function fetchPullRequestVoteMoments(
@@ -169,6 +176,7 @@ async function computeWorkItemHighlight(
   tagRules: TagRule[],
   item: WorkItemSummary,
   signal: AbortSignal,
+  pullRequestDetailsLookup: PullRequestDetailsLookup,
   cardHighlightOptions: CardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS,
 ): Promise<HighlightResult> {
   const now = Date.now()
@@ -286,6 +294,7 @@ async function computeWorkItemHighlight(
         earliestAttachment.repositoryId,
         parsed.pullRequestId,
         signal,
+        pullRequestDetailsLookup,
       )
 
       if (details?.isDraft === true) {
@@ -390,12 +399,21 @@ export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workIt
     }
 
     const abortController = new AbortController()
+    const pullRequestDetailsLookup: PullRequestDetailsLookup = new Map()
 
     Promise.all(
       workItems.map(async (item) => {
         const result = item.kind === 'pull-request'
           ? await computePullRequestHighlight(adoQueryEngine, team, item, abortController.signal, cardHighlightOptions)
-          : await computeWorkItemHighlight(adoQueryEngine, team, tagRules, item, abortController.signal, cardHighlightOptions)
+          : await computeWorkItemHighlight(
+            adoQueryEngine,
+            team,
+            tagRules,
+            item,
+            abortController.signal,
+            pullRequestDetailsLookup,
+            cardHighlightOptions,
+          )
 
         return [item.id, result] as const
       }),
