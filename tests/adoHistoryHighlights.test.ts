@@ -34,6 +34,7 @@ test('one history load shares linked PR detail requests across work items', asyn
   effects.length = 0
   state.length = 0
   let detailRequests = 0
+  const detailRequestOptions: AdoRequestOptions[] = []
   const pullRequestId = 678973
   const relation = {
     rel: 'ArtifactLink',
@@ -54,11 +55,7 @@ test('one history load shares linked PR detail requests across work items', asyn
     },
     async request<T>(options: AdoRequestOptions) {
       detailRequests += 1
-      assert.equal(
-        options.path,
-        `/example-project/_apis/git/repositories/repo-id/pullRequests/${pullRequestId}`,
-      )
-      assert.deepEqual(options.params, { 'api-version': '7.1' })
+      detailRequestOptions.push(options)
       return { creationDate: '2026-09-30T12:00:00Z', isDraft: false } as T
     },
   }
@@ -79,6 +76,11 @@ test('one history load shares linked PR detail requests across work items', asyn
   await new Promise((resolve) => setImmediate(resolve))
 
   assert.equal(detailRequests, 1)
+  assert.equal(
+    detailRequestOptions[0]?.path,
+    `/example-project/_apis/git/repositories/repo-id/pullRequests/${pullRequestId}`,
+  )
+  assert.deepEqual(detailRequestOptions[0]?.params, { 'api-version': '7.1' })
   cleanup?.()
 
   const refreshCleanup = Render()
