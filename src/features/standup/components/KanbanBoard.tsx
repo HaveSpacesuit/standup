@@ -26,6 +26,7 @@ type KanbanBoardProps = {
   assigneesError: string | null
   members: TeamMember[]
   selectedMemberFilter: string
+  hideUsersWithNoActivity?: boolean
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
@@ -42,6 +43,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   assigneesError,
   members,
   selectedMemberFilter,
+  hideUsersWithNoActivity = false,
   workItems,
   currentIterationName,
   changeHighlightsByItemId,
@@ -202,7 +204,9 @@ export const KanbanBoard = memo(function KanbanBoard({
       <KanbanBoardGrid
         boardGridTemplate={BOARD_GRID_TEMPLATE}
         collapsedCellCardLimit={COLLAPSED_CELL_CARD_LIMIT}
-        rows={rows}
+        rows={hideUsersWithNoActivity
+          ? rows.filter((row) => STATUS_COLUMNS.some((status) => cardsByCell[`${row.key}:${status}`]?.length))
+          : rows}
         cardsByCell={cardsByCell}
         expandedCells={expandedCells}
         currentIterationName={currentIterationName}

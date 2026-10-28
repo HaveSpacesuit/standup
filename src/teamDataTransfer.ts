@@ -190,6 +190,7 @@ function parseAssignmentOptions(value: unknown): AssignmentOptions {
   assertObject(value, 'Imported team data must include assignmentOptions.')
 
   return {
+    hideUsersWithNoActivity: value.hideUsersWithNoActivity === true,
     includeWorkItemTypes: parseStringArray(
       value.includeWorkItemTypes ?? [],
       'Imported assignment options includeWorkItemTypes must be a string array.',

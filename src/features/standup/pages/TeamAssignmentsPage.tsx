@@ -65,6 +65,8 @@ type TeamAssignmentsPageProps = {
   onIncludeWorkItemTypesChange: (next: string[]) => void
   sprintFilter: AssignmentSprintFilter
   onSprintFilterChange: (next: AssignmentSprintFilter) => void
+  hideUsersWithNoActivity: boolean
+  onHideUsersWithNoActivityChange: (next: boolean) => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
   teamIterationsError: string | null
@@ -116,6 +118,8 @@ export function TeamAssignmentsPage({
   onIncludeWorkItemTypesChange,
   sprintFilter,
   onSprintFilterChange,
+  hideUsersWithNoActivity,
+  onHideUsersWithNoActivityChange,
   teamIterations,
   teamIterationsLoading,
   teamIterationsError,
@@ -213,6 +217,7 @@ export function TeamAssignmentsPage({
                 assigneesError={assigneesError}
                 members={members}
                 selectedMemberFilter={selectedMemberFilter}
+                hideUsersWithNoActivity={hideUsersWithNoActivity}
                 workItems={workItems}
                 currentIterationName={currentIterationName}
                 changeHighlightsByItemId={changeHighlightsByItemId}
@@ -246,6 +251,8 @@ export function TeamAssignmentsPage({
             onIncludeWorkItemTypesChange={onIncludeWorkItemTypesChange}
             sprintFilter={sprintFilter}
             onSprintFilterChange={onSprintFilterChange}
+            hideUsersWithNoActivity={hideUsersWithNoActivity}
+            onHideUsersWithNoActivityChange={onHideUsersWithNoActivityChange}
             teamIterations={teamIterations}
             teamIterationsLoading={teamIterationsLoading}
           />

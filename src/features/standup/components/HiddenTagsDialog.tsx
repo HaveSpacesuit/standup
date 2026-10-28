@@ -48,6 +48,8 @@ type HiddenTagsDialogProps = {
   onIncludeWorkItemTypesChange?: (next: string[]) => void
   sprintFilter?: AssignmentSprintFilter
   onSprintFilterChange?: (next: AssignmentSprintFilter) => void
+  hideUsersWithNoActivity?: boolean
+  onHideUsersWithNoActivityChange?: (next: boolean) => void
   teamIterations?: TeamIterationOption[]
   teamIterationsLoading?: boolean
   title?: string
@@ -97,6 +99,8 @@ export function HiddenTagsDialog({
   onIncludeWorkItemTypesChange,
   sprintFilter = { current: true, next: true, nextNext: false, iterationPaths: [] },
   onSprintFilterChange,
+  hideUsersWithNoActivity = false,
+  onHideUsersWithNoActivityChange,
   teamIterations = [],
   teamIterationsLoading = false,
   title = 'Assignments options',
@@ -105,7 +109,7 @@ export function HiddenTagsDialog({
 }: HiddenTagsDialogProps) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
   const orderedRules = useMemo(() => tagRules, [tagRules])
-  const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness'>('work-item-types')
+  const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness' | 'members'>('work-item-types')
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
   const relativeSprintLabels = useMemo(() => ({
     current: resolveRelativeSprintName(teamIterations, 0),
@@ -203,9 +207,29 @@ export function HiddenTagsDialog({
             <Tab label="Sprints" value="sprints" />
             <Tab label="Tag rules" value="tag-rules" />
             <Tab label="Freshness" value="freshness" />
+            <Tab label="Members" value="members" />
           </Tabs>
 
           <Box sx={{ flex: 1, minWidth: 0 }}>
+            {activeTab === 'members' ? (
+              <>
+                <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  Members
+                </Typography>
+                <Typography variant="body-sm" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Hide member rows with no cards matching the current filters. Pull request cards count as activity.
+                </Typography>
+                <FormControlLabel
+                  label="Hide users with no activity"
+                  control={(
+                    <Checkbox
+                      checked={hideUsersWithNoActivity}
+                      onChange={(_, checked) => onHideUsersWithNoActivityChange?.(checked)}
+                    />
+                  )}
+                />
+              </>
+            ) : null}
             {activeTab === 'work-item-types' ? (
               <>
                 <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>

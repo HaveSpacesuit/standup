@@ -218,6 +218,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onIncludeWorkItemTypesChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, includeWorkItemTypes: next }),
           sprintFilter: assignmentOptions.sprintFilter,
           onSprintFilterChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, sprintFilter: next }),
+          hideUsersWithNoActivity: assignmentOptions.hideUsersWithNoActivity,
+          onHideUsersWithNoActivityChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, hideUsersWithNoActivity: next }),
           teamIterations,
           teamIterationsLoading,
           teamIterationsError,

@@ -69,6 +69,8 @@ const props: PageProps = {
   onIncludeWorkItemTypesChange: noop,
   sprintFilter: { current: true, next: false, nextNext: false, iterationPaths: [] },
   onSprintFilterChange: noop,
+  hideUsersWithNoActivity: false,
+  onHideUsersWithNoActivityChange: noop,
   teamIterations: [],
   teamIterationsLoading: false,
   teamIterationsError: null,
@@ -88,6 +90,59 @@ test('successful empty board explains the result and suggests recovery', () => {
   assert.match(html, /Days: unavailable/)
   assert.match(html, /Effort flow unavailable for this sprint/)
   assert.doesNotMatch(html, /Loading effort history/)
+})
+
+test('hiding inactive users removes only rows without currently visible cards', () => {
+  const populated: Partial<PageProps> = {
+    members: [
+      { id: 'active', displayName: 'Active Member' },
+      { id: 'inactive', displayName: 'Inactive Member' },
+      { id: 'pr', displayName: 'PR Member' },
+    ],
+    workItems: [
+      { id: 1, title: 'Active work', status: 'Active' },
+      { id: 2, title: 'PR-only activity', status: 'Review', kind: 'pull-request' },
+      { id: 3, title: 'Unassigned work', status: 'New' },
+      { id: 4, title: 'Unknown assignee work', status: 'New' },
+    ],
+    workItemAssignees: {
+      1: { label: 'Active Member', kind: 'team-member' },
+      2: { label: 'PR Member', kind: 'team-member' },
+      3: { label: 'Unassigned', kind: 'unassigned' },
+      4: { label: 'Assignee unavailable', kind: 'history-unavailable' },
+    },
+  }
+  const allMembers = render(populated)
+  assert.match(allMembers, /<h2[^>]*>Inactive Member<\/h2>/)
+
+  const activeOnly = render({ ...populated, hideUsersWithNoActivity: true })
+  assert.doesNotMatch(activeOnly, /<h2[^>]*>Inactive Member<\/h2>/)
+  for (const label of ['Active Member', 'PR Member', 'Unassigned', 'Assignee unavailable']) {
+    assert.match(activeOnly, new RegExp(`<h2[^>]*>${label}</h2>`))
+  }
+  for (const item of populated.workItems!) {
+    assert.ok(activeOnly.includes(item.title))
+  }
+
+  const filtered = render({
+    ...populated, hideUsersWithNoActivity: true, workItems: [populated.workItems![1]],
+  })
+  assert.doesNotMatch(filtered, /<h2[^>]*>Active Member<\/h2>/)
+  assert.match(filtered, /<h2[^>]*>PR Member<\/h2>/)
+})
+
+test('inactive row setting respects member selection and retains empty-board guidance', () => {
+  const filtered: Partial<PageProps> = {
+    members: [{ id: 'active', displayName: 'Active Member' }, { id: 'inactive', displayName: 'Inactive Member' }],
+    selectedMemberFilter: 'Active Member',
+    memberFilterOptions: ['Active Member', 'Inactive Member'],
+    workItems: [{ id: 1, title: 'Active work', status: 'Active' }],
+    workItemAssignees: { 1: { label: 'Active Member', kind: 'team-member' } },
+    hideUsersWithNoActivity: true,
+  }
+  assert.match(render(filtered), /<h2[^>]*>Active Member<\/h2>/)
+  assert.doesNotMatch(render(filtered), /<h2[^>]*>Inactive Member<\/h2>/)
+  assert.match(render({ ...filtered, workItems: [] }), /No cards match your filters/)
 })
 
 test('quick-filter and member-filter empty boards explain how to restore cards', () => {

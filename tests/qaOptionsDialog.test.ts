@@ -63,6 +63,12 @@ const { HiddenTagsDialog } = await server.ssrLoadModule('/src/features/standup/c
 const material = await server.ssrLoadModule('\0qa-test:@mui/material')
 const hooks = await server.ssrLoadModule('\0qa-test:react')
 const { useStandupAppState } = await server.ssrLoadModule('/src/features/standup/hooks/useStandupAppState.ts')
+const { parseStoredAssignmentOptions, serializeAssignmentOptions, assignmentOptionsStorageKey } =
+  await server.ssrLoadModule('/src/features/standup/utils/assignmentOptions.ts')
+const { createDefaultAssignmentOptions, createDefaultQaOptions } =
+  await server.ssrLoadModule('/src/features/standup/utils/standupOptionDefaults.ts')
+const { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } =
+  await server.ssrLoadModule('/src/teamDataTransfer.ts')
 
 type Element = { type: string; props: Record<string, unknown> }
 
@@ -120,6 +126,90 @@ test('Assignments selectors have purpose and tag-rule context in accessible name
   ;(tabs.props.onChange as (event: null, value: string) => void)(null, 'tag-rules')
   tree = render()
   assert.equal(find(tree, (node) => node.type === 'Select')?.props['aria-label'], 'Destination for tag rule Blocked')
+})
+
+test('Assignments member option defaults off and reports both toggle values', () => {
+  hooks.reset()
+  const changes: boolean[] = []
+  const props = {
+    open: true, tagRules: [], onChange: () => {}, onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 }, onCardHighlightOptionsChange: () => {},
+    onHideUsersWithNoActivityChange: (next: boolean) => { changes.push(next) },
+  }
+  hooks.beginRender()
+  const initial = HiddenTagsDialog(props)
+  const tabs = find(initial, (node) => node.type === 'Tabs')!
+  ;(tabs.props.onChange as (event: null, value: string) => void)(null, 'members')
+  hooks.beginRender()
+  let tree = HiddenTagsDialog(props)
+  let label = find(tree, (node) => node.props.label === 'Hide users with no activity')!
+  assert.ok(label)
+  let checkbox = label.props.control as Element
+  assert.equal(checkbox.props.checked, false)
+  ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
+  hooks.beginRender()
+  tree = HiddenTagsDialog({ ...props, hideUsersWithNoActivity: true })
+  label = find(tree, (node) => node.props.label === 'Hide users with no activity')!
+  checkbox = label.props.control as Element
+  assert.equal(checkbox.props.checked, true)
+  ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, false)
+  assert.deepEqual(changes, [true, false])
+})
+
+test('Assignments inactive member setting defaults false for missing and older settings', () => {
+  assert.equal(createDefaultAssignmentOptions().hideUsersWithNoActivity, false)
+  for (const raw of [null, '{}', '{bad', '{"includeWorkItemTypes":["Bug"]}', '{"hideUsersWithNoActivity":"true"}']) {
+    assert.equal(parseStoredAssignmentOptions(raw).hideUsersWithNoActivity, false)
+  }
+  for (const hideUsersWithNoActivity of [true, false]) {
+    const options = { ...createDefaultAssignmentOptions(), hideUsersWithNoActivity, includeWorkItemTypes: ['Bug'] }
+    assert.deepEqual(parseStoredAssignmentOptions(serializeAssignmentOptions(options)), options)
+  }
+})
+
+test('Assignments inactive member setting is persisted per team and restored after reload', (t) => {
+  const profile = {
+    orgName: 'org', projectName: 'project', displayName: 'Team',
+    areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+  }
+  const storage = new Map([
+    ['standup:team-profiles', JSON.stringify([{ ...profile, id: 'one' }, { ...profile, id: 'two' }])],
+  ])
+  setupAppStorage(storage, t)
+  function useReloadAppState() {
+    hooks.reset()
+    hooks.beginRender()
+    return useStandupAppState()
+  }
+  let state = useReloadAppState()
+  assert.equal(state.assignmentOptionsByTeam.one.hideUsersWithNoActivity, false)
+  state.setAssignmentOptionsForTeam('one', {
+    ...state.assignmentOptionsByTeam.one, hideUsersWithNoActivity: true,
+  })
+  assert.equal(JSON.parse(storage.get(assignmentOptionsStorageKey('one'))!).hideUsersWithNoActivity, true)
+  state = useReloadAppState()
+  assert.equal(state.assignmentOptionsByTeam.one.hideUsersWithNoActivity, true)
+  assert.equal(state.assignmentOptionsByTeam.two.hideUsersWithNoActivity, false)
+  state.setAssignmentOptionsForTeam('one', {
+    ...state.assignmentOptionsByTeam.one, hideUsersWithNoActivity: false,
+  })
+  assert.equal(useReloadAppState().assignmentOptionsByTeam.one.hideUsersWithNoActivity, false)
+})
+
+test('team exports preserve the inactive member setting and older imports default false', () => {
+  const data = buildTeamDataExport({
+    teamProfile: {
+      id: 'team', orgName: 'org', projectName: 'project', displayName: 'Team',
+      areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+    },
+    assignmentOptions: { ...createDefaultAssignmentOptions(), hideUsersWithNoActivity: true },
+    assignmentTagRules: [],
+    qaOptions: createDefaultQaOptions(),
+  })
+  assert.equal(parseImportedTeamData(serializeTeamDataExport(data)).assignmentOptions.hideUsersWithNoActivity, true)
+  const legacy = JSON.parse(serializeTeamDataExport(data))
+  delete legacy.assignmentOptions.hideUsersWithNoActivity
+  assert.equal(parseImportedTeamData(JSON.stringify(legacy)).assignmentOptions.hideUsersWithNoActivity, false)
 })
 
 test('QA selectors have purpose and column context in accessible names', () => {

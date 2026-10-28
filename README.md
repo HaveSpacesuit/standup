@@ -17,6 +17,11 @@ The default view is a standup-style Kanban board that:
 - highlights recent changes or project-specific work-item activity
 - adds PR-only cards for pull requests in the selected repository that are not already linked to visible work items
 
+Assignments options > Members includes "Hide users with no activity" (off by default).
+When enabled, member rows without cards matching the current filters are hidden.
+PR-only cards count as activity. The setting is saved per team in browser local storage
+and does not change the sprint view.
+
 ### Quality assurance view
 
 The QA activity page surfaces recently created and changed work items for review, with:

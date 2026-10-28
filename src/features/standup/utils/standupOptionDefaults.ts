@@ -16,6 +16,7 @@ export function createDefaultQaOptions(): QaOptions {
 
 export function createDefaultAssignmentOptions(): AssignmentOptions {
   return {
+    hideUsersWithNoActivity: false,
     includeWorkItemTypes: [],
     sprintFilter: { ...DEFAULT_ASSIGNMENT_SPRINT_FILTER },
   }
