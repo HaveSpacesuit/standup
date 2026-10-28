@@ -1,3 +1,5 @@
+import { getPatSessionSignal } from '../adoAuth'
+
 export type QueryValue = string | number | boolean | undefined
 
 export type QueryParams = Record<string, QueryValue>
@@ -61,6 +63,7 @@ function summarizeErrorBody(body: string, contentType: string): string {
 export class AdoHttpClient implements AdoRequestClient {
   private readonly pat: string
   private readonly defaultApiVersion: string
+  private readonly patSessionSignal = getPatSessionSignal()
 
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.pat = pat
@@ -72,6 +75,11 @@ export class AdoHttpClient implements AdoRequestClient {
   }
 
   async requestPage<T>(options: AdoRequestOptions): Promise<{ data: T; continuationToken: string | null }> {
+    const signal = options.signal
+      ? AbortSignal.any([this.patSessionSignal, options.signal])
+      : this.patSessionSignal
+    signal.throwIfAborted()
+
     const host = options.host ?? 'dev.azure.com'
     const url = new URL(`https://${host}/${encodeURIComponent(options.orgName)}${options.path}`)
     const params = options.params ?? {}
@@ -94,9 +102,10 @@ export class AdoHttpClient implements AdoRequestClient {
         ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-      signal: options.signal,
+      signal,
     })
 
+    signal.throwIfAborted()
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
 
     if (response.status === 401 || response.status === 403 || response.status === 203) {
@@ -115,8 +124,11 @@ export class AdoHttpClient implements AdoRequestClient {
       throw new AdoAuthError()
     }
 
+    const data = (await response.json()) as T
+    signal.throwIfAborted()
+
     return {
-      data: (await response.json()) as T,
+      data,
       continuationToken: response.headers.get('x-ms-continuationtoken'),
     }
   }

@@ -1,6 +1,6 @@
 import { Avatar, type AvatarProps } from '@mui/material'
 import { useEffect, useState } from 'react'
-import { loadStoredPat } from '../../../adoAuth'
+import { getPatSessionSignal, loadStoredPat } from '../../../adoAuth'
 
 type AvatarCacheEntry = {
   pat: string
@@ -53,6 +53,7 @@ function loadAvatarDataUrl(imageUrl: string, identity: AdoAvatarIdentity, pat: s
   graphUrl.searchParams.set('api-version', '7.1')
 
   const request = fetch(graphUrl, {
+    signal: getPatSessionSignal(),
     headers: {
       Authorization: `Basic ${btoa(`:${pat}`)}`,
       Accept: 'application/json',
