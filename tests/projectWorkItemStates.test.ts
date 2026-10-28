@@ -49,7 +49,7 @@ test('failed metadata remains an error until retry, then restores types and stat
   t.after(() => act(() => root.unmount()))
   await act(async () => root.render(createElement(Metadata)))
 
-  assert.match(result!.workItemStatesError, /Unable to load work item types and states.*503.*Metadata temporarily unavailable/)
+  assert.equal(result!.workItemStatesError, 'Unable to load work item types and states: Azure DevOps query failed (HTTP 503). Try refreshing.')
   assert.deepEqual(result!.workItemTypes, [])
   assert.equal(result!.workItemStatesLoading, false)
   assert.equal(requests, 1, 'states and types share one request')
@@ -119,7 +119,7 @@ for (const view of ['development', 'qa-activity']) {
     const root = createRoot(document.createElement('div'))
     t.after(() => act(() => root.unmount()))
     await act(async () => root.render(createElement(Board)))
-    assert.match(result!.projectWorkItemStatesError, /503.*Metadata temporarily unavailable/)
+    assert.equal(result!.projectWorkItemStatesError, 'Unable to load work item types and states: Azure DevOps query failed (HTTP 503). Try refreshing.')
     assert.equal(result!.workItemsError, null)
     assert.equal(result!.membersError, null)
     assert.equal(result!.isTeamDataLoading, false)
@@ -160,7 +160,7 @@ test('iteration-window failures block board results after team iteration metadat
   t.after(() => act(() => root.unmount()))
   await act(async () => root.render(createElement(Board)))
 
-  assert.match(result!.teamIterationsError, /503.*Iteration window unavailable/)
+  assert.equal(result!.teamIterationsError, 'Azure DevOps query failed (HTTP 503). Try refreshing.')
   assert.equal(result!.workItemsError, null)
   assert.equal(result!.isTeamDataLoading, false)
 })
