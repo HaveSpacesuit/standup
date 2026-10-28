@@ -33,7 +33,7 @@ export function StandupContent({
           {' '}In Settings &gt; Teams, import a backup or add a team to replace the unreadable profiles.
         </Alert>
       ) : null}
-      <ContentErrorBoundary key={`${activeView}:${teamAssignmentsPageProps.selectedTeamId}`}>
+      <ContentErrorBoundary resetKey={`${activeView}:${teamAssignmentsPageProps.selectedTeamId}`}>
         {activeView === 'development' ? (
           <TeamAssignmentsPage {...teamAssignmentsPageProps} />
         ) : activeView === 'qa-activity' ? (

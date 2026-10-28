@@ -1,8 +1,27 @@
 import { Component, type ReactNode } from 'react'
 import { Alert, AlertTitle, Box, Button } from '@mui/material'
 
-export class ContentErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false }
+type ContentErrorBoundaryProps = {
+  children: ReactNode
+  resetKey?: string
+}
+
+type ContentErrorBoundaryState = {
+  hasError: boolean
+  resetKey?: string
+}
+
+export class ContentErrorBoundary extends Component<ContentErrorBoundaryProps, ContentErrorBoundaryState> {
+  state: ContentErrorBoundaryState = { hasError: false }
+
+  static getDerivedStateFromProps(
+    props: ContentErrorBoundaryProps,
+    state: ContentErrorBoundaryState,
+  ): Partial<ContentErrorBoundaryState> | null {
+    return props.resetKey !== state.resetKey
+      ? { hasError: false, resetKey: props.resetKey }
+      : null
+  }
 
   static getDerivedStateFromError() {
     return { hasError: true }
