@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Box, Chip, Dialog, DialogContent, DialogTitle, IconButton, Skeleton, Typography } from '@mui/material'
+import { Box, Dialog, DialogContent, DialogTitle, IconButton, Skeleton, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgWindowExpand from '@stratakit/icons/window-expand.svg'
 import type { IterationWindowInfo } from '../../../ado/queryEngine'
 import { EffortFlowChart } from './EffortFlowChart'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 import { parseDateOnly } from '../utils/dateOnly'
+import { SprintForecastChip } from './SprintForecastChip'
+import type { SprintForecast } from '../utils/sprintForecast'
 
 type SprintSummaryBarProps = {
   iterationWindow: IterationWindowInfo
@@ -13,6 +15,7 @@ type SprintSummaryBarProps = {
   error?: string | null
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
+  sprintForecast: SprintForecast
   colorScheme: 'light' | 'dark'
 }
 
@@ -77,6 +80,7 @@ export function SprintSummaryBar({
   error,
   effortFlowPoints,
   effortFlowLoading,
+  sprintForecast,
   colorScheme,
 }: SprintSummaryBarProps) {
   const current = iterationWindow.current
@@ -193,23 +197,7 @@ export function SprintSummaryBar({
             {current?.fullName ?? 'Unavailable'}
           </Typography>
         </Box>
-        <Chip
-          size="small"
-          variant="outlined"
-          sx={{
-            flexShrink: 0,
-            '@container (max-width: 600px)': {
-              '& .MuiChip-label': {
-                px: 1,
-              },
-            },
-          }}
-          label={
-            daysRemaining === null
-              ? 'Days: unavailable'
-              : `Days remaining: ${daysRemaining}`
-          }
-        />
+        <SprintForecastChip daysRemaining={daysRemaining} forecast={sprintForecast} />
       </Box>
 
       <Box

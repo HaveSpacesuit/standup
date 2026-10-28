@@ -3,7 +3,7 @@ import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { WorkItemPullRequestSummary, WorkItemSummary, PullRequestApiResponse } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
-import { buildIterationScopedWiql, buildQaBucketCandidatesWiql } from './wiql'
+import { buildIterationMembershipWiql, buildIterationScopedWiql, buildQaBucketCandidatesWiql } from './wiql'
 import { fetchPolicyEvaluationChecksSummary, fetchProjectId } from './policyEvaluationChecksApi'
 import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
 import { getPullRequestIconUrl, parsePullRequestArtifactLink, type PullRequestArtifactRef } from './adoShared'
@@ -375,12 +375,12 @@ async function fetchPullRequestRefsByWorkItem(
   return refsByWorkItem
 }
 
-async function fetchWorkItemsByWiql(
+async function fetchWorkItemIdsByWiql(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
   wiqlQuery: string,
   signal?: AbortSignal,
-): Promise<WorkItemSummary[]> {
+): Promise<number[]> {
   const wiqlResponse = await client.request<WiqlResponse>({
     method: 'POST',
     orgName: team.orgName,
@@ -394,7 +394,27 @@ async function fetchWorkItemsByWiql(
     signal,
   })
 
-  const ids = (wiqlResponse.workItems ?? []).map((item) => item.id)
+  return (wiqlResponse.workItems ?? []).map((item) => item.id)
+}
+
+async function fetchWorkItemsByWiql(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  wiqlQuery: string,
+  signal?: AbortSignal,
+): Promise<WorkItemSummary[]> {
+  const ids = await fetchWorkItemIdsByWiql(client, team, wiqlQuery, signal)
+  return fetchWorkItemSummariesByIds(client, team, ids, signal)
+}
+
+async function fetchWorkItemSummariesByIds(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  ids: number[],
+  signal?: AbortSignal,
+  options: { includePullRequests?: boolean } = {},
+): Promise<WorkItemSummary[]> {
+  const includePullRequests = options.includePullRequests ?? true
   if (ids.length === 0) {
     return []
   }
@@ -433,6 +453,9 @@ async function fetchWorkItemsByWiql(
   const workItemIconMap = await workItemIconMapPromise
   const pullRequestIconUrl = getPullRequestIconUrl(workItemIconMap)
   const pullRequestRefsByWorkItem = await (async () => {
+    if (!includePullRequests) {
+      return new Map<number, PullRequestRef[]>()
+    }
     try {
       return await fetchPullRequestRefsByWorkItem(client, team, ids, signal)
     } catch {
@@ -440,6 +463,9 @@ async function fetchWorkItemsByWiql(
     }
   })()
   const activePullRequestsByWorkItem = await (async () => {
+    if (!includePullRequests) {
+      return {}
+    }
     try {
       return await fetchActivePullRequestsByWorkItem(
         client,
@@ -514,6 +540,31 @@ export async function fetchWorkItemsForCurrentAndNextIteration(
   )
 
   return fetchWorkItemsByWiql(client, team, wiqlQuery, signal)
+}
+
+export type SprintScopeChanges = {
+  /** Work items that were in the iteration as of sprint start. */
+  startItemIds: number[]
+  /** Items in the iteration at sprint start that are no longer in it (current field values). */
+  removedItems: WorkItemSummary[]
+}
+
+export async function fetchSprintScopeChanges(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'areaPath'>,
+  iterationPath: string,
+  sprintStart: string,
+  includeWorkItemTypes: string[] = [],
+  signal?: AbortSignal,
+): Promise<SprintScopeChanges> {
+  const [startItemIds, currentItemIds] = await Promise.all([
+    fetchWorkItemIdsByWiql(client, team, buildIterationMembershipWiql(team.projectName, team.areaPath, iterationPath, includeWorkItemTypes, sprintStart), signal),
+    fetchWorkItemIdsByWiql(client, team, buildIterationMembershipWiql(team.projectName, team.areaPath, iterationPath, includeWorkItemTypes), signal),
+  ])
+  const currentIds = new Set(currentItemIds)
+  const removedIds = startItemIds.filter((id) => !currentIds.has(id))
+  const removedItems = await fetchWorkItemSummariesByIds(client, team, removedIds, signal, { includePullRequests: false })
+  return { startItemIds, removedItems }
 }
 
 async function fetchWorkItemUpdatesById(

@@ -22,6 +22,24 @@ When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage
 and does not change the sprint view.
 
+Hover or focus the Days remaining tag for a current-sprint effort forecast:
+Remaining (Blocked + New + Active + Review), Not started (Blocked + New, shown nested because it
+is part of Remaining), Complete (Done), Added (effort that joined after sprint start, already
+counted in Remaining or Complete), and Removed (sprint-start effort of items moved out of
+the sprint). The table compares the sprint-start snapshot, current effort, and independently
+projected end-of-sprint effort, using a linear weekday trend after at least one working day has
+elapsed. Added and Removed effort are carried forward rather than projected.
+Sprint-start membership comes from a WIQL `ASOF` query at the sprint start date, so items that
+joined later count as added scope (starting at zero), and removed items stay in the Start column.
+Each value shows its percentage of the effort committed at sprint start, in every column.
+Remaining + Complete + Removed is 100% at Start; added scope can push Now and Projected end
+past 100%, which signals extra capacity rather than an error.
+Remaining-work projections cannot fall below zero; Complete is capped at current scope effort.
+Like the footer chart, this uses current-sprint work items (and removed items) matching
+member/text filters, excluding PR-only cards. An item added and then removed mid-sprint is not
+counted. Estimate changes can distort the trend. Missing history suppresses the forecast rather
+than implying certainty.
+
 ### Quality assurance view
 
 The QA activity page surfaces recently created and changed work items for review, with:

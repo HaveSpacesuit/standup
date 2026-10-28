@@ -26,9 +26,21 @@ const baseArgs: HookArgs = {
   iterationWindow: { current: { name: 'Sprint', fullName: 'Project\\Sprint', startDate: '2026-10-01', finishDate: '2026-10-14' }, next: null },
 }
 
+function revision(at: string, state: string, effort = 8): import('../src/ado/queryEngine.ts').WorkItemUpdate {
+  return {
+    revisedDate: at,
+    fields: {
+      'System.State': { newValue: state },
+      'Microsoft.VSTS.Scheduling.Effort': { newValue: effort },
+    },
+  }
+}
+
 function createHookHarness(t: TestContext) {
   const states: unknown[] = []
+  const memos: { deps: unknown[]; value: unknown }[] = []
   let stateIndex = 0
+  let memoIndex = 0
   let effect: () => (() => void) | undefined
   let cleanup: (() => void) | undefined
   hooks.useState.mock.mockImplementation((initial: unknown) => {
@@ -36,12 +48,22 @@ function createHookHarness(t: TestContext) {
     if (!(index in states)) states[index] = initial
     return [states[index], (value: unknown) => { states[index] = value }]
   })
-  hooks.useMemo.mock.mockImplementation((factory: () => unknown) => factory())
+  hooks.useMemo.mock.mockImplementation((factory: () => unknown, deps: unknown[]) => {
+    const index = memoIndex++
+    const previous = memos[index]
+    if (previous && previous.deps.length === deps.length && previous.deps.every((dep, i) => Object.is(dep, deps[i]))) {
+      return previous.value
+    }
+    const value = factory()
+    memos[index] = { deps, value }
+    return value
+  })
   hooks.useEffect.mock.mockImplementation((setup: typeof effect) => { effect = setup })
   t.after(() => cleanup?.())
 
   const read = function useHistorySnapshot(args: HookArgs) {
     stateIndex = 0
+    memoIndex = 0
     return useEffortFlowHistory(args)
   }
   return {
@@ -67,6 +89,161 @@ test('a cold empty history is settled and makes no requests', (t) => {
   assert.deepEqual(result.points, [])
   assert.deepEqual(result.visitedStatusesByItemId, {})
   assert.equal(getWorkItemUpdates.mock.callCount(), 0)
+  assert.equal(result.sprintForecast.status, 'unavailable')
+})
+
+test('forecast uses exact sprint-start history rather than the first end-of-day chart point', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 26).getTime() })
+  const getWorkItemUpdates = t.mock.fn(async () => [
+    revision('2026-10-16T12:00:00', 'New'),
+    revision('2026-10-19T12:00:00', 'Active'),
+  ])
+  const args: HookArgs = {
+    ...baseArgs,
+    adoQueryEngine: { getWorkItemUpdates } as HookArgs['adoQueryEngine'],
+    workItems: [{ ...item, status: 'Active', effort: 8, createdAt: '2026-10-16' }],
+    iterationWindow: {
+      current: { name: 'Sprint', fullName: 'Project\\Sprint', startDate: '2026-10-19', finishDate: '2026-10-30' },
+      next: null,
+    },
+  }
+  const hook = createHookHarness(t)
+  assert.equal(hook.update(args).sprintForecast.status, 'loading')
+  await new Promise((resolve) => setImmediate(resolve))
+  const result = hook.read(args)
+  assert.equal(result.sprintForecast.status, 'ready')
+  if (result.sprintForecast.status !== 'ready') return
+  assert.deepEqual(result.sprintForecast.rows[1], { label: 'Not started', nested: true, start: 8, current: 0, projected: 0 })
+  assert.equal(result.points[0].Active, 8)
+  assert.equal(result.points[0].New, 0)
+  assert.equal(getWorkItemUpdates.mock.callCount(), 1)
+
+  const changedTeam = { ...args, team: { ...args.team, projectName: 'other' } }
+  assert.equal(hook.read(changedTeam).sprintForecast.status, 'loading')
+})
+
+for (const missingHistory of ['request failure', 'empty revisions', 'missing baseline', 'unknown starting state'] as const) {
+  test(`forecast is explicitly unavailable for ${missingHistory} while retaining chart fallback`, async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 26).getTime() })
+    const getWorkItemUpdates = t.mock.fn(async () => {
+      if (missingHistory === 'request failure') throw new Error('503 Service Unavailable')
+      return missingHistory === 'empty revisions' ? [] : [
+        ...(missingHistory === 'unknown starting state'
+          ? [{ revisedDate: '2026-09-30T12:00:00', fields: { 'System.Tags': { newValue: 'triage' } } }]
+          : []),
+        revision('2026-10-20T12:00:00', 'Active'),
+      ]
+    })
+    const args = { ...baseArgs, adoQueryEngine: { getWorkItemUpdates } as HookArgs['adoQueryEngine'] }
+    const hook = createHookHarness(t)
+    hook.update(args)
+    await new Promise((resolve) => setImmediate(resolve))
+    const result = hook.read(args)
+    assert.equal(result.sprintForecast.status, 'unavailable')
+    if (result.sprintForecast.status === 'unavailable') {
+      assert.match(result.sprintForecast.reason, /history.*(?:could not be loaded|does not establish)/)
+    }
+    assert.ok(result.points.length > 0)
+  })
+}
+
+test('forecast follows selected work items, excludes PR-only cards, and starts new items at zero', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 26).getTime() })
+  const items: HookArgs['workItems'] = [
+    { ...item, id: 1, status: 'Done', effort: 8, createdAt: '2026-10-01' },
+    { ...item, id: 2, status: 'New', effort: 5, createdAt: '2026-10-21T12:00:00' },
+    { ...item, id: -3, kind: 'pull-request', effort: 100 },
+  ]
+  const getWorkItemUpdates = t.mock.fn(async (_team, id: number) => id === 1
+    ? [revision('2026-10-01T12:00:00', 'New', 8)]
+    : id === 2 ? [revision('2026-10-21T12:00:00', 'New', 5)] : [])
+  const args: HookArgs = {
+    ...baseArgs, workItems: items, historyWorkItems: items,
+    adoQueryEngine: { getWorkItemUpdates } as HookArgs['adoQueryEngine'],
+    iterationWindow: {
+      current: { name: 'Sprint', fullName: 'Project\\Sprint', startDate: '2026-10-19', finishDate: '2026-10-30' },
+      next: null,
+    },
+  }
+  const hook = createHookHarness(t)
+  hook.update(args)
+  await new Promise((resolve) => setImmediate(resolve))
+  const result = hook.read(args)
+  assert.equal(result.sprintForecast.status, 'ready')
+  if (result.sprintForecast.status !== 'ready') return
+  assert.equal(result.sprintForecast.totalEffort, 13)
+  assert.equal(result.sprintForecast.rows[1].start, 8)
+  assert.equal(result.sprintForecast.rows[1].current, 5)
+  assert.equal(result.sprintForecast.rows[2].current, 8)
+
+  const selected = hook.read({ ...args, workItems: [items[0]] })
+  assert.equal(selected.sprintForecast.status, 'ready')
+  if (selected.sprintForecast.status === 'ready') assert.equal(selected.sprintForecast.totalEffort, 8)
+})
+
+test('finished sprint forecast stops at sprint end instead of including later changes', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 26).getTime() })
+  const getWorkItemUpdates = t.mock.fn(async () => [
+    revision('2026-09-30T12:00:00', 'New', 8),
+    revision('2026-10-12T12:00:00', 'Active', 8),
+    revision('2026-10-20T12:00:00', 'Done', 13),
+  ])
+  const args: HookArgs = {
+    ...baseArgs, adoQueryEngine: { getWorkItemUpdates } as HookArgs['adoQueryEngine'],
+    workItems: [{ ...item, status: 'Done', effort: 13 }],
+  }
+  const hook = createHookHarness(t)
+  hook.update(args)
+  await new Promise((resolve) => setImmediate(resolve))
+  const result = hook.read(args)
+  assert.equal(result.sprintForecast.status, 'ready')
+  if (result.sprintForecast.status !== 'ready') return
+  assert.equal(result.sprintForecast.totalEffort, 8)
+  assert.deepEqual(result.sprintForecast.rows[0], { label: 'Remaining', start: 8, current: 8, projected: 8 })
+  assert.deepEqual(result.sprintForecast.rows[2], { label: 'Complete', start: 0, current: 0, projected: 0 })
+})
+
+test('sprint-start membership counts removed effort and treats late joiners as added', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 26).getTime() })
+  const items: HookArgs['workItems'] = [
+    { ...item, id: 1, status: 'Done', effort: 8, createdAt: '2026-10-01' },
+    { ...item, id: 2, status: 'New', effort: 5, createdAt: '2026-10-01' },
+  ]
+  const removed = { ...item, id: 4, status: 'New' as const, effort: 6, createdAt: '2026-10-01' }
+  const getWorkItemUpdates = t.mock.fn(async (_team, id: number) =>
+    [revision('2026-10-01T12:00:00', 'New', id === 1 ? 8 : id === 2 ? 5 : 6)])
+  const args: HookArgs = {
+    ...baseArgs, workItems: items, historyWorkItems: items,
+    adoQueryEngine: { getWorkItemUpdates } as HookArgs['adoQueryEngine'],
+    iterationWindow: {
+      current: { name: 'Sprint', fullName: 'Project\\Sprint', startDate: '2026-10-19', finishDate: '2026-10-30' },
+      next: null,
+    },
+    sprintScope: { status: 'ready', startItemIds: new Set([1, 4]), removedItems: [removed] },
+  }
+  const hook = createHookHarness(t)
+  hook.update(args)
+  await new Promise((resolve) => setImmediate(resolve))
+  const result = hook.read(args)
+  assert.equal(result.sprintForecast.status, 'ready')
+  if (result.sprintForecast.status !== 'ready') return
+  assert.deepEqual(getWorkItemUpdates.mock.calls.map((call) => call.arguments[1]).sort(), [1, 2, 4])
+  assert.equal(result.sprintForecast.startTotalEffort, 14)
+  assert.equal(result.sprintForecast.totalEffort, 13)
+  assert.equal(result.sprintForecast.addedEffort, 5)
+  assert.equal(result.sprintForecast.removedEffort, 6)
+  assert.deepEqual(result.sprintForecast.rows.map((row) => [row.label, row.start, row.current]), [
+    ['Remaining', 14, 5],
+    ['Not started', 14, 5],
+    ['Complete', 0, 8],
+    ['Added', 0, 5],
+    ['Removed', 0, 6],
+  ])
+
+  assert.equal(hook.read({ ...args, sprintScope: { status: 'loading' } }).sprintForecast.status, 'loading')
+  const unavailable = hook.read({ ...args, sprintScope: { status: 'unavailable' } }).sprintForecast
+  assert.equal(unavailable.status, 'unavailable')
+  if (unavailable.status === 'unavailable') assert.match(unavailable.reason, /membership/)
 })
 
 for (const transition of ['empty history', 'missing query engine'] as const) {

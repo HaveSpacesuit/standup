@@ -56,6 +56,7 @@ const props: PageProps = {
   changeHighlightsByItemId: {},
   effortFlowPoints: [],
   effortFlowLoading: false,
+  sprintForecast: { status: 'unavailable', reason: 'No current-sprint work items match the current filters.' },
   workItemAssignees: {},
   iterationWindow: { current: null, next: null },
   iterationLoading: false,

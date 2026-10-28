@@ -6,6 +6,7 @@ import type { TeamProfile } from '../../../appSettings'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
 import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHistoryHighlights'
 import { useEffortFlowHistory, type EffortFlowPoint } from './useEffortFlowHistory'
+import { useSprintScopeChanges } from './useSprintScopeChanges'
 import { useTeamData } from './useTeamData'
 import { useWorkItemAssignees } from './useWorkItemAssignees'
 import { useBoardPreferences } from './useBoardPreferences'
@@ -25,6 +26,7 @@ import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
 import type { StatusColumn } from '../utils/statusColumnStyles'
+import type { SprintForecast } from '../utils/sprintForecast'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -63,6 +65,7 @@ type UseBoardViewModelResult = {
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
+  sprintForecast: SprintForecast
   visitedStatusesByItemId: Record<number, StatusColumn[]>
   rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
@@ -289,13 +292,26 @@ export function useBoardViewModel({
     [visibleBoardItems, currentIteration],
   )
 
-  const { points: effortFlowPoints, isLoading: effortFlowLoading, visitedStatusesByItemId } = useEffortFlowHistory({
+  const sprintScope = useSprintScopeChanges({
+    adoQueryEngine: scopedQueryEngine,
+    team: effectiveTeam,
+    currentIteration,
+    includeWorkItemTypes: selectedAssignmentWorkItemTypes,
+    tagRules,
+    members,
+    quickFilterInput,
+    selectedMemberFilter,
+    reloadNonce: developmentReloadNonce,
+  })
+
+  const { points: effortFlowPoints, isLoading: effortFlowLoading, visitedStatusesByItemId, sprintForecast } = useEffortFlowHistory({
     adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
     tagRules,
     workItems: currentSprintBoardItems,
     historyWorkItems: visibleBoardItems,
     iterationWindow,
+    sprintScope,
   })
 
   const rolledOverItemIds = useIterationRolloverFlags({
@@ -323,7 +339,10 @@ export function useBoardViewModel({
 
     adoQueryEngine.clearDevelopmentDataCache(selectedTeam.id)
     adoQueryEngine.clearTeamMetadataCaches(selectedTeam)
-    adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, boardItems.map((item) => item.id))
+    adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, [
+      ...boardItems.map((item) => item.id),
+      ...(sprintScope.status === 'ready' ? sprintScope.removedItems.map((item) => item.id) : []),
+    ])
     forceRefreshRef.current = true
     setDevelopmentReloadNonce((current) => current + 1)
   }
@@ -366,6 +385,7 @@ export function useBoardViewModel({
     changeHighlightsByItemId,
     effortFlowPoints,
     effortFlowLoading,
+    sprintForecast,
     visitedStatusesByItemId,
     rolledOverItemIds,
     workItemAssignees,

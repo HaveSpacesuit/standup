@@ -6,13 +6,14 @@ import { fetchIterationWindowInfo, fetchTeamIterations } from './teamIterationsA
 import { fetchTeamMembers } from './teamMembersApi'
 import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
-import { fetchQualityAssuranceRawData, fetchWorkItemsForCurrentAndNextIteration } from './workItemsApi'
+import { fetchQualityAssuranceRawData, fetchSprintScopeChanges, fetchWorkItemsForCurrentAndNextIteration, type SprintScopeChanges } from './workItemsApi'
 import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState } from './workItemTypesApi'
 import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
 import type { QualityAssuranceRawData } from './workItemsApi'
 
 export type { CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
+export type { SprintScopeChanges } from './workItemsApi'
 
 // Shared cache-key builders so a getter and its corresponding `clear*Cache` method can never
 // drift apart and silently stop invalidating (each key shape is defined in exactly one place).
@@ -37,6 +38,7 @@ export class AdoQueryEngine {
   private readonly client: AdoHttpClient
   private readonly assigneeResolver: WorkItemAssigneeResolver
   private readonly teamWorkItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
+  private readonly sprintScopeChangesCache = new Map<string, Promise<SprintScopeChanges>>()
   private readonly qaRawDataCache = new Map<string, Promise<QualityAssuranceRawData>>()
   private readonly unlinkedPullRequestItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
   private readonly teamMembersCache = new Map<string, Promise<TeamMember[]>>()
@@ -165,8 +167,31 @@ export class AdoQueryEngine {
     }), options?.forceRefresh)
   }
 
+  async getSprintScopeChanges(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+    iterationPath: string,
+    sprintStart: string,
+    _signal?: AbortSignal,
+    options?: { includeWorkItemTypes?: string[] },
+  ): Promise<SprintScopeChanges> {
+    const sortedTypes = [...(options?.includeWorkItemTypes ?? [])].sort()
+    const cacheKey = `${team.id}:${JSON.stringify([team.areaPath.toLowerCase(), iterationPath.toLowerCase(), sprintStart, sortedTypes.map((type) => type.toLowerCase())])}`
+    return this.getOrLoadCached(this.sprintScopeChangesCache, cacheKey, () => fetchSprintScopeChanges(
+      this.client,
+      team,
+      iterationPath,
+      sprintStart,
+      sortedTypes,
+    ))
+  }
+
   clearDevelopmentDataCache(teamId?: string): void {
     if (teamId) {
+      for (const key of this.sprintScopeChangesCache.keys()) {
+        if (key.startsWith(`${teamId}:`)) {
+          this.sprintScopeChangesCache.delete(key)
+        }
+      }
       // Team work-item cache keys can be compound (`${teamId}:types:<...>`) when type filters
       // are active, so clear every entry belonging to this team.
       for (const key of this.teamWorkItemsCache.keys()) {
@@ -183,6 +208,7 @@ export class AdoQueryEngine {
     }
 
     this.teamWorkItemsCache.clear()
+    this.sprintScopeChangesCache.clear()
     this.unlinkedPullRequestItemsCache.clear()
   }
 

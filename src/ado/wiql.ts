@@ -41,6 +41,33 @@ export function buildIterationScopedWiql(
   return clauses.join('\n')
 }
 
+export function buildIterationMembershipWiql(
+  projectName: string,
+  areaPath: string,
+  iterationPath: string,
+  includeWorkItemTypes: string[] = [],
+  asOf?: string,
+): string {
+  const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
+  const clauses = [
+    'SELECT [System.Id]',
+    'FROM WorkItems',
+    `WHERE [System.TeamProject] = ${quote(projectName)}`,
+    `  AND [System.AreaPath] UNDER ${quote(areaPath)}`,
+    `  AND [System.IterationPath] = ${quote(iterationPath)}`,
+  ]
+
+  if (includeWorkItemTypes.length > 0) {
+    clauses.push(`  AND [System.WorkItemType] IN (${includeWorkItemTypes.map(quote).join(', ')})`)
+  }
+
+  if (asOf) {
+    clauses.push(`ASOF ${quote(asOf)}`)
+  }
+
+  return clauses.join('\n')
+}
+
 export function buildQaBucketCandidatesWiql(
   projectName: string,
   areaPath: string,

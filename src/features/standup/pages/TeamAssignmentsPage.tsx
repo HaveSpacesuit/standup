@@ -20,6 +20,7 @@ import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
+import type { SprintForecast } from '../utils/sprintForecast'
 
 type TeamAssignmentsPageProps = {
   patConfigured: boolean
@@ -50,6 +51,7 @@ type TeamAssignmentsPageProps = {
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
+  sprintForecast: SprintForecast
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
   iterationWindow: IterationWindowInfo
   iterationLoading: boolean
@@ -103,6 +105,7 @@ export function TeamAssignmentsPage({
   changeHighlightsByItemId,
   effortFlowPoints,
   effortFlowLoading,
+  sprintForecast,
   workItemAssignees,
   iterationWindow,
   iterationLoading,
@@ -233,6 +236,11 @@ export function TeamAssignmentsPage({
             error={teamIterationsError}
             effortFlowPoints={effortFlowPoints}
             effortFlowLoading={effortFlowLoading}
+            sprintForecast={isTeamDataLoading
+              ? { status: 'loading' }
+              : membersError || workItemsError || assigneesError
+                ? { status: 'unavailable', reason: 'Board data could not be loaded. Refresh to retry.' }
+                : sprintForecast}
             colorScheme={colorScheme}
           />
 
