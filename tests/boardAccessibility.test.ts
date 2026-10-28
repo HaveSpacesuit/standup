@@ -115,6 +115,45 @@ test('team and member selectors have stable accessible names', () => {
   assert.match(developmentToolbar, /flex-wrap:wrap/)
 })
 
+test('team selectors show only the selected display name in the input', () => {
+  const teams = [
+    {
+      id: 'first', displayName: 'Shared Team', orgName: 'first-org', projectName: 'first-project',
+      areaPath: '', iterationPath: '', teamName: 'Internal Team', repoName: '',
+    },
+    {
+      id: 'second', displayName: 'Shared Team', orgName: 'second-org', projectName: 'second-project',
+      areaPath: '', iterationPath: '', teamName: 'Other Internal Team', repoName: '',
+    },
+  ]
+
+  for (const selectedTeamId of ['first', 'second']) {
+    const selectors = [
+      createElement(TeamToolbarControls, {
+        teamOptions: teams, selectedTeamId, onTeamChange: () => {}, teamManagementUrl: '',
+      }),
+      createElement(TeamSelectorCard, {
+        teams, selectedTeamId, onTeamChange: () => {}, onRefresh: () => {}, refreshDisabled: false,
+      }),
+    ]
+
+    for (const selector of selectors) {
+      const html = render(selector)
+      assert.match(html, /role="combobox"[^>]*>Shared Team<\/div>/)
+      assert.doesNotMatch(html, /first-org|first-project|second-org|second-project/)
+      assert.match(html, new RegExp(`<input[^>]*value="${selectedTeamId}"`))
+    }
+  }
+})
+
+test('unconfigured toolbar team selector retains its disabled placeholder', () => {
+  const html = render(createElement(TeamToolbarControls, {
+    teamOptions: [], selectedTeamId: '', onTeamChange: () => {}, teamManagementUrl: '',
+  }))
+
+  assert.match(html, /role="combobox"[^>]*aria-disabled="true"[^>]*>No teams configured<\/div>/)
+})
+
 test('Development board exposes status and member labels as headings', () => {
   const html = render(createElement(KanbanBoardGrid, {
     boardGridTemplate: '175px repeat(5, minmax(200px, 1fr))',

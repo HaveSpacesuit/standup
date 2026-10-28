@@ -24,6 +24,7 @@ export function TeamToolbarControls({
   children,
 }: TeamToolbarControlsProps) {
   const hasConfiguredTeams = teamOptions.length > 0
+  const selectedTeam = teamOptions.find((team) => team.id === selectedTeamId)
 
   const handleTeamChange = (event: SelectChangeEvent<string>) => {
     onTeamChange(event.target.value)
@@ -56,6 +57,7 @@ export function TeamToolbarControls({
         <Select
           aria-label="Team"
           value={hasConfiguredTeams ? selectedTeamId : ''}
+          renderValue={selectedTeam ? () => selectedTeam.displayName : undefined}
           onChange={handleTeamChange}
           displayEmpty
           disabled={!hasConfiguredTeams}

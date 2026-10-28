@@ -18,6 +18,8 @@ export function TeamSelectorCard({
   onRefresh,
   refreshDisabled,
 }: TeamSelectorCardProps) {
+  const selectedTeam = teams.find((team) => team.id === selectedTeamId)
+
   return (
     <Card sx={{ mb: 2 }}>
       <CardContent>
@@ -26,7 +28,12 @@ export function TeamSelectorCard({
             Team
           </Typography>
           <FormControl sx={{ minWidth: 260, flex: 1 }}>
-            <Select aria-label="Team" value={selectedTeamId} onChange={onTeamChange}>
+            <Select
+              aria-label="Team"
+              value={selectedTeamId}
+              onChange={onTeamChange}
+              renderValue={selectedTeam ? () => selectedTeam.displayName : undefined}
+            >
               {teams.map((team) => (
                 <MenuItem key={team.id} value={team.id}>
                   {getTeamProfileLabel(team)}
