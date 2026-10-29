@@ -212,6 +212,8 @@ Prepare data that exercises both populated and empty states:
 ### Sprint view
 
 - [ ] Select Sprint view and verify items are grouped by sprint/iteration as intended.
+- [ ] Verify left- and right-pointing move-history arrow tips meet the resting card border exactly,
+      without overlapping its content or leaving a gap.
 - [ ] Verify current, past, future, and rollover sprint labels are correct.
 - [ ] Verify switching between Assignment and Sprint views preserves the selected team and filters.
 - [ ] Verify changing the sprint scope updates cards and summary counts without stale cards.
@@ -273,6 +275,9 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify a PR API failure does not prevent work-item cards from loading.
 
 ## 8. Quality Assurance page
+
+- [ ] Hover and keyboard-focus cards in the first and last QA columns at narrow, two-column, and
+      four-column widths; verify enlarged cards are not clipped and no horizontal scrollbar appears.
 
 ### Page and board
 

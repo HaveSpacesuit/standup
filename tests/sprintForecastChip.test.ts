@@ -1,3 +1,4 @@
+import './stratakitNodeGlobals.ts'
 import assert from 'node:assert/strict'
 import { after, test, type TestContext } from 'node:test'
 import { act, createElement } from 'react'

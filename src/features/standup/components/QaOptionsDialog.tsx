@@ -26,6 +26,7 @@ import { createTagFilterRule, DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, n
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { normalizeCardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
+import { readStringArraySelectValue } from '../utils/selectValues'
 
 type QaOptionsDialogProps = {
   open: boolean
@@ -347,16 +348,15 @@ export function QaOptionsDialog({
               value={includeWorkItemTypes}
               input={<OutlinedInput />}
               onChange={(event) => {
-                const nextValue = typeof event.target.value === 'string'
-                  ? event.target.value.split(',')
-                  : event.target.value
+                const nextValue = readStringArraySelectValue(event.target.value)
                 setDraft((current) => ({ ...current, includeWorkItemTypes: nextValue }))
               }}
-              renderValue={(values) =>
-                values.length === 0
+              renderValue={(values) => {
+                const selectedValues = readStringArraySelectValue(values)
+                return selectedValues.length === 0
                   ? <span style={{ opacity: 0.5 }}>All types</span>
-                  : values.join(', ')
-              }
+                  : selectedValues.join(', ')
+              }}
               MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
             >
               {projectWorkItemTypes.map((type) => (
@@ -465,17 +465,16 @@ export function QaOptionsDialog({
                 value={registeredIterationPaths}
                 input={<OutlinedInput />}
                 onChange={(event) => {
-                  const nextValue = typeof event.target.value === 'string'
-                    ? event.target.value.split(',')
-                    : event.target.value
+                  const nextValue = readStringArraySelectValue(event.target.value)
                   handleSprintPathsChange(nextValue)
                 }}
                 renderValue={(values) => {
-                  if (values.length === 0) {
+                  const selectedValues = readStringArraySelectValue(values)
+                  if (selectedValues.length === 0) {
                     return <span style={{ opacity: 0.5 }}>None selected</span>
                   }
                   const nameByPath = new Map(teamIterations.map((it) => [it.path, it.name]))
-                  return values.map((path) => nameByPath.get(path) ?? path).join(', ')
+                  return selectedValues.map((path) => nameByPath.get(path) ?? path).join(', ')
                 }}
                 MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
               >
@@ -648,18 +647,17 @@ export function QaOptionsDialog({
                       value={selectedStates}
                       input={<OutlinedInput />}
                       onChange={(event) => {
-                        const nextValue = typeof event.target.value === 'string'
-                          ? event.target.value.split(',')
-                          : event.target.value
+                        const nextValue = readStringArraySelectValue(event.target.value)
                         const nextGroups: QaStateGroupOverrides = { ...stateGroups, [key]: nextValue }
                         const allEmpty = Object.values(nextGroups).every((arr) => arr.length === 0)
                         setDraft((current) => ({ ...current, stateGroups: allEmpty ? null : nextGroups }))
                       }}
-                      renderValue={(values) =>
-                        values.length === 0
+                      renderValue={(values) => {
+                        const selectedValues = readStringArraySelectValue(values)
+                        return selectedValues.length === 0
                           ? <span style={{ opacity: 0.5 }}>States: using defaults…</span>
-                          : `States: ${values.join(', ')}`
-                      }
+                          : `States: ${selectedValues.join(', ')}`
+                      }}
                       MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
                     >
                       {projectWorkItemStates.map((state) => (

@@ -11,7 +11,6 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Typography,
-  type SelectChangeEvent,
 } from '@mui/material'
 import type { RefObject } from 'react'
 import { Icon } from '@stratakit/mui'
@@ -27,6 +26,7 @@ import svgTimeline from '@stratakit/icons/timeline.svg'
 import svgDeveloper from '@stratakit/icons/developer.svg'
 import { PageToolbar } from './PageToolbar'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
+import { readStringSelectValue } from '../utils/selectValues'
 
 type StandupToolbarProps = {
   patConfigured: boolean
@@ -73,8 +73,8 @@ export function StandupToolbar({
 }: StandupToolbarProps) {
   const hasConfiguredTeams = teamOptions.length > 0
 
-  const handleMemberFilterChange = (event: SelectChangeEvent<string>) => {
-    onMemberFilterChange(event.target.value)
+  const handleMemberFilterChange = (value: unknown) => {
+    onMemberFilterChange(readStringSelectValue(value))
   }
 
   const getMember = (memberName: string) =>
@@ -159,7 +159,7 @@ export function StandupToolbar({
             aria-label="Filter by team member"
             displayEmpty
             value={selectedMemberFilter}
-            onChange={handleMemberFilterChange}
+            onChange={(event) => handleMemberFilterChange(event.target.value)}
             disabled={!patConfigured || memberFilterOptions.length === 0}
             renderValue={(value) => {
               if (!value || typeof value !== 'string') {

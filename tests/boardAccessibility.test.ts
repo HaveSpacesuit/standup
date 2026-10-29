@@ -1,8 +1,10 @@
+import './stratakitNodeGlobals.ts'
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
+import { JSDOM } from 'jsdom'
 
 for (const name of ['localStorage', 'sessionStorage']) {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, name)
@@ -33,6 +35,39 @@ const { QualityAssuranceList } = await server.ssrLoadModule('/src/features/stand
 function render(element: ReturnType<typeof createElement>) {
   return renderToStaticMarkup(createElement(Root, null, element))
 }
+
+test('QA cards can expand beyond their columns without creating nested scroll containers', () => {
+  const dom = new JSDOM(render(createElement(QualityAssuranceList, {
+    isLoading: false,
+    error: null,
+    historyWarning: null,
+    colorScheme: 'light',
+    buckets: [{
+      id: 'new',
+      title: 'Newly added',
+      items: [{ id: 1, title: 'Hoverable QA card', state: 'New', status: 'New' }],
+    }],
+  })))
+  try {
+    const { document } = dom.window
+    const styles = [...document.querySelectorAll('style')].map((style) => style.textContent ?? '')
+    const getStyles = (element: Element) => styles.filter((css) =>
+      [...element.classList].some((className) => css.includes(`.${className}{`)),
+    ).join('')
+    const column = document.querySelector('article[aria-labelledby]')
+    assert.ok(column)
+    assert.ok(getStyles(column).includes('overflow:visible;'))
+    const body = column.lastElementChild
+    assert.ok(body)
+    assert.doesNotMatch(getStyles(body), /overflow(?:-[xy])?:(?:auto|scroll|hidden|clip);/)
+    const main = document.querySelector('main')
+    assert.ok(main)
+    assert.match(getStyles(main), /overflow-y:auto;/)
+    assert.match(getStyles(main), /padding-(?:left|right):max\([^;]*2\.5%\);/)
+  } finally {
+    dom.window.close()
+  }
+})
 
 test('Development and QA toolbar titles are top-level headings', () => {
   for (const title of ['Development', 'Quality Assurance']) {

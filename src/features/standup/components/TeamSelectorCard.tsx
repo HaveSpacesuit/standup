@@ -1,12 +1,12 @@
 import { Button, Card, CardContent, FormControl, MenuItem, Select, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
-import type { SelectChangeEvent } from '@mui/material'
 import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
+import { readStringSelectValue } from '../utils/selectValues'
 
 type TeamSelectorCardProps = {
   teams: TeamProfile[]
   selectedTeamId: string
-  onTeamChange: (event: SelectChangeEvent<string>) => void
+  onTeamChange: (teamId: string) => void
   onRefresh: () => void
   refreshDisabled: boolean
 }
@@ -31,7 +31,7 @@ export function TeamSelectorCard({
             <Select
               aria-label="Team"
               value={selectedTeamId}
-              onChange={onTeamChange}
+              onChange={(event) => onTeamChange(readStringSelectValue(event.target.value))}
               renderValue={selectedTeam ? () => selectedTeam.displayName : undefined}
             >
               {teams.map((team) => (

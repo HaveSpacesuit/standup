@@ -118,11 +118,10 @@ export const WorkItemCard = memo(function WorkItemCard({
     >
       <Badge
         badgeContent={item.effort}
-        color={statusPaletteKey}
         max={999}
-        inline
         size="small"
         showZero
+        slotProps={{ badge: { sx: { bgcolor: statusColor, color: theme.palette[statusPaletteKey].contrastText } } }}
       >
         <Box sx={{ width: 0, height: 0 }} />
       </Badge>

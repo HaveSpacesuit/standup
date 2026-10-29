@@ -15,6 +15,7 @@ import { AdoErrorNotice } from './AdoErrorNotice'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 
 const BOARD_GRID_TEMPLATE = '175px repeat(5, minmax(200px, 1fr))'
+const CARD_GUTTER = 1.5
 
 type SprintViewBoardProps = {
   patConfigured: boolean
@@ -65,6 +66,7 @@ function MoveHistoryArrow({
   rowNumber: number
   color: string
 }) {
+  const theme = useTheme()
   const pointsRight = sourceColumnIndex < currentColumnIndex
   const spanStart = pointsRight ? sourceColumnIndex : currentColumnIndex + 1
   const spanEnd = pointsRight ? currentColumnIndex - 1 : sourceColumnIndex
@@ -73,9 +75,7 @@ function MoveHistoryArrow({
   const lineStartPercent = pointsRight ? sourceCenterFraction * 100 : 0
   const lineEndPercent = pointsRight ? 100 : sourceCenterFraction * 100
   const arrowheadLengthPx = 8
-  // The card cell reserves 12px (px: 1.5) of padding before its visible border, so nudge the whole
-  // arrow that far past the column boundary to land right at the card instead of stopping short of it.
-  const cardGutterPx = 12
+  const cardGutter = theme.spacing(pointsRight ? CARD_GUTTER : -CARD_GUTTER)
 
   return (
     <Box
@@ -91,7 +91,7 @@ function MoveHistoryArrow({
         display: 'flex',
         alignItems: 'center',
         justifyContent: pointsRight ? 'flex-start' : 'flex-end',
-        transform: `translateX(${pointsRight ? cardGutterPx : -cardGutterPx}px)`,
+        transform: `translateX(${cardGutter})`,
       }}
     >
       {/* A fixed (non-percentage) svg height keeps the line's y-coordinate a simple 1:1 mapping,
@@ -429,7 +429,7 @@ export function SprintViewBoard({
                     sx={{
                       gridColumn: currentColumnIndex + 2,
                       gridRow: rowNumber,
-                      px: 1.5,
+                      px: CARD_GUTTER,
                       py: 1,
                     }}
                   >

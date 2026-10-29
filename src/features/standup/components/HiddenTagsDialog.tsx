@@ -32,6 +32,7 @@ import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { normalizeCardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { TeamIterationOption } from '../../../ado/queryEngine'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
+import { readStringArraySelectValue } from '../utils/selectValues'
 
 type HiddenTagsDialogProps = {
   open: boolean
@@ -264,16 +265,14 @@ export function HiddenTagsDialog({
                     value={includeWorkItemTypes}
                     input={<OutlinedInput />}
                     onChange={(event) => {
-                      const nextValue = typeof event.target.value === 'string'
-                        ? event.target.value.split(',')
-                        : event.target.value
-                      onIncludeWorkItemTypesChange?.(nextValue)
+                      onIncludeWorkItemTypesChange?.(readStringArraySelectValue(event.target.value))
                     }}
-                    renderValue={(values) =>
-                      values.length === 0
+                    renderValue={(values) => {
+                      const selectedValues = readStringArraySelectValue(values)
+                      return selectedValues.length === 0
                         ? <span style={{ opacity: 0.5 }}>All types</span>
-                        : values.join(', ')
-                    }
+                        : selectedValues.join(', ')
+                    }}
                     MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
                   >
                     {projectWorkItemTypes.map((type) => (
@@ -353,17 +352,15 @@ export function HiddenTagsDialog({
                       value={registeredIterationPaths}
                       input={<OutlinedInput />}
                       onChange={(event) => {
-                        const nextValue = typeof event.target.value === 'string'
-                          ? event.target.value.split(',')
-                          : event.target.value
-                        handleSprintPathsChange(nextValue)
+                        handleSprintPathsChange(readStringArraySelectValue(event.target.value))
                       }}
                       renderValue={(values) => {
-                        if (values.length === 0) {
+                        const selectedValues = readStringArraySelectValue(values)
+                        if (selectedValues.length === 0) {
                           return <span style={{ opacity: 0.5 }}>None selected</span>
                         }
                         const nameByPath = new Map(teamIterations.map((it) => [it.path, it.name]))
-                        return values.map((path) => nameByPath.get(path) ?? path).join(', ')
+                        return selectedValues.map((path) => nameByPath.get(path) ?? path).join(', ')
                       }}
                       MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
                     >

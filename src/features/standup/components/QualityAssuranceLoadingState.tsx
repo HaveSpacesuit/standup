@@ -56,7 +56,7 @@ export function QualityAssuranceLoadingState({ colorScheme }: QualityAssuranceLo
         </Box>
       </Box>
 
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', py: 2, px: `max(${theme.spacing(2)}, 2.5%)` }}>
         <Box
           sx={{
             maxWidth: 1600,

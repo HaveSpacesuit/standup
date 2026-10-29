@@ -1,3 +1,4 @@
+import './stratakitNodeGlobals.ts'
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { JSDOM } from 'jsdom'
@@ -15,7 +16,16 @@ const server = await createServer({
 after(() => server.close())
 
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
+const { useTheme } = await server.ssrLoadModule('@mui/material/styles')
 const { SprintViewBoard } = await server.ssrLoadModule('/src/features/standup/components/SprintSummaryBoard.tsx')
+
+function CardGutterProbe() {
+  const theme = useTheme()
+  return createElement('span', {
+    'data-card-gutter': theme.spacing(1.5),
+    'data-negative-card-gutter': theme.spacing(-1.5),
+  })
+}
 
 function renderBoard(status: StatusColumn, visitedStatuses: StatusColumn[]) {
   const item: WorkItemSummary = {
@@ -26,7 +36,7 @@ function renderBoard(status: StatusColumn, visitedStatuses: StatusColumn[]) {
     sprintName: 'Sprint 1',
     workItemUrl: 'https://example.com/work-items/123',
   }
-  const html = renderToStaticMarkup(createElement(Root, null, createElement(SprintViewBoard, {
+  const html = renderToStaticMarkup(createElement(Root, null, createElement(CardGutterProbe), createElement(SprintViewBoard, {
     patConfigured: true,
     isLoading: false,
     colorScheme: 'light',
@@ -67,6 +77,15 @@ for (const { status, visitedStatuses, borderSide } of [
       const arrowStyle = getStyles(arrow)
       assert.match(arrowStyle, /z-index:2;/)
       assert.match(arrowStyle, /pointer-events:none;/)
+      const gutterProbe = document.querySelector('[data-card-gutter]')
+      assert.ok(gutterProbe)
+      const cardGutter = gutterProbe.getAttribute('data-card-gutter')
+      const arrowOffset = gutterProbe.getAttribute(borderSide === 'left' ? 'data-card-gutter' : 'data-negative-card-gutter')
+      assert.ok(arrowStyle.includes(`transform:translateX(${arrowOffset});`))
+      assert.ok(card.parentElement)
+      const cellStyle = getStyles(card.parentElement)
+      assert.ok(cellStyle.includes(`padding-left:${cardGutter};`))
+      assert.ok(cellStyle.includes(`padding-right:${cardGutter};`))
       assert.ok(getStyles(head).includes(`border-${borderSide}:8px solid`))
       assert.ok(card.compareDocumentPosition(arrow) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING)
 

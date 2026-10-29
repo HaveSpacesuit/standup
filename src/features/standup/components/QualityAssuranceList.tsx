@@ -84,7 +84,9 @@ export function QualityAssuranceList({ isLoading, error, historyWarning, buckets
         flex: 1,
         minHeight: 0,
         overflowY: 'auto',
-        p: 2,
+        py: 2,
+        // Reserve half the card's 5% hover growth at the page edges.
+        px: `max(${theme.spacing(2)}, 2.5%)`,
         bgcolor: 'background.default',
       }}
     >
@@ -123,6 +125,7 @@ export function QualityAssuranceList({ isLoading, error, historyWarning, buckets
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
+                overflow: 'visible',
                 border: '1px solid',
                 borderColor: getQaColumnBorderColor(accentColor, colorScheme),
               }}
@@ -132,6 +135,8 @@ export function QualityAssuranceList({ isLoading, error, historyWarning, buckets
                   p: 1.5,
                   pb: 1.25,
                   flex: '0 0 auto',
+                  borderTopLeftRadius: 'inherit',
+                  borderTopRightRadius: 'inherit',
                   borderBottom: '1px solid',
                   borderColor: getQaColumnBorderColor(accentColor, colorScheme),
                   bgcolor: getQaHeaderBackground(accentColor, colorScheme),
@@ -168,8 +173,9 @@ export function QualityAssuranceList({ isLoading, error, historyWarning, buckets
                 sx={{
                   flex: 1,
                   minHeight: 0,
-                  overflowY: 'auto',
                   p: 1.25,
+                  borderBottomLeftRadius: 'inherit',
+                  borderBottomRightRadius: 'inherit',
                   display: 'grid',
                   gap: 1,
                   alignContent: 'start',

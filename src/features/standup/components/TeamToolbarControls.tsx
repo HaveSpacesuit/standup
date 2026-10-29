@@ -1,8 +1,9 @@
-import { Box, Divider, FormControl, IconButton, MenuItem, Select, Tooltip, Typography, type SelectChangeEvent } from '@mui/material'
+import { Box, Divider, FormControl, IconButton, MenuItem, Select, Tooltip, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
 import { Icon } from '@stratakit/mui'
 import svgUserAdd from '@stratakit/icons/user-add.svg'
 import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
+import { readStringSelectValue } from '../utils/selectValues'
 
 export type TeamOption = TeamProfile
 
@@ -26,8 +27,8 @@ export function TeamToolbarControls({
   const hasConfiguredTeams = teamOptions.length > 0
   const selectedTeam = teamOptions.find((team) => team.id === selectedTeamId)
 
-  const handleTeamChange = (event: SelectChangeEvent<string>) => {
-    onTeamChange(event.target.value)
+  const handleTeamChange = (value: unknown) => {
+    onTeamChange(readStringSelectValue(value))
   }
 
   return (
@@ -58,7 +59,7 @@ export function TeamToolbarControls({
           aria-label="Team"
           value={hasConfiguredTeams ? selectedTeamId : ''}
           renderValue={selectedTeam ? () => selectedTeam.displayName : undefined}
-          onChange={handleTeamChange}
+          onChange={(event) => handleTeamChange(event.target.value)}
           displayEmpty
           disabled={!hasConfiguredTeams}
         >
