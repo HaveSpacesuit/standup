@@ -103,3 +103,31 @@ export function buildQaBucketCandidatesWiql(
 
   return clauses.join('\n')
 }
+
+/**
+ * All Bugs under the area path that are not in one of the closed states, regardless of iteration.
+ * WIQL cannot filter on a state category, so the caller resolves the closed state names first.
+ */
+export function buildBacklogBugsWiql(
+  projectName: string,
+  areaPath: string,
+  closedStates: readonly string[] = [],
+): string {
+  const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
+
+  const clauses = [
+    'SELECT [System.Id]',
+    'FROM WorkItems',
+    `WHERE [System.TeamProject] = ${quote(projectName)}`,
+    `  AND [System.AreaPath] UNDER ${quote(areaPath)}`,
+    `  AND [System.WorkItemType] = 'Bug'`,
+  ]
+
+  if (closedStates.length > 0) {
+    clauses.push(`  AND [System.State] NOT IN (${closedStates.map(quote).join(', ')})`)
+  }
+
+  clauses.push('ORDER BY [System.Id]')
+
+  return clauses.join('\n')
+}

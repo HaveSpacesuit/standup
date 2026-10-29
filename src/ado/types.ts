@@ -123,6 +123,22 @@ export type WorkItemSummary = {
 
 export type TeamMemberLookup = Record<string, string>
 
+/** A Bug listed on the Backlog page, carrying the raw fields its value score is computed from. */
+export type BacklogBug = {
+  id: number
+  title: string
+  state?: string
+  createdAt?: string
+  assignedTo?: IdentityRef
+  iterationPath?: string
+  /** Raw Severity picklist text, e.g. "2 - High". */
+  severity?: string
+  /** Priority field (1-4); the Backlog page presents it as the bug's impact. */
+  priority?: number
+  effort?: number
+  workItemUrl: string
+}
+
 export type ResolvedWorkItemAssignee = {
   label: string
   kind: 'team-member' | 'unassigned' | 'history-unavailable'

@@ -26,11 +26,13 @@ export type ProjectWorkItemTypeInfo = {
   states: ProjectWorkItemState[]
   /** Distinct work item type names for the project, sorted alphabetically. */
   workItemTypes: string[]
+  /** States defined by each work item type, keyed by lower-cased type name. */
+  statesByType: Record<string, ProjectWorkItemState[]>
 }
 
 /**
- * Returns all distinct work item states and work item type names for a project
- * in a single API call (`GET /_apis/wit/workitemtypes?$expand=states`).
+ * Returns all distinct work item states, work item type names and each type's own states for a
+ * project in a single API call (`GET /_apis/wit/workitemtypes?$expand=states`).
  */
 export async function fetchProjectWorkItemTypeInfo(
   client: AdoRequestClient,
@@ -46,26 +48,36 @@ export async function fetchProjectWorkItemTypeInfo(
   })
 
   const seenStates = new Map<string, ProjectWorkItemState>()
+  const statesByType: Record<string, ProjectWorkItemState[]> = {}
   const workItemTypes: string[] = []
 
   for (const type of response.value ?? []) {
-    if (type.name?.trim()) {
-      workItemTypes.push(type.name.trim())
+    const typeName = type.name?.trim()
+    if (typeName) {
+      workItemTypes.push(typeName)
     }
 
+    const typeStates: ProjectWorkItemState[] = []
     for (const state of type.states ?? []) {
       const name = state.name?.trim()
       if (!name) continue
       const key = name.toLowerCase()
+      const projectState = { name, category: state.category ?? '' }
+      typeStates.push(projectState)
       if (!seenStates.has(key)) {
-        seenStates.set(key, { name, category: state.category ?? '' })
+        seenStates.set(key, projectState)
       }
+    }
+
+    if (typeName) {
+      statesByType[typeName.toLowerCase()] = typeStates
     }
   }
 
   return {
     states: Array.from(seenStates.values()).sort((a, b) => a.name.localeCompare(b.name)),
     workItemTypes: workItemTypes.sort((a, b) => a.localeCompare(b)),
+    statesByType,
   }
 }
 

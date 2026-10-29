@@ -28,6 +28,7 @@ function setup(t: TestContext, {
   mounted = true,
   filterInsideModal = false,
   focusable = true,
+  hasQuickFilter = true,
 } = {}) {
   const events = new EventTarget()
   const calls = { focus: 0, select: 0, cycle: [] as string[] }
@@ -61,14 +62,15 @@ function setup(t: TestContext, {
     })
   }
 
+  let activeView: unknown
   function Navigation() {
-    useAppNavigation({
+    activeView = useAppNavigation({
       patConfigured: true,
       memberFilterOptions: ['Alice', 'Bob'],
       selectedMemberFilter: '',
       onMemberFilterChange: (member: string) => calls.cycle.push(member),
-      quickFilterInputRefs: { [view]: { current: mounted ? input : null } },
-    })
+      quickFilterInputRefs: hasQuickFilter ? { [view]: { current: mounted ? input : null } } : {},
+    }).activeView
   }
   Navigation()
   const cleanups = effects.splice(0).map((effect: () => (() => void) | undefined) => effect())
@@ -78,6 +80,7 @@ function setup(t: TestContext, {
   })
 
   return {
+    activeView,
     calls,
     press: (target = { tagName: 'BUTTON', isContentEditable: false }, modifiers = { ctrlKey: true, metaKey: false }, key = 'f') => {
       const event = new Event('keydown', { cancelable: true })
@@ -145,4 +148,30 @@ test('member cycling still ignores editable targets and works from the toolbar',
   assert.equal(press({ tagName: 'INPUT', isContentEditable: false }, undefined, 'ArrowDown').defaultPrevented, false)
   assert.equal(press(undefined, undefined, 'ArrowDown').defaultPrevented, true)
   assert.deepEqual(calls, { focus: 0, select: 0, cycle: ['Alice'] })
+})
+
+for (const [hash, expectedView] of [
+  ['development', 'development'],
+  ['qa-activity', 'qa-activity'],
+  ['backlog', 'backlog'],
+  ['tests', 'tests'],
+  ['unknown-page', 'development'],
+]) {
+  test(`the #${hash} hash opens the ${expectedView} view`, (t) => {
+    assert.equal(setup(t, { view: hash, hasQuickFilter: false }).activeView, expectedView)
+  })
+}
+
+for (const modifier of ['ctrlKey', 'metaKey']) {
+  test(`${modifier}+F keeps browser Find on the Backlog view, which has no quick filter`, (t) => {
+    const { calls, press } = setup(t, { view: 'backlog', hasQuickFilter: false })
+    assert.equal(press(undefined, { ctrlKey: modifier === 'ctrlKey', metaKey: modifier === 'metaKey' }).defaultPrevented, false)
+    assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
+  })
+}
+
+test('member cycling shortcuts are not active on the Backlog view', (t) => {
+  const { calls, press } = setup(t, { view: 'backlog', hasQuickFilter: false })
+  assert.equal(press(undefined, undefined, 'ArrowDown').defaultPrevented, false)
+  assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
 })

@@ -79,6 +79,9 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     qaBucketsLoading,
     qaBucketsError,
     qaHistoryWarning,
+    backlogBugs,
+    backlogBugsLoading,
+    backlogBugsError,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
@@ -257,6 +260,17 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           teamIterations,
           teamIterationsLoading,
           teamIterationsError,
+        }}
+        backlogPageProps={{
+          patConfigured,
+          teamOptions: teamProfiles,
+          selectedTeamId,
+          onTeamChange,
+          teamManagementUrl,
+          onRefresh,
+          bugs: backlogBugs,
+          isLoading: backlogBugsLoading,
+          error: backlogBugsError,
         }}
       />
     </Box>

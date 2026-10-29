@@ -23,7 +23,7 @@ after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { StandupContent } = await server.ssrLoadModule('/src/features/standup/components/StandupContent.tsx')
 
-function render(teamProfilesUnreadable = false, qaOptionsUnreadable = false) {
+function render(teamProfilesUnreadable = false, qaOptionsUnreadable = false, activeView = 'qa-activity') {
   const qualityAssurancePageProps = {
     patConfigured: true,
     colorScheme: 'light',
@@ -39,11 +39,23 @@ function render(teamProfilesUnreadable = false, qaOptionsUnreadable = false) {
     qaOptionsUnreadable,
     cardHighlightOptions: { freshDays: 1, staleDays: 7 },
   }
+  const backlogPageProps = {
+    patConfigured: true,
+    teamOptions: [],
+    selectedTeamId: '',
+    onTeamChange: () => {},
+    teamManagementUrl: '',
+    onRefresh: () => {},
+    bugs: [],
+    isLoading: false,
+    error: null,
+  }
   return renderToStaticMarkup(createElement(Root, null, createElement(StandupContent, {
-    activeView: 'qa-activity',
+    activeView,
     teamProfilesUnreadable,
     teamAssignmentsPageProps: { selectedTeamId: '' },
     qualityAssurancePageProps,
+    backlogPageProps,
     testsPageProps: {},
   })))
 }
@@ -73,4 +85,13 @@ test('unreadable QA options explain fallback scope and recovery without hiding c
   assert.match(html, /import a backup/)
   assert.match(html, /Closing without changes keeps the unreadable data/)
   assert.match(html, /Configure at least one team/)
+})
+
+test('the Backlog view shows the recovery alert alongside its own empty state', () => {
+  const html = render(true, false, 'backlog')
+  assert.match(html, /<h1[^>]*>Backlog<\/h1>/)
+  assert.match(html, /role="alert"/)
+  assert.match(html, /Saved team profiles could not be read/)
+  assert.match(html, /Backlog needs a team profile to load data/)
+  assert.doesNotMatch(html, /Quality Assurance|Saved QA options/)
 })

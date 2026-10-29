@@ -27,6 +27,7 @@ import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
 import svgDeveloper from '@stratakit/icons/developer.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
+import svgIssueReport from '@stratakit/icons/issue-report.svg'
 import svgReport from '@stratakit/icons/report.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
@@ -361,6 +362,15 @@ export function AppNavigationRail({
           </NavigationRail.ListItem>
           <NavigationRail.ListItem>
             <NavigationRail.Anchor
+              href="#backlog"
+              label="Backlog"
+              icon={`${svgIssueReport}#icon-large`}
+              active={activeView === 'backlog'}
+              style={{inlineSize: 'unset'}}
+            />
+          </NavigationRail.ListItem>
+          <NavigationRail.ListItem>
+            <NavigationRail.Anchor
               href="#tests"
               label="Tests"
               icon={`${svgReport}#icon-large`}
@@ -400,7 +410,7 @@ export function AppNavigationRail({
               App structure
             </Typography>
             <Typography variant="body-sm" color="text.secondary">
-              The app is organized around three main pages: Development, Quality Assurance, and Tests.
+              The app is organized around four main pages: Development, Quality Assurance, Backlog, and Tests.
             </Typography>
           </Box>
 
@@ -410,6 +420,9 @@ export function AppNavigationRail({
             </Typography>
             <Typography component="li" variant="body-sm">
               <strong>Quality Assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.
+            </Typography>
+            <Typography component="li" variant="body-sm">
+              <strong>Backlog</strong> ranks the team&apos;s open bugs, across all sprints, by development value: severity and impact (the Priority field) weighed against effort.
             </Typography>
             <Typography component="li" variant="body-sm">
               <strong>Tests</strong> charts e2e test pass rates across configured build and release pipeline stages.

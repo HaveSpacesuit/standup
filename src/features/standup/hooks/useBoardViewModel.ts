@@ -13,6 +13,7 @@ import { useBoardPreferences } from './useBoardPreferences'
 import { useTeamManagementUrl } from './useTeamManagementUrl'
 import { useVisibleBoardItems } from './useVisibleBoardItems'
 import { useQualityAssuranceBuckets } from './useQualityAssuranceBuckets'
+import { useBacklogBugs } from './useBacklogBugs'
 import { useActiveAppView } from './useAppNavigation'
 import { useProjectWorkItemStates } from './useProjectWorkItemStates'
 import { useTeamIterations } from './useTeamIterations'
@@ -22,6 +23,7 @@ import { applyTagRulesToItem } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { QaOptions } from '../utils/qaOptions'
 import { resolveSelectedIterationPaths } from '../utils/qaOptions'
+import type { RankedBacklogBug } from '../utils/backlogValue'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
@@ -73,6 +75,9 @@ type UseBoardViewModelResult = {
   qaBucketsLoading: boolean
   qaBucketsError: string | null
   qaHistoryWarning: string | null
+  backlogBugs: RankedBacklogBug[]
+  backlogBugsLoading: boolean
+  backlogBugsError: string | null
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   selectedAssignmentWorkItemTypes: string[]
@@ -104,6 +109,7 @@ export function useBoardViewModel({
 }: UseBoardViewModelArgs): UseBoardViewModelResult {
   const [developmentReloadNonce, setDevelopmentReloadNonce] = useState(0)
   const [qaReloadNonce, setQaReloadNonce] = useState(0)
+  const [backlogReloadNonce, setBacklogReloadNonce] = useState(0)
 
   const {
     selectedTeamId,
@@ -248,6 +254,14 @@ export function useBoardViewModel({
     tagGroups: qaOptionsByTeam?.[effectiveTeam.id]?.tagGroups,
   })
 
+  // The backlog ignores sprints, so it only needs a configured team, not resolved iterations.
+  const { backlogBugs, backlogBugsLoading, backlogBugsError } = useBacklogBugs({
+    adoQueryEngine: dataQueryEngine,
+    selectedTeam: effectiveTeam,
+    reloadNonce: backlogReloadNonce,
+    enabled: activeView === 'backlog',
+  })
+
   const {
     workItemStates: projectWorkItemStates,
     workItemTypes: projectWorkItemTypes,
@@ -337,6 +351,12 @@ export function useBoardViewModel({
       return
     }
 
+    if (activeView === 'backlog') {
+      adoQueryEngine.clearBacklogDataCache(selectedTeam.id)
+      setBacklogReloadNonce((current) => current + 1)
+      return
+    }
+
     adoQueryEngine.clearDevelopmentDataCache(selectedTeam.id)
     adoQueryEngine.clearTeamMetadataCaches(selectedTeam)
     adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, [
@@ -393,6 +413,9 @@ export function useBoardViewModel({
     qaBucketsLoading,
     qaBucketsError,
     qaHistoryWarning,
+    backlogBugs,
+    backlogBugsLoading,
+    backlogBugsError,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,

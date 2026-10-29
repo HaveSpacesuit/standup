@@ -49,6 +49,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] A valid team can be configured and saved.
 - [ ] Team Assignments loads real data and shows the expected board.
 - [ ] Quality Assurance can be opened and shows the expected QA board.
+- [ ] Backlog can be opened and lists the team's open bugs ranked by Value.
 - [ ] Quick filtering changes visible cards and clearing it restores them.
 - [ ] Refresh reloads data and does not duplicate cards.
 - [ ] Settings can be reopened, closed, and saved without losing configuration.
@@ -169,7 +170,7 @@ Prepare data that exercises both populated and empty states:
 
 ## 4. Navigation and page lifecycle
 
-- [ ] Navigate between Development/Team Assignments and Quality Assurance.
+- [ ] Navigate between Development/Team Assignments, Quality Assurance, and Backlog.
 - [ ] Verify the URL/hash or active-view state, if present, matches the selected page.
 - [ ] Use browser refresh on each page and verify the selected page and valid persisted state restore.
 - [ ] Use browser back/forward if navigation state is represented in history; verify predictable
@@ -327,7 +328,73 @@ Prepare data that exercises both populated and empty states:
       selected.
 - [ ] Verify QA options and highlights are stored per team and survive a reload.
 
-## 9. Persistence and data isolation
+## 9. Backlog page
+
+### Page and header
+
+- [ ] Open Backlog from the navigation rail and verify the header shows the Backlog title, the team
+      selector, Manage team, Backlog settings, and Refresh, with no quick filter.
+- [ ] Verify Ctrl/Cmd + F is not intercepted on Backlog (the browser's find opens instead).
+- [ ] Open Backlog settings; verify the placeholder dialog opens, closes with Close and Escape, and
+      returns focus to the settings button.
+- [ ] Verify Manage team opens the selected team's Azure DevOps page in a new tab.
+
+### Data scope
+
+- [ ] Verify only Bugs under the selected team's area path are listed (no PBIs, Tasks, or Features).
+- [ ] Verify bugs from every sprint are listed, including the current sprint, other sprints, and bugs
+      in a non-sprint iteration.
+- [ ] Verify bugs in Closed, Done, Removed, or any other Completed/Removed-category state are not
+      listed, and bugs in other states (such as New, Active, and Resolved) are.
+- [ ] Compare the list with an equivalent Azure DevOps query; verify no open bug is missing and none
+      from another area path appears.
+- [ ] With more than 200 open bugs, verify the list is complete and not duplicated.
+
+### Table
+
+- [ ] Verify the columns are, in order: ID, Title, Created Date, Assigned To, State, Iteration Path,
+      Severity, Impact, Effort, and Value.
+- [ ] Verify the table has no sorting, filtering, selection, or row-click behavior.
+- [ ] Verify each Title opens the bug in Azure DevOps in a new tab with safe link attributes, and that
+      a screen reader announces the new-tab behavior.
+- [ ] Verify Iteration Path shows only the last two segments of the full path.
+- [ ] Verify Impact shows the bug's Priority value, Severity shows the Azure DevOps label, and Effort
+      shows the value as entered (an Effort below 4 is shown as entered, though its Value uses 4).
+- [ ] Verify an unassigned bug has an empty Assigned To cell, and a missing Severity, Priority,
+      Effort, or other value shows a placeholder that screen readers announce as Not set.
+- [ ] Verify long titles, assignee names, and iteration paths stay readable without breaking layout.
+- [ ] Scroll a long list slowly and verify the column headers stay pinned, with no row text or
+      borders visible above them.
+- [ ] Narrow the window and verify the table scrolls horizontally inside its own area, with the
+      headers staying aligned to their columns.
+
+### Value and ranking
+
+- [ ] Verify Severity 1-4 score 10.648, 4.84, 2.2, and 1, and Priority 1-4 score 8, 4, 2, and 1.
+- [ ] Verify Value is shown to one decimal place. For example: Severity 1, Priority 1, Effort 4 or
+      less shows 213.0; Severity 2, Priority 2, Effort 8 shows 24.2.
+- [ ] Verify a bug with no Severity or no Priority is scored as 4, and a bug with no Effort, or an
+      Effort below 4, is scored with an Effort of 4 (Severity 4, Priority 4, no Effort shows 2.5).
+- [ ] Verify bugs are ordered by exact Value (highest first), then by Severity score (highest first),
+      then by Created Date (oldest first).
+- [ ] Verify ranking uses the exact Value, not the displayed one: a Severity 4, Priority 1, Effort 6
+      bug (13.333) ranks above a Severity 1, Priority 4, Effort 8 bug (13.31), though both show 13.3.
+- [ ] Verify bugs with exactly equal Values are ordered by Severity, then Created Date: Severity 2,
+      Priority 1, Effort 27.5 and Severity 3, Priority 1, Effort 12.5 both score 14.08, so the
+      Severity 2 bug ranks first.
+- [ ] Change a bug's Severity, Priority, or Effort in Azure DevOps, Refresh, and verify its Value
+      and rank update.
+
+### Loading, errors, and refresh
+
+- [ ] Verify the loading skeleton, populated table, no-open-bugs state, no-team state, no-PAT state,
+      and API-error state.
+- [ ] Refresh Backlog and verify the results are not duplicated and a recovered error clears.
+- [ ] Change teams and verify the list switches to the selected team's bugs.
+- [ ] Switch to another page and back; verify the loaded bugs reappear without a new query until
+      Refresh is used.
+
+## 10. Persistence and data isolation
 
 - [ ] Reload after every major preference change and verify expected restoration.
 - [ ] Verify selected team, view, quick filters, member filter, board view, hidden tags, QA options,
@@ -343,7 +410,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Open the app in two tabs, change settings/team in one, and verify behavior is safe and
       consistent when the other tab is refreshed.
 
-## 10. Error handling and recovery
+## 11. Error handling and recovery
 
 - [ ] Disconnect the network before initial load; verify a clear recoverable error.
 - [ ] Disconnect during a refresh or team switch; verify prior usable data is not silently mislabeled
@@ -360,7 +427,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify aborting or superseding a request does not show a misleading error toast.
 - [ ] Verify errors are visible in dark mode and accessible to screen readers.
 
-## 11. Accessibility and keyboard QA
+## 12. Accessibility and keyboard QA
 
 - [ ] Complete the primary workflow using keyboard only.
 - [ ] Verify logical tab order through navigation, toolbar controls, cards, dialogs, and forms.
@@ -377,7 +444,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Test at 200% zoom and with browser text-size increases without losing critical controls.
 - [ ] Test with a screen reader available in the supported browser.
 
-## 12. Responsive, browser, and visual QA
+## 13. Responsive, browser, and visual QA
 
 - [ ] Test current supported Chromium, Firefox, and Safari/Edge combinations.
 - [ ] Test desktop, tablet, and narrow mobile widths.
@@ -394,7 +461,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Check for visual regressions: clipped text, overlapping controls, incorrect z-index, broken
       focus rings, low contrast, and layout shifts.
 
-## 13. Performance and reliability
+## 14. Performance and reliability
 
 - [ ] Record cold-load time and time to first usable shell.
 - [ ] Record time from PAT/team selection to populated board with representative data.
@@ -406,7 +473,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify browser back/forward and reload do not trigger request loops.
 - [ ] Verify API throttling is handled without an unbounded retry loop.
 
-## 14. Security and privacy
+## 15. Security and privacy
 
 - [ ] Confirm PAT input is always masked.
 - [ ] Confirm PAT is never rendered in DOM text, URLs, downloaded team exports, error messages, or
@@ -422,7 +489,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify a cleared PAT cannot be used by a pending or newly opened request.
 - [ ] Verify browser storage contains only the intended local application data.
 
-## 15. Regression exit criteria
+## 16. Regression exit criteria
 
 - [ ] Release-blocking smoke test passes.
 - [ ] All changed-feature checks pass.

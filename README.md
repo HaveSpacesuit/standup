@@ -60,6 +60,21 @@ recent transition into a QA-ready state takes precedence and routes the item to 
 Otherwise, items created within the lookback window appear in Newly added. Ready for QA and
 Recently completed state precedence, and explicit tag-based grouping, are unchanged.
 
+### Backlog view
+
+The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header matches Quality Assurance without the quick filter: it has the team selector, **Manage team**, a Backlog settings button (a placeholder dialog for now), and a Refresh button.
+
+The table is read-only (no sorting, filtering, or selection). Its columns are ID, Title (a link that opens the bug in a new tab), Created Date, Assigned To (left blank when the bug is unassigned), State, Iteration Path (the last two segments of the full path), Severity, Impact, Effort, and Value. Impact is the bug's Priority field, a stand-in for how often users encounter the bug. Effort is shown as entered; only the Value calculation raises it to a minimum of 4.
+
+Value is `((SeverityScore * ImpactScore) / AdjustedEffort) * 10`, shown to one decimal place:
+
+| Field value | 1 | 2 | 3 | 4 |
+| --- | --- | --- | --- | --- |
+| SeverityScore (from Severity) | 10.648 | 4.84 | 2.2 | 1 |
+| ImpactScore (from Priority) | 8 | 4 | 2 | 1 |
+
+A missing Severity or Priority counts as 4. AdjustedEffort is the Effort field with a minimum of 4, which also applies when Effort is missing. Bugs are ranked by Value (descending), then SeverityScore (descending), then Created Date (ascending). Ranking uses the exact Value, not the rounded one that is displayed, so two bugs that both show 13.3 can still rank apart by their small difference; SeverityScore and Created Date only break ties between bugs whose exact Values are equal. Results are cached per team until you refresh.
+
 ### Tests view
 
 The Tests page charts e2e pass percentages across a configurable lookback window (60 days by default) for each configured Azure DevOps build/YAML pipeline or classic release pipeline. Use Tests settings to set the number of days, enter the organization and project, type to search pipelines and stages, choose a test-publishing stage (or the whole build pipeline), and add it to the chart. The lookback window is saved in browser local storage and applies to all configured pipelines. Build history is filtered by finish time; release history is queried by creation time, then charted by the selected stage's completion time when available. Multiple pipelines appear as separate lines. Each point represents one run, including multiple runs on the same day; the x-axis shows dates and tooltips show exact times and run IDs. Click a point to open its build Tests tab or release summary in a new tab. The y-axis uses a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages to make differences near 100% easier to see. Each point is passed tests divided by executed test results, excluding `NotExecuted`, `Skipped`, `NotApplicable`, and `NotImpacted`. Tests must be published to Azure DevOps for the chart to find them; stages without executed test results are shown as missing data, not 0% passed. If test results cannot be loaded, the page or settings dialog reminds you to ensure your PAT has Test Management (Read) access. The refresh button reloads the latest results. Tests has no filter, view, or team controls; pipeline selections are saved in browser local storage.
@@ -98,7 +113,7 @@ Each team profile includes the Azure DevOps organization, project, area path, it
 src/
   App.tsx                  # top-level app shell and persistence
   ado/                     # Azure DevOps API helpers and query logic
-  features/standup/        # board, QA, Tests, and team-management UI
+  features/standup/        # board, QA, Backlog, Tests, and team-management UI
   adoAuth.ts               # PAT storage and validation
   appSettings.ts           # persisted app settings and team profiles
   teamDataTransfer.ts      # team export/import helpers
@@ -192,7 +207,7 @@ Unreadable saved team profiles or QA options produce a recovery warning. Only re
 - hidden-tag filters persisted per team
 - board toggles for work-item types and sprint scope
 - keyboard shortcut: Ctrl/Cmd + F focuses the quick filter on Development and Quality Assurance
-- navigation between Development, Quality Assurance, and Tests pages
+- navigation between Development, Quality Assurance, Backlog, and Tests pages
 
 ### Pull request behavior
 

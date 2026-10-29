@@ -6,12 +6,13 @@ import { fetchIterationWindowInfo, fetchTeamIterations } from './teamIterationsA
 import { fetchTeamMembers } from './teamMembersApi'
 import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
+import { fetchBacklogBugs, resolveClosedBugStates } from './backlogApi'
 import { fetchQualityAssuranceRawData, fetchSprintScopeChanges, fetchWorkItemsForCurrentAndNextIteration, type SprintScopeChanges } from './workItemsApi'
-import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState } from './workItemTypesApi'
-import type { CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
+import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
+import type { BacklogBug, CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
 import type { QualityAssuranceRawData } from './workItemsApi'
 
-export type { CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
+export type { BacklogBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
 export type { SprintScopeChanges } from './workItemsApi'
 
@@ -33,6 +34,10 @@ function workItemUpdatesCacheKey(team: Pick<TeamProfile, 'orgName' | 'projectNam
   return `${orgProjectCacheKey(team)}:${itemId}`
 }
 
+function backlogBugsCacheKey(team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>): string {
+  return `${team.id}:${JSON.stringify([team.orgName.toLowerCase(), team.projectName.toLowerCase(), team.areaPath.toLowerCase()])}`
+}
+
 
 export class AdoQueryEngine {
   private readonly client: AdoHttpClient
@@ -40,11 +45,12 @@ export class AdoQueryEngine {
   private readonly teamWorkItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
   private readonly sprintScopeChangesCache = new Map<string, Promise<SprintScopeChanges>>()
   private readonly qaRawDataCache = new Map<string, Promise<QualityAssuranceRawData>>()
+  private readonly backlogBugsCache = new Map<string, Promise<BacklogBug[]>>()
   private readonly unlinkedPullRequestItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
   private readonly teamMembersCache = new Map<string, Promise<TeamMember[]>>()
   private readonly currentIterationCache = new Map<string, Promise<IterationWindowInfo>>()
   private readonly teamSubjectDescriptorCache = new Map<string, Promise<string | null>>()
-  private readonly projectWorkItemStatesCache = new Map<string, Promise<{ states: ProjectWorkItemState[]; workItemTypes: string[] }>>()
+  private readonly projectWorkItemStatesCache = new Map<string, Promise<ProjectWorkItemTypeInfo>>()
   private readonly teamIterationsCache = new Map<string, Promise<TeamIterationOption[]>>()
   private readonly workItemUpdatesCache = new Map<string, Promise<WorkItemUpdate[]>>()
 
@@ -81,7 +87,7 @@ export class AdoQueryEngine {
   private async getProjectWorkItemTypeInfo(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
     _signal?: AbortSignal,
-  ): Promise<{ states: ProjectWorkItemState[]; workItemTypes: string[] }> {
+  ): Promise<ProjectWorkItemTypeInfo> {
     const cacheKey = orgProjectCacheKey(team)
     return this.getOrLoadCached(this.projectWorkItemStatesCache, cacheKey, () => fetchProjectWorkItemTypeInfo(this.client, team))
   }
@@ -167,6 +173,18 @@ export class AdoQueryEngine {
     }), options?.forceRefresh)
   }
 
+  async getBacklogBugs(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+    _signal?: AbortSignal,
+    options?: { forceRefresh?: boolean },
+  ): Promise<BacklogBug[]> {
+    return this.getOrLoadCached(this.backlogBugsCache, backlogBugsCacheKey(team), async () => {
+      // WIQL cannot filter on a state category, so exclude the Bug type's closed states by name.
+      const { statesByType } = await this.getProjectWorkItemTypeInfo(team)
+      return fetchBacklogBugs(this.client, team, resolveClosedBugStates(statesByType['bug']))
+    }, options?.forceRefresh)
+  }
+
   async getSprintScopeChanges(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
     iterationPath: string,
@@ -223,6 +241,19 @@ export class AdoQueryEngine {
     }
 
     this.qaRawDataCache.clear()
+  }
+
+  clearBacklogDataCache(teamId?: string): void {
+    if (teamId) {
+      for (const key of this.backlogBugsCache.keys()) {
+        if (key.startsWith(`${teamId}:`)) {
+          this.backlogBugsCache.delete(key)
+        }
+      }
+      return
+    }
+
+    this.backlogBugsCache.clear()
   }
 
   clearTeamIterationsCache(teamId: string): void {

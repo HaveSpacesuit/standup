@@ -1,6 +1,7 @@
 import { Alert, Box } from '@mui/material'
 import type { ComponentProps } from 'react'
 import type { AppView } from '../hooks/useAppNavigation'
+import { BacklogPage } from '../pages/BacklogPage'
 import { QualityAssurancePage } from '../pages/QualityAssurancePage'
 import { TeamAssignmentsPage } from '../pages/TeamAssignmentsPage'
 import { TestsPage } from '../pages/TestsPage'
@@ -14,6 +15,7 @@ type StandupContentProps = {
   teamProfilesUnreadable?: boolean
   teamAssignmentsPageProps: TeamAssignmentsPageProps
   qualityAssurancePageProps: QualityAssurancePageProps
+  backlogPageProps: ComponentProps<typeof BacklogPage>
   testsPageProps: ComponentProps<typeof TestsPage>
 }
 
@@ -22,6 +24,7 @@ export function StandupContent({
   teamProfilesUnreadable,
   teamAssignmentsPageProps,
   qualityAssurancePageProps,
+  backlogPageProps,
   testsPageProps,
 }: StandupContentProps) {
   return (
@@ -38,6 +41,8 @@ export function StandupContent({
           <TeamAssignmentsPage {...teamAssignmentsPageProps} />
         ) : activeView === 'qa-activity' ? (
           <QualityAssurancePage {...qualityAssurancePageProps} />
+        ) : activeView === 'backlog' ? (
+          <BacklogPage {...backlogPageProps} />
         ) : (
           <TestsPage {...testsPageProps} />
         )}

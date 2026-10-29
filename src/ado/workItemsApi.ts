@@ -85,9 +85,9 @@ type PullRequestListResponse = {
 type PullRequestRef = PullRequestArtifactRef
 
 const PULL_REQUEST_LOOKUP_CONCURRENCY = 8
-const WORK_ITEM_BATCH_LIMIT = 200
+export const WORK_ITEM_BATCH_LIMIT = 200
 
-function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+export function chunkArray<T>(items: T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) {
     return [items]
   }
@@ -375,7 +375,7 @@ async function fetchPullRequestRefsByWorkItem(
   return refsByWorkItem
 }
 
-async function fetchWorkItemIdsByWiql(
+export async function fetchWorkItemIdsByWiql(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
   wiqlQuery: string,
