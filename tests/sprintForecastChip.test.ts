@@ -34,14 +34,12 @@ const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { SprintForecastChip } = await server.ssrLoadModule('/src/features/standup/components/SprintForecastChip.tsx')
 
 const ready: SprintForecast = {
-  status: 'ready', totalEffort: 115, startTotalEffort: 100, addedEffort: 25, removedEffort: 10,
-  rows: [
-    { label: 'Remaining', start: 90, current: 65, projected: 40 },
-    { label: 'Not started', nested: true, start: 60, current: 40, projected: 20 },
-    { label: 'Complete', start: 10, current: 50, projected: 75 },
-    { label: 'Added', start: 0, current: 25, projected: 25 },
-    { label: 'Removed', start: 0, current: 10, projected: 10 },
-  ],
+  status: 'ready',
+  start: { complete: 10, inProgress: 30, notStarted: 60, total: 100 },
+  current: { complete: 30, inProgress: 30, notStarted: 40, total: 100 },
+  projected: { complete: 54, inProgress: 30, notStarted: 16, total: 100 },
+  addedEffort: 25,
+  removedEffort: 25,
 }
 
 async function setup(t: TestContext, forecast: SprintForecast) {
@@ -73,16 +71,21 @@ test('focus opens an accessible forecast table without moving focus; Escape dism
   assert.equal(dialog.id, trigger.getAttribute('aria-controls'))
   assert.equal(dom.window.document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent, 'Current sprint forecast')
   assert.equal(dialog.querySelector('table')?.getAttribute('aria-label'), 'Sprint effort forecast')
+  assert.deepEqual([...dialog.querySelectorAll('thead th')].map((cell) => cell.textContent), [
+    'Status', 'Startas committed', 'Nowtoday', 'Projected endat current pace',
+  ])
+  // Rows are exclusive buckets (listed in work-flow order), so each column adds up to its Total effort row.
   assert.deepEqual([...dialog.querySelectorAll('tbody tr')].map((row) =>
     [...row.querySelectorAll('th, td')].map((cell) => cell.textContent),
   ), [
-    ['Remaining', '90(90%)', '65(65%)', '40(40%)'],
-    ['Not started', '60(60%)', '40(40%)', '20(20%)'],
-    ['Complete', '10(10%)', '50(50%)', '75(75%)'],
-    ['Added', '0(0%)', '25(25%)', '25(25%)'],
-    ['Removed', '0(0%)', '10(10%)', '10(10%)'],
+    ['Not startedBlocked, New', '60%60', '40%40', '16%16'],
+    ['In progressActive, Review', '30%30', '30%30', '30%30'],
+    ['CompleteDone', '10%10', '30%30', '54%54'],
+    ['Total effort', '100%100', '100%100', '100%100'],
   ])
-  assert.match(dialog.textContent!, /100 committed at start, \+25 added, −10 removed, 115 now/)
+  assert.deepEqual([...dialog.querySelectorAll('dl > div')].map((item) => item.textContent), [
+    'Committed at start100', 'Added since+25', 'Removed since−25', 'In sprint now= 100',
+  ])
   assert.match(dialog.textContent!, /not a delivery guarantee/)
   await act(async () => trigger.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
   assert.equal(trigger.getAttribute('aria-expanded'), 'false')

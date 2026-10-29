@@ -113,7 +113,9 @@ test('forecast uses exact sprint-start history rather than the first end-of-day 
   const result = hook.read(args)
   assert.equal(result.sprintForecast.status, 'ready')
   if (result.sprintForecast.status !== 'ready') return
-  assert.deepEqual(result.sprintForecast.rows[1], { label: 'Not started', nested: true, start: 8, current: 0, projected: 0 })
+  assert.deepEqual(result.sprintForecast.start, { complete: 0, inProgress: 0, notStarted: 8, total: 8 })
+  assert.deepEqual(result.sprintForecast.current, { complete: 0, inProgress: 8, notStarted: 0, total: 8 })
+  assert.deepEqual(result.sprintForecast.projected, { complete: 0, inProgress: 8, notStarted: 0, total: 8 })
   assert.equal(result.points[0].Active, 8)
   assert.equal(result.points[0].New, 0)
   assert.equal(getWorkItemUpdates.mock.callCount(), 1)
@@ -171,14 +173,14 @@ test('forecast follows selected work items, excludes PR-only cards, and starts n
   const result = hook.read(args)
   assert.equal(result.sprintForecast.status, 'ready')
   if (result.sprintForecast.status !== 'ready') return
-  assert.equal(result.sprintForecast.totalEffort, 13)
-  assert.equal(result.sprintForecast.rows[1].start, 8)
-  assert.equal(result.sprintForecast.rows[1].current, 5)
-  assert.equal(result.sprintForecast.rows[2].current, 8)
+  assert.equal(result.sprintForecast.current.total, 13)
+  assert.equal(result.sprintForecast.start.notStarted, 8)
+  assert.equal(result.sprintForecast.current.notStarted, 5)
+  assert.equal(result.sprintForecast.current.complete, 8)
 
   const selected = hook.read({ ...args, workItems: [items[0]] })
   assert.equal(selected.sprintForecast.status, 'ready')
-  if (selected.sprintForecast.status === 'ready') assert.equal(selected.sprintForecast.totalEffort, 8)
+  if (selected.sprintForecast.status === 'ready') assert.equal(selected.sprintForecast.current.total, 8)
 })
 
 test('finished sprint forecast stops at sprint end instead of including later changes', async (t) => {
@@ -198,9 +200,9 @@ test('finished sprint forecast stops at sprint end instead of including later ch
   const result = hook.read(args)
   assert.equal(result.sprintForecast.status, 'ready')
   if (result.sprintForecast.status !== 'ready') return
-  assert.equal(result.sprintForecast.totalEffort, 8)
-  assert.deepEqual(result.sprintForecast.rows[0], { label: 'Remaining', start: 8, current: 8, projected: 8 })
-  assert.deepEqual(result.sprintForecast.rows[2], { label: 'Complete', start: 0, current: 0, projected: 0 })
+  assert.deepEqual(result.sprintForecast.start, { complete: 0, inProgress: 0, notStarted: 8, total: 8 })
+  assert.deepEqual(result.sprintForecast.current, { complete: 0, inProgress: 8, notStarted: 0, total: 8 })
+  assert.deepEqual(result.sprintForecast.projected, result.sprintForecast.current)
 })
 
 test('sprint-start membership counts removed effort and treats late joiners as added', async (t) => {
@@ -228,17 +230,10 @@ test('sprint-start membership counts removed effort and treats late joiners as a
   assert.equal(result.sprintForecast.status, 'ready')
   if (result.sprintForecast.status !== 'ready') return
   assert.deepEqual(getWorkItemUpdates.mock.calls.map((call) => call.arguments[1]).sort(), [1, 2, 4])
-  assert.equal(result.sprintForecast.startTotalEffort, 14)
-  assert.equal(result.sprintForecast.totalEffort, 13)
+  assert.deepEqual(result.sprintForecast.start, { complete: 0, inProgress: 0, notStarted: 14, total: 14 })
+  assert.deepEqual(result.sprintForecast.current, { complete: 8, inProgress: 0, notStarted: 5, total: 13 })
   assert.equal(result.sprintForecast.addedEffort, 5)
   assert.equal(result.sprintForecast.removedEffort, 6)
-  assert.deepEqual(result.sprintForecast.rows.map((row) => [row.label, row.start, row.current]), [
-    ['Remaining', 14, 5],
-    ['Not started', 14, 5],
-    ['Complete', 0, 8],
-    ['Added', 0, 5],
-    ['Removed', 0, 6],
-  ])
 
   assert.equal(hook.read({ ...args, sprintScope: { status: 'loading' } }).sprintForecast.status, 'loading')
   const unavailable = hook.read({ ...args, sprintScope: { status: 'unavailable' } }).sprintForecast

@@ -18,38 +18,47 @@ const args = {
   now: new Date(2026, 9, 26),
 }
 
-test('forecasts cumulative groups from actual starting values, including nonzero Done', () => {
+test('splits effort into exclusive buckets and forecasts them from actual starting values, including nonzero Done', () => {
   const result = calculateSprintForecast(args)
   assert.equal(result.status, 'ready')
-  assert.equal(result.totalEffort, 100)
-  assert.equal(result.startTotalEffort, 100)
   assert.equal(result.addedEffort, 0)
   assert.equal(result.removedEffort, 0)
-  assert.deepEqual(result.rows, [
-    { label: 'Remaining', start: 90, current: 65, projected: 40 },
-    { label: 'Not started', nested: true, start: 60, current: 40, projected: 20 },
-    { label: 'Complete', start: 10, current: 35, projected: 60 },
-    { label: 'Added', start: 0, current: 0, projected: 0 },
-    { label: 'Removed', start: 0, current: 0, projected: 0 },
-  ])
+  assert.deepEqual(result.start, { complete: 10, inProgress: 30, notStarted: 60, total: 100 })
+  assert.deepEqual(result.current, { complete: 35, inProgress: 25, notStarted: 40, total: 100 })
+  assert.deepEqual(result.projected, { complete: 60, inProgress: 20, notStarted: 20, total: 100 })
 })
 
-test('removed effort is reported as its own row and carried forward without trending', () => {
+test('scope churn is reported but not trended, and reconciles start scope to current scope', () => {
   const result = calculateSprintForecast({
     ...args,
     start: totals({ New: 80, Done: 20 }),
     current: totals({ New: 40, Done: 30 }),
     addedEffort: 5,
-    removedEffort: 15,
+    removedEffort: 35,
   })
-  assert.equal(result.startTotalEffort, 100)
-  assert.equal(result.totalEffort, 70)
   assert.equal(result.addedEffort, 5)
-  assert.deepEqual(result.rows[3], { label: 'Added', start: 0, current: 5, projected: 5 })
-  assert.deepEqual(result.rows[4], { label: 'Removed', start: 0, current: 15, projected: 15 })
-  // Remaining + Complete + Removed − Added reconciles to the committed start scope.
-  assert.equal(result.rows[0].start + result.rows[2].start + result.rows[4].start, result.startTotalEffort)
-  assert.equal(result.rows[0].current + result.rows[2].current + result.rows[4].current, result.totalEffort + result.removedEffort)
+  assert.equal(result.removedEffort, 35)
+  assert.equal(result.start.total + result.addedEffort - result.removedEffort, result.current.total)
+  // Done only trends +10, so the rest stays unfinished against today's 70 instead of shrinking with past removals.
+  assert.deepEqual(result.projected, { complete: 40, inProgress: 30, notStarted: 0, total: 70 })
+})
+
+test('every column adds up to its own total', () => {
+  for (const [start, current] of [
+    [totals({ Blocked: 10, New: 50, Active: 20, Review: 10, Done: 10 }), totals({ Blocked: 5, New: 35, Active: 15, Review: 10, Done: 35 })],
+    [totals({ New: 80, Done: 20 }), totals({ New: 40, Done: 30 })],
+    [totals({ New: 10 }), totals({ New: 30 })],
+    [totals({ Done: 100 }), totals({ New: 80, Done: 20 })],
+    [totals({ Active: 100 }), totals({ Review: 3, Done: 41.5 })],
+  ]) {
+    const result = calculateSprintForecast({ ...args, start, current })
+    assert.equal(result.status, 'ready')
+    for (const snapshot of [result.start, result.current, result.projected]) {
+      assert.ok(Math.abs(snapshot.complete + snapshot.inProgress + snapshot.notStarted - snapshot.total) < 1e-9)
+      assert.ok(snapshot.complete >= 0 && snapshot.inProgress >= 0 && snapshot.notStarted >= 0)
+    }
+    assert.equal(result.projected.total, result.current.total)
+  }
 })
 
 test('weekends do not change elapsed or remaining working time', () => {
@@ -61,29 +70,38 @@ test('weekends do not change elapsed or remaining working time', () => {
 
 test('finish day is included and projections settle to observed effort at sprint end', () => {
   const beforeFinish = calculateSprintForecast({ ...args, now: new Date(2026, 9, 30) })
-  assert.ok(beforeFinish.rows[2].projected > beforeFinish.rows[2].current)
+  assert.ok(beforeFinish.projected.complete > beforeFinish.current.complete)
   for (const now of [new Date(2026, 9, 31), new Date(2026, 10, 5)]) {
     const result = calculateSprintForecast({ ...args, now })
-    for (const row of result.rows) assert.equal(row.projected, row.current)
+    assert.deepEqual(result.projected, result.current)
   }
 })
 
-test('negative remaining-work projections floor at zero and Complete caps at current effort', () => {
+test('unfinished work floors at zero and Complete caps at today\'s scope', () => {
   const result = calculateSprintForecast({
     ...args,
     start: totals({ New: 100 }),
     current: totals({ New: 10, Done: 90 }),
   })
-  assert.deepEqual(result.rows.map((row: { projected: number }) => row.projected), [0, 0, 100, 0, 0])
+  assert.deepEqual(result.projected, { complete: 100, inProgress: 0, notStarted: 0, total: 100 })
 })
 
-test('scope growth is not hidden by capping unfinished effort or forcing a downward slope', () => {
+test('a growing backlog is not forecast away: unfinished effort stays within today\'s scope', () => {
   const result = calculateSprintForecast({
     ...args,
     start: totals({ New: 10 }),
     current: totals({ New: 30 }),
   })
-  assert.deepEqual(result.rows.map((row: { projected: number }) => row.projected), [50, 50, 0, 0, 0])
+  assert.deepEqual(result.projected, { complete: 0, inProgress: 0, notStarted: 30, total: 30 })
+})
+
+test('Not started cannot be forecast to exceed the effort still unfinished', () => {
+  const result = calculateSprintForecast({
+    ...args,
+    start: totals({ New: 50, Active: 50 }),
+    current: totals({ New: 60, Active: 10, Done: 30 }),
+  })
+  assert.deepEqual(result.projected, { complete: 60, inProgress: 0, notStarted: 40, total: 100 })
 })
 
 test('regression from Done can trend downward without projecting negative completed effort', () => {
@@ -92,14 +110,15 @@ test('regression from Done can trend downward without projecting negative comple
     start: totals({ Done: 100 }),
     current: totals({ New: 80, Done: 20 }),
   })
-  assert.equal(result.rows[2].projected, 0)
+  assert.equal(result.projected.complete, 0)
+  assert.equal(result.projected.notStarted + result.projected.inProgress, 100)
 })
 
 test('flat and zero-effort snapshots project without inventing progress', () => {
   for (const start of [totals(), args.current]) {
     const result = calculateSprintForecast({ ...args, start, current: start })
     assert.equal(result.status, 'ready')
-    for (const row of result.rows) assert.equal(row.projected, row.current)
+    assert.deepEqual(result.projected, result.current)
   }
 })
 

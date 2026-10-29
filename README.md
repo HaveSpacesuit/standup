@@ -22,19 +22,25 @@ When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage
 and does not change the sprint view.
 
-Hover or focus the Days remaining tag for a current-sprint effort forecast:
-Remaining (Blocked + New + Active + Review), Not started (Blocked + New, shown nested because it
-is part of Remaining), Complete (Done), Added (effort that joined after sprint start, already
-counted in Remaining or Complete), and Removed (sprint-start effort of items moved out of
-the sprint). The table compares the sprint-start snapshot, current effort, and independently
-projected end-of-sprint effort, using a linear weekday trend after at least one working day has
-elapsed. Added and Removed effort are carried forward rather than projected.
+Hover or focus the Days remaining tag for a current-sprint effort forecast. It splits effort into
+three exclusive buckets, so nothing is counted twice: Not started (Blocked + New), In progress
+(Active + Review), and Complete (Done). A stacked bar above each column shows the split at a glance:
+
+- Start: the sprint-start snapshot, as committed.
+- Now: current effort.
+- Projected end: where the current pace lands at sprint end, drawn hatched because it is an estimate.
+
+Every column adds up to 100% of its own total, so percentages are never skewed by scope changes;
+a Total effort row shows each column's absolute effort. Scope changes appear separately below the
+table as committed at start + added − removed = in sprint now.
 Sprint-start membership comes from a WIQL `ASOF` query at the sprint start date, so items that
-joined later count as added scope (starting at zero), and removed items stay in the Start column.
-Each value shows its percentage of the effort committed at sprint start, in every column.
-Remaining + Complete + Removed is 100% at Start; added scope can push Now and Projected end
-past 100%, which signals extra capacity rather than an error.
-Remaining-work projections cannot fall below zero; Complete is capped at current scope effort.
+joined later count as added scope, and removed items stay in the Start column (which is why Start
+can total more than Now).
+The projection is a linear weekday trend per bucket, shown after at least one working day has
+elapsed. It is measured against today's scope (added and removed effort are not trended), so the
+projected buckets add up to the same total as Now. Unfinished work cannot fall below zero, Complete
+is capped at today's scope, and Not started is capped at the effort still unfinished.
+Projected effort is rounded to whole numbers that still add up to the total.
 Like the footer chart, this uses current-sprint work items (and removed items) matching
 member/text filters, excluding PR-only cards. An item added and then removed mid-sprint is not
 counted. Estimate changes can distort the trend. Missing history suppresses the forecast rather

@@ -3,30 +3,35 @@ import type { StatusColumn } from './statusColumnStyles'
 
 export type SprintEffortTotals = Record<StatusColumn, number>
 
-export type SprintForecastRow = {
-  label: 'Remaining' | 'Not started' | 'Complete' | 'Added' | 'Removed'
-  /** True when the row is a subset of the row above it (Not started is part of Remaining). */
-  nested?: boolean
-  start: number
-  current: number
-  projected: number
+/** Effort split into mutually exclusive buckets, so the three always add up to `total`. */
+export type SprintForecastSnapshot = {
+  /** Done. */
+  complete: number
+  /** Active + Review. */
+  inProgress: number
+  /** Blocked + New. */
+  notStarted: number
+  total: number
+}
+
+export type ReadySprintForecast = {
+  status: 'ready'
+  /** Effort committed at sprint start, including items since removed. */
+  start: SprintForecastSnapshot
+  /** Effort currently in the sprint. */
+  current: SprintForecastSnapshot
+  /** Where the current pace lands at sprint end, measured against today's scope. */
+  projected: SprintForecastSnapshot
+  /** Current effort of items that joined the sprint after it started. */
+  addedEffort: number
+  /** Sprint-start effort of items that have since left the sprint. */
+  removedEffort: number
 }
 
 export type SprintForecast =
   | { status: 'loading' }
   | { status: 'unavailable'; reason: string }
-  | {
-      status: 'ready'
-      /** Effort currently in the sprint. */
-      totalEffort: number
-      /** Effort committed at sprint start, including items since removed. */
-      startTotalEffort: number
-      /** Current effort of items that joined the sprint after it started. */
-      addedEffort: number
-      /** Sprint-start effort of items that have since left the sprint. */
-      removedEffort: number
-      rows: SprintForecastRow[]
-    }
+  | ReadySprintForecast
 
 function workingDaysBetween(start: Date, finish: Date): number {
   let total = 0
@@ -78,30 +83,28 @@ export function calculateSprintForecast({
     return { status: 'unavailable', reason: 'Sprint effort data is invalid.' }
   }
 
-  const totalEffort = Object.values(current).reduce((sum, effort) => sum + effort, 0)
-  const startTotalEffort = Object.values(start).reduce((sum, effort) => sum + effort, 0)
-  const group = (totals: SprintEffortTotals) => ({
-    notStarted: totals.Blocked + totals.New,
-    remaining: totals.Blocked + totals.New + totals.Active + totals.Review,
-    complete: totals.Done,
-  })
-  const initial = group(start)
-  const latest = group(current)
+  const snapshot = (totals: SprintEffortTotals): SprintForecastSnapshot => {
+    const complete = totals.Done
+    const inProgress = totals.Active + totals.Review
+    const notStarted = totals.Blocked + totals.New
+    return { complete, inProgress, notStarted, total: complete + inProgress + notStarted }
+  }
+  const initial = snapshot(start)
+  const latest = snapshot(current)
   const project = (before: number, after: number) => Math.max(0, after + (after - before) * remaining / elapsed)
+
+  // Scope churn isn't trended: completion pace is measured against today's scope, so the projected
+  // buckets still add up to the same total. Not started can't exceed what's left to do.
+  const complete = Math.min(latest.total, project(initial.complete, latest.complete))
+  const left = latest.total - complete
+  const notStarted = Math.min(left, project(initial.notStarted, latest.notStarted))
 
   return {
     status: 'ready',
-    totalEffort,
-    startTotalEffort,
+    start: initial,
+    current: latest,
+    projected: { complete, inProgress: left - notStarted, notStarted, total: latest.total },
     addedEffort,
     removedEffort,
-    rows: [
-      { label: 'Remaining', start: initial.remaining, current: latest.remaining, projected: project(initial.remaining, latest.remaining) },
-      { label: 'Not started', nested: true, start: initial.notStarted, current: latest.notStarted, projected: project(initial.notStarted, latest.notStarted) },
-      { label: 'Complete', start: initial.complete, current: latest.complete, projected: Math.min(totalEffort, project(initial.complete, latest.complete)) },
-      // Scope churn isn't trended. Added effort is already counted in Remaining/Complete.
-      { label: 'Added', start: 0, current: addedEffort, projected: addedEffort },
-      { label: 'Removed', start: 0, current: removedEffort, projected: removedEffort },
-    ],
   }
 }
