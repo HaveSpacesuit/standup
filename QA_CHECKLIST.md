@@ -214,6 +214,8 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify current, past, future, and rollover sprint labels are correct.
 - [ ] Verify switching between Assignment and Sprint views preserves the selected team and filters.
 - [ ] Verify changing the sprint scope updates cards and summary counts without stale cards.
+- [ ] Verify move-history arrowheads remain visible in both directions when cards enlarge on
+      hover or keyboard focus; arrows must not block card links or cover sticky labels/headers.
 - [ ] Verify effort-flow/sprint summary details open when available.
 - [ ] Verify effort-flow chart labels, legends, values, empty state, and tooltip behavior.
 - [ ] Verify chart and summary values remain correct after refresh and view switching.

@@ -53,7 +53,7 @@ function findMoveHistorySourceColumnIndex(visitedStatuses: StatusColumn[], curre
 }
 
 /** Draws a line + arrowhead from the center of the source (visited) column to the near border of the
- * card's current column, spanning only the empty columns between them so it never overlaps a card. */
+ * resting card, spanning only the empty columns between them. */
 function MoveHistoryArrow({
   sourceColumnIndex,
   currentColumnIndex,
@@ -84,6 +84,9 @@ function MoveHistoryArrow({
         gridColumn: `${spanStart + 2} / ${spanEnd + 3}`,
         gridRow: rowNumber,
         position: 'relative',
+        // Match elevated cards; rendering after the card keeps the head visible on hover/focus,
+        // while remaining below the sticky sprint labels (z-index 3).
+        zIndex: 2,
         pointerEvents: 'none',
         display: 'flex',
         alignItems: 'center',
