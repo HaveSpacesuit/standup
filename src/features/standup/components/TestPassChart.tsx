@@ -11,6 +11,9 @@ export type TestSeries = { pipeline: TestPipeline; points: TestChartPoint[] }
 export type TestChartRange = { start: number; end: number }
 
 const X_TICK_COUNT = 7
+// Headroom above the 100% gridline (in log-position units, roughly 6px at typical chart heights)
+// so points at 100% aren't clipped. Ticks are fixed below, so no label is drawn for it.
+const PASS_RATE_HEADROOM = 0.03
 
 function testRunUrl(pipeline: TestPipeline, runId: number): string {
   const base = `https://dev.azure.com/${encodeURIComponent(pipeline.orgName)}/${encodeURIComponent(pipeline.projectName)}`
@@ -77,7 +80,7 @@ export function TestPassChart({ series, range }: { series: TestSeries[]; range: 
     interaction: { mode: 'nearest' as const, intersect: true },
     scales: {
       y: {
-        min: 0,
+        min: passRatePosition(100) - PASS_RATE_HEADROOM,
         max: passRatePosition(0),
         reverse: true,
         title: { display: true, text: 'Passed (%) · log-scaled failures' },
