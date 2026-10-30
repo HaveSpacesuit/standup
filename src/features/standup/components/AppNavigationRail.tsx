@@ -455,10 +455,10 @@ export function AppNavigationRail({
             </Typography>
             <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1, color: 'text.secondary' }}>
               <Typography component="li" variant="body-sm">
-                Use the quick filter in the toolbar to match work item IDs, titles, sprint details, tags, PR titles, and team member names.
+                Use the quick filter in the toolbar to match work item IDs, titles, sprint details, tags, PR titles, and team member names. On Backlog it matches any text shown in the table.
               </Typography>
               <Typography component="li" variant="body-sm">
-                Ctrl+F (or Cmd+F on macOS) focuses the quick filter on Development and Quality Assurance. The Development member filter can be cycled with Ctrl+Up and Ctrl+Down.
+                Ctrl+F (or Cmd+F on macOS) focuses the quick filter on Development, Quality Assurance, and Backlog. The Development member filter can be cycled with Ctrl+Up and Ctrl+Down.
               </Typography>
               <Typography component="li" variant="body-sm">
                 Team profiles and saved per-team options persist in local storage so the app can restore the currently selected setup on reload.

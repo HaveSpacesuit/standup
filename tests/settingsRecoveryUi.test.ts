@@ -46,8 +46,13 @@ function render(teamProfilesUnreadable = false, qaOptionsUnreadable = false, act
     selectedTeamId: '',
     onTeamChange: () => {},
     teamManagementUrl: '',
+    quickFilterInput: '',
+    onQuickFilterInputChange: () => {},
+    onQuickFilterClear: () => {},
+    quickFilterInputRef: { current: null },
     onRefresh: () => {},
     bugs: [],
+    totalBugCount: 0,
     isLoading: false,
     error: null,
   }

@@ -7,10 +7,13 @@ import type { RankedBacklogBug } from '../utils/backlogValue'
 type BacklogListProps = {
   isLoading: boolean
   error: string | null
+  /** The bugs to list, already narrowed by the quick filter. */
   bugs: RankedBacklogBug[]
+  /** The number of open bugs before the quick filter. */
+  totalBugCount: number
 }
 
-export function BacklogList({ isLoading, error, bugs }: BacklogListProps) {
+export function BacklogList({ isLoading, error, bugs, totalBugCount }: BacklogListProps) {
   if (isLoading) {
     return <BacklogLoadingState />
   }
@@ -19,6 +22,16 @@ export function BacklogList({ isLoading, error, bugs }: BacklogListProps) {
     return (
       <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
         <AdoErrorNotice title="Unable to load backlog" message={error} />
+      </Box>
+    )
+  }
+
+  if (bugs.length === 0 && totalBugCount > 0) {
+    return (
+      <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
+        <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
+          No bugs match the quick filter. Clear it to see all open bugs.
+        </Typography>
       </Box>
     )
   }

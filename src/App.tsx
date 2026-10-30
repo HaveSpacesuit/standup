@@ -4,6 +4,7 @@ import { AppNavigationRail } from './features/standup/components/AppNavigationRa
 import { PatEntryDialog } from './features/standup/components/PatEntryDialog'
 import { StandupContent } from './features/standup/components/StandupContent'
 import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
+import { useBacklogPageModel } from './features/standup/hooks/useBacklogPageModel'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 import { useQualityAssurancePageModel } from './features/standup/hooks/useQualityAssurancePageModel'
 import { useStandupAppState } from './features/standup/hooks/useStandupAppState'
@@ -22,6 +23,7 @@ type AppProps = {
 function App({ colorScheme, onToggleColorScheme }: AppProps) {
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const qualityAssuranceQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
+  const backlogQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const {
     teamProfiles,
     teamProfilesUnreadable,
@@ -139,6 +141,13 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     filteredBuckets: filteredQaBuckets,
   } = useQualityAssurancePageModel({ buckets: qaBuckets, qaOptions })
 
+  const {
+    quickFilterInput: backlogQuickFilterInput,
+    onQuickFilterInputChange: onBacklogQuickFilterInputChange,
+    onQuickFilterClear: onBacklogQuickFilterClear,
+    filteredBugs: filteredBacklogBugs,
+  } = useBacklogPageModel({ bugs: backlogBugs })
+
   const { activeView, onMemberFilterCycle } = useAppNavigation({
     patConfigured,
     memberFilterOptions,
@@ -147,6 +156,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     quickFilterInputRefs: {
       development: quickFilterInputRef,
       'qa-activity': qualityAssuranceQuickFilterInputRef,
+      backlog: backlogQuickFilterInputRef,
     },
   })
 
@@ -267,8 +277,13 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           selectedTeamId,
           onTeamChange,
           teamManagementUrl,
+          quickFilterInput: backlogQuickFilterInput,
+          onQuickFilterInputChange: onBacklogQuickFilterInputChange,
+          onQuickFilterClear: onBacklogQuickFilterClear,
+          quickFilterInputRef: backlogQuickFilterInputRef,
           onRefresh,
-          bugs: backlogBugs,
+          bugs: filteredBacklogBugs,
+          totalBugCount: backlogBugs.length,
           isLoading: backlogBugsLoading,
           error: backlogBugsError,
         }}

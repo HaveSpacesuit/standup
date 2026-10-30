@@ -92,7 +92,7 @@ function setup(t: TestContext, {
   }
 }
 
-for (const view of ['development', 'qa-activity']) {
+for (const view of ['development', 'qa-activity', 'backlog']) {
   for (const modifier of ['ctrlKey', 'metaKey']) {
     test(`${modifier}+F focuses and selects the ${view} quick filter from the toolbar`, (t) => {
       const { calls, press } = setup(t, { view })
@@ -133,7 +133,7 @@ test('an unmounted quick filter does not suppress browser Find', (t) => {
   assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
 })
 
-for (const view of ['development', 'qa-activity']) {
+for (const view of ['development', 'qa-activity', 'backlog']) {
   for (const modifier of ['ctrlKey', 'metaKey']) {
     test(`${modifier}+F preserves browser Find when the ${view} filter cannot receive focus`, (t) => {
       const { calls, press } = setup(t, { view, focusable: false })
@@ -163,15 +163,15 @@ for (const [hash, expectedView] of [
 }
 
 for (const modifier of ['ctrlKey', 'metaKey']) {
-  test(`${modifier}+F keeps browser Find on the Backlog view, which has no quick filter`, (t) => {
-    const { calls, press } = setup(t, { view: 'backlog', hasQuickFilter: false })
+  test(`${modifier}+F keeps browser Find on the Tests view, which has no quick filter`, (t) => {
+    const { calls, press } = setup(t, { view: 'tests', hasQuickFilter: false })
     assert.equal(press(undefined, { ctrlKey: modifier === 'ctrlKey', metaKey: modifier === 'metaKey' }).defaultPrevented, false)
     assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
   })
 }
 
 test('member cycling shortcuts are not active on the Backlog view', (t) => {
-  const { calls, press } = setup(t, { view: 'backlog', hasQuickFilter: false })
+  const { calls, press } = setup(t, { view: 'backlog' })
   assert.equal(press(undefined, undefined, 'ArrowDown').defaultPrevented, false)
   assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
 })

@@ -107,3 +107,8 @@ export function formatCreatedDate(createdAt: string | undefined): string {
   const time = createdAt ? Date.parse(createdAt) : Number.NaN
   return Number.isNaN(time) ? '' : CREATED_DATE_FORMATTER.format(time)
 }
+
+/** The Assigned To text: the display name, else the unique name, else blank for an unassigned bug. */
+export function formatAssignee(assignedTo: BacklogBug['assignedTo']): string {
+  return assignedTo?.displayName || assignedTo?.uniqueName || ''
+}

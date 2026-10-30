@@ -1,8 +1,10 @@
+import { memo } from 'react'
 import { Box, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
 import {
+  formatAssignee,
   formatBacklogValue,
   formatCreatedDate,
   formatIterationPath,
@@ -59,7 +61,38 @@ function orNotSet(value: string | number | undefined) {
   return value === undefined || value === '' ? <NotSet /> : value
 }
 
-export function BacklogTable({ bugs }: BacklogTableProps) {
+// Typing in the quick filter re-renders the whole page on every keystroke, and filtering hands back the same ranked bug
+// objects, so memoized rows keep the cost proportional to the rows that appear or disappear rather than all of them.
+const BacklogRow = memo(function BacklogRow({ bug }: { bug: RankedBacklogBug }) {
+  const createdDate = formatCreatedDate(bug.createdAt)
+
+  return (
+    <TableRow>
+      <TableCell sx={noWrapSx}>{bug.id}</TableCell>
+      <TableCell sx={{ minWidth: 280 }}>
+        <Link href={bug.workItemUrl} target="_blank" rel="noreferrer noopener">
+          {bug.title}
+          <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', ml: 0.5 }}>
+            <Icon href={svgWindowPopout} alt="" />
+          </Box>
+          <Box component="span" sx={visuallyHiddenSx}> (opens in a new tab)</Box>
+        </Link>
+      </TableCell>
+      <TableCell sx={noWrapSx}>
+        {bug.createdAt && createdDate ? <time dateTime={bug.createdAt}>{createdDate}</time> : <NotSet />}
+      </TableCell>
+      <TableCell>{formatAssignee(bug.assignedTo)}</TableCell>
+      <TableCell sx={noWrapSx}>{orNotSet(bug.state)}</TableCell>
+      <TableCell sx={noWrapSx}>{orNotSet(formatIterationPath(bug.iterationPath))}</TableCell>
+      <TableCell sx={noWrapSx}>{orNotSet(bug.severity)}</TableCell>
+      <TableCell align="right">{orNotSet(bug.priority)}</TableCell>
+      <TableCell align="right">{orNotSet(bug.effort)}</TableCell>
+      <TableCell align="right" sx={{ fontWeight: 700 }}>{formatBacklogValue(bug.value)}</TableCell>
+    </TableRow>
+  )
+})
+
+export const BacklogTable = memo(function BacklogTable({ bugs }: BacklogTableProps) {
   return (
     <Box
       component="main"
@@ -84,38 +117,12 @@ export function BacklogTable({ bugs }: BacklogTableProps) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {bugs.map((bug) => {
-              const assignee = bug.assignedTo?.displayName || bug.assignedTo?.uniqueName
-              const createdDate = formatCreatedDate(bug.createdAt)
-
-              return (
-                <TableRow key={bug.id} hover={false}>
-                  <TableCell sx={noWrapSx}>{bug.id}</TableCell>
-                  <TableCell sx={{ minWidth: 280 }}>
-                    <Link href={bug.workItemUrl} target="_blank" rel="noreferrer noopener">
-                      {bug.title}
-                      <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', ml: 0.5 }}>
-                        <Icon href={svgWindowPopout} alt="" />
-                      </Box>
-                      <Box component="span" sx={visuallyHiddenSx}> (opens in a new tab)</Box>
-                    </Link>
-                  </TableCell>
-                  <TableCell sx={noWrapSx}>
-                    {bug.createdAt && createdDate ? <time dateTime={bug.createdAt}>{createdDate}</time> : <NotSet />}
-                  </TableCell>
-                  <TableCell>{assignee}</TableCell>
-                  <TableCell sx={noWrapSx}>{orNotSet(bug.state)}</TableCell>
-                  <TableCell sx={noWrapSx}>{orNotSet(formatIterationPath(bug.iterationPath))}</TableCell>
-                  <TableCell sx={noWrapSx}>{orNotSet(bug.severity)}</TableCell>
-                  <TableCell align="right">{orNotSet(bug.priority)}</TableCell>
-                  <TableCell align="right">{orNotSet(bug.effort)}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>{formatBacklogValue(bug.value)}</TableCell>
-                </TableRow>
-              )
-            })}
+            {bugs.map((bug) => (
+              <BacklogRow key={bug.id} bug={bug} />
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
     </Box>
   )
-}
+})

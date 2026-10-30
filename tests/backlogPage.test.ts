@@ -28,6 +28,8 @@ after(async () => {
 })
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { BacklogPage } = await server.ssrLoadModule('/src/features/standup/pages/BacklogPage.tsx')
+const { useBacklogPageModel } = await server.ssrLoadModule('/src/features/standup/hooks/useBacklogPageModel.ts')
+const { filterBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogFilter.ts')
 const { formatCreatedDate, rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
 type PageProps = ComponentProps<typeof import('../src/features/standup/pages/BacklogPage.tsx').BacklogPage>
 
@@ -87,13 +89,18 @@ const defaultProps: PageProps = {
   selectedTeamId: team.id,
   onTeamChange: noop,
   teamManagementUrl: 'https://dev.azure.com/example-org/example-project/_settings/teams',
+  quickFilterInput: '',
+  onQuickFilterInputChange: noop,
+  onQuickFilterClear: noop,
+  quickFilterInputRef: { current: null },
   onRefresh: noop,
   bugs,
+  totalBugCount: bugs.length,
   isLoading: false,
   error: null,
 }
 
-async function render(t: TestContext, overrides: Partial<PageProps> = {}) {
+async function mount(t: TestContext, page: ReturnType<typeof createElement>) {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -101,9 +108,31 @@ async function render(t: TestContext, overrides: Partial<PageProps> = {}) {
     await act(async () => root.unmount())
     host.remove()
   })
-  await act(async () => root.render(createElement(Root, null, createElement(BacklogPage, { ...defaultProps, ...overrides }))))
+  await act(async () => root.render(createElement(Root, null, page)))
   return host
 }
+
+// The unfiltered bug count follows the bugs passed in unless a test sets it, as the app does when no filter is typed.
+function render(t: TestContext, overrides: Partial<PageProps> = {}) {
+  const props = { ...defaultProps, ...overrides }
+  return mount(t, createElement(BacklogPage, { ...props, totalBugCount: overrides.totalBugCount ?? props.bugs.length }))
+}
+
+// Owns the quick filter with the same hook the app uses, so typing narrows the listed bugs.
+function FilterableBacklogPage({ bugs: allBugs, ...props }: PageProps) {
+  const model = useBacklogPageModel({ bugs: allBugs })
+  return createElement(BacklogPage, {
+    ...props,
+    quickFilterInput: model.quickFilterInput,
+    onQuickFilterInputChange: model.onQuickFilterInputChange,
+    onQuickFilterClear: model.onQuickFilterClear,
+    bugs: model.filteredBugs,
+    totalBugCount: allBugs.length,
+  })
+}
+
+const renderFilterable = (t: TestContext, overrides: Partial<PageProps> = {}) =>
+  mount(t, createElement(FilterableBacklogPage, { ...defaultProps, ...overrides }))
 
 async function waitFor(condition: () => boolean) {
   const deadline = Date.now() + 3000
@@ -116,6 +145,19 @@ async function waitFor(condition: () => boolean) {
 const cellTexts = (row: Element) => [...row.querySelectorAll('th, td')].map((cell) => cell.textContent)
 const button = (host: Element, label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
 const dialog = () => document.querySelector('[role="dialog"]')
+const quickFilter = (host: Element) => host.querySelector<HTMLInputElement>('input[aria-label="Quick filter bugs"]')!
+const clearFilterButton = (host: Element) => host.querySelector<HTMLButtonElement>('button[aria-label="Clear quick filter"]')
+const listedIds = (host: Element) => [...host.querySelectorAll('tbody tr')].map((row) => Number(row.querySelector('td')!.textContent))
+
+// React tracks an input's value, so typing has to go through the native setter for the change to be noticed.
+const setNativeValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!
+async function typeFilter(host: Element, text: string) {
+  const input = quickFilter(host)
+  await act(async () => {
+    setNativeValue.call(input, text)
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  })
+}
 
 // The theme's rules sit inside @layer blocks, which jsdom's getComputedStyle does not resolve, so read the class rules.
 function declaredStyle(element: Element) {
@@ -131,11 +173,19 @@ function declaredStyle(element: Element) {
   return (property: string) => matched.map((style) => style.getPropertyValue(property)).findLast(Boolean) ?? ''
 }
 
-test('the header has the page title, team selection, Manage team, settings, and Refresh but no quick filter', async (t) => {
-  const host = await render(t)
+test('the header has the page title, quick filter, team selection, Manage team, settings, and Refresh', async (t) => {
+  const quickFilterInputRef = { current: null as HTMLInputElement | null }
+  const host = await render(t, { quickFilterInputRef })
 
   assert.equal(host.querySelector('h1')?.textContent, 'Backlog')
   assert.equal(host.querySelector('[role="combobox"]')?.textContent, 'Team Alpha')
+
+  const filter = quickFilter(host)
+  assert.equal(filter.placeholder, 'Quick filter bugs')
+  assert.equal(filter.value, '')
+  assert.equal(filter.disabled, false)
+  assert.equal(quickFilterInputRef.current, filter, 'the ref is what lets Ctrl/Cmd+F focus the filter')
+  assert.equal(clearFilterButton(host), null, 'there is nothing to clear yet')
 
   const manageTeam = host.querySelector('a[aria-label="Manage team"]')
   assert.equal(manageTeam?.getAttribute('href'), defaultProps.teamManagementUrl)
@@ -143,9 +193,6 @@ test('the header has the page title, team selection, Manage team, settings, and 
 
   assert.equal(button(host, 'Backlog settings').disabled, false)
   assert.equal(button(host, 'Refresh').disabled, false)
-  const textInputs = [...host.querySelectorAll('input')].filter((input) => input.getAttribute('aria-hidden') !== 'true')
-  assert.equal(textInputs.length, 0, 'only the Select\'s hidden native input is present')
-  assert.doesNotMatch(host.textContent!, /Quick filter/i)
 })
 
 test('the table lists the ranked bugs under the required columns', async (t) => {
@@ -214,6 +261,113 @@ test('the table has no sorting, filtering, or selection controls', async (t) => 
   assert.equal(table.querySelectorAll('a').length, bugs.length, 'the title links are the only interactive elements')
 })
 
+// StrataKit's TableBody turns row hover on; only the stylesheet rule shows the highlight is really themed.
+function hoverBackgrounds() {
+  const found: string[] = []
+  const visit = (rules: CSSRuleList) => {
+    for (const rule of Array.from(rules) as Array<CSSStyleRule & CSSGroupingRule>) {
+      if (rule.selectorText?.includes('MuiTableRow-hover') && rule.selectorText.includes(':hover')) {
+        found.push(rule.style.getPropertyValue('background-color'))
+      }
+      if (rule.cssRules) visit(rule.cssRules)
+    }
+  }
+  for (const sheet of Array.from(document.styleSheets)) visit(sheet.cssRules)
+  return found
+}
+
+test('body rows highlight on hover and the header row does not', async (t) => {
+  const host = await render(t)
+
+  const rows = [...host.querySelectorAll('tbody tr')]
+  assert.equal(rows.length, bugs.length)
+  for (const row of rows) {
+    assert.ok(row.classList.contains('MuiTableRow-hover'), `the row for bug ${row.firstElementChild!.textContent}`)
+  }
+  assert.equal(host.querySelector('thead tr')!.classList.contains('MuiTableRow-hover'), false)
+  assert.ok(hoverBackgrounds().some((background) => /hover/.test(background)), 'the theme styles the hovered row background')
+})
+
+test('typing in the quick filter reports the text to the app', async (t) => {
+  const typed: string[] = []
+  const host = await render(t, { onQuickFilterInputChange: (value: string) => typed.push(value) })
+
+  await typeFilter(host, 'ada')
+
+  assert.deepEqual(typed, ['ada'])
+})
+
+test('the quick filter shows its text and the clear button calls back', async (t) => {
+  let cleared = 0
+  const host = await render(t, { quickFilterInput: 'ada', onQuickFilterClear: () => { cleared++ } })
+
+  assert.equal(quickFilter(host).value, 'ada')
+  await act(async () => clearFilterButton(host)!.click())
+
+  assert.equal(cleared, 1)
+})
+
+test('typing in the quick filter narrows the table to the bugs that match', async (t) => {
+  const host = await renderFilterable(t)
+  assert.deepEqual(listedIds(host), [102, 103, 101])
+
+  await typeFilter(host, '  LOVELACE ')
+  await waitFor(() => listedIds(host).length === 1)
+
+  assert.deepEqual(listedIds(host), [102])
+  assert.equal(host.querySelector('table')?.getAttribute('aria-label'), 'Open bugs ranked by value')
+  assert.equal(quickFilter(host).value, '  LOVELACE ', 'the text is shown as typed')
+})
+
+test('the quick filter keeps the ranked order of the bugs it leaves', async (t) => {
+  const host = await renderFilterable(t)
+
+  await typeFilter(host, 'active')
+  await waitFor(() => listedIds(host).length === 2)
+  assert.deepEqual(listedIds(host), [102, 103])
+
+  await typeFilter(host, 'sprint')
+  await waitFor(() => listedIds(host).length === 2 && listedIds(host)[1] === 101)
+  assert.deepEqual(listedIds(host), [102, 101])
+})
+
+test('a quick filter that matches nothing says so, and clearing it restores every bug', async (t) => {
+  const host = await renderFilterable(t)
+
+  await typeFilter(host, 'no such bug')
+  await waitFor(() => host.querySelector('table') === null)
+
+  assert.match(host.querySelector('[role="status"]')!.textContent!, /No bugs match the quick filter/)
+  assert.equal(host.querySelector('h2'), null, 'this is not the empty state of a team without open bugs')
+  assert.equal(quickFilter(host).value, 'no such bug', 'the filter stays available to edit')
+
+  await act(async () => clearFilterButton(host)!.click())
+  await waitFor(() => host.querySelector('table') !== null)
+
+  assert.deepEqual(listedIds(host), [102, 103, 101])
+  assert.equal(quickFilter(host).value, '')
+  assert.equal(clearFilterButton(host), null)
+})
+
+test('a team with no open bugs keeps its empty state even if a filter is typed', async (t) => {
+  const host = await render(t, { bugs: [], quickFilterInput: 'ada' })
+
+  assert.equal(host.querySelector('h2')?.textContent, 'No open bugs')
+  assert.equal(host.querySelector('[role="status"]'), null)
+})
+
+test('every cell the table shows can be found with the quick filter', async (t) => {
+  const host = await render(t)
+
+  for (const row of host.querySelectorAll('tbody tr')) {
+    const shown = [...row.querySelectorAll('td')].map((cell) => (cell.textContent ?? '').replace(' (opens in a new tab)', ''))
+    const id = Number(shown[0])
+    for (const text of shown.filter((cell) => cell && cell !== '—Not set')) {
+      assert.ok(filterBacklogBugs(bugs, text).some((bug) => bug.id === id), `"${text}" is shown for bug ${id}`)
+    }
+  }
+})
+
 test('visually hidden text is 1px and anchored to the scrolling table so it cannot widen the page', async (t) => {
   const host = await render(t)
 
@@ -261,9 +415,10 @@ test('without a configured team the page asks for one and disables the page acti
   assert.equal(button(host, 'Refresh').disabled, true)
 })
 
-test('without a PAT the settings and Refresh buttons are disabled', async (t) => {
+test('without a PAT the quick filter, settings, and Refresh buttons are disabled', async (t) => {
   const host = await render(t, { patConfigured: false })
 
+  assert.equal(quickFilter(host).disabled, true)
   assert.equal(button(host, 'Backlog settings').disabled, true)
   assert.equal(button(host, 'Refresh').disabled, true)
 })

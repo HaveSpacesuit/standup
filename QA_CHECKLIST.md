@@ -50,7 +50,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Team Assignments loads real data and shows the expected board.
 - [ ] Quality Assurance can be opened and shows the expected QA board.
 - [ ] Backlog can be opened and lists the team's open bugs ranked by Value.
-- [ ] Quick filtering changes visible cards and clearing it restores them.
+- [ ] Quick filtering changes visible cards (or Backlog rows) and clearing it restores them.
 - [ ] Refresh reloads data and does not duplicate cards.
 - [ ] Settings can be reopened, closed, and saved without losing configuration.
 - [ ] The app can be reloaded and restores the expected PAT/team/preferences according to storage mode.
@@ -337,9 +337,10 @@ Prepare data that exercises both populated and empty states:
 
 ### Page and header
 
-- [ ] Open Backlog from the navigation rail and verify the header shows the Backlog title, the team
-      selector, Manage team, Backlog settings, and Refresh, with no quick filter.
-- [ ] Verify Ctrl/Cmd + F is not intercepted on Backlog (the browser's find opens instead).
+- [ ] Open Backlog from the navigation rail and verify the header shows the Backlog title, the quick
+      filter, the team selector, Manage team, Backlog settings, and Refresh.
+- [ ] Press Ctrl/Cmd + F on Backlog and verify focus moves to the quick filter (selecting any text in
+      it) rather than opening the browser's find.
 - [ ] Open Backlog settings; verify the placeholder dialog opens, closes with Close and Escape, and
       returns focus to the settings button.
 - [ ] Verify Manage team opens the selected team's Azure DevOps page in a new tab.
@@ -359,7 +360,11 @@ Prepare data that exercises both populated and empty states:
 
 - [ ] Verify the columns are, in order: ID, Title, Created Date, Assigned To, State, Iteration Path,
       Severity, Impact, Effort, and Value.
-- [ ] Verify the table has no sorting, filtering, selection, or row-click behavior.
+- [ ] Verify the table has no sorting, column filtering, selection, or row-click behavior, and that the
+      title links are its only interactive elements.
+- [ ] Hover over the rows and verify the row under the pointer is highlighted in both light and dark
+      mode, the highlight follows the pointer from row to row, and the pinned column headers never
+      highlight.
 - [ ] Verify each Title opens the bug in Azure DevOps in a new tab with safe link attributes, and that
       a screen reader announces the new-tab behavior.
 - [ ] Verify Iteration Path shows only the last two segments of the full path.
@@ -372,6 +377,21 @@ Prepare data that exercises both populated and empty states:
       borders visible above them.
 - [ ] Narrow the window and verify the table scrolls horizontally inside its own area, with the
       headers staying aligned to their columns.
+
+### Quick filter
+
+- [ ] Type part of a bug's ID, title, created date, assignee, state, iteration path, severity, impact,
+      effort, or value, as the table shows it, and verify only the bugs showing that text remain.
+- [ ] Verify matching ignores case and leading or trailing spaces.
+- [ ] Verify the filter does not match what the table does not show: the iteration path segments cut
+      from the display, the unrounded Value, or the placeholder for a missing value.
+- [ ] Verify the remaining bugs keep their ranked order.
+- [ ] Verify a filter with no matches shows a message that no bugs match (not the no-open-bugs
+      state), and that the clear icon, which appears once text is entered, restores every bug.
+- [ ] Verify the quick filter is disabled until a PAT is configured.
+- [ ] Refresh, change teams, and switch to another page and back; verify the filter text is kept and
+      the list is still narrowed by it.
+- [ ] With several hundred open bugs, verify typing in the quick filter stays responsive.
 
 ### Value and ranking
 
