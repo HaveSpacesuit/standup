@@ -235,6 +235,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onSprintFilterChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, sprintFilter: next }),
           hideUsersWithNoActivity: assignmentOptions.hideUsersWithNoActivity,
           onHideUsersWithNoActivityChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, hideUsersWithNoActivity: next }),
+          hideUsersWithOnlyStaleDoneWork: assignmentOptions.hideUsersWithOnlyStaleDoneWork,
+          onHideUsersWithOnlyStaleDoneWorkChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, hideUsersWithOnlyStaleDoneWork: next }),
           teamIterations,
           teamIterationsLoading,
           teamIterationsError,

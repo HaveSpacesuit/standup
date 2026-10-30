@@ -73,6 +73,8 @@ const props: PageProps = {
   onSprintFilterChange: noop,
   hideUsersWithNoActivity: false,
   onHideUsersWithNoActivityChange: noop,
+  hideUsersWithOnlyStaleDoneWork: false,
+  onHideUsersWithOnlyStaleDoneWorkChange: noop,
   teamIterations: [],
   teamIterationsLoading: false,
   teamIterationsError: null,
@@ -145,6 +147,105 @@ test('inactive row setting respects member selection and retains empty-board gui
   assert.match(render(filtered), /<h2[^>]*>Active Member<\/h2>/)
   assert.doesNotMatch(render(filtered), /<h2[^>]*>Inactive Member<\/h2>/)
   assert.match(render({ ...filtered, workItems: [] }), /No cards match your filters/)
+})
+
+const staleDoneBoard: Partial<PageProps> = {
+  members: [
+    { id: 'stale', displayName: 'Stale Member' },
+    { id: 'recent', displayName: 'Recent Member' },
+    { id: 'mixed', displayName: 'Mixed Member' },
+    { id: 'open', displayName: 'Open Member' },
+    { id: 'idle', displayName: 'Idle Member' },
+  ],
+  workItems: [
+    { id: 1, title: 'Sprint cleanup finished long ago', status: 'Done' },
+    { id: 2, title: 'Merged pull request from long ago', status: 'Done', kind: 'pull-request' },
+    { id: 3, title: 'Hotfix finished yesterday', status: 'Done' },
+    { id: 4, title: 'Docs finished long ago', status: 'Done' },
+    { id: 5, title: 'Docs follow-up in progress', status: 'Active' },
+    { id: 6, title: 'Refactor untouched for weeks', status: 'Active' },
+    { id: 7, title: 'Unowned task finished long ago', status: 'Done' },
+    { id: 8, title: 'Unverified task finished long ago', status: 'Done' },
+  ],
+  workItemAssignees: {
+    1: { label: 'Stale Member', kind: 'team-member' },
+    2: { label: 'Stale Member', kind: 'team-member' },
+    3: { label: 'Recent Member', kind: 'team-member' },
+    4: { label: 'Mixed Member', kind: 'team-member' },
+    5: { label: 'Mixed Member', kind: 'team-member' },
+    6: { label: 'Open Member', kind: 'team-member' },
+    7: { label: 'Unassigned', kind: 'unassigned' },
+    8: { label: 'Assignee unavailable', kind: 'history-unavailable' },
+  },
+  changeHighlightsByItemId: { 1: 'stale', 2: 'stale', 3: 'new', 4: 'stale', 5: 'none', 6: 'stale', 7: 'stale', 8: 'stale' },
+}
+const staleDoneRowLabels = [
+  'Stale Member', 'Recent Member', 'Mixed Member', 'Open Member', 'Idle Member', 'Unassigned', 'Assignee unavailable',
+]
+const visibleRowLabels = (html: string) =>
+  staleDoneRowLabels.filter((label) => new RegExp(`<h2[^>]*>${label}</h2>`).test(html))
+const doneColumnCount = (html: string) =>
+  html.match(/<h2[^>]*>Done<\/h2>(?:<style[^>]*>[^<]*<\/style>)?<span[^>]*>(\d+)<\/span>/)?.[1]
+
+test('hiding users with only stale done work removes rows whose every card is done and stale', () => {
+  const html = render({ ...staleDoneBoard, hideUsersWithNoActivity: true, hideUsersWithOnlyStaleDoneWork: true })
+  assert.deepEqual(visibleRowLabels(html), ['Recent Member', 'Mixed Member', 'Open Member'])
+  for (const title of [
+    'Hotfix finished yesterday', 'Docs finished long ago', 'Docs follow-up in progress', 'Refactor untouched for weeks',
+  ]) {
+    assert.ok(html.includes(title), title)
+  }
+  for (const title of [
+    'Sprint cleanup finished long ago', 'Merged pull request from long ago',
+    'Unowned task finished long ago', 'Unverified task finished long ago',
+  ]) {
+    assert.ok(!html.includes(title), title)
+  }
+})
+
+test('stale done rows stay visible unless both hide options are on', () => {
+  const everyRow = [...staleDoneRowLabels]
+  assert.deepEqual(visibleRowLabels(render(staleDoneBoard)), everyRow)
+  assert.deepEqual(
+    visibleRowLabels(render({ ...staleDoneBoard, hideUsersWithNoActivity: true })),
+    everyRow.filter((label) => label !== 'Idle Member'),
+  )
+  // A saved stale-done setting has no effect while the no-activity setting is off.
+  assert.deepEqual(visibleRowLabels(render({ ...staleDoneBoard, hideUsersWithOnlyStaleDoneWork: true })), everyRow)
+})
+
+test('hiding stale done rows does not change column counts', () => {
+  const shown = render({ ...staleDoneBoard, hideUsersWithNoActivity: true })
+  const hidden = render({ ...staleDoneBoard, hideUsersWithNoActivity: true, hideUsersWithOnlyStaleDoneWork: true })
+  assert.equal(doneColumnCount(shown), '6')
+  assert.equal(doneColumnCount(hidden), '6')
+})
+
+test('a row stays visible until its cards are known to be stale', () => {
+  const hideBoth = { ...staleDoneBoard, hideUsersWithNoActivity: true, hideUsersWithOnlyStaleDoneWork: true }
+  assert.deepEqual(visibleRowLabels(render({ ...hideBoth, changeHighlightsByItemId: {} })), [
+    'Stale Member', 'Recent Member', 'Mixed Member', 'Open Member', 'Unassigned', 'Assignee unavailable',
+  ])
+})
+
+test('hiding every row explains which setting hid them', () => {
+  const onlyStale: Partial<PageProps> = {
+    members: [{ id: 'stale', displayName: 'Stale Member' }],
+    selectedMemberFilter: 'Stale Member',
+    memberFilterOptions: ['Stale Member'],
+    workItems: [{ id: 1, title: 'Sprint cleanup finished long ago', status: 'Done' }],
+    workItemAssignees: { 1: { label: 'Stale Member', kind: 'team-member' } },
+    changeHighlightsByItemId: { 1: 'stale' },
+    hideUsersWithNoActivity: true,
+  }
+  const kept = render(onlyStale)
+  assert.match(kept, /<h2[^>]*>Stale Member<\/h2>/)
+  assert.doesNotMatch(kept, /All rows are hidden by the Members options/)
+
+  const hidden = render({ ...onlyStale, hideUsersWithOnlyStaleDoneWork: true })
+  assert.match(hidden, /role="status"[^>]*>All rows are hidden by the Members options\. Try adjusting them in Assignments options\./)
+  assert.doesNotMatch(hidden, /<h2[^>]*>Stale Member<\/h2>/)
+  assert.doesNotMatch(hidden, /Sprint cleanup finished long ago/)
 })
 
 test('quick-filter and member-filter empty boards explain how to restore cards', () => {

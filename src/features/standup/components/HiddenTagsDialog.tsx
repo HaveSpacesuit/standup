@@ -51,6 +51,8 @@ type HiddenTagsDialogProps = {
   onSprintFilterChange?: (next: AssignmentSprintFilter) => void
   hideUsersWithNoActivity?: boolean
   onHideUsersWithNoActivityChange?: (next: boolean) => void
+  hideUsersWithOnlyStaleDoneWork?: boolean
+  onHideUsersWithOnlyStaleDoneWorkChange?: (next: boolean) => void
   teamIterations?: TeamIterationOption[]
   teamIterationsLoading?: boolean
   title?: string
@@ -59,6 +61,9 @@ type HiddenTagsDialogProps = {
 }
 
 const DEFAULT_TAG_RULE_ACTION_OPTIONS: TagRuleAction[] = ['Blocked', 'New', 'Active', 'Review', 'Done', 'unlisted']
+
+// Lets assistive technology announce why the stale-done option can be unavailable.
+const STALE_DONE_HELP_ID = 'hide-users-stale-done-help'
 
 type RelativeSprintKey = 'current' | 'next' | 'nextNext'
 
@@ -102,6 +107,8 @@ export function HiddenTagsDialog({
   onSprintFilterChange,
   hideUsersWithNoActivity = false,
   onHideUsersWithNoActivityChange,
+  hideUsersWithOnlyStaleDoneWork = false,
+  onHideUsersWithOnlyStaleDoneWorkChange,
   teamIterations = [],
   teamIterationsLoading = false,
   title = 'Assignments options',
@@ -226,6 +233,20 @@ export function HiddenTagsDialog({
                     <Checkbox
                       checked={hideUsersWithNoActivity}
                       onChange={(_, checked) => onHideUsersWithNoActivityChange?.(checked)}
+                    />
+                  )}
+                />
+                <Typography id={STALE_DONE_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mt: 1.5, mb: 1.5 }}>
+                  A stricter version of the option above: hide member rows where every card is in the Done column and stale (faded on the board, based on the Stale threshold on the Freshness tab). Requires Hide users with no activity.
+                </Typography>
+                <FormControlLabel
+                  label="Also hide users with only stale, done work"
+                  disabled={!hideUsersWithNoActivity}
+                  control={(
+                    <Checkbox
+                      checked={hideUsersWithOnlyStaleDoneWork}
+                      onChange={(_, checked) => onHideUsersWithOnlyStaleDoneWorkChange?.(checked)}
+                      slotProps={{ input: { 'aria-describedby': STALE_DONE_HELP_ID } }}
                     />
                   )}
                 />

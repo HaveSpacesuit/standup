@@ -212,6 +212,114 @@ test('team exports preserve the inactive member setting and older imports defaul
   assert.equal(parseImportedTeamData(JSON.stringify(legacy)).assignmentOptions.hideUsersWithNoActivity, false)
 })
 
+test('Assignments stale done member option is always shown but only enabled with the no-activity option', () => {
+  hooks.reset()
+  const changes: boolean[] = []
+  const props = {
+    open: true, tagRules: [], onChange: () => {}, onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 }, onCardHighlightOptionsChange: () => {},
+    onHideUsersWithOnlyStaleDoneWorkChange: (next: boolean) => { changes.push(next) },
+  }
+  hooks.beginRender()
+  const tabs = find(HiddenTagsDialog(props), (node) => node.type === 'Tabs')!
+  ;(tabs.props.onChange as (event: null, value: string) => void)(null, 'members')
+  function staleDoneOption(overrides: Record<string, unknown> = {}) {
+    hooks.beginRender()
+    const label = find(
+      HiddenTagsDialog({ ...props, ...overrides }),
+      (node) => node.props.label === 'Also hide users with only stale, done work',
+    )!
+    assert.ok(label)
+    return { label, checkbox: label.props.control as Element }
+  }
+
+  let option = staleDoneOption()
+  assert.equal(option.label.props.disabled, true)
+  assert.equal(option.checkbox.props.checked, false)
+
+  // The reason the option can be unavailable is announced with the checkbox.
+  const describedBy = (option.checkbox.props.slotProps as { input: Record<string, unknown> }).input['aria-describedby']
+  assert.equal(typeof describedBy, 'string')
+  hooks.beginRender()
+  const help = find(HiddenTagsDialog(props), (node) => node.props.id === describedBy)!
+  assert.ok(help)
+  assert.match(String(help.props.children), /Requires Hide users with no activity\.$/)
+  option = staleDoneOption({ hideUsersWithNoActivity: true })
+  assert.equal(option.label.props.disabled, false)
+  assert.equal(option.checkbox.props.checked, false)
+  ;(option.checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
+
+  // A saved value is shown, not cleared, while the no-activity option is off.
+  option = staleDoneOption({ hideUsersWithOnlyStaleDoneWork: true })
+  assert.equal(option.label.props.disabled, true)
+  assert.equal(option.checkbox.props.checked, true)
+
+  option = staleDoneOption({ hideUsersWithNoActivity: true, hideUsersWithOnlyStaleDoneWork: true })
+  assert.equal(option.label.props.disabled, false)
+  assert.equal(option.checkbox.props.checked, true)
+  ;(option.checkbox.props.onChange as (event: null, checked: boolean) => void)(null, false)
+  assert.deepEqual(changes, [true, false])
+})
+
+test('Assignments stale done member setting defaults false for missing and older settings', () => {
+  assert.equal(createDefaultAssignmentOptions().hideUsersWithOnlyStaleDoneWork, false)
+  for (const raw of [null, '{}', '{bad', '{"hideUsersWithNoActivity":true}', '{"hideUsersWithOnlyStaleDoneWork":"true"}']) {
+    assert.equal(parseStoredAssignmentOptions(raw).hideUsersWithOnlyStaleDoneWork, false)
+  }
+  for (const hideUsersWithOnlyStaleDoneWork of [true, false]) {
+    const options = { ...createDefaultAssignmentOptions(), hideUsersWithNoActivity: true, hideUsersWithOnlyStaleDoneWork }
+    assert.deepEqual(parseStoredAssignmentOptions(serializeAssignmentOptions(options)), options)
+  }
+})
+
+test('Assignments stale done member setting is persisted per team and restored after reload', (t) => {
+  const profile = {
+    orgName: 'org', projectName: 'project', displayName: 'Team',
+    areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+  }
+  const storage = new Map([
+    ['standup:team-profiles', JSON.stringify([{ ...profile, id: 'one' }, { ...profile, id: 'two' }])],
+  ])
+  setupAppStorage(storage, t)
+  function useReloadAppState() {
+    hooks.reset()
+    hooks.beginRender()
+    return useStandupAppState()
+  }
+  let state = useReloadAppState()
+  assert.equal(state.assignmentOptionsByTeam.one.hideUsersWithOnlyStaleDoneWork, false)
+  state.setAssignmentOptionsForTeam('one', {
+    ...state.assignmentOptionsByTeam.one, hideUsersWithOnlyStaleDoneWork: true,
+  })
+  assert.equal(JSON.parse(storage.get(assignmentOptionsStorageKey('one'))!).hideUsersWithOnlyStaleDoneWork, true)
+  state = useReloadAppState()
+  assert.equal(state.assignmentOptionsByTeam.one.hideUsersWithOnlyStaleDoneWork, true)
+  assert.equal(state.assignmentOptionsByTeam.one.hideUsersWithNoActivity, false)
+  assert.equal(state.assignmentOptionsByTeam.two.hideUsersWithOnlyStaleDoneWork, false)
+  state.setAssignmentOptionsForTeam('one', {
+    ...state.assignmentOptionsByTeam.one, hideUsersWithOnlyStaleDoneWork: false,
+  })
+  assert.equal(useReloadAppState().assignmentOptionsByTeam.one.hideUsersWithOnlyStaleDoneWork, false)
+})
+
+test('team exports preserve the stale done member setting and older imports default false', () => {
+  const data = buildTeamDataExport({
+    teamProfile: {
+      id: 'team', orgName: 'org', projectName: 'project', displayName: 'Team',
+      areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+    },
+    assignmentOptions: {
+      ...createDefaultAssignmentOptions(), hideUsersWithNoActivity: true, hideUsersWithOnlyStaleDoneWork: true,
+    },
+    assignmentTagRules: [],
+    qaOptions: createDefaultQaOptions(),
+  })
+  assert.equal(parseImportedTeamData(serializeTeamDataExport(data)).assignmentOptions.hideUsersWithOnlyStaleDoneWork, true)
+  const legacy = JSON.parse(serializeTeamDataExport(data))
+  delete legacy.assignmentOptions.hideUsersWithOnlyStaleDoneWork
+  assert.equal(parseImportedTeamData(JSON.stringify(legacy)).assignmentOptions.hideUsersWithOnlyStaleDoneWork, false)
+})
+
 test('QA selectors have purpose and column context in accessible names', () => {
   hooks.reset()
   const props = {

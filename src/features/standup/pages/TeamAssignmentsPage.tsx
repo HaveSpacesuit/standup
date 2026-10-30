@@ -69,6 +69,8 @@ type TeamAssignmentsPageProps = {
   onSprintFilterChange: (next: AssignmentSprintFilter) => void
   hideUsersWithNoActivity: boolean
   onHideUsersWithNoActivityChange: (next: boolean) => void
+  hideUsersWithOnlyStaleDoneWork: boolean
+  onHideUsersWithOnlyStaleDoneWorkChange: (next: boolean) => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
   teamIterationsError: string | null
@@ -123,6 +125,8 @@ export function TeamAssignmentsPage({
   onSprintFilterChange,
   hideUsersWithNoActivity,
   onHideUsersWithNoActivityChange,
+  hideUsersWithOnlyStaleDoneWork,
+  onHideUsersWithOnlyStaleDoneWorkChange,
   teamIterations,
   teamIterationsLoading,
   teamIterationsError,
@@ -221,6 +225,7 @@ export function TeamAssignmentsPage({
                 members={members}
                 selectedMemberFilter={selectedMemberFilter}
                 hideUsersWithNoActivity={hideUsersWithNoActivity}
+                hideUsersWithOnlyStaleDoneWork={hideUsersWithOnlyStaleDoneWork}
                 workItems={workItems}
                 currentIterationName={currentIterationName}
                 changeHighlightsByItemId={changeHighlightsByItemId}
@@ -261,6 +266,8 @@ export function TeamAssignmentsPage({
             onSprintFilterChange={onSprintFilterChange}
             hideUsersWithNoActivity={hideUsersWithNoActivity}
             onHideUsersWithNoActivityChange={onHideUsersWithNoActivityChange}
+            hideUsersWithOnlyStaleDoneWork={hideUsersWithOnlyStaleDoneWork}
+            onHideUsersWithOnlyStaleDoneWorkChange={onHideUsersWithOnlyStaleDoneWorkChange}
             teamIterations={teamIterations}
             teamIterationsLoading={teamIterationsLoading}
           />

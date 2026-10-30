@@ -4,6 +4,8 @@ export type AssignmentSprintFilter = QaSprintFilter
 
 export type AssignmentOptions = {
   hideUsersWithNoActivity: boolean
+  /** Stricter form of hideUsersWithNoActivity: also hides users whose cards are all Done and stale. Ignored unless hideUsersWithNoActivity is on. */
+  hideUsersWithOnlyStaleDoneWork: boolean
   /** Allow-list of work item types to query. Empty = query all types. */
   includeWorkItemTypes: string[]
   /** Sprint filter controlling which iterations are queried. */
@@ -47,6 +49,7 @@ function parseSprintFilter(value: unknown): AssignmentSprintFilter {
 export function parseStoredAssignmentOptions(value: string | null): AssignmentOptions {
   const empty: AssignmentOptions = {
     hideUsersWithNoActivity: false,
+    hideUsersWithOnlyStaleDoneWork: false,
     includeWorkItemTypes: [],
     sprintFilter: { ...DEFAULT_ASSIGNMENT_SPRINT_FILTER },
   }
@@ -62,6 +65,7 @@ export function parseStoredAssignmentOptions(value: string | null): AssignmentOp
 
     return {
       hideUsersWithNoActivity: parsed.hideUsersWithNoActivity === true,
+      hideUsersWithOnlyStaleDoneWork: parsed.hideUsersWithOnlyStaleDoneWork === true,
       includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
       sprintFilter: parseSprintFilter(parsed.sprintFilter),
     }

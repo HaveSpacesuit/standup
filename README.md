@@ -22,6 +22,16 @@ When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage
 and does not change the sprint view.
 
+Below it, "Also hide users with only stale, done work" (also off by default) is a stricter version
+of the same option. It additionally hides rows where every card is in the Done column and stale.
+The board fades a card as stale once it has gone without a tracked change for at least the Stale
+threshold on the Freshness tab (7 days by default). The option is always shown, but it can be
+changed only while "Hide users with no activity" is on; a saved choice is kept, but has no effect,
+while that option is off. A card whose freshness is still loading is not treated as stale, so its
+row stays visible. Column counts and effort totals still include the hidden rows' cards, and if
+every row ends up hidden the board says so. The setting is saved per team in browser local storage
+and does not change the sprint view.
+
 Hover or focus the Days remaining tag for a current-sprint effort forecast. It splits effort into
 three exclusive buckets, so nothing is counted twice: Not started (Blocked + New), In progress
 (Active + Review), and Complete (Done). A stacked bar above each column shows the split at a glance:

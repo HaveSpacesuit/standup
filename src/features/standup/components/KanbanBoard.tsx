@@ -13,6 +13,7 @@ import { AdoErrorNotice } from './AdoErrorNotice'
 import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 import { getAssignmentMemberRows } from '../utils/assignmentMembers'
+import { getVisibleBoardRows } from '../utils/boardRowVisibility'
 
 const BOARD_GRID_TEMPLATE = '175px repeat(5, minmax(200px, 1fr))'
 const COLLAPSED_CELL_CARD_LIMIT = 3
@@ -27,6 +28,7 @@ type KanbanBoardProps = {
   members: TeamMember[]
   selectedMemberFilter: string
   hideUsersWithNoActivity?: boolean
+  hideUsersWithOnlyStaleDoneWork?: boolean
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
@@ -44,6 +46,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   members,
   selectedMemberFilter,
   hideUsersWithNoActivity = false,
+  hideUsersWithOnlyStaleDoneWork = false,
   workItems,
   currentIterationName,
   changeHighlightsByItemId,
@@ -200,13 +203,20 @@ export const KanbanBoard = memo(function KanbanBoard({
       </Typography>
     )
   } else {
-    content = (
+    const visibleRows = getVisibleBoardRows(rows, cardsByCell, changeHighlightsByItemId, {
+      hideUsersWithNoActivity,
+      hideUsersWithOnlyStaleDoneWork,
+    })
+
+    content = rows.length > 0 && visibleRows.length === 0 ? (
+      <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
+        All rows are hidden by the Members options. Try adjusting them in Assignments options.
+      </Typography>
+    ) : (
       <KanbanBoardGrid
         boardGridTemplate={BOARD_GRID_TEMPLATE}
         collapsedCellCardLimit={COLLAPSED_CELL_CARD_LIMIT}
-        rows={hideUsersWithNoActivity
-          ? rows.filter((row) => STATUS_COLUMNS.some((status) => cardsByCell[`${row.key}:${status}`]?.length))
-          : rows}
+        rows={visibleRows}
         cardsByCell={cardsByCell}
         expandedCells={expandedCells}
         currentIterationName={currentIterationName}

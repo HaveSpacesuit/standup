@@ -253,6 +253,19 @@ Prepare data that exercises both populated and empty states:
 - [ ] Add, edit/remove, and clear hidden-tag rules, including case and whitespace variations.
 - [ ] Select sprint restrictions and verify filtering follows the selected sprint paths.
 - [ ] Verify hidden-tag rules persist per team and do not affect another team.
+- [ ] In Assignments options > Members, verify "Hide users with no activity" is off by default, hides
+      member rows without cards matching the current filters, and counts PR-only cards as activity.
+- [ ] Verify "Also hide users with only stale, done work" is always shown, off by default, and
+      disabled until "Hide users with no activity" is checked.
+- [ ] With both options checked, verify a row is hidden only when every one of its cards is in the Done
+      column and stale; a row with any card in another column, or any fresh or recently changed card,
+      stays visible. Include the Unassigned and Assignee unavailable rows and PR-only cards.
+- [ ] Change the Stale threshold on the Freshness tab and verify rows hide and reappear to match.
+- [ ] Uncheck "Hide users with no activity" and verify the stale, done option is disabled and stops
+      hiding rows, then re-check it and verify the saved stale, done choice applies again.
+- [ ] Verify column counts and effort totals still include cards from hidden rows, and that hiding
+      every row shows an explanatory message instead of an empty board.
+- [ ] Verify both Members options persist per team across a reload and do not affect Sprint view.
 - [ ] Verify filter combinations use the intended AND/OR semantics and can be cleared.
 - [ ] Verify controls are disabled or explain why they are unavailable before PAT/team setup.
 

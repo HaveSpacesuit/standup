@@ -191,6 +191,7 @@ function parseAssignmentOptions(value: unknown): AssignmentOptions {
 
   return {
     hideUsersWithNoActivity: value.hideUsersWithNoActivity === true,
+    hideUsersWithOnlyStaleDoneWork: value.hideUsersWithOnlyStaleDoneWork === true,
     includeWorkItemTypes: parseStringArray(
       value.includeWorkItemTypes ?? [],
       'Imported assignment options includeWorkItemTypes must be a string array.',
