@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { Box, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
+import { Fragment, memo } from 'react'
+import { Badge, Box, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
@@ -43,6 +43,16 @@ const visuallyHiddenSx: SxProps<Theme> = {
 
 const noWrapSx: SxProps<Theme> = { whiteSpace: 'nowrap' }
 
+// Tags flow like words after the title, so many or long tags wrap with the title instead of widening the column. The
+// items are styled from the list because there can be thousands of them and a Box with its own sx costs on every mount.
+const tagListSx: SxProps<Theme> = {
+  display: 'inline',
+  m: 0,
+  p: 0,
+  listStyle: 'none',
+  '& > li': { display: 'inline', whiteSpace: 'nowrap' },
+}
+
 // The scroller sits at a fractional offset (the app's 0.8px hairlines), and Chromium can snap a stuck header 1-2px
 // below the scroller's clip edge, exposing the row scrolled behind it. Sticking 1px above the edge keeps the header
 // flush with the clip. Larger offsets are worse: the clip's own rounding then decides where the header is visible.
@@ -61,6 +71,31 @@ function orNotSet(value: string | number | undefined) {
   return value === undefined || value === '' ? <NotSet /> : value
 }
 
+function BugTags({ tags }: { tags: string[] | undefined }) {
+  if (!tags || tags.length === 0) {
+    return null
+  }
+
+  // Text spaces separate the title and tags rather than margins: a space drops at a line break, so a wrapped tag stays
+  // flush left, and copied text keeps the tags apart.
+  return (
+    <>
+      {' '}
+      <Box component="ul" role="list" aria-label="Tags" sx={tagListSx}>
+        {tags.map((tag, index) => (
+          <Fragment key={tag}>
+            {index > 0 && ' '}
+            <li>
+              {/* MUI shows a badge whose content is a number above max as "99+", and that includes a tag like 2026. */}
+              <Badge variant="inline" type="outlined" size="small" max={Infinity} badgeContent={tag} />
+            </li>
+          </Fragment>
+        ))}
+      </Box>
+    </>
+  )
+}
+
 // Typing in the quick filter re-renders the whole page on every keystroke, and filtering hands back the same ranked bug
 // objects, so memoized rows keep the cost proportional to the rows that appear or disappear rather than all of them.
 const BacklogRow = memo(function BacklogRow({ bug }: { bug: RankedBacklogBug }) {
@@ -77,6 +112,7 @@ const BacklogRow = memo(function BacklogRow({ bug }: { bug: RankedBacklogBug }) 
           </Box>
           <Box component="span" sx={visuallyHiddenSx}> (opens in a new tab)</Box>
         </Link>
+        <BugTags tags={bug.tags} />
       </TableCell>
       <TableCell sx={noWrapSx}>
         {bug.createdAt && createdDate ? <time dateTime={bug.createdAt}>{createdDate}</time> : <NotSet />}

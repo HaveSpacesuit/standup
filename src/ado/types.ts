@@ -127,6 +127,8 @@ export type TeamMemberLookup = Record<string, string>
 export type BacklogBug = {
   id: number
   title: string
+  /** Tags in the order the Title column lists them (alphabetical, ignoring case, like the board). */
+  tags?: string[]
   state?: string
   createdAt?: string
   assignedTo?: IdentityRef

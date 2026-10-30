@@ -4,7 +4,14 @@ import type { AdoRequestClient } from './httpClient'
 import { parseAssignedTo } from './identity'
 import type { BacklogBug } from './types'
 import { buildBacklogBugsWiql } from './wiql'
-import { chunkArray, EFFORT_FIELD_NAMES, fetchWorkItemIdsByWiql, parseEffort, WORK_ITEM_BATCH_LIMIT } from './workItemsApi'
+import {
+  chunkArray,
+  EFFORT_FIELD_NAMES,
+  fetchWorkItemIdsByWiql,
+  parseEffort,
+  resolveTags,
+  WORK_ITEM_BATCH_LIMIT,
+} from './workItemsApi'
 import type { ProjectWorkItemState } from './workItemTypesApi'
 
 const BATCH_REQUEST_CONCURRENCY = 4
@@ -21,6 +28,7 @@ const BACKLOG_BUG_FIELDS = [
   'System.State',
   'System.AssignedTo',
   'System.IterationPath',
+  'System.Tags',
   'Microsoft.VSTS.Common.Severity',
   'Microsoft.VSTS.Common.Priority',
   ...EFFORT_FIELD_NAMES,
@@ -57,6 +65,11 @@ function resolveEffort(fields: Record<string, unknown>): number | undefined {
   return undefined
 }
 
+/** Sorts like the board's tag badges, so a bug's tags read in the same order on both pages. */
+function resolveSortedTags(fields: Record<string, unknown>): string[] {
+  return resolveTags(fields).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
+}
+
 /** Names of the Bug states that take a bug off the backlog (by state category, else well-known names). */
 export function resolveClosedBugStates(bugStates: readonly ProjectWorkItemState[] | undefined): string[] {
   const closedStates = (bugStates ?? [])
@@ -79,6 +92,7 @@ export function mapBacklogBug(
   return {
     id: item.id,
     title: readText(fields['System.Title']) ?? `Bug ${item.id}`,
+    tags: resolveSortedTags(fields),
     state: readText(fields['System.State']),
     createdAt: readText(fields['System.CreatedDate']),
     assignedTo: parseAssignedTo(fields['System.AssignedTo']),

@@ -60,6 +60,7 @@ const bugs: PageProps['bugs'] = rankBacklogBugs([
   {
     id: 102,
     title: 'Data loss',
+    tags: ['needs triage', 'regression'],
     state: 'Active',
     createdAt: '2026-03-01T10:00:00Z',
     assignedTo: { displayName: 'Ada Lovelace', uniqueName: 'ada@example.com' },
@@ -148,6 +149,9 @@ const dialog = () => document.querySelector('[role="dialog"]')
 const quickFilter = (host: Element) => host.querySelector<HTMLInputElement>('input[aria-label="Quick filter bugs"]')!
 const clearFilterButton = (host: Element) => host.querySelector<HTMLButtonElement>('button[aria-label="Clear quick filter"]')
 const listedIds = (host: Element) => [...host.querySelectorAll('tbody tr')].map((row) => Number(row.querySelector('td')!.textContent))
+const titleCell = (host: Element, id: number) =>
+  [...host.querySelectorAll('tbody tr')].find((row) => row.querySelector('td')!.textContent === String(id))!.querySelector('td:nth-child(2)')!
+const tagTexts = (cell: Element) => [...cell.querySelectorAll('li')].map((item) => item.textContent)
 
 // React tracks an input's value, so typing has to go through the native setter for the change to be noticed.
 const setNativeValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!
@@ -205,7 +209,7 @@ test('the table lists the ranked bugs under the required columns', async (t) => 
 
   const rows = [...host.querySelectorAll('tbody tr')]
   assert.deepEqual(rows.map(cellTexts), [
-    ['102', 'Data loss (opens in a new tab)', formatCreatedDate('2026-03-01T10:00:00Z'), 'Ada Lovelace', 'Active', '2026\\Sprint 5', '1 - Critical', '1', '4', '213.0'],
+    ['102', 'Data loss (opens in a new tab) needs triage regression', formatCreatedDate('2026-03-01T10:00:00Z'), 'Ada Lovelace', 'Active', '2026\\Sprint 5', '1 - Critical', '1', '4', '213.0'],
     ['103', 'Slow page (opens in a new tab)', formatCreatedDate('2026-02-01T10:00:00Z'), 'grace@example.com', 'Active', 'Project', '3 - Medium', '2', '8', '11.0'],
     ['101', 'Minor glitch (opens in a new tab)', formatCreatedDate('2026-01-10T09:00:00Z'), '', 'New', '2026\\Sprint 4', '—Not set', '—Not set', '—Not set', '2.5'],
   ])
@@ -250,6 +254,46 @@ test('each title links to its work item in a new tab', async (t) => {
   }
 })
 
+test('the Title cell lists the tags after the title link as outlined badges', async (t) => {
+  const host = await render(t)
+
+  const cell = titleCell(host, 102)
+  const link = cell.querySelector('a')!
+  const list = cell.querySelector('[role="list"][aria-label="Tags"]')!
+  assert.equal(link.nextElementSibling, list, 'the tags follow the title')
+  assert.equal(link.textContent, 'Data loss (opens in a new tab)', 'the tags are not part of the link text')
+  assert.deepEqual(tagTexts(cell), ['needs triage', 'regression'], 'one item per tag, in the order given')
+
+  // These are the attributes StrataKit's stylesheet uses to draw an outlined badge.
+  const badges = [...list.querySelectorAll('li .MuiBadge-badge')]
+  assert.equal(badges.length, 2)
+  for (const badge of badges) {
+    assert.ok(badge.matches('.MuiBadge-inline[data-_sk-type="outlined"]'), `"${badge.textContent}" is an outlined inline badge`)
+    assert.equal(badge.getAttribute('data-_sk-size'), 'small')
+  }
+})
+
+test('a bug without tags shows only its title, whether the tag list is missing or empty', async (t) => {
+  const host = await render(t, {
+    bugs: rankBacklogBugs([
+      { id: 401, title: 'No tag list', workItemUrl: workItemUrl(401) },
+      { id: 402, title: 'Empty tag list', tags: [], workItemUrl: workItemUrl(402) },
+    ]),
+  })
+
+  assert.equal(titleCell(host, 401).textContent, 'No tag list (opens in a new tab)')
+  assert.equal(titleCell(host, 402).textContent, 'Empty tag list (opens in a new tab)')
+  assert.equal(host.querySelector('tbody ul'), null, 'no empty list is left behind')
+})
+
+test('a tag that looks like a number is shown as written, not capped like a count', async (t) => {
+  const host = await render(t, {
+    bugs: rankBacklogBugs([{ id: 301, title: 'Numeric tags', tags: ['0', '150', '2026'], workItemUrl: workItemUrl(301) }]),
+  })
+
+  assert.deepEqual(tagTexts(titleCell(host, 301)), ['0', '150', '2026'])
+})
+
 test('the table has no sorting, filtering, or selection controls', async (t) => {
   const host = await render(t)
 
@@ -258,7 +302,7 @@ test('the table has no sorting, filtering, or selection controls', async (t) => 
     table.querySelector('button, input, select, textarea, [role="button"], [role="checkbox"], [aria-sort], [aria-selected], [tabindex]'),
     null,
   )
-  assert.equal(table.querySelectorAll('a').length, bugs.length, 'the title links are the only interactive elements')
+  assert.equal(table.querySelectorAll('a').length, bugs.length, 'the title links are the only interactive elements, so the tags are not')
 })
 
 // StrataKit's TableBody turns row hover on; only the stylesheet rule shows the highlight is really themed.
@@ -319,6 +363,16 @@ test('typing in the quick filter narrows the table to the bugs that match', asyn
   assert.equal(quickFilter(host).value, '  LOVELACE ', 'the text is shown as typed')
 })
 
+test('typing a tag in the quick filter narrows the table to the bugs with that tag', async (t) => {
+  const host = await renderFilterable(t)
+
+  await typeFilter(host, ' TRIAGE')
+  await waitFor(() => listedIds(host).length === 1)
+
+  assert.deepEqual(listedIds(host), [102])
+  assert.deepEqual(tagTexts(titleCell(host, 102)), ['needs triage', 'regression'], 'the bug still lists all of its tags')
+})
+
 test('the quick filter keeps the ranked order of the bugs it leaves', async (t) => {
   const host = await renderFilterable(t)
 
@@ -359,13 +413,20 @@ test('a team with no open bugs keeps its empty state even if a filter is typed',
 test('every cell the table shows can be found with the quick filter', async (t) => {
   const host = await render(t)
 
+  let tagsChecked = 0
   for (const row of host.querySelectorAll('tbody tr')) {
-    const shown = [...row.querySelectorAll('td')].map((cell) => (cell.textContent ?? '').replace(' (opens in a new tab)', ''))
-    const id = Number(shown[0])
+    const cells = [...row.querySelectorAll('td')]
+    const id = Number(cells[0].textContent)
+    // The Title cell shows the title and then one badge per tag, and the filter searches each of them on its own.
+    const tags = [...cells[1].querySelectorAll('li')]
+    tagsChecked += tags.length
+    const shown = [cells[0], cells[1].querySelector('a')!, ...tags, ...cells.slice(2)]
+      .map((element) => (element.textContent ?? '').replace(' (opens in a new tab)', ''))
     for (const text of shown.filter((cell) => cell && cell !== '—Not set')) {
       assert.ok(filterBacklogBugs(bugs, text).some((bug) => bug.id === id), `"${text}" is shown for bug ${id}`)
     }
   }
+  assert.equal(tagsChecked, 2, 'the tags of the fixture bugs were checked too')
 })
 
 test('visually hidden text is 1px and anchored to the scrolling table so it cannot widen the page', async (t) => {

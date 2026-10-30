@@ -12,14 +12,15 @@ function shown(value: string | number | undefined): string {
 }
 
 /**
- * The text each Backlog column shows for a bug. The quick filter searches exactly these strings, so it matches
- * what is visible in the table (a shortened iteration path, the rounded Value) and never hidden detail such as the
- * full path or the Not set placeholder.
+ * The text each Backlog column shows for a bug; the Title column shows the title, then each tag. The quick filter
+ * searches exactly these strings, so it matches what is visible in the table (a shortened iteration path, the rounded
+ * Value) and never hidden detail such as the full path or the Not set placeholder.
  */
 export function getBacklogVisibleText(bug: RankedBacklogBug): string[] {
   return [
     String(bug.id),
     bug.title,
+    ...(bug.tags ?? []),
     formatCreatedDate(bug.createdAt),
     formatAssignee(bug.assignedTo),
     shown(bug.state),

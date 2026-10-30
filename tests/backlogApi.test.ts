@@ -26,6 +26,7 @@ const BATCH_FIELDS = [
   'System.State',
   'System.AssignedTo',
   'System.IterationPath',
+  'System.Tags',
   'Microsoft.VSTS.Common.Severity',
   'Microsoft.VSTS.Common.Priority',
   'Microsoft.VSTS.Scheduling.Effort',
@@ -92,6 +93,7 @@ test('a work item maps to the fields shown on the backlog', () => {
       'System.CreatedDate': '2026-03-01T10:00:00Z',
       'System.AssignedTo': { displayName: 'Ada Lovelace', uniqueName: 'ada@example.com', imageUrl: 'https://example.com/ada.png' },
       'System.IterationPath': 'Example Project\\2026\\Sprint 5',
+      'System.Tags': 'regression; Frontend; api',
       'Microsoft.VSTS.Common.Severity': '2 - High',
       'Microsoft.VSTS.Common.Priority': 1,
       'Microsoft.VSTS.Scheduling.Effort': 8,
@@ -101,6 +103,7 @@ test('a work item maps to the fields shown on the backlog', () => {
   assert.deepEqual(bug, {
     id: 42,
     title: 'Crash on save',
+    tags: ['api', 'Frontend', 'regression'],
     state: 'Active',
     createdAt: '2026-03-01T10:00:00Z',
     assignedTo: { displayName: 'Ada Lovelace', uniqueName: 'ada@example.com', imageUrl: 'https://example.com/ada.png' },
@@ -118,6 +121,7 @@ test('a work item with no optional fields maps to a bug with only the title, id,
   assert.deepEqual(bug, {
     id: 7,
     title: 'Bug 7',
+    tags: [],
     state: undefined,
     createdAt: undefined,
     assignedTo: undefined,
@@ -162,6 +166,21 @@ test('numeric fields accept numeric strings and the first populated effort field
 test('work items without a numeric id are ignored', () => {
   assert.equal(mapBacklogBug({ fields: { 'System.Title': 'No id' } }, team), null)
   assert.equal(mapBacklogBug({ id: '5' as unknown as number, fields: {} }, team), null)
+})
+
+test('tags are split on semicolons, trimmed, and listed alphabetically ignoring case', () => {
+  const tagsOf = (rawTags: unknown) => mapBacklogBug({ id: 1, fields: { 'System.Tags': rawTags } }, team)?.tags
+
+  assert.deepEqual(tagsOf('  zeta ;Alpha;; beta  ;'), ['Alpha', 'beta', 'zeta'])
+  assert.deepEqual(tagsOf('needs triage'), ['needs triage'], 'a tag can contain spaces')
+  assert.deepEqual(tagsOf('2026; 150'), ['150', '2026'], 'a tag that looks like a number stays text')
+})
+
+test('a missing or empty tags field maps to no tags', () => {
+  for (const rawTags of [undefined, null, '', ' ; ;; ', 42, ['api']]) {
+    assert.deepEqual(mapBacklogBug({ id: 1, fields: { 'System.Tags': rawTags } }, team)?.tags, [], String(rawTags))
+  }
+  assert.deepEqual(mapBacklogBug({ id: 2 }, team)?.tags, [])
 })
 
 type RecordedClient = AdoRequestClient & { requests: AdoRequestOptions[] }

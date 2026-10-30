@@ -30,6 +30,7 @@ const bugs = rankBacklogBugs([
   createBug({
     id: 102,
     title: 'Data loss on Save',
+    tags: ['needs triage', 'regression'],
     state: 'Active',
     createdAt: '2026-03-01T10:00:00Z',
     assignedTo: { displayName: 'Ada Lovelace', uniqueName: 'ada@example.com' },
@@ -41,6 +42,7 @@ const bugs = rankBacklogBugs([
   createBug({
     id: 103,
     title: 'Slow page',
+    tags: ['perf'],
     state: 'Resolved',
     createdAt: '2026-02-01T10:00:00Z',
     assignedTo: { uniqueName: 'grace@example.com' },
@@ -53,12 +55,14 @@ const bugs = rankBacklogBugs([
 
 const idsFor = (filterText: string) => filterBacklogBugs(bugs, filterText).map((bug) => bug.id)
 
-test('the visible text lists each column as the table shows it, in column order', () => {
+test('the visible text lists each column as the table shows it, in column order, with the tags after the title', () => {
   const [critical, , minor] = bugs
 
   assert.deepEqual(getBacklogVisibleText(critical), [
     '102',
     'Data loss on Save',
+    'needs triage',
+    'regression',
     formatCreatedDate('2026-03-01T10:00:00Z'),
     'Ada Lovelace',
     'Active',
@@ -108,6 +112,7 @@ test('every column the table shows can be searched', () => {
 test('each column narrows to the bugs that show the text', () => {
   assert.deepEqual(idsFor('101'), [101], 'ID')
   assert.deepEqual(idsFor('glitch'), [101], 'Title')
+  assert.deepEqual(idsFor('perf'), [103], 'Tags')
   assert.deepEqual(idsFor(formatCreatedDate('2026-03-01T10:00:00Z')), [102], 'Created Date as displayed')
   assert.deepEqual(idsFor('lovelace'), [102], 'Assigned To')
   assert.deepEqual(idsFor('resolved'), [103], 'State')
@@ -120,6 +125,21 @@ test('each column narrows to the bugs that show the text', () => {
 test('Assigned To matches the unique name only when there is no display name', () => {
   assert.deepEqual(idsFor('grace@example.com'), [103])
   assert.deepEqual(idsFor('ada@example.com'), [])
+})
+
+test('each tag is searchable on its own, and text spanning two tags matches nothing', () => {
+  assert.deepEqual(idsFor('triage'), [102])
+  assert.deepEqual(idsFor('REGRESS'), [102], 'part of a tag, ignoring case')
+  assert.deepEqual(idsFor('needs triage'), [102], 'a tag that contains a space')
+  assert.deepEqual(idsFor('triage regression'), [], 'two tags are two separate strings, like two columns')
+})
+
+test('a bug with an empty tag list shows the same text as one without tags', () => {
+  const [emptyList] = rankBacklogBugs([createBug({ id: 9, tags: [] })])
+  const [noTags] = rankBacklogBugs([createBug({ id: 9 })])
+
+  assert.deepEqual(getBacklogVisibleText(emptyList), getBacklogVisibleText(noTags))
+  assert.equal(getBacklogVisibleText(noTags).length, 10, 'one entry per column, with no placeholder for tags')
 })
 
 test('Impact and Effort match the numbers as entered, not the effort used for the Value', () => {

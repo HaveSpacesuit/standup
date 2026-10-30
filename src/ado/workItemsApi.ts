@@ -150,7 +150,7 @@ function resolveIterationPath(fields: WorkItemApiItem['fields']): string | undef
   return typeof path === 'string' && path.trim() ? path.trim() : undefined
 }
 
-function resolveTags(fields: WorkItemApiItem['fields']): string[] {
+export function resolveTags(fields: WorkItemApiItem['fields']): string[] {
   const rawTags = fields?.['System.Tags']
   if (typeof rawTags !== 'string') {
     return []

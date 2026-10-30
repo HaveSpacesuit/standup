@@ -367,6 +367,13 @@ Prepare data that exercises both populated and empty states:
       highlight.
 - [ ] Verify each Title opens the bug in Azure DevOps in a new tab with safe link attributes, and that
       a screen reader announces the new-tab behavior.
+- [ ] Verify a bug with tags in Azure DevOps lists them after its title as outlined badges, in
+      alphabetical order ignoring case, in both light and dark mode, and a bug without tags shows only
+      its title. A numeric tag such as 2026 is shown as written, not as 99+.
+- [ ] Verify the tag badges cannot be clicked or focused, and that a screen reader reads them as a
+      list named Tags after the title link rather than as part of the link text.
+- [ ] Verify a bug with many or long tags wraps them onto further lines within the Title column,
+      without widening the table or indenting the wrapped lines.
 - [ ] Verify Iteration Path shows only the last two segments of the full path.
 - [ ] Verify Impact shows the bug's Priority value, Severity shows the Azure DevOps label, and Effort
       shows the value as entered (an Effort below 4 is shown as entered, though its Value uses 4).
@@ -380,8 +387,9 @@ Prepare data that exercises both populated and empty states:
 
 ### Quick filter
 
-- [ ] Type part of a bug's ID, title, created date, assignee, state, iteration path, severity, impact,
-      effort, or value, as the table shows it, and verify only the bugs showing that text remain.
+- [ ] Type part of a bug's ID, title, tag, created date, assignee, state, iteration path, severity,
+      impact, effort, or value, as the table shows it, and verify only the bugs showing that text
+      remain (a bug matched by one of its tags still lists all of its tags).
 - [ ] Verify matching ignores case and leading or trailing spaces.
 - [ ] Verify the filter does not match what the table does not show: the iteration path segments cut
       from the display, the unrounded Value, or the placeholder for a missing value.
