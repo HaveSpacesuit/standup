@@ -1,17 +1,14 @@
 import { Box, CircularProgress, Skeleton, Typography } from '@mui/material'
+import { BOARD_COLUMN_DIVIDER as COLUMN_DIVIDER, type BoardLayout } from '../utils/boardLayout'
 import type { StatusColumn } from '../utils/statusColumnStyles'
 
 type KanbanBoardLoadingStateProps = {
-  boardGridTemplate: string
+  layout: BoardLayout
   statusColumns: readonly StatusColumn[]
-  getStatusColumnBackground: (status: StatusColumn, columnIndex: number) => string
 }
 
-export function KanbanBoardLoadingState({
-  boardGridTemplate,
-  statusColumns,
-  getStatusColumnBackground,
-}: KanbanBoardLoadingStateProps) {
+export function KanbanBoardLoadingState({ layout, statusColumns }: KanbanBoardLoadingStateProps) {
+  const { gridTemplate, minWidth } = layout
   return (
     <Box
       sx={{
@@ -47,14 +44,14 @@ export function KanbanBoardLoadingState({
       </Box>
 
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', scrollbarGutter: 'stable' }}>
-        <Box sx={{ minWidth: 1175, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ minWidth, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box
             sx={{
               position: 'sticky',
               top: 0,
               zIndex: 3,
               display: 'grid',
-              gridTemplateColumns: boardGridTemplate,
+              gridTemplateColumns: gridTemplate,
               borderBottom: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
@@ -81,7 +78,7 @@ export function KanbanBoardLoadingState({
                 sx={{
                   px: 2,
                   py: 1.5,
-                  backgroundImage: getStatusColumnBackground(status, columnIndex),
+                  boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -98,7 +95,7 @@ export function KanbanBoardLoadingState({
                 key={`loading-row-${rowIndex}`}
                 sx={{
                   display: 'grid',
-                  gridTemplateColumns: boardGridTemplate,
+                  gridTemplateColumns: gridTemplate,
                   flex: 1,
                   minHeight: 98,
                 }}
@@ -126,14 +123,13 @@ export function KanbanBoardLoadingState({
                   <Box
                     key={`loading-cell-${rowIndex}-${status}`}
                     sx={{
-                      pl: 1,
-                      pr: 2,
+                      px: 1.25,
                       py: 1,
                       borderBottom: '1px solid',
                       borderColor: 'divider',
                       minHeight: 92,
                       height: '100%',
-                      backgroundImage: getStatusColumnBackground(status, columnIndex),
+                      boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
                     }}
                   >
                     <Box sx={{ display: 'grid', gap: 0.75 }}>

@@ -591,7 +591,7 @@ export function HiddenTagsDialog({
                   Display
                 </Typography>
                 <Typography id={COMPACT_CARDS_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mb: 1.5 }}>
-                  Show each card as its title and a single status line so more of the team fits on screen. Hover over or focus a card to see all of its details.
+                  New and Done cards are always compact so in-flight work stands out. Turn this on to make Blocked, Active, and Review cards compact too, showing each card as its title and a single status line so more of the team fits on screen. Hover over or focus a card to see all of its details.
                 </Typography>
                 <FormControlLabel
                   label="Compact cards"
