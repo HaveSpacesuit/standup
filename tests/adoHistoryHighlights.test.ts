@@ -88,3 +88,96 @@ test('one history load shares linked PR detail requests across work items', asyn
   assert.equal(detailRequests, 2, 'a separate refresh should perform a fresh detail lookup')
   refreshCleanup?.()
 })
+
+const { getCardChangeDetail } = await server.ssrLoadModule('/src/features/standup/hooks/useAdoHistoryHighlights.ts')
+
+const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
+
+test('change details name the latest tracked change, preferring state over other edits in one revision', async () => {
+  effects.length = 0
+  state.length = 0
+  const at = (hoursAgo: number) => new Date(Date.now() - hoursAgo * HOUR_MS).toISOString()
+  const changedDate = (hoursAgo: number) => ({ 'System.ChangedDate': { newValue: at(hoursAgo) } })
+  const historyById: Record<number, unknown[]> = {
+    201: [
+      { id: 1, fields: { ...changedDate(72), 'System.State': { newValue: 'New' } } },
+      { id: 2, fields: { ...changedDate(48), 'System.State': { newValue: 'In Progress' } } },
+      { id: 3, fields: { ...changedDate(5), 'System.AssignedTo': { newValue: { uniqueName: 'qa@example.com' } } } },
+    ],
+    202: [
+      { id: 1, fields: { ...changedDate(72), 'System.State': { newValue: 'In Progress' } } },
+      {
+        id: 2,
+        fields: {
+          ...changedDate(6),
+          'System.State': { newValue: 'In Code Review' },
+          'System.AssignedTo': { newValue: { uniqueName: 'dev@example.com' } },
+        },
+      },
+    ],
+    203: [
+      { id: 1, fields: { ...changedDate(72), 'System.State': { newValue: 'In Progress' } } },
+      { id: 2, fields: { ...changedDate(10), 'System.State': { newValue: 'In Code Review' } } },
+    ],
+  }
+  const votesByPullRequestId: Record<number, unknown[]> = {
+    55: [{ publishedDate: at(2), properties: { CodeReviewThreadType: { $value: 'VoteUpdate' }, CodeReviewVoteResult: { $value: '10' } } }],
+    9: [{ publishedDate: at(1), properties: { CodeReviewThreadType: { $value: 'VoteUpdate' }, CodeReviewVoteResult: { $value: '-5' } } }],
+  }
+  const adoQueryEngine = {
+    async getWorkItemUpdates(_team: unknown, itemId: number) {
+      return historyById[itemId] ?? []
+    },
+    async request<T>(options: AdoRequestOptions) {
+      const match = /pullRequests\/(\d+)\/threads$/.exec(options.path)
+      return { value: match ? votesByPullRequestId[Number(match[1])] ?? [] : [] } as T
+    },
+  }
+  const args = {
+    adoQueryEngine,
+    team: { orgName: 'example-org', projectName: 'example-project', repoName: 'repo' },
+    tagRules: [],
+    workItems: [
+      { id: 201, title: 'Reassigned', status: 'Review' },
+      { id: 202, title: 'Moved', status: 'Review' },
+      { id: 203, title: 'Approved', status: 'Review', activePullRequests: [{ id: 55, repositoryId: 'repo-id', title: 'PR', url: '' }] },
+      { id: -9, kind: 'pull-request', title: 'PR only', status: 'Review', recentActivityAt: at(30), pullRequest: { id: 9, repositoryId: 'repo-id', title: 'PR', url: '' } },
+    ],
+  }
+
+  beginRender()
+  useAdoHistoryHighlights(args)
+  const cleanup = effects.shift()?.()
+  await new Promise((resolve) => setTimeout(resolve, 20))
+
+  beginRender()
+  const { highlightsByItemId, changeDetailsByItemId } = useAdoHistoryHighlights(args)
+  effects.length = 0
+  cleanup?.()
+
+  assert.equal(highlightsByItemId[201], 'new')
+  assert.equal(changeDetailsByItemId[201].reason, 'Reassigned')
+  assert.equal(changeDetailsByItemId[202].reason, 'Moved to In Code Review')
+  assert.equal(changeDetailsByItemId[203].reason, 'PR 55 approved', 'a newer PR vote outranks an older state change')
+  assert.equal(changeDetailsByItemId[-9].reason, 'Waiting for author')
+  assert.equal(changeDetailsByItemId[203].idleDays, 0)
+  assert.equal(changeDetailsByItemId[203].agingLevel, 0)
+})
+
+test('aging level climbs one step per quarter of the stale threshold and is 4 once stale', () => {
+  const now = Date.parse('2026-10-20T12:00:00Z')
+  const detailAfter = (idleDays: number, staleDays = 8) => getCardChangeDetail(
+    { trackedAt: new Date(now - idleDays * DAY_MS).toISOString(), reason: 'Moved to Active' },
+    now,
+    { freshDays: 1, staleDays },
+  )
+
+  assert.deepEqual([0, 1.9, 2, 4, 6, 7.9, 8, 30].map((days) => detailAfter(days).agingLevel), [0, 0, 1, 2, 3, 3, 4, 4])
+  assert.equal(detailAfter(5).idleDays, 5)
+  assert.equal(detailAfter(7, 7).agingLevel, 4)
+
+  const untracked = getCardChangeDetail({ baselineAt: new Date(now - 3 * DAY_MS).toISOString() }, now, { freshDays: 1, staleDays: 6 })
+  assert.equal(untracked.agingLevel, 2, 'with no tracked change, idle time counts from the first revision')
+  assert.equal(untracked.reason, undefined)
+})

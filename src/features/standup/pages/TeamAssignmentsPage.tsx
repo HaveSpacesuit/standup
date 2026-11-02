@@ -16,7 +16,7 @@ import { PatMissingNotice } from '../components/PatMissingNotice'
 import { SprintSummaryBar } from '../components/SprintSummaryBar'
 import { StandupToolbar } from '../components/StandupToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
-import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
+import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
@@ -49,6 +49,7 @@ type TeamAssignmentsPageProps = {
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
+  changeDetailsByItemId?: Record<number, CardChangeDetail>
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
   sprintForecast: SprintForecast
@@ -105,6 +106,7 @@ export function TeamAssignmentsPage({
   workItems,
   currentIterationName,
   changeHighlightsByItemId,
+  changeDetailsByItemId,
   effortFlowPoints,
   effortFlowLoading,
   sprintForecast,
@@ -229,6 +231,7 @@ export function TeamAssignmentsPage({
                 workItems={workItems}
                 currentIterationName={currentIterationName}
                 changeHighlightsByItemId={changeHighlightsByItemId}
+                changeDetailsByItemId={changeDetailsByItemId}
                 rolledOverItemIds={rolledOverItemIds}
                 workItemAssignees={workItemAssignees}
               />

@@ -36,6 +36,12 @@ rejected and amber when waiting on the author), and ready to complete (outlined 
 PR can complete). The repository name appears only when a work item's PRs span more than one
 repository.
 
+A recently changed card has a dot in its corner and a badge saying what changed and when, such as
+"Moved to Review · 3h" or "PR 912 approved · just now". Blocked, Active, and Review cards show up to
+four aging dots, one for each quarter of the Freshness tab's Stale threshold that has passed without
+a tracked change, turning amber at three and red at four. New and Done cards have no aging dots, and
+only stale Done cards fade.
+
 Development options > Members includes "Hide users with no activity" (off by default).
 When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage
@@ -43,8 +49,8 @@ and does not change the sprint view.
 
 Below it, "Also hide users with only stale, done work" (also off by default) is a stricter version
 of the same option. It additionally hides rows where every card is in the Done column and stale.
-The board fades a card as stale once it has gone without a tracked change for at least the Stale
-threshold on the Freshness tab (7 days by default). The option is always shown, but it can be
+A card is stale once it has gone without a tracked change for at least the Stale threshold on the
+Freshness tab (7 days by default). The option is always shown, but it can be
 changed only while "Hide users with no activity" is on; a saved choice is kept, but has no effect,
 while that option is off. A card whose freshness is still loading is not treated as stale, so its
 row stays visible. Column counts and effort totals still include the hidden rows' cards, and if

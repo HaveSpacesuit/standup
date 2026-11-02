@@ -548,7 +548,7 @@ export function HiddenTagsDialog({
                   Card freshness
                 </Typography>
                 <Typography variant="body-sm" color="text.secondary">
-                  Change the threshold at which cards are styled as fresh or stale on the assignments board.
+                  Recently changed cards show a dot and what changed. Cards in Blocked, Active, and Review gain an aging dot for each quarter of the stale threshold without a tracked change, and stale Done cards fade.
                 </Typography>
 
                 <TextField
