@@ -209,6 +209,9 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify multiple assignees or unusual identity data display safely.
 - [ ] Verify collapsed/expanded dense groups preserve the correct cards and counts.
 - [ ] Verify the board remains usable with many members, columns, cards, and tags.
+- [ ] Verify Development cards have a leading edge in their column's color, show the state only when
+      it differs from the column's usual state, and show the sprint only when it is not the current
+      sprint, while QA board and Sprint view cards are unchanged.
 
 ### Sprint view
 

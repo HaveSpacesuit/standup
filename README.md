@@ -17,6 +17,12 @@ The default view is a standup-style Kanban board that:
 - highlights recent changes or project-specific work-item activity
 - adds PR-only cards for pull requests in the selected repository that are not already linked to visible work items
 
+Development board cards show only what the card's row, column, and the current sprint do not already
+say. Each card has a leading edge in its column's color, the work item type, ID, effort, and a
+two-line title. The state appears only when it differs from the column's usual state, and the sprint
+only when it is not the current sprint. Each linked PR gets one compact row. The QA board and Sprint
+view keep their own cards.
+
 Development options > Members includes "Hide users with no activity" (off by default).
 When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage

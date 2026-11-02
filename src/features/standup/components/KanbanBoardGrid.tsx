@@ -2,7 +2,7 @@ import { Avatar, Box, Button, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
-import { WorkItemCard } from './WorkItemCard'
+import { DevelopmentCard } from './DevelopmentCard'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import { AdoAvatar } from './AdoAvatar'
 
@@ -273,13 +273,12 @@ export function KanbanBoardGrid({
                         }}
                       >
                         {visibleItems.map((item) => (
-                          <WorkItemCard
+                          <DevelopmentCard
                             key={item.id}
                             item={item}
                             highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
+                            currentIterationName={currentIterationName}
                             showRolloverIndicator={rolledOverItemIds[item.id] === true}
-                            showState
-                            effortPlacement="footer"
                           />
                         ))}
                       </Box>
