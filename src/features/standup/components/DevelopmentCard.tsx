@@ -36,6 +36,8 @@ type DevelopmentCardProps = {
   showRolloverIndicator?: boolean
   /** Title and one status line, with the full card shown on hover or keyboard focus. */
   compact?: boolean
+  /** Set while a Needs attention facet is selected: matching cards are ringed and the rest recede. */
+  emphasis?: 'match' | 'dim'
 }
 
 type CardPartProps = {
@@ -277,18 +279,24 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   rowMember = null,
   showRolloverIndicator = false,
   compact = false,
+  emphasis,
 }: DevelopmentCardProps) {
   const theme = useTheme()
   const accent = theme.palette[getStatusPaletteKey(item.status)].main
   const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator })
 
-  const leadingEdge = `inset 3px 0 0 ${accent}`
-  const restingShadow = `${leadingEdge}, var(--stratakit-shadow-surface-xs)`
+  const edges = emphasis === 'match'
+    ? `inset 3px 0 0 ${accent}, 0 0 0 2px var(--stratakit-color-border-accent-base)`
+    : `inset 3px 0 0 ${accent}`
+  const restingShadow = `${edges}, var(--stratakit-shadow-surface-xs)`
+  const isDimmed = emphasis === 'dim'
+  const restingOpacity = isDimmed ? 0.35 : model.isFaded ? 0.68 : 1
+  const restingFilter = isDimmed ? 'grayscale(0.6)' : model.isFaded ? 'saturate(0.78)' : 'none'
   const raisedSx = {
     zIndex: 2,
     // A compact card opens its hover card rather than lifting.
     transform: compact ? 'none' : 'translateY(-1px)',
-    boxShadow: `${leadingEdge}, var(--stratakit-shadow-surface-md)`,
+    boxShadow: `${edges}, var(--stratakit-shadow-surface-md)`,
     opacity: 1,
     filter: 'none',
   }
@@ -298,6 +306,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
       elevation={0}
       data-development-card=""
       data-compact={compact ? '' : undefined}
+      data-emphasis={emphasis}
       sx={{
         containerType: 'inline-size',
         position: 'relative',
@@ -313,8 +322,8 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         overflow: 'visible',
         zIndex: 0,
         boxShadow: restingShadow,
-        opacity: model.isFaded ? 0.68 : 1,
-        filter: model.isFaded ? 'saturate(0.78)' : 'none',
+        opacity: restingOpacity,
+        filter: restingFilter,
         transition: 'transform 160ms ease, box-shadow 160ms ease, opacity 120ms ease, filter 120ms ease',
         '&:hover': raisedSx,
         '&:focus-within': raisedSx,
@@ -344,6 +353,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         {compact
           ? <DevelopmentCardCompactLine item={item} model={model} accent={accent} />
           : <CardSections item={item} model={model} accent={accent} />}
+        {emphasis === 'match' ? <Box component="span" sx={visuallyHiddenSx}>Highlighted</Box> : null}
       </SuppressTooltips>
     </Card>
   )

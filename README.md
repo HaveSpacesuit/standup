@@ -69,6 +69,15 @@ only while it holds cards; when it is empty it shrinks to a narrow "Blocked · n
 Done cards are always compact, and each cell shows up to five compact or three full cards before
 "Show more".
 
+A Needs attention bar above the board counts the visible cards that match each signal: Blocked,
+Failing checks (an open PR's required check is failing), Needs approval (an open PR has fewer than
+two approvals and is not waiting on its author), Idle 3+ days (Blocked, Active, or Review cards
+unchanged for three days or more), With QA (a Review card now assigned to someone other than the
+row's developer), Ready to complete, and Recently changed. Select one to highlight its cards in
+place: the rest dim (hover or focus brings one back), matching cards move to the top of their cell
+and are never hidden behind "Show more", and column headers show matches out of the total. Select
+it again or choose Clear to return to the full board. The selection is not saved.
+
 Development options > Display includes "Compact cards" (off by default). It makes Blocked, Active,
 and Review cards compact too. Each compact card shows its
 title on one line and a single status line: the state when the column does not imply it, each PR's

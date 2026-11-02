@@ -11,6 +11,8 @@ import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHist
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 import { getAssignmentMemberRows } from '../utils/assignmentMembers'
 import { getVisibleBoardRows } from '../utils/boardRowVisibility'
+import { AttentionBar } from './AttentionBar'
+import { getBoardAttention, getHighlightedItemIds, type AttentionFacetKey } from './boardAttention'
 
 const LOADING_LAYOUT = getBoardLayout(true)
 
@@ -52,6 +54,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   workItemAssignees,
 }: KanbanBoardProps) {
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
+  const [attentionFacet, setAttentionFacet] = useState<AttentionFacetKey | null>(null)
 
   const rows = useMemo<BoardRowData[]>(() => {
     const hasUnassignedItems = workItems.some((item) => {
@@ -145,6 +148,40 @@ export const KanbanBoard = memo(function KanbanBoard({
     return initial
   }, [rows, rowLookup, workItems, workItemAssignees])
 
+  const visibleRows = useMemo(
+    () => getVisibleBoardRows(rows, cardsByCell, changeHighlightsByItemId, {
+      hideUsersWithNoActivity,
+      hideUsersWithOnlyStaleDoneWork,
+    }),
+    [cardsByCell, changeHighlightsByItemId, hideUsersWithNoActivity, hideUsersWithOnlyStaleDoneWork, rows],
+  )
+
+  const attention = useMemo(
+    () => getBoardAttention(visibleRows, cardsByCell, changeHighlightsByItemId, changeDetailsByItemId),
+    [cardsByCell, changeDetailsByItemId, changeHighlightsByItemId, visibleRows],
+  )
+
+  const highlightedItemIds = useMemo(() => getHighlightedItemIds(attention, attentionFacet), [attention, attentionFacet])
+
+  const statusMatchCounts = useMemo(() => {
+    if (!highlightedItemIds) {
+      return null
+    }
+
+    const counts: Record<StatusColumn, number> = { Blocked: 0, New: 0, Active: 0, Review: 0, Done: 0 }
+    for (const row of visibleRows) {
+      for (const status of STATUS_COLUMNS) {
+        for (const item of cardsByCell[`${row.key}:${status}`] ?? []) {
+          if (highlightedItemIds.has(item.id)) {
+            counts[status] += 1
+          }
+        }
+      }
+    }
+
+    return counts
+  }, [cardsByCell, highlightedItemIds, visibleRows])
+
   const setCellExpanded = (cellKey: string, expanded: boolean) => {
     setExpandedCells((current) => ({
       ...current,
@@ -177,30 +214,38 @@ export const KanbanBoard = memo(function KanbanBoard({
       </Typography>
     )
   } else {
-    const visibleRows = getVisibleBoardRows(rows, cardsByCell, changeHighlightsByItemId, {
-      hideUsersWithNoActivity,
-      hideUsersWithOnlyStaleDoneWork,
-    })
-
     content = rows.length > 0 && visibleRows.length === 0 ? (
       <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
         All rows are hidden by the Members options. Try adjusting them in Development options.
       </Typography>
     ) : (
-      <KanbanBoardGrid
-        layout={layout}
-        rows={visibleRows}
-        cardsByCell={cardsByCell}
-        expandedCells={expandedCells}
-        currentIterationName={currentIterationName}
-        statusItemCounts={statusItemCounts}
-        statusEffortTotals={statusEffortTotals}
-        onSetCellExpanded={setCellExpanded}
-        changeHighlightsByItemId={changeHighlightsByItemId}
-        changeDetailsByItemId={changeDetailsByItemId}
-        compactCards={compactCards}
-        rolledOverItemIds={rolledOverItemIds}
-      />
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <AttentionBar
+          facetCounts={attention.facetCounts}
+          totalCards={attention.totalCards}
+          activeFacet={attentionFacet}
+          highlightedCount={highlightedItemIds?.size ?? 0}
+          onChange={setAttentionFacet}
+        />
+        <Box sx={{ flex: '1 1 auto', minHeight: 0 }}>
+          <KanbanBoardGrid
+            layout={layout}
+            rows={visibleRows}
+            cardsByCell={cardsByCell}
+            expandedCells={expandedCells}
+            currentIterationName={currentIterationName}
+            statusItemCounts={statusItemCounts}
+            statusEffortTotals={statusEffortTotals}
+            onSetCellExpanded={setCellExpanded}
+            changeHighlightsByItemId={changeHighlightsByItemId}
+            changeDetailsByItemId={changeDetailsByItemId}
+            compactCards={compactCards}
+            rolledOverItemIds={rolledOverItemIds}
+            highlightedItemIds={highlightedItemIds}
+            statusMatchCounts={statusMatchCounts}
+          />
+        </Box>
+      </Box>
     )
   }
 
