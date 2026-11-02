@@ -51,6 +51,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
 
   const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
   const linkedPullRequests = pullRequestOnly ? [] : (item.activePullRequests ?? [])
+  const spansRepositories = new Set(linkedPullRequests.map((pullRequest) => pullRequest.repositoryName)).size > 1
   const cardStep = getCardNextStep(item, rowMember)
   // A blocked card's step line already carries the reason from its blocked tag.
   const hiddenTag = item.status === 'Blocked' && cardStep ? findBlockedTag(item.tags) : undefined
@@ -193,7 +194,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
           }}
         >
           {linkedPullRequests.map((pullRequest) => (
-            <DevelopmentPullRequestRow key={pullRequest.id} pullRequest={pullRequest} />
+            <DevelopmentPullRequestRow key={pullRequest.id} pullRequest={pullRequest} showRepository={spansRepositories} />
           ))}
         </Box>
       ) : null}

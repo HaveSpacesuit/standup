@@ -296,3 +296,52 @@ export function getCardNextStep(item: WorkItemSummary, rowMember?: IdentityRef |
 
   return null
 }
+
+export type ProgressSegmentState = 'empty' | 'critical' | 'attention' | 'pending' | 'positive'
+
+export type PullRequestProgress = {
+  checks: { state: ProgressSegmentState; label: string }
+  /** Fill is 0-1 of the required approvals; rejected and waiting fill the whole segment. */
+  review: { state: ProgressSegmentState; fill: number; label: string }
+  ready: boolean
+  label: string
+}
+
+/** Three-segment summary of a PR's path to completion: checks, review, then ready to complete. */
+export function getPullRequestProgress(pullRequest: WorkItemPullRequestSummary): PullRequestProgress {
+  const { checks } = pullRequest
+  const checksSummary = getQuietChecksSummary(checks)
+  const required = checks?.checks.filter((check) => !check.optional) ?? []
+  const checksUnavailable = !checks || checks.state === 'unavailable'
+  const checksState: ProgressSegmentState = checksUnavailable
+    ? 'empty'
+    : required.some((check) => check.state === 'failing')
+      ? 'critical'
+      : required.some((check) => check.state === 'pending')
+        ? 'pending'
+        : checksSummary.tone === 'positive'
+          ? 'positive'
+          : 'empty'
+
+  const approvals = getApprovalSummary(pullRequest)
+  const approvalCount = pullRequest.approvalCount ?? 0
+  const review = pullRequest.reviewState === 'rejected'
+    ? { state: 'critical' as const, fill: 1, label: approvals.label }
+    : pullRequest.reviewState === 'waiting-for-author'
+      ? { state: 'attention' as const, fill: 1, label: approvals.label }
+      : { state: 'positive' as const, fill: Math.min(approvalCount, REQUIRED_APPROVALS) / REQUIRED_APPROVALS, label: approvals.label }
+
+  const ready = !isPullRequestClosed(pullRequest)
+    && !checksUnavailable
+    && checksState !== 'critical'
+    && checksState !== 'pending'
+    && review.state === 'positive'
+    && approvalCount >= REQUIRED_APPROVALS
+
+  return {
+    checks: { state: checksState, label: checksSummary.label },
+    review,
+    ready,
+    label: `PR ${pullRequest.id}. ${checksSummary.label}. ${approvals.label}. ${ready ? 'Ready to complete' : 'Not ready to complete'}.`,
+  }
+}

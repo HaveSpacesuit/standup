@@ -38,6 +38,7 @@ export type TeamIterationOption = {
 export type WorkItemPullRequestSummary = {
   id: number
   repositoryId?: string
+  repositoryName?: string
   title: string
   url: string
   iconUrl?: string
