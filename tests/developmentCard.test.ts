@@ -182,7 +182,8 @@ test('linked PRs collapse to one quiet row followed by the next step for each PR
   })
   const text = textOf(html)
   assert.match(text, /912/)
-  assert.match(text, /Folder rename API/)
+  assert.match(html, /aria-label="PR 912: Folder rename API"/)
+  assert.doesNotMatch(text, /Folder rename API/, 'the PR title moves into the link label and tooltip')
   assert.match(text, /Needs 1 more approval/)
   assert.match(text, /Reviewers/)
   assert.match(text, /Fix failing check: Unit tests/)
@@ -313,4 +314,102 @@ test('a blocked card folds its blocked tag into the step line', () => {
   assert.match(text, /Blocked · waiting on IMS/)
   assert.match(text, /Web/)
   assert.equal(text.match(/waiting on IMS/g)?.length, 1)
+})
+
+test('PR progress strip fills checks, then review, then rings when ready to complete', () => {
+  const failingChecks = { state: 'failing', checks: [{ name: 'Build', state: 'failing', optional: false, expired: false, source: 'policy' }] }
+  const pendingChecks = { state: 'pending', checks: [{ name: 'Build', state: 'pending', optional: false, expired: false, source: 'policy' }] }
+  const optionalFailing = {
+    state: 'failing',
+    checks: [
+      { name: 'Build', state: 'passing', optional: false, expired: false, source: 'policy' },
+      { name: 'Lint', state: 'failing', optional: true, expired: false, source: 'policy' },
+    ],
+  }
+  const progressOf = (overrides: Record<string, unknown>) => display.getPullRequestProgress(pr(overrides))
+
+  assert.equal(progressOf({ checks: failingChecks }).checks.state, 'critical')
+  assert.equal(progressOf({ checks: pendingChecks }).checks.state, 'pending')
+  assert.equal(progressOf({ checks: optionalFailing }).checks.state, 'positive', 'optional failures do not block the strip')
+  assert.equal(progressOf({ checks: { state: 'unavailable', checks: [] } }).checks.state, 'empty')
+  assert.equal(progressOf({ checks: { state: 'none', checks: [] } }).checks.state, 'empty')
+
+  assert.deepEqual(progressOf({ approvalCount: 1 }).review, { state: 'positive', fill: 0.5, label: '1 of 2 approvals' })
+  assert.equal(progressOf({ approvalCount: 5 }).review.fill, 1)
+  assert.deepEqual(
+    { state: progressOf({ reviewState: 'rejected' }).review.state, fill: progressOf({ reviewState: 'rejected' }).review.fill },
+    { state: 'critical', fill: 1 },
+  )
+  assert.equal(progressOf({ reviewState: 'waiting-for-author', approvalCount: 2 }).review.state, 'attention')
+
+  assert.equal(progressOf({ approvalCount: 2 }).ready, true)
+  assert.equal(progressOf({ approvalCount: 2, checks: { state: 'none', checks: [] } }).ready, true)
+  assert.equal(progressOf({ approvalCount: 1 }).ready, false)
+  assert.equal(progressOf({ approvalCount: 2, checks: pendingChecks }).ready, false)
+  assert.equal(progressOf({ approvalCount: 2, checks: { state: 'unavailable', checks: [] } }).ready, false)
+  assert.equal(progressOf({ approvalCount: 2, reviewState: 'waiting-for-author' }).ready, false)
+  assert.equal(progressOf({ approvalCount: 2, status: 'completed' }).ready, false)
+
+  assert.equal(
+    progressOf({ id: 912, approvalCount: 2 }).label,
+    'PR 912. Required checks passing. 2 of 2 approvals. Ready to complete.',
+  )
+})
+
+test('PR rows render the progress strip as a single labelled image', () => {
+  const html = render({
+    item: {
+      ...baseItem,
+      state: 'In Code Review',
+      status: 'Review',
+      activePullRequests: [pr({ id: 912, title: 'Folder rename API', approvalCount: 2 })],
+    },
+    currentIterationName: 'Sprint 42',
+  })
+  const dom = new JSDOM(html)
+  try {
+    const strip = dom.window.document.querySelector('[data-pr-progress]')
+    assert.ok(strip, 'strip rendered')
+    assert.equal(strip.getAttribute('role'), 'img')
+    assert.equal(strip.getAttribute('aria-label'), 'PR 912. Required checks passing. 2 of 2 approvals. Ready to complete.')
+    assert.deepEqual(
+      [...strip.querySelectorAll('[data-segment-state]')].map((segment) => segment.getAttribute('data-segment-state')),
+      ['positive', 'positive', 'ready'],
+    )
+  } finally {
+    dom.window.close()
+  }
+})
+
+test('closed PRs keep their status label instead of a progress strip', () => {
+  const html = render({
+    item: {
+      id: -77,
+      kind: 'pull-request',
+      title: 'Bump dependencies',
+      status: 'Done',
+      pullRequest: pr({ id: 77, title: 'Bump dependencies', status: 'completed', approvalCount: 2 }),
+    },
+    currentIterationName: 'Sprint 42',
+  })
+  assert.match(textOf(html), /Completed/)
+  assert.doesNotMatch(html, /data-pr-progress/)
+})
+
+test('the repository name appears only when a card has PRs in more than one repository', () => {
+  const renderWith = (repositories: string[]) => textOf(render({
+    item: {
+      ...baseItem,
+      state: 'In Code Review',
+      status: 'Review',
+      activePullRequests: repositories.map((repositoryName, index) => pr({ id: 900 + index, repositoryName })),
+    },
+    currentIterationName: 'Sprint 42',
+  }))
+
+  assert.doesNotMatch(renderWith(['pw-web']), /pw-web/)
+  assert.doesNotMatch(renderWith(['pw-web', 'pw-web']), /pw-web/)
+  const mixed = renderWith(['pw-web', 'pw-api'])
+  assert.match(mixed, /pw-web/)
+  assert.match(mixed, /pw-api/)
 })

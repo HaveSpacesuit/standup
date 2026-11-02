@@ -44,3 +44,37 @@ test('completed unlinked PRs are selected by their completion date', async () =>
 
   assert.deepEqual(items.map((item: { pullRequest?: { id: number } }) => item.pullRequest?.id), [1, 3])
 })
+
+test('unlinked PR items carry the repository name', async () => {
+  const client = {
+    async request<T>(options: AdoRequestOptions): Promise<T> {
+      if (options.path.endsWith('/_apis/git/repositories/repo/pullrequests')) {
+        const value = options.params?.['searchCriteria.status'] === 'completed'
+          ? [{
+              pullRequestId: 7,
+              status: 'completed',
+              creationDate: '2026-10-13T12:00:00Z',
+              closedDate: '2026-10-14T12:00:00Z',
+              repository: { id: 'repo-id', name: ' pw-web ' },
+              createdBy: { displayName: 'Team Member', uniqueName: 'member@example.com' },
+            }]
+          : []
+        return { value } as T
+      }
+      return {} as T
+    },
+    async requestPage<T>(): Promise<{ data: T; continuationToken: null }> {
+      throw new Error('requestPage should not be called')
+    },
+  }
+
+  const items = await fetchUnlinkedActivePullRequestItems(
+    client,
+    { orgName: 'pr-repository-name-test-org', projectName: 'project', repoName: 'repo' },
+    [{ displayName: 'Team Member', uniqueName: 'member@example.com' }],
+    [],
+    { name: 'Sprint', fullName: 'Project\\Sprint', startDate: '2026-10-12', finishDate: '2026-10-30' },
+  )
+
+  assert.equal(items[0]?.pullRequest?.repositoryName, 'pw-web')
+})

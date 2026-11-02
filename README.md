@@ -30,6 +30,12 @@ approvals needed (two are required, from reviewers), and Ready to complete. A bl
 reason from its blocked tag or state. A Review card now assigned to someone other than the row's
 developer says In testing or Handed off and shows who has it.
 
+Each open PR also shows a three-segment progress strip: checks (red when failing, striped amber while
+pending, green when passing), review (filling green toward the two required approvals, or red when
+rejected and amber when waiting on the author), and ready to complete (outlined in green once the
+PR can complete). The repository name appears only when a work item's PRs span more than one
+repository.
+
 Development options > Members includes "Hide users with no activity" (off by default).
 When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage

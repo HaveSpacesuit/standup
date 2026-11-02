@@ -293,6 +293,7 @@ async function fetchActivePullRequestsByWorkItem(
         activePullRequestMap.set(key, {
           id: pullRequestId,
           repositoryId: ref.repositoryId,
+          repositoryName: pullRequest.repository?.name?.trim() || undefined,
           title: pullRequest.title?.trim() || `Pull Request ${ref.pullRequestId}`,
           url: buildPullRequestWebUrl(team.orgName, team.projectName, pullRequest, ref),
           iconUrl: pullRequestIconUrl,

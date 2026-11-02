@@ -218,6 +218,12 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify a blocked card shows the reason from its blocked tag (which is then not repeated as a
       tag) or state, Failed testing replaces the state badge, and a Review card assigned to someone
       other than the row's developer shows In testing or Handed off with that person.
+- [ ] Verify each open PR's progress strip matches its checks (failing, pending, passing), approvals
+      toward two (rejected and waiting for the author included), and an outlined final segment only
+      when the PR is ready to complete; verify screen readers announce the strip as one labelled image.
+- [ ] Verify a PR row shows its repository only when the work item's PRs span more than one
+      repository, and that a linked PR row shows the PR title on hover and in its ID link's
+      accessible name.
 
 ### Sprint view
 

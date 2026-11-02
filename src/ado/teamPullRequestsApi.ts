@@ -112,6 +112,7 @@ function mapPullRequestToWorkItemSummary(
   const pullRequestSummary: WorkItemPullRequestSummary = {
     id: pullRequestId,
     repositoryId: pullRequest.repository?.id,
+    repositoryName: pullRequest.repository?.name?.trim() || undefined,
     title: pullRequest.title?.trim() || `Pull Request ${pullRequestId}`,
     url: buildPullRequestWebUrl(
       team.orgName,
