@@ -1,13 +1,22 @@
 import { Avatar, Box, Button, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import { Icon } from '@stratakit/mui'
+import svgCheckmark from '@stratakit/icons/checkmark.svg'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
+import {
+  BOARD_COLUMN_DIVIDER as COLUMN_DIVIDER,
+  getCollapsedCellCardLimit,
+  isCompactStatusColumn,
+  type BoardLayout,
+} from '../utils/boardLayout'
 import { DevelopmentCard } from './DevelopmentCard'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import { AdoAvatar } from './AdoAvatar'
 import { AppTooltip } from './AppTooltip'
+import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 
 export type BoardRowData = {
   key: string
@@ -20,15 +29,13 @@ export type BoardRowData = {
 }
 
 type KanbanBoardGridProps = {
-  boardGridTemplate: string
-  collapsedCellCardLimit: number
+  layout: BoardLayout
   rows: BoardRowData[]
   cardsByCell: Record<string, WorkItemSummary[]>
   expandedCells: Record<string, boolean>
   currentIterationName: string | null
   statusItemCounts: Record<StatusColumn, number>
   statusEffortTotals: Record<StatusColumn, number>
-  renderStatusColumnBackground: (status: StatusColumn, columnIndex: number) => string
   onSetCellExpanded: (cellKey: string, expanded: boolean) => void
   changeHighlightsByItemId: Record<number, WorkItemCardHighlightState>
   changeDetailsByItemId?: Record<number, CardChangeDetail>
@@ -37,15 +44,13 @@ type KanbanBoardGridProps = {
 }
 
 export function KanbanBoardGrid({
-  boardGridTemplate,
-  collapsedCellCardLimit,
+  layout,
   rows,
   cardsByCell,
   expandedCells,
   currentIterationName,
   statusItemCounts,
   statusEffortTotals,
-  renderStatusColumnBackground,
   onSetCellExpanded,
   changeHighlightsByItemId,
   changeDetailsByItemId,
@@ -53,6 +58,10 @@ export function KanbanBoardGrid({
   rolledOverItemIds,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
+  const { gridTemplate, minWidth, blockedRail } = layout
+  // Blocked is the only tinted column, and only while it holds cards.
+  const blockedTint = `color-mix(in srgb, ${getStatusColumnColor('Blocked', theme.palette)} 8%, transparent)`
+  const isRail = (status: StatusColumn) => status === 'Blocked' && blockedRail
 
   return (
     <Box sx={{ height: '100%' }}>
@@ -68,7 +77,7 @@ export function KanbanBoardGrid({
       >
         <Box
           sx={{
-            minWidth: 1175,
+            minWidth,
             minHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -84,7 +93,7 @@ export function KanbanBoardGrid({
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: boardGridTemplate,
+                gridTemplateColumns: gridTemplate,
                 borderBottom: '1px solid',
                 borderColor: 'divider',
                 bgcolor: 'background.paper',
@@ -108,7 +117,46 @@ export function KanbanBoardGrid({
                 </Typography>
               </Box>
 
-              {STATUS_COLUMNS.map((status, columnIndex) => (
+              {STATUS_COLUMNS.map((status, columnIndex) => isRail(status) ? (
+                <AppTooltip key={status} title="No blocked cards" placement="bottom">
+                  <Box
+                    tabIndex={0}
+                    data-blocked-rail=""
+                    sx={{
+                      position: 'relative',
+                      py: 1.5,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 0.75,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
+                    }}
+                  >
+                    <Box sx={{ width: 22, height: 4, borderRadius: 999, bgcolor: getStatusColumnColor(status, theme.palette) }} />
+                    <Typography render={<h2 />} variant="body-sm" sx={visuallyHiddenSx}>
+                      {status}
+                    </Typography>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        color: 'var(--stratakit-color-text-positive-base)',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        '& svg': { color: 'var(--stratakit-color-icon-positive-base)' },
+                      }}
+                    >
+                      <Icon href={svgCheckmark} />
+                      {statusItemCounts[status]}
+                      <Box component="span" sx={visuallyHiddenSx}> cards, none blocked</Box>
+                    </Box>
+                  </Box>
+                </AppTooltip>
+              ) : (
                 <Box
                   key={status}
                   sx={{
@@ -116,7 +164,7 @@ export function KanbanBoardGrid({
                     py: 1.5,
                     borderBottom: '1px solid',
                     borderColor: 'divider',
-                    backgroundImage: renderStatusColumnBackground(status, columnIndex),
+                    boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, minWidth: 0 }}>
@@ -178,7 +226,7 @@ export function KanbanBoardGrid({
               position: 'relative',
               flex: '1 1 auto',
               minHeight: 0,
-              minWidth: 1175,
+              minWidth,
               bgcolor: 'background.default',
             }}
           >
@@ -187,9 +235,9 @@ export function KanbanBoardGrid({
               sx={{
                 position: 'absolute',
                 inset: 0,
-                minWidth: 1175,
+                minWidth,
                 display: 'grid',
-                gridTemplateColumns: boardGridTemplate,
+                gridTemplateColumns: gridTemplate,
                 pointerEvents: 'none',
               }}
             >
@@ -206,8 +254,34 @@ export function KanbanBoardGrid({
               {STATUS_COLUMNS.map((status, columnIndex) => (
                 <Box
                   key={`background-${status}`}
-                  sx={{ backgroundImage: renderStatusColumnBackground(status, columnIndex) }}
-                />
+                  sx={{
+                    boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
+                    bgcolor: status === 'Blocked' && !blockedRail ? blockedTint : undefined,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  {isRail(status) ? (
+                    <Box
+                      component="span"
+                      sx={{
+                        position: 'sticky',
+                        top: 72,
+                        mt: 1.5,
+                        writingMode: 'vertical-rl',
+                        transform: 'rotate(180deg)',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                        color: TERTIARY_TEXT_COLOR,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Blocked · none
+                    </Box>
+                  ) : null}
+                </Box>
               ))}
             </Box>
 
@@ -216,9 +290,9 @@ export function KanbanBoardGrid({
                 position: 'relative',
                 zIndex: 1,
                 display: 'grid',
-                gridTemplateColumns: boardGridTemplate,
+                gridTemplateColumns: gridTemplate,
                 gridAutoRows: 'max-content',
-                minWidth: 1175,
+                minWidth,
               }}
             >
               {rows.map((row) => (
@@ -255,26 +329,31 @@ export function KanbanBoardGrid({
                   </Box>
                 </Box>
 
-                {STATUS_COLUMNS.map((status, columnIndex) => {
+                {STATUS_COLUMNS.map((status) => {
                   const cellKey = `${row.key}:${status}`
+                  if (isRail(status)) {
+                    return <Box key={cellKey} sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />
+                  }
+
                   const cellItems = cardsByCell[cellKey] ?? []
+                  const compact = isCompactStatusColumn(status, compactCards)
+                  const cardLimit = getCollapsedCellCardLimit(compact)
                   const isExpanded = expandedCells[cellKey] === true
                   const visibleItems = isExpanded
                     ? cellItems
-                    : cellItems.slice(0, collapsedCellCardLimit)
+                    : cellItems.slice(0, cardLimit)
                   const hiddenCount = Math.max(cellItems.length - visibleItems.length, 0)
 
                   return (
                     <Box
                       key={cellKey}
                       sx={{
-                        pl: 1,
-                        pr: 2,
+                        px: 1.25,
                         py: 1,
                         borderBottom: '1px solid',
                         borderColor: 'divider',
-                        backgroundImage: renderStatusColumnBackground(status, columnIndex),
                         minHeight: 92,
+                        minWidth: 0,
                       }}
                     >
                       <Box
@@ -294,7 +373,7 @@ export function KanbanBoardGrid({
                             currentIterationName={currentIterationName}
                             rowMember={row.memberIdentity}
                             showRolloverIndicator={rolledOverItemIds[item.id] === true}
-                            compact={compactCards}
+                            compact={compact}
                           />
                         ))}
                       </Box>
@@ -310,7 +389,7 @@ export function KanbanBoardGrid({
                         </Button>
                       ) : null}
 
-                      {isExpanded && cellItems.length > collapsedCellCardLimit ? (
+                      {isExpanded && cellItems.length > cardLimit ? (
                         <Button
                           size="small"
                           variant="text"

@@ -29,6 +29,7 @@ const { QualityAssuranceToolbar } = await server.ssrLoadModule('/src/features/st
 const { TeamToolbarControls } = await server.ssrLoadModule('/src/features/standup/components/TeamToolbarControls.tsx')
 const { TeamSelectorCard } = await server.ssrLoadModule('/src/features/standup/components/TeamSelectorCard.tsx')
 const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoardGrid.tsx')
+const { getBoardLayout } = await server.ssrLoadModule('/src/features/standup/utils/boardLayout.ts')
 const { SprintViewBoard } = await server.ssrLoadModule('/src/features/standup/components/SprintSummaryBoard.tsx')
 const { QualityAssuranceList } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceList.tsx')
 
@@ -191,24 +192,81 @@ test('unconfigured toolbar team selector retains its disabled placeholder', () =
   assert.match(html, /role="combobox"[^>]*aria-disabled="true"[^>]*>No teams configured<\/div>/)
 })
 
-test('Development board exposes status and member labels as headings', () => {
-  const html = render(createElement(KanbanBoardGrid, {
-    boardGridTemplate: '175px repeat(5, minmax(200px, 1fr))',
-    collapsedCellCardLimit: 3,
+const emptyStatusCounts = { Blocked: 0, New: 0, Active: 0, Review: 0, Done: 0 }
+
+function renderBoardGrid(overrides: Record<string, unknown> = {}) {
+  return render(createElement(KanbanBoardGrid, {
+    layout: getBoardLayout(false),
     rows: [{ key: 'alex', label: 'Alex Example' }],
     cardsByCell: {},
     expandedCells: {},
     currentIterationName: null,
-    statusItemCounts: { Blocked: 0, New: 0, Active: 0, Review: 0, Done: 0 },
-    statusEffortTotals: { Blocked: 0, New: 0, Active: 0, Review: 0, Done: 0 },
-    renderStatusColumnBackground: () => 'none',
+    statusItemCounts: emptyStatusCounts,
+    statusEffortTotals: emptyStatusCounts,
     onSetCellExpanded: () => {},
     changeHighlightsByItemId: {},
     rolledOverItemIds: {},
+    ...overrides,
   }))
+}
+
+function boardCard(id: number, status: string) {
+  return { id, title: `Card ${id}`, state: 'Active', status, workItemType: 'Task', effort: 1, sprintName: 'Sprint 1' }
+}
+
+test('Development board exposes status and member labels as headings', () => {
+  const html = renderBoardGrid()
 
   assert.match(html, /<h2[^>]*>Active<\/h2>/)
   assert.match(html, /<h2[^>]*>Alex Example<\/h2>/)
+})
+
+test('an empty Blocked column collapses to a rail that keeps its heading', () => {
+  const rail = renderBoardGrid()
+  assert.match(rail, /data-blocked-rail=""/)
+  assert.match(rail, /<h2[^>]*>Blocked<\/h2>/)
+  assert.match(rail, /Blocked · none/)
+
+  const full = renderBoardGrid({
+    layout: getBoardLayout(true),
+    statusItemCounts: { ...emptyStatusCounts, Blocked: 1 },
+    cardsByCell: { 'alex:Blocked': [boardCard(1, 'Blocked')] },
+  })
+  assert.doesNotMatch(full, /data-blocked-rail|Blocked · none/)
+  assert.match(full, /Card 1/)
+})
+
+test('New and Done cards are compact while in-flight columns stay full until Compact cards is on', () => {
+  const cardsByCell = {
+    'alex:New': [boardCard(1, 'New')],
+    'alex:Active': [boardCard(2, 'Active')],
+    'alex:Done': [boardCard(3, 'Done')],
+  }
+  const compactIds = (html: string) => {
+    const dom = new JSDOM(html)
+    try {
+      return [...dom.window.document.querySelectorAll('[data-compact]')]
+        .map((card) => card.textContent?.match(/Card (\d+)/)?.[1])
+        .sort()
+    } finally {
+      dom.window.close()
+    }
+  }
+
+  assert.deepEqual(compactIds(renderBoardGrid({ cardsByCell })), ['1', '3'])
+  assert.deepEqual(compactIds(renderBoardGrid({ cardsByCell, compactCards: true })), ['1', '2', '3'])
+})
+
+test('compact columns show five cards before Show more, full columns three', () => {
+  const html = renderBoardGrid({
+    cardsByCell: {
+      'alex:New': Array.from({ length: 7 }, (_, index) => boardCard(10 + index, 'New')),
+      'alex:Active': Array.from({ length: 7 }, (_, index) => boardCard(20 + index, 'Active')),
+    },
+  })
+
+  assert.match(html, /Show 2 more/)
+  assert.match(html, /Show 4 more/)
 })
 
 test('Development sprint board exposes status labels as headings', () => {

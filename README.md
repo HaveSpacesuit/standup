@@ -63,7 +63,14 @@ row stays visible. Column counts and effort totals still include the hidden rows
 every row ends up hidden the board says so. The setting is saved per team in browser local storage
 and does not change the sprint view.
 
-Development options > Display includes "Compact cards" (off by default). Each card then shows its
+The board leaves its columns untinted so the cards' colored edges carry status. Active and Review,
+where in-flight work lives, get the widest columns and Done the narrowest. Blocked is tinted red
+only while it holds cards; when it is empty it shrinks to a narrow "Blocked · none" rail. New and
+Done cards are always compact, and each cell shows up to five compact or three full cards before
+"Show more".
+
+Development options > Display includes "Compact cards" (off by default). It makes Blocked, Active,
+and Review cards compact too. Each compact card shows its
 title on one line and a single status line: the state when the column does not imply it, each PR's
 progress, the next step and who it is waiting on, what recently changed, and aging dots and the
 sprint on the right. Hover over or focus a card to see the full card along with its state, sprint,

@@ -224,7 +224,6 @@ export function TeamAssignmentsPage({
               <KanbanBoard
                 patConfigured={patConfigured}
                 isLoading={isTeamDataLoading}
-                colorScheme={colorScheme}
                 membersError={membersError}
                 workItemsError={workItemsError}
                 assigneesError={assigneesError}

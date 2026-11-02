@@ -1,12 +1,8 @@
 import { Box, Typography } from '@mui/material'
-import { useTheme } from '@mui/material/styles'
 import { memo, useMemo, useState, type ReactNode } from 'react'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
-import {
-  getStatusColumnBackground,
-  STATUS_COLUMNS,
-  type StatusColumn,
-} from '../utils/statusColumnStyles'
+import { getBoardLayout } from '../utils/boardLayout'
+import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { KanbanBoardGrid, type BoardRowData } from './KanbanBoardGrid'
 import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
 import { AdoErrorNotice } from './AdoErrorNotice'
@@ -15,13 +11,11 @@ import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 import { getAssignmentMemberRows } from '../utils/assignmentMembers'
 import { getVisibleBoardRows } from '../utils/boardRowVisibility'
 
-const BOARD_GRID_TEMPLATE = '175px repeat(5, minmax(200px, 1fr))'
-const COLLAPSED_CELL_CARD_LIMIT = 3
+const LOADING_LAYOUT = getBoardLayout(true)
 
 type KanbanBoardProps = {
   patConfigured: boolean
   isLoading: boolean
-  colorScheme: 'light' | 'dark'
   membersError: string | null
   workItemsError: string | null
   assigneesError: string | null
@@ -41,7 +35,6 @@ type KanbanBoardProps = {
 export const KanbanBoard = memo(function KanbanBoard({
   patConfigured,
   isLoading,
-  colorScheme,
   membersError,
   workItemsError,
   assigneesError,
@@ -57,10 +50,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   rolledOverItemIds,
   workItemAssignees,
 }: KanbanBoardProps) {
-  const theme = useTheme()
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
-  const renderStatusColumnBackground = (status: StatusColumn, columnIndex: number) =>
-    getStatusColumnBackground(status, columnIndex, theme.palette, colorScheme)
 
   const rows = useMemo<BoardRowData[]>(() => {
     const hasUnassignedItems = workItems.some((item) => {
@@ -138,6 +128,8 @@ export const KanbanBoard = memo(function KanbanBoard({
     return counts
   }, [workItems])
 
+  const layout = useMemo(() => getBoardLayout(statusItemCounts.Blocked > 0), [statusItemCounts.Blocked])
+
   const cardsByCell = useMemo(() => {
     const initial = rows.reduce<Record<string, WorkItemSummary[]>>((acc, row) => {
       for (const status of STATUS_COLUMNS) {
@@ -188,11 +180,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     )
   } else if (isLoading) {
     content = (
-      <KanbanBoardLoadingState
-        boardGridTemplate={BOARD_GRID_TEMPLATE}
-        statusColumns={STATUS_COLUMNS}
-        getStatusColumnBackground={renderStatusColumnBackground}
-      />
+      <KanbanBoardLoadingState layout={LOADING_LAYOUT} statusColumns={STATUS_COLUMNS} />
     )
   } else if (membersError) {
     content = <AdoErrorNotice title="Unable to load team members" message={membersError} />
@@ -218,15 +206,13 @@ export const KanbanBoard = memo(function KanbanBoard({
       </Typography>
     ) : (
       <KanbanBoardGrid
-        boardGridTemplate={BOARD_GRID_TEMPLATE}
-        collapsedCellCardLimit={COLLAPSED_CELL_CARD_LIMIT}
+        layout={layout}
         rows={visibleRows}
         cardsByCell={cardsByCell}
         expandedCells={expandedCells}
         currentIterationName={currentIterationName}
         statusItemCounts={statusItemCounts}
         statusEffortTotals={statusEffortTotals}
-        renderStatusColumnBackground={renderStatusColumnBackground}
         onSetCellExpanded={setCellExpanded}
         changeHighlightsByItemId={changeHighlightsByItemId}
         changeDetailsByItemId={changeDetailsByItemId}
