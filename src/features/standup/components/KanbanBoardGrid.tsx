@@ -2,6 +2,7 @@ import { Avatar, Box, Button, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
+import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { DevelopmentCard } from './DevelopmentCard'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
@@ -29,6 +30,7 @@ type KanbanBoardGridProps = {
   renderStatusColumnBackground: (status: StatusColumn, columnIndex: number) => string
   onSetCellExpanded: (cellKey: string, expanded: boolean) => void
   changeHighlightsByItemId: Record<number, WorkItemCardHighlightState>
+  changeDetailsByItemId?: Record<number, CardChangeDetail>
   rolledOverItemIds: Record<number, boolean>
 }
 
@@ -44,6 +46,7 @@ export function KanbanBoardGrid({
   renderStatusColumnBackground,
   onSetCellExpanded,
   changeHighlightsByItemId,
+  changeDetailsByItemId,
   rolledOverItemIds,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
@@ -280,6 +283,7 @@ export function KanbanBoardGrid({
                             key={item.id}
                             item={item}
                             highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
+                            changeDetail={changeDetailsByItemId?.[item.id]}
                             currentIterationName={currentIterationName}
                             rowMember={row.memberIdentity}
                             showRolloverIndicator={rolledOverItemIds[item.id] === true}

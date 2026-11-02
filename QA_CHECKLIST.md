@@ -224,6 +224,11 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify a PR row shows its repository only when the work item's PRs span more than one
       repository, and that a linked PR row shows the PR title on hover and in its ID link's
       accessible name.
+- [ ] Verify a recently changed card shows the corner dot and a badge naming the change and its age
+      (state or column moves, reassignment, linked PRs, tag changes, and PR votes).
+- [ ] Verify Blocked, Active, and Review cards gain an aging dot for each quarter of the Stale
+      threshold without a tracked change (amber at three, red at four), New and Done cards show none,
+      and only stale Done cards fade.
 
 ### Sprint view
 

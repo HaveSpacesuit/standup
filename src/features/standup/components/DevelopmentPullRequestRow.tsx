@@ -6,7 +6,6 @@ import type { WorkItemPullRequestSummary } from '../../../ado/queryEngine'
 import { DevelopmentCardStep } from './DevelopmentCardStep'
 import { PullRequestProgressStrip } from './PullRequestProgressStrip'
 import {
-  formatShortAge,
   getApprovalSummary,
   getPullRequestNextStep,
   getToneColor,
@@ -30,7 +29,6 @@ export function DevelopmentPullRequestRow({ pullRequest, showHeading = true, sho
   const closed = isPullRequestClosed(pullRequest)
   const step = getPullRequestNextStep(pullRequest)
   const approvals = getApprovalSummary(pullRequest)
-  const age = closed ? '' : formatShortAge(pullRequest.recentActivityAt)
   const closedLabel = closed && pullRequest.status ? capitalize(pullRequest.status.trim().toLowerCase()) : ''
   const repository = showRepository ? pullRequest.repositoryName : undefined
 
@@ -95,14 +93,6 @@ export function DevelopmentPullRequestRow({ pullRequest, showHeading = true, sho
             </Box>
           </>
         )}
-
-        <Box sx={{ flex: '1 1 auto' }} />
-
-        {age ? (
-          <Box component="span" title="Time since the PR was ready for review" sx={{ flex: '0 0 auto', fontSize: 10, whiteSpace: 'nowrap', opacity: 0.85 }}>
-            {age}
-          </Box>
-        ) : null}
       </Box>
 
       {step ? <DevelopmentCardStep step={step} /> : null}

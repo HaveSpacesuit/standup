@@ -10,6 +10,7 @@ import svgUsers from '@stratakit/icons/users.svg'
 import svgValidate from '@stratakit/icons/validate.svg'
 import { toIdentityKeys, type IdentityRef } from '../../../ado/identity'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
+import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
 
 export const REQUIRED_APPROVALS = 2
@@ -344,4 +345,40 @@ export function getPullRequestProgress(pullRequest: WorkItemPullRequestSummary):
     ready,
     label: `PR ${pullRequest.id}. ${checksSummary.label}. ${approvals.label}. ${ready ? 'Ready to complete' : 'Not ready to complete'}.`,
   }
+}
+
+const AGING_COLUMNS: ReadonlySet<string> = new Set(['Blocked', 'Active', 'Review'])
+
+export type AgingDots = {
+  count: number
+  tone: CardTone
+  label: string
+}
+
+/** Aging dots belong to in-flight columns only; New and Done cards are expected to sit still. */
+export function getAgingDots(status: string, detail: CardChangeDetail | undefined): AgingDots | null {
+  if (!detail || !AGING_COLUMNS.has(status) || detail.agingLevel <= 0) {
+    return null
+  }
+
+  const count = Math.min(detail.agingLevel, 4)
+  const days = `${detail.idleDays} ${detail.idleDays === 1 ? 'day' : 'days'}`
+  return {
+    count,
+    tone: count >= 4 ? 'critical' : count === 3 ? 'attention' : 'neutral',
+    label: count >= 4 ? `Stale: unchanged for ${days}` : `Unchanged for ${days}`,
+  }
+}
+
+/** "Moved to Done · 3h" for a recently changed card; null when the change is unknown. */
+export function getChangeBadgeText(detail: CardChangeDetail | undefined, now = Date.now()): string | null {
+  if (!detail?.reason) {
+    return null
+  }
+
+  const age = formatShortAge(detail.changedAt, now)
+  if (!age) {
+    return detail.reason
+  }
+  return `${detail.reason} · ${age === 'now' ? 'just now' : age}`
 }

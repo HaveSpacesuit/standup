@@ -12,11 +12,33 @@ import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
 
 export type ChangeHighlightState = 'new' | 'stale' | 'none'
 
+/** What last changed on a card and how long it has been idle, for the Development board. */
+export type CardChangeDetail = {
+  /** Plain-language summary of the latest tracked change, such as "Moved to Done". */
+  reason?: string
+  changedAt?: string
+  /** Whole days since the latest tracked change, or since the item's first revision when nothing is tracked. */
+  idleDays: number
+  /** 0-4, one step per quarter of the stale threshold; 4 means the card is stale. */
+  agingLevel: number
+}
+
+export type AdoHistoryHighlights = {
+  highlightsByItemId: Record<number, ChangeHighlightState>
+  changeDetailsByItemId: Record<number, CardChangeDetail>
+}
+
 type HighlightResult = {
   state: ChangeHighlightState
   trackedAt?: string
   baselineAt?: string
+  reason?: string
   justification: string
+}
+
+type VoteMoment = {
+  at: string
+  vote?: number
 }
 
 type UseAdoHistoryHighlightsArgs = {
@@ -75,13 +97,81 @@ function getThreadType(thread: PullRequestThread): string {
   return typeof value === 'string' ? value : ''
 }
 
-function getVoteUpdateMoments(threads: PullRequestThread[]): string[] {
+function getVoteUpdateMoments(threads: PullRequestThread[]): VoteMoment[] {
   const now = Date.now()
 
   return threads
     .filter((thread) => getThreadType(thread) === 'VoteUpdate')
-    .map((thread) => thread.publishedDate)
-    .filter((value): value is string => isUsableHistoryTimestamp(value, now))
+    .filter((thread): thread is PullRequestThread & { publishedDate: string } => isUsableHistoryTimestamp(thread.publishedDate, now))
+    .map((thread) => {
+      const vote = Number(thread.properties?.CodeReviewVoteResult?.$value)
+      return { at: thread.publishedDate, vote: Number.isFinite(vote) ? vote : undefined }
+    })
+}
+
+function getLatestVote(moments: VoteMoment[]): VoteMoment | undefined {
+  return moments
+    .map((moment) => ({ moment, timestamp: toTimestamp(moment.at) ?? 0 }))
+    .sort((left, right) => right.timestamp - left.timestamp)[0]?.moment
+}
+
+const VOTE_DESCRIPTIONS: Record<number, string> = {
+  10: 'approved',
+  5: 'approved with suggestions',
+  0: 'vote reset',
+  [-5]: 'waiting for author',
+  [-10]: 'rejected',
+}
+
+function describeVote(vote: number | undefined): string {
+  return (vote === undefined ? undefined : VOTE_DESCRIPTIONS[vote]) ?? 'review vote'
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+/** Picks the single most useful summary when one revision changes several tracked things. */
+function describeTrackedUpdate(change: {
+  stateChanged: boolean
+  state: string
+  columnChanged: boolean
+  column: string
+  assigneeChanged: boolean
+  linkedPullRequestId?: number
+  tagsChanged: boolean
+}): string {
+  if (change.stateChanged && change.state) {
+    return `Moved to ${change.state}`
+  }
+  if (change.columnChanged) {
+    return `Moved to ${change.column}`
+  }
+  if (change.assigneeChanged) {
+    return 'Reassigned'
+  }
+  if (change.linkedPullRequestId !== undefined) {
+    return `PR ${change.linkedPullRequestId} linked`
+  }
+  return change.tagsChanged ? 'Tags changed' : 'Updated'
+}
+
+/** Days-idle measure behind the aging dots; reaches 4 exactly when getHighlightState would call the card stale. */
+export function getCardChangeDetail(
+  result: Pick<HighlightResult, 'trackedAt' | 'baselineAt' | 'reason'> | undefined,
+  now: number,
+  options: CardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS,
+): CardChangeDetail {
+  const idleFrom = toTimestamp(result?.trackedAt) ?? toTimestamp(result?.baselineAt)
+  const idleMs = idleFrom === null ? 0 : Math.max(now - idleFrom, 0)
+  const staleWindowMs = Math.max(options.staleDays, 1) * DAY_MS
+
+  return {
+    reason: result?.trackedAt ? result.reason : undefined,
+    changedAt: result?.trackedAt,
+    idleDays: Math.floor(idleMs / DAY_MS),
+    agingLevel: Math.min(4, Math.floor((idleMs / staleWindowMs) * 4)),
+  }
 }
 
 export function getHighlightState(
@@ -148,7 +238,7 @@ async function fetchPullRequestVoteMoments(
   repositoryId: string | undefined,
   pullRequestId: number,
   signal: AbortSignal,
-): Promise<string[]> {
+): Promise<VoteMoment[]> {
   if (!repositoryId) {
     return []
   }
@@ -193,6 +283,7 @@ async function computeWorkItemHighlight(
   let currentTags = ''
   let currentAssignee = ''
   let lastTrackedChangeAt: string | undefined
+  let lastTrackedReason: string | undefined
   const reasons: string[] = []
   const earliestPullRequestAttachmentById = new Map<number, { repositoryId: string; attachedAt: string }>()
 
@@ -256,6 +347,7 @@ async function computeWorkItemHighlight(
     const afterColumn = resolveStatusFromStateAndTags(currentState, currentTags, tagRules)
     const afterRelevantTags = getRelevantTagRuleSignature(currentTags, tagRules)
     const updateReasons: string[] = []
+    let linkedPullRequestId: number | undefined
 
     if (beforeState !== currentState) {
       updateReasons.push(`state: ${beforeState || '(empty)'} -> ${currentState || '(empty)'}`)
@@ -302,6 +394,7 @@ async function computeWorkItemHighlight(
       }
 
       const createdAt = details?.creationDate
+      linkedPullRequestId ??= parsed.pullRequestId
       updateReasons.push(
         createdAt
           ? `non-draft PR attached: ${parsed.pullRequestId} (first linked ${updateTimestamp}, PR created ${createdAt})`
@@ -311,12 +404,22 @@ async function computeWorkItemHighlight(
 
     if (updateReasons.length > 0) {
       lastTrackedChangeAt = updateTimestamp
+      lastTrackedReason = describeTrackedUpdate({
+        stateChanged: beforeState !== currentState,
+        state: currentState,
+        columnChanged: beforeColumn !== afterColumn,
+        column: afterColumn,
+        assigneeChanged: beforeAssignee !== currentAssignee,
+        linkedPullRequestId,
+        tagsChanged: beforeRelevantTags !== afterRelevantTags,
+      })
       reasons.push(`${updateTimestamp}: ${updateReasons.join('; ')}`)
     }
   }
 
   const pullRequestVoteReasons: string[] = []
   let lastVoteChangeAt = lastTrackedChangeAt
+  let lastChangeReason = lastTrackedReason
 
   for (const pullRequest of item.activePullRequests ?? []) {
     const voteMoments = await fetchPullRequestVoteMoments(
@@ -327,19 +430,18 @@ async function computeWorkItemHighlight(
       signal,
     )
 
-    const latestVote = voteMoments
-      .map((value) => ({ value, timestamp: toTimestamp(value) ?? 0 }))
-      .sort((left, right) => right.timestamp - left.timestamp)[0]
+    const latestVote = getLatestVote(voteMoments)
 
-    if (!latestVote?.value) {
+    if (!latestVote?.at) {
       continue
     }
 
-    if ((toTimestamp(latestVote.value) ?? 0) > (toTimestamp(lastVoteChangeAt) ?? 0)) {
-      lastVoteChangeAt = latestVote.value
+    if ((toTimestamp(latestVote.at) ?? 0) > (toTimestamp(lastVoteChangeAt) ?? 0)) {
+      lastVoteChangeAt = latestVote.at
+      lastChangeReason = `PR ${pullRequest.id} ${describeVote(latestVote.vote)}`
     }
 
-    pullRequestVoteReasons.push(`PR ${pullRequest.id} latest vote update at ${latestVote.value}`)
+    pullRequestVoteReasons.push(`PR ${pullRequest.id} latest vote update at ${latestVote.at}`)
   }
 
   const trackedAt = lastVoteChangeAt
@@ -349,6 +451,7 @@ async function computeWorkItemHighlight(
     state,
     trackedAt,
     baselineAt,
+    reason: lastChangeReason,
     justification:
       reasons.length > 0 || pullRequestVoteReasons.length > 0
         ? [...reasons, ...pullRequestVoteReasons].join(' | ')
@@ -373,23 +476,22 @@ async function computePullRequestHighlight(
     signal,
   )
 
-  const latestVote = voteMoments
-    .map((value) => ({ value, timestamp: toTimestamp(value) ?? 0 }))
-    .sort((left, right) => right.timestamp - left.timestamp)[0]?.value
+  const latestVote = getLatestVote(voteMoments)
 
-  const state = getHighlightState(latestVote, baselineAt, Date.now(), cardHighlightOptions)
+  const state = getHighlightState(latestVote?.at, baselineAt, Date.now(), cardHighlightOptions)
 
   return {
     state,
-    trackedAt: latestVote,
+    trackedAt: latestVote?.at,
     baselineAt,
+    reason: latestVote ? capitalize(describeVote(latestVote.vote)) : undefined,
     justification: latestVote
-      ? `Latest PR vote update at ${latestVote}`
+      ? `Latest PR vote update at ${latestVote.at}`
       : 'No PR vote update events found in ADO thread history.',
   }
 }
 
-export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workItems, cardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS }: UseAdoHistoryHighlightsArgs): Record<number, ChangeHighlightState> {
+export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workItems, cardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS }: UseAdoHistoryHighlightsArgs): AdoHistoryHighlights {
   const [results, setResults] = useState<Record<number, HighlightResult>>({})
 
   useEffect(() => {
@@ -437,12 +539,18 @@ export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workIt
   }, [adoQueryEngine, team, tagRules, workItems, cardHighlightOptions])
 
   return useMemo(() => {
-    const highlights: Record<number, ChangeHighlightState> = {}
+    const now = Date.now()
+    const highlightsByItemId: Record<number, ChangeHighlightState> = {}
+    const changeDetailsByItemId: Record<number, CardChangeDetail> = {}
 
     for (const item of workItems) {
-      highlights[item.id] = results[item.id]?.state ?? 'none'
+      const result = results[item.id]
+      highlightsByItemId[item.id] = result?.state ?? 'none'
+      if (result) {
+        changeDetailsByItemId[item.id] = getCardChangeDetail(result, now, cardHighlightOptions)
+      }
     }
 
-    return highlights
-  }, [results, workItems])
+    return { highlightsByItemId, changeDetailsByItemId }
+  }, [results, workItems, cardHighlightOptions])
 }

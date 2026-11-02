@@ -11,11 +11,15 @@ import { WorkItemTags } from './WorkItemTags'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 import { DevelopmentCardStep } from './DevelopmentCardStep'
 import { DevelopmentPullRequestRow } from './DevelopmentPullRequestRow'
+import { AgingDots } from './AgingDots'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
+import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getStatusPaletteKey } from './workItemCardDisplay'
 import {
   findBlockedTag,
+  getAgingDots,
   getCardNextStep,
+  getChangeBadgeText,
   getStateBadgeColor,
   isDefaultColumnState,
   shouldShowSprint,
@@ -26,6 +30,7 @@ import {
 type DevelopmentCardProps = {
   item: WorkItemSummary
   highlightState?: WorkItemCardHighlightState
+  changeDetail?: CardChangeDetail
   /** Cards in the current sprint omit the sprint name. */
   currentIterationName?: string | null
   /** The developer whose row the card is pinned to; used to call out work now owned by someone else. */
@@ -40,6 +45,7 @@ type DevelopmentCardProps = {
 export const DevelopmentCard = memo(function DevelopmentCard({
   item,
   highlightState = 'none',
+  changeDetail,
   currentIterationName = null,
   rowMember = null,
   showRolloverIndicator = false,
@@ -47,7 +53,8 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   const theme = useTheme()
   const accent = theme.palette[getStatusPaletteKey(item.status)].main
   const isNew = highlightState === 'new'
-  const isStale = highlightState === 'stale'
+  // Done cards are expected to sit still, so only they fade; in-flight cards show aging dots instead.
+  const isFaded = highlightState === 'stale' && item.status === 'Done'
 
   const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
   const linkedPullRequests = pullRequestOnly ? [] : (item.activePullRequests ?? [])
@@ -63,12 +70,12 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   const showStateBadge = !pullRequestOnly && !isDefaultColumnState(item.status, item.state) && !cardStep?.coversState
   const showSprint = !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName)
   const showRollover = !pullRequestOnly && showRolloverIndicator
-  const showMeta = showStateBadge || showSprint || showRollover
+  const changeBadgeText = isNew ? getChangeBadgeText(changeDetail) : null
+  const agingDots = getAgingDots(item.status, changeDetail)
+  const showMeta = showStateBadge || showSprint || showRollover || Boolean(changeBadgeText) || Boolean(agingDots)
 
   const leadingEdge = `inset 3px 0 0 ${accent}`
-  const restingShadow = isNew
-    ? `${leadingEdge}, 0 0 0 1px color-mix(in srgb, ${accent} 72%, transparent), 0 0 14px color-mix(in srgb, ${accent} 42%, transparent)`
-    : `${leadingEdge}, var(--stratakit-shadow-surface-xs)`
+  const restingShadow = `${leadingEdge}, var(--stratakit-shadow-surface-xs)`
   const raisedSx = {
     zIndex: 2,
     transform: 'translateY(-1px)',
@@ -96,17 +103,36 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 1,
-        bgcolor: isNew ? `color-mix(in srgb, ${accent} 8%, ${theme.palette.background.paper})` : 'background.paper',
+        bgcolor: 'background.paper',
         overflow: 'visible',
         zIndex: 0,
         boxShadow: restingShadow,
-        opacity: isStale ? 0.68 : 1,
-        filter: isStale ? 'saturate(0.78)' : 'none',
+        opacity: isFaded ? 0.68 : 1,
+        filter: isFaded ? 'saturate(0.78)' : 'none',
         transition: 'transform 160ms ease, box-shadow 160ms ease, opacity 120ms ease, filter 120ms ease',
         '&:hover': raisedSx,
         '&:focus-within': raisedSx,
       }}
     >
+      {isNew ? (
+        <Box
+          component="span"
+          data-change-dot=""
+          sx={{
+            position: 'absolute',
+            top: -4,
+            right: -4,
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            bgcolor: 'var(--stratakit-color-bg-info-base)',
+            boxShadow: `0 0 0 2px ${(theme.vars || theme).palette.background.paper}`,
+            pointerEvents: 'none',
+          }}
+        >
+          {changeBadgeText ? null : <Box component="span" sx={visuallyHiddenSx}>Recently changed</Box>}
+        </Box>
+      ) : null}
       <Box
         component="a"
         href={titleUrl}
@@ -219,7 +245,21 @@ export const DevelopmentCard = memo(function DevelopmentCard({
               sx={{ minWidth: 0, maxWidth: '100%', '& .MuiBadge-badge': { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' } }}
             />
           ) : null}
+          {changeBadgeText ? (
+            <Badge
+              variant="inline"
+              type="outlined"
+              size="small"
+              color="info"
+              max={Infinity}
+              badgeContent={changeBadgeText}
+              title={`Latest change: ${changeBadgeText}`}
+              data-change-reason=""
+              sx={{ minWidth: 0, flex: '0 1 auto', '& .MuiBadge-badge': { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' } }}
+            />
+          ) : null}
           <Box sx={{ flex: '1 1 auto' }} />
+          {agingDots ? <AgingDots dots={agingDots} /> : null}
           {showRollover ? <RolloverSprintIndicator color={accent} /> : null}
           {showSprint ? (
             <Typography

@@ -4,7 +4,7 @@ import { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
-import { useAdoHistoryHighlights, type ChangeHighlightState } from './useAdoHistoryHighlights'
+import { useAdoHistoryHighlights, type CardChangeDetail, type ChangeHighlightState } from './useAdoHistoryHighlights'
 import { useEffortFlowHistory, type EffortFlowPoint } from './useEffortFlowHistory'
 import { useSprintScopeChanges } from './useSprintScopeChanges'
 import { useTeamData } from './useTeamData'
@@ -65,6 +65,7 @@ type UseBoardViewModelResult = {
   iterationWindow: IterationWindowInfo
   iterationLoading: boolean
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
+  changeDetailsByItemId: Record<number, CardChangeDetail>
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
   sprintForecast: SprintForecast
@@ -290,7 +291,7 @@ export function useBoardViewModel({
     [effectiveTeam.orgName, effectiveTeam.projectName, effectiveTeam.repoName],
   )
 
-  const changeHighlightsByItemId = useAdoHistoryHighlights({
+  const { highlightsByItemId: changeHighlightsByItemId, changeDetailsByItemId } = useAdoHistoryHighlights({
     adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
     tagRules,
@@ -403,6 +404,7 @@ export function useBoardViewModel({
     iterationWindow,
     iterationLoading,
     changeHighlightsByItemId,
+    changeDetailsByItemId,
     effortFlowPoints,
     effortFlowLoading,
     sprintForecast,

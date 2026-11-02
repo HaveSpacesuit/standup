@@ -413,3 +413,73 @@ test('the repository name appears only when a card has PRs in more than one repo
   assert.match(mixed, /pw-web/)
   assert.match(mixed, /pw-api/)
 })
+
+test('aging dots appear only on in-flight columns and escalate in tone', () => {
+  const detail = (agingLevel: number, idleDays: number) => ({ agingLevel, idleDays })
+
+  assert.equal(display.getAgingDots('Active', detail(0, 1)), null)
+  assert.equal(display.getAgingDots('New', detail(3, 6)), null)
+  assert.equal(display.getAgingDots('Done', detail(4, 9)), null)
+  assert.equal(display.getAgingDots('Active', undefined), null)
+  assert.deepEqual(display.getAgingDots('Active', detail(1, 2)), { count: 1, tone: 'neutral', label: 'Unchanged for 2 days' })
+  assert.deepEqual(display.getAgingDots('Review', detail(3, 5)), { count: 3, tone: 'attention', label: 'Unchanged for 5 days' })
+  assert.deepEqual(display.getAgingDots('Blocked', detail(4, 1)), { count: 4, tone: 'critical', label: 'Stale: unchanged for 1 day' })
+})
+
+test('change badge text pairs the reason with how long ago it happened', () => {
+  const now = Date.parse('2026-10-20T12:00:00Z')
+  const hoursAgo = (hours: number) => new Date(now - hours * 60 * 60 * 1000).toISOString()
+
+  assert.equal(display.getChangeBadgeText({ reason: 'Moved to Done', changedAt: hoursAgo(3), idleDays: 0, agingLevel: 0 }, now), 'Moved to Done · 3h')
+  assert.equal(display.getChangeBadgeText({ reason: 'Reassigned', changedAt: hoursAgo(0.2), idleDays: 0, agingLevel: 0 }, now), 'Reassigned · just now')
+  assert.equal(display.getChangeBadgeText({ reason: 'Reassigned', idleDays: 0, agingLevel: 0 }, now), 'Reassigned')
+  assert.equal(display.getChangeBadgeText({ idleDays: 0, agingLevel: 0 }, now), null)
+  assert.equal(display.getChangeBadgeText(undefined, now), null)
+})
+
+test('a recently changed card shows a corner dot and what changed instead of a glow', () => {
+  const changedAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+  const html = render({
+    item: baseItem,
+    highlightState: 'new',
+    changeDetail: { reason: 'Moved to In Progress', changedAt, idleDays: 0, agingLevel: 0 },
+    currentIterationName: 'Sprint 42',
+  })
+
+  assert.match(html, /data-change-dot/)
+  assert.match(textOf(html), /Moved to In Progress · 3h/)
+  assert.doesNotMatch(html, /0 0 14px/, 'the old glow is gone')
+
+  const withoutReason = render({ item: baseItem, highlightState: 'new', currentIterationName: 'Sprint 42' })
+  assert.match(textOf(withoutReason), /Recently changed/)
+})
+
+test('in-flight cards show aging dots, and only stale Done cards fade', () => {
+  const idle = { idleDays: 9, agingLevel: 4 }
+  const active = render({ item: baseItem, highlightState: 'stale', changeDetail: idle, currentIterationName: 'Sprint 42' })
+  assert.match(active, /data-aging-dots="4"/)
+  assert.match(active, /aria-label="Stale: unchanged for 9 days"/)
+  assert.doesNotMatch(active, /opacity:0\.68/)
+
+  const done = render({
+    item: { ...baseItem, state: 'Done', status: 'Done' },
+    highlightState: 'stale',
+    changeDetail: idle,
+    currentIterationName: 'Sprint 42',
+  })
+  assert.doesNotMatch(done, /data-aging-dots/)
+  assert.match(done, /opacity:0\.68/)
+})
+
+test('PR rows no longer show their own age', () => {
+  const text = textOf(render({
+    item: {
+      ...baseItem,
+      state: 'In Code Review',
+      status: 'Review',
+      activePullRequests: [pr({ id: 912, recentActivityAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() })],
+    },
+    currentIterationName: 'Sprint 42',
+  }))
+  assert.doesNotMatch(text, /\b3d\b/)
+})

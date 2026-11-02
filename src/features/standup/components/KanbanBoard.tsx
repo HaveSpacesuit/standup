@@ -10,7 +10,7 @@ import {
 import { KanbanBoardGrid, type BoardRowData } from './KanbanBoardGrid'
 import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
 import { AdoErrorNotice } from './AdoErrorNotice'
-import type { ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
+import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 import { getAssignmentMemberRows } from '../utils/assignmentMembers'
 import { getVisibleBoardRows } from '../utils/boardRowVisibility'
@@ -32,6 +32,7 @@ type KanbanBoardProps = {
   workItems: WorkItemSummary[]
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
+  changeDetailsByItemId?: Record<number, CardChangeDetail>
   rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
@@ -50,6 +51,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   workItems,
   currentIterationName,
   changeHighlightsByItemId,
+  changeDetailsByItemId,
   rolledOverItemIds,
   workItemAssignees,
 }: KanbanBoardProps) {
@@ -225,6 +227,7 @@ export const KanbanBoard = memo(function KanbanBoard({
         renderStatusColumnBackground={renderStatusColumnBackground}
         onSetCellExpanded={setCellExpanded}
         changeHighlightsByItemId={changeHighlightsByItemId}
+        changeDetailsByItemId={changeDetailsByItemId}
         rolledOverItemIds={rolledOverItemIds}
       />
     )
