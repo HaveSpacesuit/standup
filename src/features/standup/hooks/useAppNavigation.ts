@@ -90,7 +90,10 @@ export function useAppNavigation({
         || tagName === 'textarea'
         || target?.isContentEditable === true
 
-      const isShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f'
+      const isFindShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f'
+      // "/" is the familiar search key on the web; Shift is allowed because some layouts need it to type "/".
+      const isSlashShortcut = event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey
+      const isShortcut = isFindShortcut || isSlashShortcut
       if (!isShortcut) {
         const isCycleUpShortcut = event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'ArrowUp'
         const isCycleDownShortcut = event.ctrlKey && !event.altKey && !event.metaKey && event.key === 'ArrowDown'

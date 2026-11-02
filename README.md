@@ -84,7 +84,8 @@ urgent first (blocked, failing checks, idle 3+ days, needs approval, with QA, re
 The summary stays in view while you scroll through a tall lane. Use the chevron beside a name to
 collapse the lane to one line, where each column shows a pip per card, the card count, and an icon
 per attention signal present; select the chevron or any of the lane's cells to expand it again.
-The Team member header collapses or expands every lane at once. Collapsed lanes are not saved.
+The Team member header shows how many people have lanes, and collapses or expands every lane at
+once. Collapsed lanes are not saved.
 
 Start standup in the toolbar walks the team one person at a time. The speaker's lane is outlined,
 expanded with every card shown, and scrolled into view; every other lane collapses to one line. A
@@ -99,6 +100,13 @@ Assignee unavailable lanes. The order is fixed when standup starts: people who a
 later join the end of the line, and people who drop off are skipped. Starting clears the member
 filter and switches to the people view; the member filter stays locked while standup runs, and
 switching to the sprint view or changing team ends it.
+
+The toolbar's View toggle switches between the People board and the Sprint view. Beside Refresh,
+"Synced 5m ago" says when the board's data last loaded from Azure DevOps (hover for the time). It
+reads "Syncing…" while data loads, when the Refresh icon also turns into a spinner. Returning to a
+team that was already loaded keeps that team's earlier time until you refresh. On every page,
+**Manage team** is the last entry in the Team menu and opens the team's Azure DevOps settings in a
+new tab.
 
 Development options > Display includes "Compact cards" (off by default). It makes Blocked, Active,
 and Review cards compact too. Each compact card shows its
@@ -158,11 +166,11 @@ Recently completed state precedence, and explicit tag-based grouping, are unchan
 
 ### Backlog view
 
-The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has a quick filter, the team selector, **Manage team**, a Backlog options button (a placeholder dialog for now), and a Refresh button.
+The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has a quick filter, the team selector (its menu ends with **Manage team**), a Backlog options button (a placeholder dialog for now), and a Refresh button.
 
 The table has no sorting, column filtering, or selection, and rows highlight when hovered. Its columns are ID, Title (a link that opens the bug in a new tab, followed by the bug's tags as outlined badges in alphabetical order), Created Date, Assigned To (left blank when the bug is unassigned), State, Iteration Path (the last two segments of the full path), Severity, Impact, Effort, and Value. Impact is the bug's Priority field, a stand-in for how often users encounter the bug. Effort is shown as entered; only the Value calculation raises it to a minimum of 4.
 
-The quick filter keeps the bugs whose visible text contains what you type, checking each column as the table displays it: the ID, Title, each of the bug's tags, Created Date, Assigned To, State, Iteration Path, Severity, Impact, Effort, and the rounded Value. Because it matches what is shown, it does not search the Iteration Path segments that are cut from the display, the unrounded Value, or the dashes that stand in for missing values. Matching ignores case and surrounding spaces. The remaining bugs keep their ranked order, and a message appears when none match. The filter text is kept when you refresh, switch teams, or visit another page, but not across a browser reload. Ctrl/Cmd + F focuses it.
+The quick filter keeps the bugs whose visible text contains what you type, checking each column as the table displays it: the ID, Title, each of the bug's tags, Created Date, Assigned To, State, Iteration Path, Severity, Impact, Effort, and the rounded Value. Because it matches what is shown, it does not search the Iteration Path segments that are cut from the display, the unrounded Value, or the dashes that stand in for missing values. Matching ignores case and surrounding spaces. The remaining bugs keep their ranked order, and a message appears when none match. The filter text is kept when you refresh, switch teams, or visit another page, but not across a browser reload. / or Ctrl/Cmd + F focuses it.
 
 Value is `((SeverityScore * ImpactScore) / AdjustedEffort) * 10`, shown to one decimal place:
 
@@ -304,7 +312,7 @@ Unreadable saved team profiles or QA options produce a recovery warning. Only re
 - member filter for the current board
 - hidden-tag filters persisted per team
 - board toggles for work-item types and sprint scope
-- keyboard shortcut: Ctrl/Cmd + F focuses the quick filter on Development, Quality Assurance, and Backlog
+- keyboard shortcut: / or Ctrl/Cmd + F focuses the quick filter on Development, Quality Assurance, and Backlog
 - keyboard shortcut: Ctrl + Up/Down cycles the Development member filter, or moves between speakers during a standup
 - navigation between Development, Quality Assurance, Backlog, and Tests pages
 

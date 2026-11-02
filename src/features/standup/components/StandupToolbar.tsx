@@ -1,31 +1,78 @@
 import {
   Box,
   Button,
+  CircularProgress,
   FormControl,
   IconButton,
-  InputAdornment,
   MenuItem,
   Select,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import { AppTooltip as Tooltip } from './AppTooltip'
-import type { RefObject } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 import { Icon } from '@stratakit/mui'
 import type { TeamMember } from '../../../ado/queryEngine'
 import { AdoAvatar } from './AdoAvatar'
 import svgUsers from '@stratakit/icons/users.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
-import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgPlay from '@stratakit/icons/play.svg'
 import svgTimeline from '@stratakit/icons/timeline.svg'
 import svgDeveloper from '@stratakit/icons/developer.svg'
 import { PageToolbar } from './PageToolbar'
+import { QuickFilterField } from './QuickFilterField'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
+import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { readStringSelectValue } from '../utils/selectValues'
+import { formatSyncedLabel } from '../utils/syncStatus'
+
+const SYNC_LABEL_TICK_MS = 30_000
+
+/** "Synced 5m ago" beside Refresh; it re-renders on a timer so the age stays current. */
+function SyncStatus({ syncedAt, isLoading }: { syncedAt: number | null, isLoading: boolean }) {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (syncedAt === null) {
+      return undefined
+    }
+
+    const timer = window.setInterval(() => setNow(Date.now()), SYNC_LABEL_TICK_MS)
+    return () => window.clearInterval(timer)
+  }, [syncedAt])
+
+  const renderLabel = (text: string) => (
+    <Typography
+      variant="caption-md"
+      sx={{
+        color: TERTIARY_TEXT_COLOR,
+        whiteSpace: 'nowrap',
+        '@container (max-width: 960px)': {
+          display: 'none',
+        },
+      }}
+    >
+      {text}
+    </Typography>
+  )
+
+  if (isLoading) {
+    return renderLabel('Syncing…')
+  }
+
+  if (syncedAt === null) {
+    return null
+  }
+
+  const syncedTime = new Date(syncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return (
+    <Tooltip title={`Last synced with Azure DevOps at ${syncedTime}`} describeChild>
+      {renderLabel(formatSyncedLabel(syncedAt, now))}
+    </Tooltip>
+  )
+}
 
 type StandupToolbarProps = {
   patConfigured: boolean
@@ -44,6 +91,8 @@ type StandupToolbarProps = {
   onRefresh: () => void
   onOpenTagRulesDialog: () => void
   isTeamDataLoading: boolean
+  /** When the board data last loaded fresh; the "Synced" label stays hidden until then. */
+  teamDataSyncedAt?: number | null
   isSprintView: boolean
   onSprintViewChange: (isSprintView: boolean) => void
   /** While standup runs it decides whose lane is shown, so the member filter is locked. */
@@ -68,6 +117,7 @@ export function StandupToolbar({
   onRefresh,
   onOpenTagRulesDialog,
   isTeamDataLoading,
+  teamDataSyncedAt = null,
   isSprintView,
   onSprintViewChange,
   standupActive = false,
@@ -119,34 +169,13 @@ export function StandupToolbar({
 
   return (
     <PageToolbar iconHref={svgDeveloper} title="Development" isPageTitle wrap>
-        <TextField
-          size="small"
-          placeholder="Quick filter cards"
+        <QuickFilterField
+          label="Quick filter cards"
           value={quickFilterInput}
-          onChange={(event) => onQuickFilterInputChange(event.target.value)}
+          onChange={onQuickFilterInputChange}
+          onClear={onQuickFilterClear}
           inputRef={quickFilterInputRef}
           disabled={!patConfigured}
-          sx={{
-            minWidth: 90,
-            maxWidth: 320,
-            flex: '1 1 auto',
-          }}
-          slotProps={{
-            input: {
-              endAdornment: quickFilterInput ? (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    edge="end"
-                    aria-label="Clear quick filter"
-                    onClick={onQuickFilterClear}
-                  >
-                    <Icon href={svgDismiss} />
-                  </IconButton>
-                </InputAdornment>
-              ) : undefined,
-            },
-          }}
         />
 
         <FormControl
@@ -226,11 +255,11 @@ export function StandupToolbar({
                 }}
                 aria-label="Assignments board view"
               >
-                <ToggleButton value="assignment" label="Assignment view">
-                  <Icon href={svgUsers} />
+                <ToggleButton value="assignment" render={<Button size="small" startIcon={<Icon href={svgUsers} />} />}>
+                  People
                 </ToggleButton>
-                <ToggleButton value="sprint" label="Sprint view">
-                  <Icon href={svgTimeline} />
+                <ToggleButton value="sprint" render={<Button size="small" startIcon={<Icon href={svgTimeline} />} />}>
+                  Sprint
                 </ToggleButton>
               </ToggleButtonGroup>
             </>
@@ -248,15 +277,19 @@ export function StandupToolbar({
               </IconButton>
             </span>
           </Tooltip>
+          <SyncStatus syncedAt={teamDataSyncedAt} isLoading={patConfigured && hasConfiguredTeams && isTeamDataLoading} />
           <Tooltip title="Refresh">
             <span>
               <IconButton
                 size="small"
                 aria-label="Refresh"
+                aria-busy={isTeamDataLoading || undefined}
                 onClick={onRefresh}
                 disabled={!patConfigured || !hasConfiguredTeams || isTeamDataLoading}
               >
-                <Icon href={svgCloudSync} />
+                {isTeamDataLoading && patConfigured && hasConfiguredTeams
+                  ? <CircularProgress size={16} aria-hidden="true" />
+                  : <Icon href={svgCloudSync} />}
               </IconButton>
             </span>
           </Tooltip>

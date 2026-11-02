@@ -19,6 +19,7 @@ import { useProjectWorkItemStates } from './useProjectWorkItemStates'
 import { useTeamIterations } from './useTeamIterations'
 import { useAssignmentQueryFilters } from './useAssignmentQueryFilters'
 import { useIterationRolloverFlags } from './useIterationRolloverFlags'
+import { useTeamDataSyncedAt } from './useTeamDataSyncedAt'
 import { applyTagRulesToItem } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { QaOptions } from '../utils/qaOptions'
@@ -53,6 +54,8 @@ type UseBoardViewModelResult = {
   memberFilterOptions: string[]
   teamManagementUrl: string
   isTeamDataLoading: boolean
+  /** When the selected team's Development data last loaded fresh, or null before its first load. */
+  teamDataSyncedAt: number | null
   membersError: string | null
   workItemsError: string | null
   pullRequestBoardItemsError: string | null
@@ -365,6 +368,7 @@ export function useBoardViewModel({
       ...(sprintScope.status === 'ready' ? sprintScope.removedItems.map((item) => item.id) : []),
     ])
     forceRefreshRef.current = true
+    markTeamDataRefreshRequested()
     setDevelopmentReloadNonce((current) => current + 1)
   }
 
@@ -376,6 +380,11 @@ export function useBoardViewModel({
   })
 
   const isTeamDataLoading = teamIterationsLoading || membersLoading || workItemsLoading || pullRequestBoardItemsLoading || assigneesLoading
+  const { syncedAt: teamDataSyncedAt, markRefreshRequested: markTeamDataRefreshRequested } = useTeamDataSyncedAt({
+    teamId: selectedTeam?.id ?? '',
+    isLoading: isTeamDataLoading,
+    failed: Boolean(teamIterationsError || membersError || workItemsError),
+  })
 
   return {
     selectedTeamId,
@@ -392,6 +401,7 @@ export function useBoardViewModel({
     memberFilterOptions,
     teamManagementUrl,
     isTeamDataLoading,
+    teamDataSyncedAt,
     membersError,
     workItemsError,
     pullRequestBoardItemsError,

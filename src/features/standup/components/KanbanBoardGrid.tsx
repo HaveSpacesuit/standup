@@ -24,6 +24,7 @@ import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import { partitionHighlighted, type AttentionFacetKey } from './boardAttention'
 import { BoardLaneHead, CollapsedLaneSummary } from './BoardLane'
 import { getLaneSummary, presentingFrameShadow, type LaneSummary } from './laneSummary'
+import { isStandupSpeakerRow } from './standupOrder'
 
 const NO_SIGNALS: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>> = new Map()
 const NO_COLLAPSED_ROWS: ReadonlySet<string> = new Set()
@@ -95,6 +96,7 @@ export function KanbanBoardGrid({
     () => new Map<string, LaneSummary>(rows.map((row) => [row.key, getLaneSummary(row.key, cardsByCell, signalsByItemId)])),
     [cardsByCell, rows, signalsByItemId],
   )
+  const memberCount = rows.filter(isStandupSpeakerRow).length
 
   useEffect(() => {
     const scroller = scrollerRef.current
@@ -163,8 +165,18 @@ export function KanbanBoardGrid({
                   bgcolor: 'background.paper',
                 }}
               >
-                <Typography variant="body-sm" sx={{ fontWeight: 700, mr: 'auto' }}>
+                <Typography variant="body-sm" sx={{ fontWeight: 700, mr: 'auto', whiteSpace: 'nowrap' }}>
                   Team member
+                  {memberCount > 0 ? (
+                    <>
+                      <Box component="span" aria-hidden="true" sx={{ fontWeight: 500, color: TERTIARY_TEXT_COLOR }}>
+                        {` · ${memberCount}`}
+                      </Box>
+                      <Box component="span" sx={visuallyHiddenSx}>
+                        {` (${memberCount} ${memberCount === 1 ? 'person' : 'people'})`}
+                      </Box>
+                    </>
+                  ) : null}
                 </Typography>
                 {onSetAllRowsCollapsed ? (
                   <>

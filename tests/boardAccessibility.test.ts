@@ -152,6 +152,80 @@ test('team and member selectors have stable accessible names', () => {
   assert.match(developmentToolbar, /flex-wrap:wrap/)
 })
 
+function renderDevelopmentToolbar(overrides: Record<string, unknown> = {}) {
+  const dom = new JSDOM(render(createElement(StandupToolbar, {
+    patConfigured: true,
+    quickFilterInput: '',
+    onQuickFilterInputChange: () => {},
+    onQuickFilterClear: () => {},
+    quickFilterInputRef: { current: null },
+    selectedMemberFilter: '',
+    memberFilterOptions: ['Alex Example'],
+    members: [],
+    onMemberFilterChange: () => {},
+    teamOptions: [{
+      id: 'team', displayName: 'Team', orgName: 'example-org', projectName: 'example-project',
+      areaPath: '', iterationPath: '', teamName: 'Team', repoName: '',
+    }],
+    selectedTeamId: 'team',
+    onTeamChange: () => {},
+    teamManagementUrl: '',
+    onRefresh: () => {},
+    onOpenTagRulesDialog: () => {},
+    isTeamDataLoading: false,
+    isSprintView: false,
+    onSprintViewChange: () => {},
+    ...overrides,
+  })))
+  dom.window.document.querySelectorAll('style').forEach((style) => style.remove())
+  return dom
+}
+
+test('the Development view toggle names People and Sprint in visible text', () => {
+  const dom = renderDevelopmentToolbar()
+  try {
+    const toggles = [...dom.window.document.querySelectorAll('[aria-label="Assignments board view"] button')]
+    assert.deepEqual(toggles.map((button) => [button.textContent, button.getAttribute('aria-pressed'), button.getAttribute('aria-label')]), [
+      ['People', 'true', null],
+      ['Sprint', 'false', null],
+    ])
+  } finally {
+    dom.window.close()
+  }
+})
+
+test('the Development toolbar says when the board last synced, and shows progress while it syncs', () => {
+  const refresh = (dom: JSDOM) => dom.window.document.querySelector('button[aria-label="Refresh"]')!
+  const text = (dom: JSDOM) => dom.window.document.body.textContent ?? ''
+
+  const neverSynced = renderDevelopmentToolbar()
+  try {
+    assert.doesNotMatch(text(neverSynced), /Sync/, 'nothing to report before the first load')
+    assert.equal(refresh(neverSynced).querySelector('[role="progressbar"]'), null)
+  } finally {
+    neverSynced.window.close()
+  }
+
+  const synced = renderDevelopmentToolbar({ teamDataSyncedAt: Date.now() - 5 * 60_000 })
+  try {
+    assert.match(text(synced), /Synced 5m ago/)
+    assert.equal(refresh(synced).hasAttribute('disabled'), false)
+  } finally {
+    synced.window.close()
+  }
+
+  const syncing = renderDevelopmentToolbar({ teamDataSyncedAt: Date.now() - 5 * 60_000, isTeamDataLoading: true })
+  try {
+    assert.match(text(syncing), /Syncing…/)
+    assert.doesNotMatch(text(syncing), /Synced/)
+    assert.equal(refresh(syncing).hasAttribute('disabled'), true)
+    assert.equal(refresh(syncing).getAttribute('aria-busy'), 'true')
+    assert.ok(refresh(syncing).querySelector('[role="progressbar"]'), 'the Refresh icon becomes a spinner')
+  } finally {
+    syncing.window.close()
+  }
+})
+
 test('team selectors show only the selected display name in the input', () => {
   const teams = [
     {
@@ -218,6 +292,28 @@ test('Development board exposes status and member labels as headings', () => {
 
   assert.match(html, /<h2[^>]*>Active<\/h2>/)
   assert.match(html, /<h2[^>]*>Alex Example<\/h2>/)
+})
+
+test('the Team member header counts the people with lanes, not the Unassigned or unavailable lanes', () => {
+  const headerText = (rows: unknown[]) => {
+    const dom = new JSDOM(renderBoardGrid({ rows }))
+    try {
+      dom.window.document.querySelectorAll('style').forEach((style) => style.remove())
+      const corner = [...dom.window.document.querySelectorAll('p, span')].find((node) => node.textContent?.startsWith('Team member'))
+      return corner?.textContent
+    } finally {
+      dom.window.close()
+    }
+  }
+
+  assert.equal(headerText([
+    { key: 'alex', label: 'Alex Example' },
+    { key: 'blair', label: 'Blair Example' },
+    { key: '__unassigned__', label: 'Unassigned', isUnassigned: true },
+    { key: '__assignee_history_unavailable__', label: 'Assignee unavailable' },
+  ]), 'Team member · 2 (2 people)')
+  assert.equal(headerText([{ key: 'alex', label: 'Alex Example' }]), 'Team member · 1 (1 person)')
+  assert.equal(headerText([{ key: '__unassigned__', label: 'Unassigned', isUnassigned: true }]), 'Team member')
 })
 
 test('an empty Blocked column collapses to a rail that keeps its heading', () => {
