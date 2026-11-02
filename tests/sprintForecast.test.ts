@@ -5,7 +5,7 @@ import type { SprintEffortTotals } from '../src/features/standup/utils/sprintFor
 
 const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
 after(() => server.close())
-const { calculateSprintForecast } = await server.ssrLoadModule('/src/features/standup/utils/sprintForecast.ts')
+const { calculateSprintForecast, summarizeSprintForecast } = await server.ssrLoadModule('/src/features/standup/utils/sprintForecast.ts')
 
 const totals = (values: Partial<SprintEffortTotals> = {}): SprintEffortTotals =>
   ({ Blocked: 0, New: 0, Active: 0, Review: 0, Done: 0, ...values })
@@ -147,4 +147,27 @@ test('nonfinite and negative effort data is explicitly unavailable', () => {
     assert.equal(calculateSprintForecast({ ...args, current: totals({ Active: effort }) }).status, 'unavailable')
     assert.equal(calculateSprintForecast({ ...args, removedEffort: effort }).status, 'unavailable')
   }
+})
+
+const projected = (complete: number, total = 100) => ({
+  status: 'ready' as const,
+  start: { complete: 0, inProgress: 0, notStarted: total, total },
+  current: { complete: 0, inProgress: 0, notStarted: total, total },
+  projected: { complete, inProgress: 0, notStarted: total - complete, total },
+  addedEffort: 0,
+  removedEffort: 0,
+})
+
+test('summarizes the forecast as on track, at risk, or a plain projected share', () => {
+  assert.deepEqual(summarizeSprintForecast(projected(95)), { label: 'On track · 95% projected', tone: 'positive' })
+  assert.deepEqual(summarizeSprintForecast(projected(90)), { label: 'On track · 90% projected', tone: 'positive' })
+  assert.deepEqual(summarizeSprintForecast(projected(80)), { label: '80% projected', tone: 'neutral' })
+  assert.deepEqual(summarizeSprintForecast(projected(70)), { label: '70% projected', tone: 'neutral' })
+  assert.deepEqual(summarizeSprintForecast(projected(54)), { label: 'At risk · 54% projected', tone: 'attention' })
+})
+
+test('summarizes loading, unavailable, and empty-scope forecasts without a percentage', () => {
+  assert.deepEqual(summarizeSprintForecast({ status: 'loading' }), { label: 'Forecast loading…', tone: 'neutral' })
+  assert.deepEqual(summarizeSprintForecast({ status: 'unavailable', reason: 'x' }), { label: 'Forecast unavailable', tone: 'neutral' })
+  assert.deepEqual(summarizeSprintForecast(projected(0, 0)), { label: 'Forecast unavailable', tone: 'neutral' })
 })

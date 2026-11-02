@@ -1,4 +1,4 @@
-import { useState, type RefObject } from 'react'
+import { useMemo, useState, type RefObject } from 'react'
 import { Alert, AlertTitle, Box, Button, Typography } from '@mui/material'
 import type {
   IterationWindowInfo,
@@ -13,7 +13,7 @@ import { KanbanBoard } from '../components/KanbanBoard'
 import { SprintViewBoard } from '../components/SprintSummaryBoard'
 import { HiddenTagsDialog } from '../components/HiddenTagsDialog'
 import { PatMissingNotice } from '../components/PatMissingNotice'
-import { SprintSummaryBar } from '../components/SprintSummaryBar'
+import { SprintRibbon } from '../components/SprintRibbon'
 import { StandupToolbar } from '../components/StandupToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
@@ -21,6 +21,7 @@ import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
 import type { SprintForecast } from '../utils/sprintForecast'
+import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
 
 type TeamAssignmentsPageProps = {
   patConfigured: boolean
@@ -142,6 +143,10 @@ export function TeamAssignmentsPage({
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
   const [isSprintView, setIsSprintView] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
+  const sprintEffortTotals = useMemo(
+    () => getCurrentSprintEffortTotals(workItems, currentIterationName),
+    [workItems, currentIterationName],
+  )
 
   return (
     <>
@@ -171,6 +176,20 @@ export function TeamAssignmentsPage({
         <TeamConfigurationEmptyState pageLabel="Development" />
       ) : (
         <Box component="main" sx={{ flex: 1, minHeight: 0, p: 0, display: 'flex', flexDirection: 'column' }}>
+          <SprintRibbon
+            iterationWindow={iterationWindow}
+            isLoading={iterationLoading || teamIterationsLoading}
+            error={teamIterationsError}
+            effortTotals={sprintEffortTotals}
+            effortFlowPoints={effortFlowPoints}
+            effortFlowLoading={effortFlowLoading}
+            sprintForecast={isTeamDataLoading
+              ? { status: 'loading' }
+              : membersError || workItemsError || assigneesError
+                ? { status: 'unavailable', reason: 'Board data could not be loaded. Refresh to retry.' }
+                : sprintForecast}
+            colorScheme={colorScheme}
+          />
           {patConfigured && teamIterationsError ? (
             <Alert
               role="alert"
@@ -241,20 +260,6 @@ export function TeamAssignmentsPage({
               />
             )}
           </Box>
-
-          <SprintSummaryBar
-            iterationWindow={iterationWindow}
-            isLoading={iterationLoading || teamIterationsLoading}
-            error={teamIterationsError}
-            effortFlowPoints={effortFlowPoints}
-            effortFlowLoading={effortFlowLoading}
-            sprintForecast={isTeamDataLoading
-              ? { status: 'loading' }
-              : membersError || workItemsError || assigneesError
-                ? { status: 'unavailable', reason: 'Board data could not be loaded. Refresh to retry.' }
-                : sprintForecast}
-            colorScheme={colorScheme}
-          />
 
           <HiddenTagsDialog
             open={tagRulesDialogOpen}

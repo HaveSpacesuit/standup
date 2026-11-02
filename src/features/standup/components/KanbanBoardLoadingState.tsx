@@ -1,5 +1,5 @@
 import { Box, CircularProgress, Skeleton, Typography } from '@mui/material'
-import { BOARD_COLUMN_DIVIDER as COLUMN_DIVIDER, type BoardLayout } from '../utils/boardLayout'
+import { BOARD_COLUMN_DIVIDER as COLUMN_DIVIDER, BOARD_HEADER_HEIGHT, type BoardLayout } from '../utils/boardLayout'
 import type { StatusColumn } from '../utils/statusColumnStyles'
 
 type KanbanBoardLoadingStateProps = {
@@ -16,8 +16,6 @@ export function KanbanBoardLoadingState({ layout, statusColumns }: KanbanBoardLo
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'background.default',
-        borderTop: '1px solid',
-        borderColor: 'divider',
       }}
     >
       <Box
@@ -63,7 +61,9 @@ export function KanbanBoardLoadingState({ layout, statusColumns }: KanbanBoardLo
                 left: 0,
                 zIndex: 4,
                 px: 2,
-                py: 1.5,
+                height: BOARD_HEADER_HEIGHT,
+                display: 'flex',
+                alignItems: 'center',
                 borderRight: '1px solid',
                 borderColor: 'divider',
                 bgcolor: 'background.paper',
@@ -76,15 +76,18 @@ export function KanbanBoardLoadingState({ layout, statusColumns }: KanbanBoardLo
               <Box
                 key={`loading-header-${status}`}
                 sx={{
-                  px: 2,
-                  py: 1.5,
+                  px: 1.5,
+                  height: BOARD_HEADER_HEIGHT,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
                   boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Skeleton variant="text" width={58} height={20} />
-                  <Skeleton variant="rounded" width={30} height={18} />
-                </Box>
+                <Skeleton variant="rounded" width={4} height={16} />
+                <Skeleton variant="text" width={58} height={20} />
+                <Skeleton variant="rounded" width={22} height={18} sx={{ borderRadius: 999 }} />
+                <Skeleton variant="text" width={40} height={18} sx={{ ml: 'auto' }} />
               </Box>
             ))}
           </Box>

@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material'
 import { memo, useMemo, useState, type ReactNode } from 'react'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import { getBoardLayout } from '../utils/boardLayout'
+import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
 import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { KanbanBoardGrid, type BoardRowData } from './KanbanBoardGrid'
 import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
@@ -88,29 +89,10 @@ export const KanbanBoard = memo(function KanbanBoard({
     }, {})
   }, [rows])
 
-  const statusEffortTotals = useMemo(() => {
-    const totals: Record<StatusColumn, number> = {
-      Blocked: 0,
-      New: 0,
-      Active: 0,
-      Review: 0,
-      Done: 0,
-    }
-
-    for (const item of workItems) {
-      if (currentIterationName && item.sprintName !== currentIterationName) {
-        continue
-      }
-
-      if (typeof item.effort !== 'number') {
-        continue
-      }
-
-      totals[item.status] += item.effort
-    }
-
-    return totals
-  }, [currentIterationName, workItems])
+  const statusEffortTotals = useMemo(
+    () => getCurrentSprintEffortTotals(workItems, currentIterationName),
+    [currentIterationName, workItems],
+  )
 
   const statusItemCounts = useMemo(() => {
     const counts: Record<StatusColumn, number> = {

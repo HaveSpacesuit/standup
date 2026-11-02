@@ -75,10 +75,10 @@ function resolveStatusColors(palette: Theme['palette'], colorScheme: 'light' | '
   ) as ResolvedStatusColors
 }
 
-// The chart lives in a very short footer strip, so a canvas-drawn tooltip has nowhere to render
-// without being clipped. This renders the tooltip as a fixed-position DOM element instead, so it
-// can float above the chart and stay clamped inside the viewport. Each chart instance gets its own
-// element (rather than a shared by-ID singleton) since the footer and dialog charts can be mounted
+// The chart lives in a very short sprint ribbon strip, so a canvas-drawn tooltip has nowhere to
+// render without being clipped. This renders the tooltip as a fixed-position DOM element instead, so
+// it can float over the page and stay clamped inside the viewport. Each chart instance gets its own
+// element (rather than a shared by-ID singleton) since the ribbon and dialog charts can be mounted
 // at the same time.
 function createTooltipEl(): HTMLDivElement {
   const el = document.createElement('div')
@@ -141,11 +141,11 @@ function renderExternalTooltip(
   }
   left = Math.max(margin, left)
 
-  // Always place the tooltip above the point — the chart sits at the bottom of the page, so
-  // anchoring below would push it off-screen.
-  let top = canvasRect.top + tooltip.caretY - tooltipRect.height - margin
-  if (top < margin) {
-    top = Math.min(canvasRect.top + tooltip.caretY + margin, window.innerHeight - tooltipRect.height - margin)
+  // Prefer below the point — the ribbon chart sits near the top of the page — and flip above
+  // when there's no room underneath.
+  let top = canvasRect.top + tooltip.caretY + margin
+  if (top + tooltipRect.height > window.innerHeight - margin) {
+    top = Math.max(margin, canvasRect.top + tooltip.caretY - tooltipRect.height - margin)
   }
 
   tooltipEl.style.left = `${left}px`

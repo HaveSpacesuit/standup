@@ -108,3 +108,36 @@ export function calculateSprintForecast({
     removedEffort,
   }
 }
+
+/** Projected completion at or above this share of today's scope reads as on track. */
+export const ON_TRACK_PROJECTED_SHARE = 0.9
+/** Projected completion below this share reads as at risk. */
+export const AT_RISK_PROJECTED_SHARE = 0.7
+
+export type SprintForecastSummary = {
+  label: string
+  tone: 'positive' | 'attention' | 'neutral'
+}
+
+/** One-line forecast for the sprint ribbon, from the projected share of today's scope that will be Done. */
+export function summarizeSprintForecast(forecast: SprintForecast): SprintForecastSummary {
+  if (forecast.status === 'loading') {
+    return { label: 'Forecast loading…', tone: 'neutral' }
+  }
+
+  if (forecast.status === 'unavailable' || forecast.projected.total <= 0) {
+    return { label: 'Forecast unavailable', tone: 'neutral' }
+  }
+
+  const share = forecast.projected.complete / forecast.projected.total
+  const percent = `${Math.round(share * 100)}% projected`
+  if (share >= ON_TRACK_PROJECTED_SHARE) {
+    return { label: `On track · ${percent}`, tone: 'positive' }
+  }
+
+  if (share < AT_RISK_PROJECTED_SHARE) {
+    return { label: `At risk · ${percent}`, tone: 'attention' }
+  }
+
+  return { label: percent, tone: 'neutral' }
+}

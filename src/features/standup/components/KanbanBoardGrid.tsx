@@ -8,10 +8,12 @@ import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import {
   BOARD_COLUMN_DIVIDER as COLUMN_DIVIDER,
+  BOARD_HEADER_HEIGHT,
   getCollapsedCellCardLimit,
   isCompactStatusColumn,
   type BoardLayout,
 } from '../utils/boardLayout'
+import { formatEffortPoints } from '../utils/sprintEffortTotals'
 import { DevelopmentCard } from './DevelopmentCard'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import { AdoAvatar } from './AdoAvatar'
@@ -105,8 +107,9 @@ export function KanbanBoardGrid({
                   left: 0,
                   zIndex: 4,
                   px: 2,
-                  py: 1.5,
-                  borderBottom: '1px solid',
+                  height: BOARD_HEADER_HEIGHT,
+                  display: 'flex',
+                  alignItems: 'center',
                   borderRight: '1px solid',
                   borderColor: 'divider',
                   bgcolor: 'background.paper',
@@ -124,14 +127,12 @@ export function KanbanBoardGrid({
                     data-blocked-rail=""
                     sx={{
                       position: 'relative',
-                      py: 1.5,
+                      height: BOARD_HEADER_HEIGHT,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: 0.75,
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
+                      gap: 0.5,
                       boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
                     }}
                   >
@@ -160,62 +161,65 @@ export function KanbanBoardGrid({
                 <Box
                   key={status}
                   sx={{
-                    px: 2,
-                    py: 1.5,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
+                    px: 1.5,
+                    height: BOARD_HEADER_HEIGHT,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    minWidth: 0,
                     boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, minWidth: 0 }}>
-                    <Box
-                      sx={{
-                        width: 4,
-                        minHeight: 34,
-                        borderRadius: 999,
-                        bgcolor: getStatusColumnColor(status, theme.palette),
-                        flex: '0 0 auto',
-                        alignSelf: 'stretch',
-                      }}
-                    />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
-                        <Typography render={<h2 />} variant="body-sm" sx={{ fontWeight: 700 }}>
-                          {status}
-                        </Typography>
-
-                        <Box
-                          component="span"
-                          sx={{
-                            color: getStatusColumnColor(status, theme.palette),
-                            fontSize: 14,
-                            lineHeight: 1.25,
-                            fontWeight: 700,
-                            textAlign: 'center',
-                            flex: '0 0 auto',
-                          }}
-                        >
-                          {statusItemCounts[status]}
-                        </Box>
-                      </Box>
-
-                      <AppTooltip
-                        title={
-                          currentIterationName
-                            ? `Effort total includes visible items from ${currentIterationName} only.`
-                            : 'Effort total includes visible items from the current sprint only.'
-                        }
-                      >
-                        <Typography
-                          variant="caption-md"
-                          sx={{ mt: 0.25, color: 'text.secondary' }}
-                          tabIndex={0}
-                        >
-                          Current sprint effort: {statusEffortTotals[status]}
-                        </Typography>
-                      </AppTooltip>
-                    </Box>
+                  <Box
+                    sx={{
+                      width: 4,
+                      height: 16,
+                      borderRadius: 999,
+                      bgcolor: getStatusColumnColor(status, theme.palette),
+                      flex: '0 0 auto',
+                    }}
+                  />
+                  <Typography render={<h2 />} variant="body-sm" sx={{ fontWeight: 700 }}>
+                    {status}
+                  </Typography>
+                  <Box
+                    component="span"
+                    sx={{
+                      minWidth: 20,
+                      height: 18,
+                      px: 0.75,
+                      borderRadius: 999,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      bgcolor: 'var(--stratakit-color-bg-glow-on-surface-neutral-pressed)',
+                      color: 'text.secondary',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums',
+                      flex: '0 0 auto',
+                    }}
+                  >
+                    {statusItemCounts[status]}
                   </Box>
+
+                  <AppTooltip
+                    title={
+                      currentIterationName
+                        ? `Effort total includes visible items from ${currentIterationName} only.`
+                        : 'Effort total includes visible items from the current sprint only.'
+                    }
+                  >
+                    <Typography
+                      component="span"
+                      variant="caption-md"
+                      tabIndex={0}
+                      sx={{ ml: 'auto', color: 'text.secondary', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      <Box component="span" sx={visuallyHiddenSx}>Current sprint effort: </Box>
+                      {formatEffortPoints(statusEffortTotals[status])}
+                    </Typography>
+                  </AppTooltip>
                 </Box>
               ))}
             </Box>
@@ -267,7 +271,7 @@ export function KanbanBoardGrid({
                       component="span"
                       sx={{
                         position: 'sticky',
-                        top: 72,
+                        top: BOARD_HEADER_HEIGHT + 12,
                         mt: 1.5,
                         writingMode: 'vertical-rl',
                         transform: 'rotate(180deg)',
