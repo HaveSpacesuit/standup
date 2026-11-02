@@ -2,6 +2,8 @@ import { STATUS_COLUMNS, type StatusColumn } from './statusColumnStyles'
 
 export const LANE_COLUMN_WIDTH = 175
 export const BLOCKED_RAIL_WIDTH = 44
+/** Column headers are a single line, so their height is fixed and sticky content below can clear them. */
+export const BOARD_HEADER_HEIGHT = 40
 
 /** Faint enough to separate columns without competing with the cards' colored edges. */
 export const BOARD_COLUMN_DIVIDER = 'inset 1px 0 0 var(--stratakit-color-border-glow-base-default)'

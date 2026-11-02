@@ -78,7 +78,16 @@ owner, last change, and each PR's title, repository, and checks. The setting is 
 browser local storage, is included in team exports, and does not change the QA board or the sprint
 view.
 
-Hover or focus the Days remaining tag for a current-sprint effort forecast. It splits effort into
+A sprint ribbon above the board, in both views, keeps sprint context on one line: the current
+sprint's name and dates (hover for the full iteration path), working-day progress ("Day 5 of 10",
+with days left counting today), current-sprint effort in points with a stacked bar by status, the
+forecast tag, a small effort flow chart (expand it for the detailed chart and data table), and the
+next sprint. Lower-priority parts drop out as the window narrows. Each column header shows its card
+count and its current-sprint effort in points.
+
+The forecast tag shows the share of today's scope projected to be Done at sprint end: "On track"
+at 90% or more, "At risk" below 70%, and just the percentage in between. Hover or focus it for a
+current-sprint effort forecast. It splits effort into
 three exclusive buckets, so nothing is counted twice: Not started (Blocked + New), In progress
 (Active + Review), and Complete (Done). A stacked bar above each column shows the split at a glance:
 
@@ -97,7 +106,7 @@ elapsed. It is measured against today's scope (added and removed effort are not 
 projected buckets add up to the same total as Now. Unfinished work cannot fall below zero, Complete
 is capped at today's scope, and Not started is capped at the effort still unfinished.
 Projected effort is rounded to whole numbers that still add up to the total.
-Like the footer chart, this uses current-sprint work items (and removed items) matching
+Like the ribbon's effort flow chart, this uses current-sprint work items (and removed items) matching
 member/text filters, excluding PR-only cards. An item added and then removed mid-sprint is not
 counted. Estimate changes can distort the trend. Missing history suppresses the forecast rather
 than implying certainty.

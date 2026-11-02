@@ -51,9 +51,7 @@ async function setup(t: TestContext, forecast: SprintForecast) {
     await act(async () => root.unmount())
     host.remove()
   })
-  await act(async () => root.render(createElement(Root, null, createElement(SprintForecastChip, {
-    daysRemaining: 5, forecast,
-  }))))
+  await act(async () => root.render(createElement(Root, null, createElement(SprintForecastChip, { forecast }))))
   const trigger = host.querySelector('button')!
   assert.ok(trigger)
   return trigger
@@ -61,6 +59,7 @@ async function setup(t: TestContext, forecast: SprintForecast) {
 
 test('focus opens an accessible forecast table without moving focus; Escape dismisses it', async (t) => {
   const trigger = await setup(t, ready)
+  assert.equal(trigger.getAttribute('aria-label'), 'At risk · 54% projected. Sprint forecast')
   assert.equal(trigger.getAttribute('aria-expanded'), 'false')
   assert.equal(trigger.getAttribute('aria-haspopup'), 'dialog')
   await act(async () => trigger.focus())
@@ -99,6 +98,8 @@ for (const forecast of [
 ] satisfies SprintForecast[]) {
   test(`click exposes ${forecast.status} state without a success-shaped table`, async (t) => {
     const trigger = await setup(t, forecast)
+    assert.equal(trigger.getAttribute('aria-label'),
+      `${forecast.status === 'loading' ? 'Forecast loading…' : 'Forecast unavailable'}. Sprint forecast`)
     await act(async () => trigger.click())
     const dialog = dom.window.document.querySelector('[role="dialog"]')!
     assert.ok(dialog)

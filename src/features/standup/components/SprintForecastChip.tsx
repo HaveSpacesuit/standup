@@ -2,19 +2,24 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Box, Chip, Popover, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgInfo from '@stratakit/icons/info.svg'
-import type { SprintForecast } from '../utils/sprintForecast'
+import svgStatusSuccess from '@stratakit/icons/status-success.svg'
+import svgStatusWarning from '@stratakit/icons/status-warning.svg'
+import { summarizeSprintForecast, type SprintForecast } from '../utils/sprintForecast'
 import { SprintForecastDetails } from './SprintForecastDetails'
 
-export function SprintForecastChip({ daysRemaining, forecast }: {
-  daysRemaining: number | null
-  forecast: SprintForecast
-}) {
+const TONE_ICONS = {
+  positive: { href: svgStatusSuccess, color: 'var(--stratakit-color-icon-positive-base)' },
+  attention: { href: svgStatusWarning, color: 'var(--stratakit-color-icon-attention-base)' },
+} as const
+
+export function SprintForecastChip({ forecast }: { forecast: SprintForecast }) {
   const [open, setOpen] = useState(false)
   const anchor = useRef<HTMLSpanElement>(null)
   const paper = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const id = useId()
-  const label = daysRemaining === null ? 'Days: unavailable' : `Days remaining: ${daysRemaining}`
+  const { label, tone } = summarizeSprintForecast(forecast)
+  const toneIcon = tone === 'neutral' ? null : TONE_ICONS[tone]
 
   const cancelClose = () => {
     if (closeTimer.current !== null) clearTimeout(closeTimer.current)
@@ -68,6 +73,7 @@ export function SprintForecastChip({ daysRemaining, forecast }: {
           }}
           label={(
             <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+              {toneIcon ? <Icon href={toneIcon.href} style={{ color: toneIcon.color }} /> : null}
               {label}
               <Icon href={svgInfo} />
             </Box>
@@ -78,8 +84,8 @@ export function SprintForecastChip({ daysRemaining, forecast }: {
         open={open}
         anchorEl={anchor.current}
         onClose={() => { cancelClose(); setOpen(false) }}
-        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         disableAutoFocus
         disableEnforceFocus
         disableRestoreFocus
