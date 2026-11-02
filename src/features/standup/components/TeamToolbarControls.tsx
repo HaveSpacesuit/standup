@@ -1,4 +1,5 @@
-import { Box, Divider, FormControl, IconButton, MenuItem, Select, Tooltip, Typography } from '@mui/material'
+import { Box, Divider, FormControl, IconButton, MenuItem, Select, Typography } from '@mui/material'
+import { AppTooltip as Tooltip } from './AppTooltip'
 import type { ReactNode } from 'react'
 import { Icon } from '@stratakit/mui'
 import svgUserAdd from '@stratakit/icons/user-add.svg'

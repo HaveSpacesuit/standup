@@ -5,6 +5,10 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 import { JSDOM } from 'jsdom'
+import { readFileSync, readdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
+import ts from 'typescript'
 
 for (const name of ['localStorage', 'sessionStorage']) {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, name)
@@ -25,6 +29,7 @@ after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { DevelopmentCard } = await server.ssrLoadModule('/src/features/standup/components/DevelopmentCard.tsx')
 const display = await server.ssrLoadModule('/src/features/standup/components/developmentCardDisplay.ts')
+const { abbreviateState } = await server.ssrLoadModule('/src/features/standup/components/workItemCardDisplay.ts')
 const { DevelopmentCardDetails } = await server.ssrLoadModule('/src/features/standup/components/DevelopmentCardDetails.tsx')
 
 function render(props: Record<string, unknown>) {
@@ -72,6 +77,32 @@ test('state badges use the outlined tone that matches their meaning', () => {
   assert.equal(display.getStateBadgeColor('Failed Testing'), 'error')
   assert.equal(display.getStateBadgeColor('available for testing'), 'info')
   assert.equal(display.getStateBadgeColor('Ready'), 'secondary')
+})
+
+test('states with at least three words use only the first three initials', () => {
+  assert.equal(abbreviateState('In Code Review'), 'ICR')
+  assert.equal(abbreviateState('Available for Testing'), 'AFT')
+  assert.equal(abbreviateState('Ready for User Acceptance Testing'), 'RFU')
+  assert.equal(abbreviateState('  ready \t for\nTesting  '), 'RFT')
+  assert.equal(abbreviateState('New'), 'New')
+  assert.equal(abbreviateState('In Progress'), 'In Progress')
+  assert.equal(abbreviateState(''), '')
+})
+
+test('regular and compact state badges abbreviate long states but keep their full tooltip', () => {
+  for (const compact of [false, true]) {
+    for (const [state, label] of [['In Code Review', 'ICR'], ['Available for Testing', 'AFT'], ['Ready for User Acceptance Testing', 'RFU']]) {
+      const dom = new JSDOM(render({ item: { ...baseItem, state }, compact }))
+      try {
+        const badge = dom.window.document.querySelector(`[aria-label="State: ${state}"]`)
+        assert.ok(badge)
+        assert.equal(badge.hasAttribute('title'), false)
+        assert.equal(badge.querySelector('.MuiBadge-badge')?.textContent, label)
+      } finally {
+        dom.window.close()
+      }
+    }
+  }
 })
 
 test('the sprint is shown only when it differs from the current sprint', () => {
@@ -149,12 +180,31 @@ test('a quiet card drops details implied by the board and keeps effort as a labe
   assert.doesNotMatch(html, /scale\(1\.05\)/)
 })
 
+test('regular and compact work-item icons keep their shape and accessible type with the theme-aware icon token', () => {
+  for (const compact of [false, true]) {
+    for (const workItemType of ['Bug', 'Product Backlog Item']) {
+      const iconUrl = `https://example.test/icons/${workItemType === 'Bug' ? 'insect' : 'list'}?color=000000`
+      const html = render({ item: { ...baseItem, workItemType, workItemIconUrl: iconUrl }, compact })
+      const dom = new JSDOM(html)
+      try {
+        assert.ok(dom.window.document.querySelector(`[role="img"][aria-label="${workItemType}"]`))
+        assert.equal(dom.window.document.querySelector('img'), null)
+        assert.ok(html.includes(`mask-image:url("${iconUrl}")`))
+        assert.match(html, /background-color:var\(--stratakit-color-icon-neutral-base\)/)
+        assert.match(html, /background-color:CanvasText/)
+      } finally {
+        dom.window.close()
+      }
+    }
+  }
+})
+
 test('a quiet card shows state and sprint only when they add information', () => {
   const text = textOf(render({
     item: { ...baseItem, status: 'Review', state: 'Available for Testing', sprintName: 'Sprint 41' },
     currentIterationName: 'Sprint 42',
   }))
-  assert.match(text, /Available for Testing/)
+  assert.match(text, /AFT/)
   assert.match(text, /Sprint 41/)
 })
 
@@ -304,7 +354,7 @@ test('a handed-off card shows who has it instead of repeating the state', () => 
   assert.match(text, /In testing/)
   assert.match(text, /Assigned to Quinn/)
   assert.doesNotMatch(text, /Available for Testing/)
-  assert.match(html, /title="Currently assigned to Quinn Tester"/)
+  assert.match(html, /aria-label="Currently assigned to Quinn Tester"/)
 })
 
 test('a blocked card folds its blocked tag into the step line', () => {
@@ -436,6 +486,28 @@ test('change badge text pairs the reason with how long ago it happened', () => {
   assert.equal(display.getChangeBadgeText({ reason: 'Reassigned', idleDays: 0, agingLevel: 0 }, now), 'Reassigned')
   assert.equal(display.getChangeBadgeText({ idleDays: 0, agingLevel: 0 }, now), null)
   assert.equal(display.getChangeBadgeText(undefined, now), null)
+})
+
+test('change badges abbreviate only state names and retain the full change for tooltips', () => {
+  const now = Date.parse('2026-10-20T12:00:00Z')
+  const detail = { reason: 'Moved to In Code Review', changedAt: '2026-10-20T09:00:00Z', idleDays: 0, agingLevel: 0 }
+  assert.equal(display.getChangeBadgeText(detail, now), 'Moved to ICR · 3h')
+  assert.equal(display.getChangeBadgeText(detail, now, false), 'Moved to In Code Review · 3h')
+  assert.equal(display.getChangeBadgeText({ ...detail, reason: 'Moved to Ready for User Acceptance Testing' }, now), 'Moved to RFU · 3h')
+  assert.equal(display.getChangeBadgeText({ ...detail, reason: 'Moved to Available for Testing', changedAt: undefined }, now), 'Moved to AFT')
+  assert.equal(display.getChangeBadgeText({ ...detail, reason: 'PR 912 approved' }, now), 'PR 912 approved · 3h')
+  assert.equal(display.getLastChangeText(detail, now), 'Moved to In Code Review · 3h ago')
+
+  const changedAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+  const dom = new JSDOM(render({ item: baseItem, highlightState: 'new', changeDetail: { ...detail, changedAt } }))
+  try {
+    const badge = dom.window.document.querySelector('[data-change-reason]')
+    assert.equal(badge?.querySelector('.MuiBadge-badge')?.textContent, 'Moved to ICR · 3h')
+    assert.equal(badge?.getAttribute('aria-label'), 'Latest change: Moved to In Code Review · 3h')
+    assert.equal(badge?.hasAttribute('title'), false)
+  } finally {
+    dom.window.close()
+  }
 })
 
 test('a recently changed card shows a corner dot and what changed instead of a glow', () => {
@@ -592,22 +664,35 @@ test('a compact card shows who has handed-off work and what changed', () => {
 
   assert.match(text, /In testing/)
   assert.match(text, /Assigned to Quinn Tester/)
-  assert.match(text, /Latest change: Moved to Available for Testing · 3h/)
+  assert.match(text, /Latest change: Moved to AFT · 3h/)
   assert.match(html, /data-change-dot/)
   assert.doesNotMatch(text, /Recently changed/, 'the change text already announces the change')
+})
+
+test('a compact title reserves the full effort badge height without unclamping its text', () => {
+  for (const effort of [0, 8, 40]) {
+    const html = render({ item: { ...baseItem, effort }, compact: true })
+    assert.match(html, /min-height:18px;[^{}]*-webkit-line-clamp:1/)
+    assert.match(textOf(html), new RegExp(`Effort ${effort}`))
+  }
+
+  const withoutEffort = render({ item: { ...baseItem, effort: undefined }, compact: true })
+  assert.doesNotMatch(withoutEffort, /min-height:18px;[^{}]*-webkit-line-clamp:1/)
+  assert.match(withoutEffort, /-webkit-line-clamp:1/)
 })
 
 test('the regular card is unaffected by the compact layout', () => {
   const html = render({ item: { ...baseItem, tags: ['Customer'] }, currentIterationName: 'Sprint 42' })
   assert.doesNotMatch(html, /data-compact/)
   assert.match(html, /-webkit-line-clamp:2/)
-  assert.match(html, /title="Add folder rename to the web client"/)
+  assert.doesNotMatch(html, /\stitle="/, 'the regular card uses StrataKit tooltips, not native titles')
   assert.match(textOf(html), /Customer/)
 })
 
 test('hover card details list the facts a compact card leaves out', () => {
   const item = {
     ...baseItem,
+    state: 'Available for Testing',
     sprintName: 'Sprint 41',
     assignedTo: { displayName: 'Alex Example', uniqueName: 'alex@example.test' },
     activePullRequests: [
@@ -618,15 +703,15 @@ test('hover card details list the facts a compact card leaves out', () => {
   const html = renderToStaticMarkup(createElement(Root, null, createElement(DevelopmentCardDetails, {
     item,
     model: modelOf(item, { showRolloverIndicator: true }),
-    changeDetail: { reason: 'Moved to In Progress', idleDays: 2, agingLevel: 1 },
+    changeDetail: { reason: 'Moved to Available for Testing', idleDays: 2, agingLevel: 1 },
   })))
   const text = textOf(html)
 
   assert.match(html, /<dl[^>]*data-card-details/)
-  assert.match(text, /StateIn Progress/)
+  assert.match(text, /StateAvailable for Testing/)
   assert.match(text, /SprintSprint 41 \(rolled over\)/)
   assert.match(text, /Assigned toAAlex Example/)
-  assert.match(text, /Last changeMoved to In Progress · 2 days ago/)
+  assert.match(text, /Last changeMoved to Available for Testing · 2 days ago/)
   assert.match(text, /PR 912Folder rename APIpw-web · Required checks passing/)
   assert.match(text, /PR 913Folder rename UIpw-api · Abandoned/)
 
@@ -638,4 +723,52 @@ test('hover card details list the facts a compact card leaves out', () => {
   assert.match(prText, /AuthorSSam Developer/)
   assert.match(prText, /ChecksRequired checks passing/)
   assert.doesNotMatch(prText, /State|Assigned to|Last change/)
+})
+
+test('cards render without native title tooltips, including closed StrataKit tooltips', () => {
+  for (const compact of [false, true]) {
+    const html = render({
+      item: {
+        ...baseItem,
+        state: 'Available for Testing',
+        sprintName: 'Sprint 41',
+        tags: ['Customer'],
+        activePullRequests: [pr()],
+      },
+      highlightState: 'new',
+      changeDetail: { reason: 'Moved to Available for Testing', idleDays: 3, agingLevel: 2 },
+      currentIterationName: 'Sprint 42',
+      showRolloverIndicator: true,
+      compact,
+    })
+    const dom = new JSDOM(html)
+    try {
+      assert.equal(dom.window.document.querySelectorAll('[title]').length, 0)
+      const dots = dom.window.document.querySelector('[data-aging-dots]')
+      assert.equal(dots?.getAttribute('aria-label'), 'Unchanged for 3 days')
+      assert.equal(dots?.getAttribute('tabindex'), '0')
+    } finally {
+      dom.window.close()
+    }
+  }
+})
+
+test('app JSX reserves title props for tooltips and page or error headings', () => {
+  const src = fileURLToPath(new URL('../src/', import.meta.url))
+  const allowed = new Set(['Tooltip', 'AppTooltip', 'PageToolbar', 'AdoErrorNotice'])
+  const nativeTitles: string[] = []
+  for (const path of readdirSync(src, { recursive: true })) {
+    if (!path.endsWith('.tsx')) continue
+    const source = ts.createSourceFile(path, readFileSync(join(src, path), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const visit = (node: ts.Node) => {
+      if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && !allowed.has(node.tagName.getText(source))) {
+        if (node.attributes.properties.some((prop) => ts.isJsxAttribute(prop) && prop.name.getText(source) === 'title')) {
+          nativeTitles.push(`${path}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1}`)
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(source)
+  }
+  assert.deepEqual(nativeTitles, [])
 })

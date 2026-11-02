@@ -1,4 +1,5 @@
 import { Box, CircularProgress, Typography } from '@mui/material'
+import { AppTooltip } from './AppTooltip'
 import { useTheme } from '@mui/material/styles'
 import { useMemo } from 'react'
 import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
@@ -306,17 +307,17 @@ export function SprintViewBoard({
                       {statusItemCounts[status]}
                     </Box>
                   </Box>
-                  <Typography
-                    variant="caption-md"
-                    sx={{ mt: 0.25, color: 'text.secondary' }}
+                  <AppTooltip
                     title={
                       currentIterationName
                         ? `Effort total includes visible items from ${currentIterationName} only.`
                         : 'Effort total includes visible items from the current sprint only.'
                     }
                   >
-                    Current sprint effort: {statusEffortTotals[status]}
-                  </Typography>
+                    <Typography variant="caption-md" tabIndex={0} sx={{ mt: 0.25, color: 'text.secondary' }}>
+                      Current sprint effort: {statusEffortTotals[status]}
+                    </Typography>
+                  </AppTooltip>
                 </Box>
               </Box>
             </Box>

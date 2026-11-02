@@ -12,6 +12,7 @@ import { toIdentityKeys, type IdentityRef } from '../../../ado/identity'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
+import { abbreviateState } from './workItemCardDisplay'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 
 export const REQUIRED_APPROVALS = 2
@@ -372,16 +373,20 @@ export function getAgingDots(status: string, detail: CardChangeDetail | undefine
 }
 
 /** "Moved to Done · 3h" for a recently changed card; null when the change is unknown. */
-export function getChangeBadgeText(detail: CardChangeDetail | undefined, now = Date.now()): string | null {
+export function getChangeBadgeText(detail: CardChangeDetail | undefined, now = Date.now(), abbreviate = true): string | null {
   if (!detail?.reason) {
     return null
   }
 
+  const statePrefix = 'Moved to '
+  const reason = abbreviate && detail.reason.startsWith(statePrefix)
+    ? `${statePrefix}${abbreviateState(detail.reason.slice(statePrefix.length))}`
+    : detail.reason
   const age = formatShortAge(detail.changedAt, now)
   if (!age) {
-    return detail.reason
+    return reason
   }
-  return `${detail.reason} · ${age === 'now' ? 'just now' : age}`
+  return `${reason} · ${age === 'now' ? 'just now' : age}`
 }
 
 /** "Completed" or "Abandoned" for a closed PR; empty while it is open. */
@@ -462,6 +467,7 @@ export type DevelopmentCardModel = {
   showSprint: boolean
   showRollover: boolean
   changeBadgeText: string | null
+  changeBadgeFullText: string | null
   agingDots: AgingDots | null
   titleUrl?: string
   titleText: string
@@ -482,6 +488,7 @@ export function getDevelopmentCardModel({
   // A blocked card's step line already carries the reason from its blocked tag.
   const hiddenTag = item.status === 'Blocked' && cardStep ? findBlockedTag(item.tags) : undefined
   const isNew = highlightState === 'new'
+  const now = Date.now()
 
   return {
     pullRequestOnly,
@@ -498,7 +505,8 @@ export function getDevelopmentCardModel({
     showStateBadge: !pullRequestOnly && !isDefaultColumnState(item.status, item.state) && !cardStep?.coversState,
     showSprint: !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName),
     showRollover: !pullRequestOnly && showRolloverIndicator,
-    changeBadgeText: isNew ? getChangeBadgeText(changeDetail) : null,
+    changeBadgeText: isNew ? getChangeBadgeText(changeDetail, now) : null,
+    changeBadgeFullText: isNew ? getChangeBadgeText(changeDetail, now, false) : null,
     agingDots: getAgingDots(item.status, changeDetail),
     titleUrl: pullRequestOnly ? pullRequestOnly.url : item.workItemUrl,
     titleText: pullRequestOnly ? pullRequestOnly.title : item.title,

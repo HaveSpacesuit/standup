@@ -9,9 +9,9 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
-  Tooltip,
   Typography,
 } from '@mui/material'
+import { AppTooltip as Tooltip } from './AppTooltip'
 import type { RefObject } from 'react'
 import { Icon } from '@stratakit/mui'
 import type { TeamMember } from '../../../ado/queryEngine'

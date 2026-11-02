@@ -7,6 +7,7 @@ import { EffortFlowChart } from './EffortFlowChart'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 import { parseDateOnly } from '../utils/dateOnly'
 import { SprintForecastChip } from './SprintForecastChip'
+import { AppTooltip } from './AppTooltip'
 import type { SprintForecast } from '../utils/sprintForecast'
 
 type SprintSummaryBarProps = {
@@ -168,34 +169,38 @@ export function SprintSummaryBar({
         }}
       >
         <Box sx={{ minWidth: 0, flex: '0 1 auto' }}>
-          <Typography
-            variant="body-sm"
-            sx={{
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            title={current ? `Current sprint: ${formatDateRange(current.startDate, current.finishDate)}` : undefined}
-          >
-            <Box component="span" sx={{ '@container (max-width: 800px)': { display: 'none' } }}>
-              Current sprint:{' '}
-            </Box>
-            {current ? formatDateRange(current.startDate, current.finishDate) : 'Dates unavailable'}
-          </Typography>
-          <Typography
-            variant="caption-sm"
-            color="text.secondary"
-            sx={{
-              display: 'block',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            title={current?.fullName ?? undefined}
-          >
-            {current?.fullName ?? 'Unavailable'}
-          </Typography>
+          <AppTooltip title={current ? `Current sprint: ${formatDateRange(current.startDate, current.finishDate)}` : undefined}>
+            <Typography
+              variant="body-sm"
+              tabIndex={0}
+              sx={{
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              <Box component="span" sx={{ '@container (max-width: 800px)': { display: 'none' } }}>
+                Current sprint:{' '}
+              </Box>
+              {current ? formatDateRange(current.startDate, current.finishDate) : 'Dates unavailable'}
+            </Typography>
+          </AppTooltip>
+          <AppTooltip title={current?.fullName}>
+            <Typography
+              variant="caption-sm"
+              tabIndex={0}
+              color="text.secondary"
+              sx={{
+                display: 'block',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {current?.fullName ?? 'Unavailable'}
+            </Typography>
+          </AppTooltip>
         </Box>
         <SprintForecastChip daysRemaining={daysRemaining} forecast={sprintForecast} />
       </Box>
@@ -240,34 +245,38 @@ export function SprintSummaryBar({
       </Box>
 
       <Box sx={{ flex: '1 1 0px', minWidth: 0, textAlign: 'right' }}>
-        <Typography
-          variant="body-sm"
-          sx={{
-            fontWeight: 700,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-          title={next ? `Next sprint: ${formatDateRange(next.startDate, next.finishDate)}` : undefined}
-        >
-          <Box component="span" sx={{ '@container (max-width: 800px)': { display: 'none' } }}>
-            Next sprint:{' '}
-          </Box>
-          {next ? formatDateRange(next.startDate, next.finishDate) : 'Dates unavailable'}
-        </Typography>
-        <Typography
-          variant="caption-sm"
-          color="text.secondary"
-          sx={{
-            display: 'block',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-          title={next?.fullName ?? undefined}
-        >
-          {next?.fullName ?? 'Unavailable'}
-        </Typography>
+        <AppTooltip title={next ? `Next sprint: ${formatDateRange(next.startDate, next.finishDate)}` : undefined}>
+          <Typography
+            variant="body-sm"
+            tabIndex={0}
+            sx={{
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            <Box component="span" sx={{ '@container (max-width: 800px)': { display: 'none' } }}>
+              Next sprint:{' '}
+            </Box>
+            {next ? formatDateRange(next.startDate, next.finishDate) : 'Dates unavailable'}
+          </Typography>
+        </AppTooltip>
+        <AppTooltip title={next?.fullName}>
+          <Typography
+            variant="caption-sm"
+            tabIndex={0}
+            color="text.secondary"
+            sx={{
+              display: 'block',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {next?.fullName ?? 'Unavailable'}
+          </Typography>
+        </AppTooltip>
       </Box>
 
       <Dialog open={isChartDialogOpen} onClose={() => setIsChartDialogOpen(false)} fullWidth maxWidth="lg">

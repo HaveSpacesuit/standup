@@ -1,6 +1,7 @@
 import { Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
+import { AppTooltip } from './AppTooltip'
 
 type WorkItemTagsProps = {
   tags: string[]
@@ -15,43 +16,45 @@ type BoardTagBadgeProps = {
 
 function BoardTagBadge({ label }: BoardTagBadgeProps) {
   return (
-    <Box
-      component="span"
-      title={label}
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        height: 16,
-        maxWidth: '100%',
-        minWidth: 0,
-        px: 0.75,
-        borderRadius: 999,
-        border: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        color: 'text.secondary',
-        fontSize: 9,
-        lineHeight: 1.1,
-        fontWeight: 500,
-        letterSpacing: '0.01em',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        flex: '0 1 auto',
-      }}
-    >
+    <AppTooltip title={label}>
       <Box
         component="span"
+        tabIndex={0}
         sx={{
-          display: 'block',
+          display: 'inline-flex',
+          alignItems: 'center',
+          height: 16,
+          maxWidth: '100%',
+          minWidth: 0,
+          px: 0.75,
+          borderRadius: 999,
+          border: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          color: 'text.secondary',
+          fontSize: 9,
+          lineHeight: 1.1,
+          fontWeight: 500,
+          letterSpacing: '0.01em',
+          whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          flex: '0 1 auto',
         }}
       >
-        {label}
+        <Box
+          component="span"
+          sx={{
+            display: 'block',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {label}
+        </Box>
       </Box>
-    </Box>
+    </AppTooltip>
   )
 }
 

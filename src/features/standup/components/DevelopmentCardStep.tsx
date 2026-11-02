@@ -2,6 +2,7 @@ import Box from '@mui/material/Box'
 import { Icon } from '@stratakit/mui'
 import type { ReactNode } from 'react'
 import { AdoAvatar } from './AdoAvatar'
+import { AppTooltip } from './AppTooltip'
 import { getToneColor, visuallyHiddenSx, type NextStep, type StepOwner } from './developmentCardDisplay'
 
 const ownerChipSx = {
@@ -28,26 +29,29 @@ function getFirstName(name: string): string {
 
 function StepOwnerChip({ owner }: { owner: StepOwner }) {
   if (owner.kind === 'pipeline') {
-    return <Box component="span" title="Waiting on the build pipeline" sx={ownerChipSx}>Pipeline</Box>
+    return <AppTooltip title="Waiting on the build pipeline"><Box component="span" tabIndex={0} sx={ownerChipSx}>Pipeline</Box></AppTooltip>
   }
 
   if (owner.kind === 'reviewers') {
-    return <Box component="span" title="Waiting on reviewers" sx={ownerChipSx}>Reviewers</Box>
+    return <AppTooltip title="Waiting on reviewers"><Box component="span" tabIndex={0} sx={ownerChipSx}>Reviewers</Box></AppTooltip>
   }
 
   const name = owner.identity.displayName ?? owner.identity.uniqueName ?? 'someone else'
   return (
-    <Box
-      component="span"
-      title={`Currently assigned to ${name}`}
-      sx={{ ...ownerChipSx, pl: 0.25, bgcolor: 'var(--stratakit-color-bg-info-transparent)' }}
-    >
-      <AdoAvatar alt="" src={owner.identity.imageUrl} sx={{ width: 14, height: 14, fontSize: 8, flex: '0 0 auto' }}>
-        {name.trim().charAt(0).toUpperCase()}
-      </AdoAvatar>
-      <Box component="span" sx={visuallyHiddenSx}>Assigned to </Box>
-      <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{getFirstName(name)}</Box>
-    </Box>
+    <AppTooltip title={`Currently assigned to ${name}`}>
+      <Box
+        component="span"
+        aria-label={`Currently assigned to ${name}`}
+        tabIndex={0}
+        sx={{ ...ownerChipSx, pl: 0.25, bgcolor: 'var(--stratakit-color-bg-info-transparent)' }}
+      >
+        <AdoAvatar alt="" src={owner.identity.imageUrl} sx={{ width: 14, height: 14, fontSize: 8, flex: '0 0 auto' }}>
+          {name.trim().charAt(0).toUpperCase()}
+        </AdoAvatar>
+        <Box component="span" sx={visuallyHiddenSx}>Assigned to </Box>
+        <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{getFirstName(name)}</Box>
+      </Box>
+    </AppTooltip>
   )
 }
 
@@ -73,13 +77,15 @@ export function DevelopmentCardStep({ step, trailing }: { step: NextStep; traili
       <Box component="span" sx={{ display: 'inline-flex', flex: '0 0 auto' }}>
         <Icon href={step.iconHref} />
       </Box>
-      <Box
-        component="span"
-        title={step.tooltip && step.tooltip !== step.text ? `${step.text}\n${step.tooltip}` : step.text}
-        sx={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-      >
-        {step.text}
-      </Box>
+      <AppTooltip title={step.tooltip && step.tooltip !== step.text ? `${step.text}\n${step.tooltip}` : step.text}>
+        <Box
+          component="span"
+          tabIndex={0}
+          sx={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {step.text}
+        </Box>
+      </AppTooltip>
       {step.owner ? <StepOwnerChip owner={step.owner} /> : null}
       {trailing}
     </Box>
