@@ -1,6 +1,7 @@
 import { STATUS_COLUMNS, type StatusColumn } from './statusColumnStyles'
 
-export const LANE_COLUMN_WIDTH = 175
+/** Wide enough for a lane summary: name, load bar, open work, and two attention flags. */
+export const LANE_COLUMN_WIDTH = 208
 export const BLOCKED_RAIL_WIDTH = 44
 /** Column headers are a single line, so their height is fixed and sticky content below can clear them. */
 export const BOARD_HEADER_HEIGHT = 40

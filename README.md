@@ -78,6 +78,14 @@ place: the rest dim (hover or focus brings one back), matching cards move to the
 and are never hidden behind "Show more", and column headers show matches out of the total. Select
 it again or choose Clear to return to the full board. The selection is not saved.
 
+Each member's lane head sums up the lane: a load bar of their cards by column, how many cards are
+open (not Done) with their total effort across all sprints, and up to two attention flags, most
+urgent first (blocked, failing checks, idle 3+ days, needs approval, with QA, ready to complete).
+The summary stays in view while you scroll through a tall lane. Use the chevron beside a name to
+collapse the lane to one line, where each column shows a pip per card, the card count, and an icon
+per attention signal present; select the chevron or any of the lane's cells to expand it again.
+The Team member header collapses or expands every lane at once. Collapsed lanes are not saved.
+
 Development options > Display includes "Compact cards" (off by default). It makes Blocked, Active,
 and Review cards compact too. Each compact card shows its
 title on one line and a single status line: the state when the column does not imply it, each PR's

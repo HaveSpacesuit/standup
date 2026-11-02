@@ -1,7 +1,10 @@
-import { Avatar, Box, Button, Typography } from '@mui/material'
+import { Box, Button, IconButton, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgCheckmark from '@stratakit/icons/checkmark.svg'
+import svgCollapseRowsAll from '@stratakit/icons/collapse-rows-all.svg'
+import svgExpandRowsAll from '@stratakit/icons/expand-rows-all.svg'
+import { useMemo } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
@@ -16,10 +19,14 @@ import {
 import { formatEffortPoints } from '../utils/sprintEffortTotals'
 import { DevelopmentCard } from './DevelopmentCard'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
-import { AdoAvatar } from './AdoAvatar'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
-import { partitionHighlighted } from './boardAttention'
+import { partitionHighlighted, type AttentionFacetKey } from './boardAttention'
+import { BoardLaneHead, CollapsedLaneSummary } from './BoardLane'
+import { getLaneSummary, type LaneSummary } from './laneSummary'
+
+const NO_SIGNALS: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>> = new Map()
+const NO_COLLAPSED_ROWS: ReadonlySet<string> = new Set()
 
 export type BoardRowData = {
   key: string
@@ -47,6 +54,12 @@ type KanbanBoardGridProps = {
   /** Cards matching the selected Needs attention facet, or null while none is selected. */
   highlightedItemIds?: ReadonlySet<number> | null
   statusMatchCounts?: Record<StatusColumn, number> | null
+  /** Each card's Needs attention signals, for the lane summaries. */
+  signalsByItemId?: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>>
+  collapsedRowKeys?: ReadonlySet<string>
+  /** Lanes can only be collapsed when these are provided. */
+  onToggleRowCollapsed?: (rowKey: string) => void
+  onSetAllRowsCollapsed?: (collapsed: boolean) => void
 }
 
 export function KanbanBoardGrid({
@@ -64,12 +77,20 @@ export function KanbanBoardGrid({
   rolledOverItemIds,
   highlightedItemIds = null,
   statusMatchCounts = null,
+  signalsByItemId = NO_SIGNALS,
+  collapsedRowKeys = NO_COLLAPSED_ROWS,
+  onToggleRowCollapsed,
+  onSetAllRowsCollapsed,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
   const { gridTemplate, minWidth, blockedRail } = layout
   // Blocked is the only tinted column, and only while it holds cards.
   const blockedTint = `color-mix(in srgb, ${getStatusColumnColor('Blocked', theme.palette)} 8%, transparent)`
   const isRail = (status: StatusColumn) => status === 'Blocked' && blockedRail
+  const laneSummaries = useMemo(
+    () => new Map<string, LaneSummary>(rows.map((row) => [row.key, getLaneSummary(row.key, cardsByCell, signalsByItemId)])),
+    [cardsByCell, rows, signalsByItemId],
+  )
 
   return (
     <Box sx={{ height: '100%' }}>
@@ -112,18 +133,30 @@ export function KanbanBoardGrid({
                   position: 'sticky',
                   left: 0,
                   zIndex: 4,
-                  px: 2,
+                  pl: 2,
+                  pr: 1,
                   height: BOARD_HEADER_HEIGHT,
                   display: 'flex',
                   alignItems: 'center',
+                  gap: 0.25,
                   borderRight: '1px solid',
                   borderColor: 'divider',
                   bgcolor: 'background.paper',
                 }}
               >
-                <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
+                <Typography variant="body-sm" sx={{ fontWeight: 700, mr: 'auto' }}>
                   Team member
                 </Typography>
+                {onSetAllRowsCollapsed ? (
+                  <>
+                    <IconButton size="small" label="Collapse all lanes" onClick={() => onSetAllRowsCollapsed(true)}>
+                      <Icon href={svgCollapseRowsAll} />
+                    </IconButton>
+                    <IconButton size="small" label="Expand all lanes" onClick={() => onSetAllRowsCollapsed(false)}>
+                      <Icon href={svgExpandRowsAll} />
+                    </IconButton>
+                  </>
+                ) : null}
               </Box>
 
               {STATUS_COLUMNS.map((status, columnIndex) => isRail(status) ? (
@@ -315,44 +348,58 @@ export function KanbanBoardGrid({
                 minWidth,
               }}
             >
-              {rows.map((row) => (
+              {rows.map((row) => {
+                const collapsed = collapsedRowKeys.has(row.key)
+                const toggleCollapsed = onToggleRowCollapsed ? () => onToggleRowCollapsed(row.key) : undefined
+
+                return (
                 <Box key={row.key} sx={{ display: 'contents' }}>
-                <Box
-                  sx={{
-                    position: 'sticky',
-                    left: 0,
-                    zIndex: 3,
-                    px: 1.5,
-                    py: 1.25,
-                    borderBottom: '1px solid',
-                    borderRight: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {row.isUnassigned ? (
-                      <Avatar sx={{ width: 28, height: 28 }} />
-                    ) : (
-                      <AdoAvatar
-                        alt={row.label}
-                        descriptor={row.avatarDescriptor}
-                        src={row.avatarUrl}
-                        sx={{ width: 28, height: 28 }}
-                      />
-                    )}
-                    <Typography render={<h2 />} variant="body-sm" sx={{ fontWeight: 500 }}>
-                      {row.label}
-                    </Typography>
-                  </Box>
-                </Box>
+                <BoardLaneHead
+                  row={row}
+                  summary={laneSummaries.get(row.key) ?? getLaneSummary(row.key, cardsByCell, signalsByItemId)}
+                  collapsed={collapsed}
+                  onToggleCollapsed={toggleCollapsed}
+                />
 
                 {STATUS_COLUMNS.map((status) => {
                   const cellKey = `${row.key}:${status}`
                   if (isRail(status)) {
                     return <Box key={cellKey} sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />
+                  }
+
+                  if (collapsed) {
+                    const items = cardsByCell[cellKey] ?? []
+                    const highlightedCount = highlightedItemIds
+                      ? items.filter((item) => highlightedItemIds.has(item.id)).length
+                      : null
+
+                    return (
+                      <Box
+                        key={cellKey}
+                        data-collapsed-cell=""
+                        // The chevron is the keyboard path; a click anywhere in the summary is a mouse shortcut.
+                        onClick={toggleCollapsed}
+                        sx={{
+                          position: 'relative',
+                          px: 1.25,
+                          py: 0.75,
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          minWidth: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: toggleCollapsed ? 'pointer' : undefined,
+                          opacity: highlightedCount === 0 ? 0.35 : undefined,
+                        }}
+                      >
+                        <CollapsedLaneSummary
+                          status={status}
+                          items={items}
+                          signalsByItemId={signalsByItemId}
+                          highlightedCount={highlightedCount}
+                        />
+                      </Box>
+                    )
                   }
 
                   const { items: cellItems, matchCount } = partitionHighlighted(cardsByCell[cellKey] ?? [], highlightedItemIds)
@@ -425,7 +472,8 @@ export function KanbanBoardGrid({
                   )
                 })}
                 </Box>
-              ))}
+                )
+              })}
             </Box>
           </Box>
         </Box>
