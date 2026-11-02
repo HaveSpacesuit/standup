@@ -92,6 +92,13 @@ function setup(t: TestContext, {
   }
 }
 
+for (const view of ['development', 'qa-activity', 'backlog', 'tests']) {
+  test(`the ${view} view uses the ADO Team Explorer window title`, (t) => {
+    setup(t, { view })
+    assert.equal(document.title, 'ADO Team Explorer')
+  })
+}
+
 for (const view of ['development', 'qa-activity', 'backlog']) {
   for (const modifier of ['ctrlKey', 'metaKey']) {
     test(`${modifier}+F focuses and selects the ${view} quick filter from the toolbar`, (t) => {
