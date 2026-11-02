@@ -150,10 +150,10 @@ test('a quiet card drops details implied by the board and keeps effort as a labe
 
 test('a quiet card shows state and sprint only when they add information', () => {
   const text = textOf(render({
-    item: { ...baseItem, state: 'Failed Testing', sprintName: 'Sprint 41' },
+    item: { ...baseItem, status: 'Review', state: 'Available for Testing', sprintName: 'Sprint 41' },
     currentIterationName: 'Sprint 42',
   }))
-  assert.match(text, /Failed Testing/)
+  assert.match(text, /Available for Testing/)
   assert.match(text, /Sprint 41/)
 })
 
@@ -161,7 +161,7 @@ test('a quiet card shows the sprint when the current sprint is unknown', () => {
   assert.match(textOf(render({ item: baseItem, currentIterationName: null })), /Sprint 42/)
 })
 
-test('linked PRs collapse to one quiet row with a detail line only for failing required checks', () => {
+test('linked PRs collapse to one quiet row followed by the next step for each PR', () => {
   const html = render({
     item: {
       ...baseItem,
@@ -183,11 +183,10 @@ test('linked PRs collapse to one quiet row with a detail line only for failing r
   const text = textOf(html)
   assert.match(text, /912/)
   assert.match(text, /Folder rename API/)
-  assert.match(text, /1\/2/)
-  assert.match(text, /2\/2/)
-  assert.match(text, /Unit tests failing/)
+  assert.match(text, /Needs 1 more approval/)
+  assert.match(text, /Reviewers/)
+  assert.match(text, /Fix failing check: Unit tests/)
   assert.doesNotMatch(text, /In Code Review/)
-  assert.match(html, /aria-label="1 of 2 approvals"/)
 })
 
 test('PR-only cards use the PR as the title and skip work item metadata', () => {
@@ -204,7 +203,114 @@ test('PR-only cards use the PR as the title and skip work item metadata', () => 
   }))
   assert.match(text, /77/)
   assert.match(text, /Bump dependencies/)
-  assert.match(text, /0\/2/)
+  assert.match(text, /Needs 2 approvals/)
   assert.doesNotMatch(text, /Sprint 40/)
   assert.doesNotMatch(text, /Effort/)
+})
+
+const pr = (overrides: Record<string, unknown> = {}) => ({
+  id: 1,
+  title: 'PR',
+  url: 'https://example.test/pr/1',
+  approvalCount: 0,
+  checks: passingChecks,
+  ...overrides,
+})
+
+test('PR next step follows the documented priority order', () => {
+  const failingChecks = { state: 'failing', checks: [{ name: 'Build', state: 'failing', optional: false, expired: false, source: 'policy' }] }
+  const pendingChecks = { state: 'pending', checks: [{ name: 'Build', state: 'pending', optional: false, expired: false, source: 'policy' }] }
+  const stepOf = (overrides: Record<string, unknown>) => display.getPullRequestNextStep(pr(overrides))
+
+  assert.equal(stepOf({ checks: failingChecks, reviewState: 'rejected' }).text, 'Fix failing check: Build')
+  assert.equal(stepOf({ checks: failingChecks }).tone, 'critical')
+  assert.equal(stepOf({ checks: pendingChecks, reviewState: 'rejected' }).text, 'Rejected — rework needed')
+  assert.equal(stepOf({ checks: pendingChecks, reviewState: 'waiting-for-author' }).text, 'Respond to review feedback')
+  assert.equal(stepOf({ checks: pendingChecks, reviewState: 'waiting-for-author' }).tone, 'attention')
+  assert.equal(stepOf({ checks: { state: 'unavailable', checks: [] } }).text, 'Checks unavailable')
+
+  const pending = stepOf({ checks: pendingChecks, approvalCount: 2 })
+  assert.equal(pending.text, 'Waiting on Build')
+  assert.deepEqual(pending.owner, { kind: 'pipeline' })
+
+  assert.equal(stepOf({ approvalCount: 0 }).text, 'Needs 2 approvals')
+  const oneMore = stepOf({ approvalCount: 1 })
+  assert.equal(oneMore.text, 'Needs 1 more approval')
+  assert.deepEqual(oneMore.owner, { kind: 'reviewers' })
+
+  const ready = stepOf({ approvalCount: 2 })
+  assert.equal(ready.text, 'Ready to complete')
+  assert.equal(ready.tone, 'positive')
+
+  assert.equal(stepOf({ status: 'completed' }), null)
+  assert.equal(stepOf({ status: 'Abandoned' }), null)
+})
+
+test('blocked reasons come from the blocked tag with the word and separators removed', () => {
+  assert.equal(display.getBlockedReason('Blocked - waiting on IMS'), 'waiting on IMS')
+  assert.equal(display.getBlockedReason('blocked: API (v2)'), 'API (v2)')
+  assert.equal(display.getBlockedReason('Blocked (waiting on IMS)'), 'waiting on IMS')
+  assert.equal(display.getBlockedReason('[Blocked] design review'), 'design review')
+  assert.equal(display.getBlockedReason('Blocked'), '')
+  assert.equal(display.findBlockedTag(['Web', 'Blocked-API']), 'Blocked-API')
+  assert.equal(display.findBlockedTag(['Web']), undefined)
+})
+
+test('card next step explains blocked, failed testing, and handed-off work', () => {
+  const alex = { displayName: 'Alex Example', uniqueName: 'alex@example.test' }
+  const quinn = { displayName: 'Quinn Tester', uniqueName: 'quinn@example.test' }
+
+  assert.equal(
+    display.getCardNextStep({ ...baseItem, status: 'Blocked', tags: ['Blocked - waiting on IMS'] }, alex).text,
+    'Blocked · waiting on IMS',
+  )
+  assert.equal(display.getCardNextStep({ ...baseItem, status: 'Blocked', state: 'On Hold' }, alex).text, 'Blocked · On Hold')
+  assert.equal(
+    display.getCardNextStep({ ...baseItem, status: 'Blocked', state: 'In Progress', tags: ['Blocked'] }, alex).text,
+    'Blocked · no reason given',
+  )
+
+  const failed = display.getCardNextStep({ ...baseItem, state: 'Failed Testing' }, alex)
+  assert.equal(failed.text, 'Failed testing')
+  assert.equal(failed.coversState, true)
+
+  const inTesting = display.getCardNextStep({ ...baseItem, status: 'Review', state: 'Available for Testing', assignedTo: quinn }, alex)
+  assert.equal(inTesting.text, 'In testing')
+  assert.equal(inTesting.coversState, true)
+  assert.deepEqual(inTesting.owner, { kind: 'person', identity: quinn })
+
+  const handedOff = display.getCardNextStep({ ...baseItem, status: 'Review', state: 'Ready to build', assignedTo: quinn }, alex)
+  assert.equal(handedOff.text, 'Handed off')
+  assert.equal(handedOff.coversState, false)
+
+  // Matching on either the unique name or the display name counts as the same person.
+  assert.equal(
+    display.getCardNextStep({ ...baseItem, status: 'Review', state: 'Available for Testing', assignedTo: { displayName: 'alex example' } }, alex),
+    null,
+  )
+  assert.equal(display.getCardNextStep({ ...baseItem, status: 'Review', state: 'Available for Testing', assignedTo: quinn }, null), null)
+  assert.equal(display.getCardNextStep(baseItem, alex), null)
+})
+
+test('a handed-off card shows who has it instead of repeating the state', () => {
+  const html = render({
+    item: { ...baseItem, status: 'Review', state: 'Available for Testing', assignedTo: { displayName: 'Quinn Tester', uniqueName: 'quinn@example.test' } },
+    rowMember: { displayName: 'Alex Example', uniqueName: 'alex@example.test' },
+    currentIterationName: 'Sprint 42',
+  })
+  const text = textOf(html)
+  assert.match(text, /In testing/)
+  assert.match(text, /Assigned to Quinn/)
+  assert.doesNotMatch(text, /Available for Testing/)
+  assert.match(html, /title="Currently assigned to Quinn Tester"/)
+})
+
+test('a blocked card folds its blocked tag into the step line', () => {
+  const text = textOf(render({
+    item: { ...baseItem, status: 'Blocked', state: 'In Progress', tags: ['Blocked - waiting on IMS', 'Web'] },
+    currentIterationName: 'Sprint 42',
+  }))
+  assert.match(text, /Blocked · waiting on IMS/)
+  assert.match(text, /Web/)
+  assert.equal(text.match(/waiting on IMS/g)?.length, 1)
 })

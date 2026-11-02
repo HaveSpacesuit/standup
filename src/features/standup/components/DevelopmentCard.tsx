@@ -4,14 +4,18 @@ import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgGitBranch from '@stratakit/icons/git-branch.svg'
 import { memo } from 'react'
+import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { getIconUrlWithThemeColorValue } from '../utils/workItemIconColor'
 import { WorkItemTags } from './WorkItemTags'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
+import { DevelopmentCardStep } from './DevelopmentCardStep'
 import { DevelopmentPullRequestRow } from './DevelopmentPullRequestRow'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import { getStatusPaletteKey } from './workItemCardDisplay'
 import {
+  findBlockedTag,
+  getCardNextStep,
   getStateBadgeColor,
   isDefaultColumnState,
   shouldShowSprint,
@@ -24,6 +28,8 @@ type DevelopmentCardProps = {
   highlightState?: WorkItemCardHighlightState
   /** Cards in the current sprint omit the sprint name. */
   currentIterationName?: string | null
+  /** The developer whose row the card is pinned to; used to call out work now owned by someone else. */
+  rowMember?: IdentityRef | null
   showRolloverIndicator?: boolean
 }
 
@@ -35,6 +41,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   item,
   highlightState = 'none',
   currentIterationName = null,
+  rowMember = null,
   showRolloverIndicator = false,
 }: DevelopmentCardProps) {
   const theme = useTheme()
@@ -44,12 +51,15 @@ export const DevelopmentCard = memo(function DevelopmentCard({
 
   const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
   const linkedPullRequests = pullRequestOnly ? [] : (item.activePullRequests ?? [])
-  const sortedTags = [...(item.tags ?? [])].sort((left, right) =>
-    left.localeCompare(right, undefined, { sensitivity: 'base' }),
-  )
+  const cardStep = getCardNextStep(item, rowMember)
+  // A blocked card's step line already carries the reason from its blocked tag.
+  const hiddenTag = item.status === 'Blocked' && cardStep ? findBlockedTag(item.tags) : undefined
+  const sortedTags = (item.tags ?? [])
+    .filter((tag) => tag !== hiddenTag)
+    .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
 
   const showEffort = !pullRequestOnly && typeof item.effort === 'number'
-  const showStateBadge = !pullRequestOnly && !isDefaultColumnState(item.status, item.state)
+  const showStateBadge = !pullRequestOnly && !isDefaultColumnState(item.status, item.state) && !cardStep?.coversState
   const showSprint = !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName)
   const showRollover = !pullRequestOnly && showRolloverIndicator
   const showMeta = showStateBadge || showSprint || showRollover
@@ -185,6 +195,12 @@ export const DevelopmentCard = memo(function DevelopmentCard({
           {linkedPullRequests.map((pullRequest) => (
             <DevelopmentPullRequestRow key={pullRequest.id} pullRequest={pullRequest} />
           ))}
+        </Box>
+      ) : null}
+
+      {cardStep ? (
+        <Box sx={{ clear: 'both' }}>
+          <DevelopmentCardStep step={cardStep} />
         </Box>
       ) : null}
 

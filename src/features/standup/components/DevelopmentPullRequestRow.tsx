@@ -1,13 +1,12 @@
-import { Box, Tooltip } from '@mui/material'
+import { Box } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgGitBranch from '@stratakit/icons/git-branch.svg'
-import svgUsers from '@stratakit/icons/users.svg'
 import type { WorkItemPullRequestSummary } from '../../../ado/queryEngine'
+import { DevelopmentCardStep } from './DevelopmentCardStep'
 import {
   formatShortAge,
-  getApprovalSummary,
-  getQuietChecksSummary,
-  getToneColor,
+  getPullRequestNextStep,
+  isPullRequestClosed,
   TERTIARY_TEXT_COLOR,
 } from './developmentCardDisplay'
 
@@ -19,95 +18,75 @@ type DevelopmentPullRequestRowProps = {
 
 const ellipsisSx = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
 
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
 export function DevelopmentPullRequestRow({ pullRequest, showHeading = true }: DevelopmentPullRequestRowProps) {
-  const checks = getQuietChecksSummary(pullRequest.checks)
-  const approvals = getApprovalSummary(pullRequest)
-  const age = pullRequest.status === 'completed' ? '' : formatShortAge(pullRequest.recentActivityAt)
+  const closed = isPullRequestClosed(pullRequest)
+  const step = getPullRequestNextStep(pullRequest)
+  const age = closed ? '' : formatShortAge(pullRequest.recentActivityAt)
+  const closedLabel = closed && pullRequest.status ? capitalize(pullRequest.status.trim().toLowerCase()) : ''
+  const ageNode = age ? (
+    <Box component="span" title="Time since the PR was ready for review" sx={{ flex: '0 0 auto', fontSize: 10, fontWeight: 400, color: 'text.secondary', whiteSpace: 'nowrap', opacity: 0.85 }}>
+      {age}
+    </Box>
+  ) : null
+  // PR-only cards have no heading row, so the age rides along on the step line.
+  const ageOnStep = !showHeading && Boolean(step)
+  const showHead = showHeading || Boolean(closedLabel) || (Boolean(ageNode) && !ageOnStep)
+
+  if (!showHead && !step) {
+    return null
+  }
 
   return (
-    <Box sx={{ minWidth: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, fontSize: 11, lineHeight: 1.3, color: 'text.secondary' }}>
-        {showHeading ? (
-          <Box
-            component="a"
-            href={pullRequest.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            title={`PR ${pullRequest.id}: ${pullRequest.title}`}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              flex: '1 1 auto',
-              minWidth: 0,
-              color: 'inherit',
-              textDecoration: 'none',
-              '&:hover': { textDecoration: 'underline' },
-            }}
-          >
-            <Box component="span" sx={{ display: 'inline-flex', flex: '0 0 auto', color: TERTIARY_TEXT_COLOR }}>
-              <Icon href={svgGitBranch} />
+    <Box sx={{ minWidth: 0, '& > [data-card-step]:first-of-type': { mt: 0 } }}>
+      {showHead ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, fontSize: 11, lineHeight: 1.3, color: 'text.secondary' }}>
+          {showHeading ? (
+            <Box
+              component="a"
+              href={pullRequest.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              title={`PR ${pullRequest.id}: ${pullRequest.title}`}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                flex: '1 1 auto',
+                minWidth: 0,
+                color: 'inherit',
+                textDecoration: 'none',
+                '&:hover': { textDecoration: 'underline' },
+              }}
+            >
+              <Box component="span" sx={{ display: 'inline-flex', flex: '0 0 auto', color: TERTIARY_TEXT_COLOR }}>
+                <Icon href={svgGitBranch} />
+              </Box>
+              <Box component="span" sx={{ flex: '0 0 auto', color: TERTIARY_TEXT_COLOR, fontVariantNumeric: 'tabular-nums' }}>
+                {pullRequest.id}
+              </Box>
+              <Box component="span" sx={ellipsisSx}>
+                {pullRequest.title}
+              </Box>
             </Box>
-            <Box component="span" sx={{ flex: '0 0 auto', color: TERTIARY_TEXT_COLOR, fontVariantNumeric: 'tabular-nums' }}>
-              {pullRequest.id}
+          ) : (
+            <Box sx={{ flex: '1 1 auto' }} />
+          )}
+
+          {closedLabel ? (
+            <Box component="span" sx={{ flex: '0 0 auto', fontSize: 10, color: TERTIARY_TEXT_COLOR, whiteSpace: 'nowrap' }}>
+              {closedLabel}
             </Box>
-            <Box component="span" sx={ellipsisSx}>
-              {pullRequest.title}
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{ flex: '1 1 auto' }} />
-        )}
+          ) : null}
 
-        <Tooltip title={checks.label} arrow>
-          <Box
-            component="span"
-            role="img"
-            aria-label={checks.label}
-            sx={{ display: 'inline-flex', flex: '0 0 auto', color: getToneColor(checks.tone) }}
-          >
-            <Icon href={checks.iconHref} />
-          </Box>
-        </Tooltip>
-
-        <Tooltip title={approvals.label} arrow>
-          <Box
-            component="span"
-            role="img"
-            aria-label={approvals.label}
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.25,
-              flex: '0 0 auto',
-              whiteSpace: 'nowrap',
-              fontVariantNumeric: 'tabular-nums',
-              fontWeight: approvals.tone === 'neutral' ? 400 : 600,
-              color: approvals.tone === 'neutral' ? TERTIARY_TEXT_COLOR : getToneColor(approvals.tone),
-            }}
-          >
-            {approvals.showUsersIcon ? <Icon href={svgUsers} /> : null}
-            {approvals.text}
-          </Box>
-        </Tooltip>
-
-        {age ? (
-          <Box component="span" title="Time since the PR was ready for review" sx={{ flex: '0 0 auto', fontSize: 10, whiteSpace: 'nowrap', opacity: 0.85 }}>
-            {age}
-          </Box>
-        ) : null}
-      </Box>
-
-      {checks.detail ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, minWidth: 0, fontSize: 11, lineHeight: 1.25, color: getToneColor(checks.tone) }}>
-          <Box component="span" sx={{ display: 'inline-flex', flex: '0 0 auto' }}>
-            <Icon href={checks.iconHref} />
-          </Box>
-          <Box component="span" title={checks.label} sx={ellipsisSx}>
-            {checks.detail}
-          </Box>
+          {ageOnStep ? null : ageNode}
         </Box>
       ) : null}
+
+      {step ? <DevelopmentCardStep step={step} trailing={ageOnStep ? ageNode : undefined} /> : null}
     </Box>
   )
 }

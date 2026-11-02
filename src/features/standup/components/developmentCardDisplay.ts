@@ -1,7 +1,14 @@
 import type { SxProps, Theme } from '@mui/material/styles'
 import svgError from '@stratakit/icons/error.svg'
+import svgGitMerge from '@stratakit/icons/git-merge.svg'
+import svgInspection from '@stratakit/icons/inspection.svg'
+import svgLock from '@stratakit/icons/lock.svg'
+import svgStatusRejected from '@stratakit/icons/status-rejected.svg'
 import svgStopwatch from '@stratakit/icons/stopwatch.svg'
+import svgUserEdit from '@stratakit/icons/user-edit.svg'
+import svgUsers from '@stratakit/icons/users.svg'
 import svgValidate from '@stratakit/icons/validate.svg'
+import { toIdentityKeys, type IdentityRef } from '../../../ado/identity'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
 
@@ -154,4 +161,138 @@ export function formatShortAge(value: string | undefined, now = Date.now()): str
 
   const days = Math.floor(hours / 24)
   return days < 14 ? `${days}d` : `${Math.floor(days / 7)}w`
+}
+
+export type StepOwner =
+  | { kind: 'pipeline' }
+  | { kind: 'reviewers' }
+  | { kind: 'person'; identity: IdentityRef }
+
+export type NextStep = {
+  tone: CardTone
+  iconHref: string
+  text: string
+  /** Extra detail for the step's tooltip, e.g. the full checks description. */
+  tooltip?: string
+  /** Who the card is waiting on, when that is someone other than the row's developer. */
+  owner?: StepOwner
+  /** True when the step already says what the state badge would, so the badge can be dropped. */
+  coversState?: boolean
+}
+
+export function isPullRequestClosed(pullRequest: Pick<WorkItemPullRequestSummary, 'status'>): boolean {
+  const status = pullRequest.status?.trim().toLowerCase()
+  return status === 'completed' || status === 'abandoned'
+}
+
+/** The single most important thing that has to happen before the PR can complete, or null once it is closed. */
+export function getPullRequestNextStep(pullRequest: WorkItemPullRequestSummary): NextStep | null {
+  if (isPullRequestClosed(pullRequest)) {
+    return null
+  }
+
+  const { checks } = pullRequest
+  const checksLabel = getQuietChecksSummary(checks).label
+  const required = checks?.checks.filter((check) => !check.optional) ?? []
+  const failing = required.filter((check) => check.state === 'failing')
+  if (failing.length > 0) {
+    return {
+      tone: 'critical',
+      iconHref: svgError,
+      text: `Fix failing check${failing.length > 1 ? 's' : ''}: ${formatCheckNames(failing)}`,
+      tooltip: checksLabel,
+    }
+  }
+
+  if (pullRequest.reviewState === 'rejected') {
+    return { tone: 'critical', iconHref: svgStatusRejected, text: 'Rejected — rework needed' }
+  }
+
+  if (pullRequest.reviewState === 'waiting-for-author') {
+    return { tone: 'attention', iconHref: svgUserEdit, text: 'Respond to review feedback' }
+  }
+
+  if (!checks || checks.state === 'unavailable') {
+    return { tone: 'attention', iconHref: svgError, text: 'Checks unavailable', tooltip: checksLabel }
+  }
+
+  const pending = required.filter((check) => check.state === 'pending')
+  if (pending.length > 0) {
+    return {
+      tone: 'neutral',
+      iconHref: svgStopwatch,
+      text: `Waiting on ${formatCheckNames(pending)}`,
+      tooltip: checksLabel,
+      owner: { kind: 'pipeline' },
+    }
+  }
+
+  const needed = REQUIRED_APPROVALS - (pullRequest.approvalCount ?? 0)
+  if (needed > 0) {
+    return {
+      tone: 'neutral',
+      iconHref: svgUsers,
+      text: needed === 1 ? 'Needs 1 more approval' : `Needs ${needed} approvals`,
+      owner: { kind: 'reviewers' },
+    }
+  }
+
+  return { tone: 'positive', iconHref: svgGitMerge, text: 'Ready to complete', tooltip: checksLabel }
+}
+
+export function findBlockedTag(tags: readonly string[] | undefined): string | undefined {
+  return tags?.find((tag) => /blocked/i.test(tag))
+}
+
+const LEADING_SEPARATORS = /^[\s:;,.|/\\()[\]{}\-–—]+/
+const TRAILING_SEPARATORS = /[\s:;,.|/\\\-–—]+$/
+const BRACKET_PAIRS = [['(', ')'], ['[', ']'], ['{', '}']] as const
+
+/** "Blocked - waiting on IMS" becomes "waiting on IMS"; a bare "Blocked" tag has no reason. */
+export function getBlockedReason(tag: string): string {
+  let reason = tag.replace(/blocked/i, ' ').replace(LEADING_SEPARATORS, '').replace(TRAILING_SEPARATORS, '')
+  // "Blocked (waiting on IMS)" leaves a closing bracket whose opener was stripped.
+  for (const [open, close] of BRACKET_PAIRS) {
+    if (reason.endsWith(close) && !reason.includes(open)) {
+      reason = reason.slice(0, -1).replace(TRAILING_SEPARATORS, '')
+    }
+  }
+
+  return reason.trim()
+}
+
+function isSamePerson(left: IdentityRef, right: IdentityRef): boolean {
+  const leftKeys = new Set(toIdentityKeys(left))
+  return toIdentityKeys(right).some((key) => leftKeys.has(key))
+}
+
+/** A card-level step for work items whose next move does not depend on a PR. */
+export function getCardNextStep(item: WorkItemSummary, rowMember?: IdentityRef | null): NextStep | null {
+  if (item.kind === 'pull-request') {
+    return null
+  }
+
+  if (item.status === 'Blocked') {
+    const tagReason = getBlockedReason(findBlockedTag(item.tags) ?? '')
+    const stateReason = item.state && isDefaultColumnState('Blocked', item.state) ? item.state.trim() : ''
+    return { tone: 'critical', iconHref: svgLock, text: `Blocked · ${tagReason || stateReason || 'no reason given'}` }
+  }
+
+  const state = normalizeStateName(item.state)
+  if (state === 'failed testing') {
+    return { tone: 'critical', iconHref: svgStatusRejected, text: 'Failed testing', coversState: true }
+  }
+
+  if (item.status === 'Review' && rowMember && item.assignedTo && !isSamePerson(item.assignedTo, rowMember)) {
+    const inTesting = state.includes('test')
+    return {
+      tone: 'neutral',
+      iconHref: svgInspection,
+      text: inTesting ? 'In testing' : 'Handed off',
+      coversState: inTesting,
+      owner: { kind: 'person', identity: item.assignedTo },
+    }
+  }
+
+  return null
 }

@@ -1,3 +1,4 @@
+import type { IdentityRef } from '../../../ado/identity'
 import type { TeamMember } from '../../../ado/queryEngine'
 
 export type AssignmentMemberRow = {
@@ -5,6 +6,8 @@ export type AssignmentMemberRow = {
   label: string
   avatarDescriptor?: string
   avatarUrl?: string
+  /** The team member the row tracks, so cards can tell when work has moved to someone else. */
+  memberIdentity: IdentityRef
   isUnassigned: false
 }
 
@@ -33,6 +36,7 @@ export function getAssignmentMemberRows(
       label: member.displayName,
       avatarDescriptor: member.descriptor,
       avatarUrl: member.imageUrl,
+      memberIdentity: { displayName: member.displayName, uniqueName: member.uniqueName, imageUrl: member.imageUrl },
       isUnassigned: false,
     }))
 }
