@@ -1,6 +1,6 @@
 # Manual QA Checklist
 
-This checklist covers the browser-based Standup dashboard end to end. It is intended for
+This checklist covers the browser-based ADO Team Explorer dashboard end to end. It is intended for
 release validation, exploratory testing, and regression testing against a real Azure DevOps
 organization.
 
@@ -59,7 +59,8 @@ Prepare data that exercises both populated and empty states:
 ## 1. Initial load and application shell
 
 - [ ] Open the app in a clean browser profile with no storage.
-- [ ] Verify the page title, favicon/static assets, layout, and initial background render correctly.
+- [ ] Verify the window title and navigation rail show "ADO Team Explorer", the rail and favicon use
+      the binder icon, and static assets, layout, and initial background render correctly.
 - [ ] Verify the access dialog is visible on first launch.
 - [ ] Verify the access dialog cannot be dismissed with Escape or a backdrop click before a PAT is
       entered.
@@ -253,7 +254,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Add, edit/remove, and clear hidden-tag rules, including case and whitespace variations.
 - [ ] Select sprint restrictions and verify filtering follows the selected sprint paths.
 - [ ] Verify hidden-tag rules persist per team and do not affect another team.
-- [ ] In Assignments options > Members, verify "Hide users with no activity" is off by default, hides
+- [ ] In Development options > Members, verify "Hide users with no activity" is off by default, hides
       member rows without cards matching the current filters, and counts PR-only cards as activity.
 - [ ] Verify "Also hide users with only stale, done work" is always shown, off by default, and
       disabled until "Hide users with no activity" is checked.
@@ -351,11 +352,11 @@ Prepare data that exercises both populated and empty states:
 ### Page and header
 
 - [ ] Open Backlog from the navigation rail and verify the header shows the Backlog title, the quick
-      filter, the team selector, Manage team, Backlog settings, and Refresh.
+      filter, the team selector, Manage team, Backlog options, and Refresh.
 - [ ] Press Ctrl/Cmd + F on Backlog and verify focus moves to the quick filter (selecting any text in
       it) rather than opening the browser's find.
-- [ ] Open Backlog settings; verify the placeholder dialog opens, closes with Close and Escape, and
-      returns focus to the settings button.
+- [ ] Open Backlog options; verify the placeholder dialog opens, closes with Close and Escape, and
+      returns focus to the options button.
 - [ ] Verify Manage team opens the selected team's Azure DevOps page in a new tab.
 
 ### Data scope

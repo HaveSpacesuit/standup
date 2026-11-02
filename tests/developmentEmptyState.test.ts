@@ -89,7 +89,7 @@ function render(overrides: Partial<PageProps> = {}) {
 test('successful empty board explains the result and suggests recovery', () => {
   const html = render()
   assert.match(html, /role="status"[^>]*>No cards available for this team and sprint selection/)
-  assert.match(html, /Try Refresh, choose another team, or adjust sprint, work-item type, and hidden-tag filters in Assignments options/)
+  assert.match(html, /Try Refresh, choose another team, or adjust sprint, work-item type, and hidden-tag filters in Development options/)
   assert.match(html, /Dates unavailable/)
   assert.match(html, /Days: unavailable/)
   assert.match(html, /Effort flow unavailable for this sprint/)
@@ -243,7 +243,7 @@ test('hiding every row explains which setting hid them', () => {
   assert.doesNotMatch(kept, /All rows are hidden by the Members options/)
 
   const hidden = render({ ...onlyStale, hideUsersWithOnlyStaleDoneWork: true })
-  assert.match(hidden, /role="status"[^>]*>All rows are hidden by the Members options\. Try adjusting them in Assignments options\./)
+  assert.match(hidden, /role="status"[^>]*>All rows are hidden by the Members options\. Try adjusting them in Development options\./)
   assert.doesNotMatch(hidden, /<h2[^>]*>Stale Member<\/h2>/)
   assert.doesNotMatch(hidden, /Sprint cleanup finished long ago/)
 })

@@ -177,7 +177,7 @@ function declaredStyle(element: Element) {
   return (property: string) => matched.map((style) => style.getPropertyValue(property)).findLast(Boolean) ?? ''
 }
 
-test('the header has the page title, quick filter, team selection, Manage team, settings, and Refresh', async (t) => {
+test('the header has the page title, quick filter, team selection, Manage team, options, and Refresh', async (t) => {
   const quickFilterInputRef = { current: null as HTMLInputElement | null }
   const host = await render(t, { quickFilterInputRef })
 
@@ -195,7 +195,7 @@ test('the header has the page title, quick filter, team selection, Manage team, 
   assert.equal(manageTeam?.getAttribute('href'), defaultProps.teamManagementUrl)
   assert.equal(manageTeam?.getAttribute('target'), '_blank')
 
-  assert.equal(button(host, 'Backlog settings').disabled, false)
+  assert.equal(button(host, 'Backlog options').disabled, false)
   assert.equal(button(host, 'Refresh').disabled, false)
 })
 
@@ -447,7 +447,7 @@ test('a loading backlog shows progress instead of the table', async (t) => {
   assert.match(host.querySelector('[role="status"]')!.textContent!, /Loading backlog/)
   assert.equal(host.querySelector('table'), null)
   assert.equal(button(host, 'Refresh').disabled, true, 'Refresh waits for the current load')
-  assert.equal(button(host, 'Backlog settings').disabled, false)
+  assert.equal(button(host, 'Backlog options').disabled, false)
 })
 
 test('a failed load shows the error instead of the table', async (t) => {
@@ -472,15 +472,15 @@ test('without a configured team the page asks for one and disables the page acti
   assert.equal(host.querySelector('h2')?.textContent, 'Configure at least one team')
   assert.match(host.textContent!, /Backlog needs a team profile to load data/)
   assert.equal(host.querySelector('table'), null)
-  assert.equal(button(host, 'Backlog settings').disabled, true)
+  assert.equal(button(host, 'Backlog options').disabled, true)
   assert.equal(button(host, 'Refresh').disabled, true)
 })
 
-test('without a PAT the quick filter, settings, and Refresh buttons are disabled', async (t) => {
+test('without a PAT the quick filter, options, and Refresh buttons are disabled', async (t) => {
   const host = await render(t, { patConfigured: false })
 
   assert.equal(quickFilter(host).disabled, true)
-  assert.equal(button(host, 'Backlog settings').disabled, true)
+  assert.equal(button(host, 'Backlog options').disabled, true)
   assert.equal(button(host, 'Refresh').disabled, true)
 })
 
@@ -493,24 +493,24 @@ test('Refresh calls back to the app', async (t) => {
   assert.equal(refreshes, 1)
 })
 
-test('the settings button opens a placeholder dialog that Close dismisses', async (t) => {
+test('the options button opens a placeholder dialog that Close dismisses', async (t) => {
   const host = await render(t)
   assert.equal(dialog(), null)
 
-  await act(async () => button(host, 'Backlog settings').click())
+  await act(async () => button(host, 'Backlog options').click())
 
   const opened = dialog()!
   assert.ok(opened)
-  assert.equal(document.getElementById(opened.getAttribute('aria-labelledby')!)?.textContent, 'Backlog settings')
-  assert.match(opened.textContent!, /no settings yet/)
+  assert.equal(document.getElementById(opened.getAttribute('aria-labelledby')!)?.textContent, 'Backlog options')
+  assert.match(opened.textContent!, /no options yet/)
 
   await act(async () => [...opened.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
   await waitFor(() => dialog() === null)
 })
 
-test('Escape dismisses the settings dialog', async (t) => {
+test('Escape dismisses the options dialog', async (t) => {
   const host = await render(t)
-  await act(async () => button(host, 'Backlog settings').click())
+  await act(async () => button(host, 'Backlog options').click())
   assert.ok(dialog())
 
   await act(async () => dialog()!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))

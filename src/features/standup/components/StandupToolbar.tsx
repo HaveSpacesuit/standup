@@ -250,11 +250,11 @@ export function StandupToolbar({
             </>
           }
         >
-          <Tooltip title="Assignments options">
+          <Tooltip title="Development options">
             <span>
               <IconButton
                 size="small"
-                aria-label="Assignments options"
+                aria-label="Development options"
                 onClick={onOpenTagRulesDialog}
                 disabled={!patConfigured || !hasConfiguredTeams}
               >

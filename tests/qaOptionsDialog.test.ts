@@ -95,6 +95,16 @@ function findAll(element: unknown, match: (node: Element) => boolean, results: E
   return results
 }
 
+test('Development options dialog is titled after the page', () => {
+  hooks.reset()
+  hooks.beginRender()
+  const tree = HiddenTagsDialog({
+    open: true, tagRules: [], onChange: () => {}, onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 }, onCardHighlightOptionsChange: () => {},
+  })
+  assert.equal(find(tree, (node) => node.type === 'DialogTitle')?.props.children, 'Development options')
+})
+
 test('Assignments selectors have purpose and tag-rule context in accessible names', () => {
   hooks.reset()
   const props = {

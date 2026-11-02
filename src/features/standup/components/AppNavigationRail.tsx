@@ -29,7 +29,7 @@ import svgDeveloper from '@stratakit/icons/developer.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
 import svgIssueReport from '@stratakit/icons/issue-report.svg'
 import svgReport from '@stratakit/icons/report.svg'
-import svgCalendar from '@stratakit/icons/calendar.svg'
+import svgBinder from '@stratakit/icons/binder.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
 import svgArrowUp from '@stratakit/icons/arrow-up.svg'
@@ -320,7 +320,7 @@ export function AppNavigationRail({
     <NavigationRail.Root>
       <NavigationRail.Header>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flex: 1, mr: 1 }}>
-          <Icon href={`${svgCalendar}#icon-large`} alt="Standup Check In" size="large" />
+          <Icon href={`${svgBinder}#icon-large`} alt="ADO Team Explorer" size="large" />
           <Typography
             variant="body-md"
             sx={{
@@ -334,7 +334,7 @@ export function AppNavigationRail({
               },
             }}
           >
-            Standup Check In
+            ADO Team Explorer
           </Typography>
         </Box>
         <NavigationRail.ToggleButton />
@@ -403,7 +403,7 @@ export function AppNavigationRail({
       </NavigationRail.Content>
 
       <Dialog open={isHelpDialogOpen} onClose={() => setIsHelpDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Standup Check In Help</DialogTitle>
+        <DialogTitle>ADO Team Explorer Help</DialogTitle>
         <DialogContent dividers sx={{ display: 'grid', gap: 2, pt: 1 }}>
           <Box>
             <Typography variant="body-md" component="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
@@ -441,7 +441,7 @@ export function AppNavigationRail({
                 <strong>Azure DevOps access</strong> requires a PAT with Build, Code, Graph, Project and Team, Release, Test Management, and Work Items read scopes.
               </Typography>
               <Typography component="li" variant="body-sm">
-                <strong>Teams</strong> lets you define an org, project, area path, iteration path, team name, and repository. Each team stores its own QA and assignment options.
+                <strong>Teams</strong> lets you define an org, project, area path, iteration path, team name, and repository. Each team stores its own QA and development options.
               </Typography>
               <Typography component="li" variant="body-sm">
                 <strong>Display</strong> toggles the app between light and dark mode without changing your Azure DevOps data.

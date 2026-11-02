@@ -111,7 +111,7 @@ export function HiddenTagsDialog({
   onHideUsersWithOnlyStaleDoneWorkChange,
   teamIterations = [],
   teamIterationsLoading = false,
-  title = 'Assignments options',
+  title = 'Development options',
   description = 'Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.',
   actionOptions = DEFAULT_TAG_RULE_ACTION_OPTIONS,
 }: HiddenTagsDialogProps) {

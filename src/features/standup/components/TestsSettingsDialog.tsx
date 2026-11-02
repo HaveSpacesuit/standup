@@ -172,7 +172,7 @@ export function TestsSettingsDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>Tests settings</DialogTitle>
+      <DialogTitle>Test options</DialogTitle>
       <DialogContent sx={{
         display: 'flex',
         flexDirection: { xs: 'column', sm: 'row' },
@@ -185,7 +185,7 @@ export function TestsSettingsDialog({
           variant={isMobile ? 'scrollable' : 'standard'}
           scrollButtons="auto"
           allowScrollButtonsMobile
-          aria-label="Tests settings"
+          aria-label="Test options"
           value={activeTab}
           onChange={(_event, value: number) => setActiveTab(value)}
           sx={{

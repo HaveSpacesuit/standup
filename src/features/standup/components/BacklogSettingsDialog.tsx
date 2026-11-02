@@ -5,14 +5,14 @@ type BacklogSettingsDialogProps = {
   onClose: () => void
 }
 
-/** Placeholder until we know whether the Backlog page needs any settings. */
+/** Placeholder until we know whether the Backlog page needs any options. */
 export function BacklogSettingsDialog({ open, onClose }: BacklogSettingsDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Backlog settings</DialogTitle>
+      <DialogTitle>Backlog options</DialogTitle>
       <DialogContent>
         <Typography variant="body-sm" color="text.secondary">
-          The Backlog page has no settings yet.
+          The Backlog page has no options yet.
         </Typography>
       </DialogContent>
       <DialogActions>

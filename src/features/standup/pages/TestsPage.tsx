@@ -157,7 +157,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
     <>
       <PageToolbar iconHref={svgReport} title="Tests">
         <Box sx={{ flex: 1 }} />
-        <IconButton size="small" label="Tests settings" onClick={() => setSettingsOpen(true)}>
+        <IconButton size="small" label="Test options" onClick={() => setSettingsOpen(true)}>
           <Icon href={svgSettings} />
         </IconButton>
         <IconButton size="small" aria-label="Refresh tests" disabled={loading || !pat || pipelines.length === 0} onClick={() => setRefreshNonce((value) => value + 1)}>
@@ -179,14 +179,14 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
         {pipelines.length === 0 && !error && (
           <Typography variant="body-md" color="text.secondary">
-            Add a build or release pipeline in Tests settings to start tracking test pass rates.
+            Add a build or release pipeline in Test options to start tracking test pass rates.
           </Typography>
         )}
         {pat && pipelines.length > 0 && !loading && series.every(({ points }) => points.length === 0) && !error && (
           <Alert severity="info">No published test results were found for the selected stages in the last {lookbackDays} days.</Alert>
         )}
         {!loading && filteredSeries.some((entry, index) => entry.points.length === 0 && series[index].points.length > 0) && (
-          <Alert severity="info">Some pipelines have no chart points above the {passRateFilter.threshold}% pass rate threshold. Lower the threshold or disable the filter in Tests settings to show more results.</Alert>
+          <Alert severity="info">Some pipelines have no chart points above the {passRateFilter.threshold}% pass rate threshold. Lower the threshold or disable the filter in Test options to show more results.</Alert>
         )}
         {!loading && range && filteredSeries.some(({ points }) => points.length > 0) && (
           <Box sx={{ height: 480, flexShrink: 0 }}>

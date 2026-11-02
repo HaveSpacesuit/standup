@@ -78,7 +78,7 @@ export function useAppNavigation({
   }, [memberFilterOptions, onMemberFilterChange, patConfigured, selectedMemberFilter])
 
   useEffect(() => {
-    document.title = 'Standup Check In'
+    document.title = 'ADO Team Explorer'
   }, [])
 
   useEffect(() => {

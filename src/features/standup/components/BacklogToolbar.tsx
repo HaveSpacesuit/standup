@@ -80,11 +80,11 @@ export function BacklogToolbar({
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
       >
-        <Tooltip title="Backlog settings">
+        <Tooltip title="Backlog options">
           <span>
             <IconButton
               size="small"
-              aria-label="Backlog settings"
+              aria-label="Backlog options"
               onClick={onOpenSettings}
               disabled={!patConfigured || !hasConfiguredTeams}
             >

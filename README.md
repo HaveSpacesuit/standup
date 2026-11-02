@@ -1,6 +1,6 @@
-# Standup
+# ADO Team Explorer
 
-Standup is a client-side Azure DevOps dashboard for team standup and quality-assurance tracking. It helps a team review current sprint work, monitor work-item flow, spot recently changed items, and surface pull requests that are not already attached to visible work items.
+ADO Team Explorer is a client-side Azure DevOps dashboard for team standup and quality-assurance tracking. It helps a team review current sprint work, monitor work-item flow, spot recently changed items, and surface pull requests that are not already attached to visible work items.
 
 The app is a browser-based React + TypeScript single-page app. It does not have a backend service; it calls the Azure DevOps REST API directly from the browser using a personal access token (PAT).
 
@@ -17,7 +17,7 @@ The default view is a standup-style Kanban board that:
 - highlights recent changes or project-specific work-item activity
 - adds PR-only cards for pull requests in the selected repository that are not already linked to visible work items
 
-Assignments options > Members includes "Hide users with no activity" (off by default).
+Development options > Members includes "Hide users with no activity" (off by default).
 When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage
 and does not change the sprint view.
@@ -72,7 +72,7 @@ Recently completed state precedence, and explicit tag-based grouping, are unchan
 
 ### Backlog view
 
-The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has a quick filter, the team selector, **Manage team**, a Backlog settings button (a placeholder dialog for now), and a Refresh button.
+The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has a quick filter, the team selector, **Manage team**, a Backlog options button (a placeholder dialog for now), and a Refresh button.
 
 The table has no sorting, column filtering, or selection, and rows highlight when hovered. Its columns are ID, Title (a link that opens the bug in a new tab, followed by the bug's tags as outlined badges in alphabetical order), Created Date, Assigned To (left blank when the bug is unassigned), State, Iteration Path (the last two segments of the full path), Severity, Impact, Effort, and Value. Impact is the bug's Priority field, a stand-in for how often users encounter the bug. Effort is shown as entered; only the Value calculation raises it to a minimum of 4.
 
@@ -89,9 +89,9 @@ A missing Severity or Priority counts as 4. AdjustedEffort is the Effort field w
 
 ### Tests view
 
-The Tests page charts e2e pass percentages across a configurable lookback window (60 days by default) for each configured Azure DevOps build/YAML pipeline or classic release pipeline. Use Tests settings to set the number of days, enter the organization and project, type to search pipelines and stages, choose a test-publishing stage (or the whole build pipeline), and add it to the chart. The lookback window is saved in browser local storage and applies to all configured pipelines. Build history is filtered by finish time; release history is queried by creation time, then charted by the selected stage's completion time when available. Multiple pipelines appear as separate lines. Each point represents one run, including multiple runs on the same day; the x-axis shows dates and tooltips show exact times and run IDs. Click a point to open its build Tests tab or release summary in a new tab. The y-axis uses a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages to make differences near 100% easier to see. Each point is passed tests divided by executed test results, excluding `NotExecuted`, `Skipped`, `NotApplicable`, and `NotImpacted`. Tests must be published to Azure DevOps for the chart to find them; stages without executed test results are shown as missing data, not 0% passed. If test results cannot be loaded, the page or settings dialog reminds you to ensure your PAT has Test Management (Read) access. The refresh button reloads the latest results. Tests has no filter, view, or team controls; pipeline selections are saved in browser local storage.
+The Tests page charts e2e pass percentages across a configurable lookback window (60 days by default) for each configured Azure DevOps build/YAML pipeline or classic release pipeline. Use Test options to set the number of days, enter the organization and project, type to search pipelines and stages, choose a test-publishing stage (or the whole build pipeline), and add it to the chart. The lookback window is saved in browser local storage and applies to all configured pipelines. Build history is filtered by finish time; release history is queried by creation time, then charted by the selected stage's completion time when available. Multiple pipelines appear as separate lines. Each point represents one run, including multiple runs on the same day; the x-axis shows dates and tooltips show exact times and run IDs. Click a point to open its build Tests tab or release summary in a new tab. The y-axis uses a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages to make differences near 100% easier to see. Each point is passed tests divided by executed test results, excluding `NotExecuted`, `Skipped`, `NotApplicable`, and `NotImpacted`. Tests must be published to Azure DevOps for the chart to find them; stages without executed test results are shown as missing data, not 0% passed. If test results cannot be loaded, the page or options dialog reminds you to ensure your PAT has Test Management (Read) access. The refresh button reloads the latest results. Tests has no filter, view, or team controls; pipeline selections are saved in browser local storage.
 
-Tests settings uses two tabs: Options contains the lookback window, and Pipelines contains
+Test options uses two tabs: Options contains the lookback window, and Pipelines contains
 the configured pipeline list and controls for adding or removing pipelines.
 Options also includes an optional pass rate filter (unchecked by default). Enable it and enter
 a percentage from 0 to 100 inclusive to hide chart points at or below that pass rate. For

@@ -147,6 +147,8 @@ test('team and member selectors have stable accessible names', () => {
     onSprintViewChange: () => {},
   }))
   assert.match(developmentToolbar, /aria-label="Filter by team member"/)
+  assert.match(developmentToolbar, /<button[^>]*aria-label="Development options"/)
+  assert.doesNotMatch(developmentToolbar, /Assignments options/)
   assert.match(developmentToolbar, /flex-wrap:wrap/)
 })
 

@@ -210,7 +210,7 @@ export const KanbanBoard = memo(function KanbanBoard({
 
     content = rows.length > 0 && visibleRows.length === 0 ? (
       <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
-        All rows are hidden by the Members options. Try adjusting them in Assignments options.
+        All rows are hidden by the Members options. Try adjusting them in Development options.
       </Typography>
     ) : (
       <KanbanBoardGrid
