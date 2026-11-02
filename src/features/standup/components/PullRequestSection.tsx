@@ -1,4 +1,5 @@
-import { Box, Tooltip, Typography } from '@mui/material'
+import { Box, Typography } from '@mui/material'
+import { AppTooltip as Tooltip } from './AppTooltip'
 import { Icon } from '@stratakit/mui'
 import type { WorkItemPullRequestSummary } from '../../../ado/queryEngine'
 import { getIconUrlWithThemeColorValue } from '../utils/workItemIconColor'
@@ -32,6 +33,7 @@ export function PullRequestSection({ pullRequest, statusColor, emphasizeTitle = 
           color: reviewIcon.color,
         }}
         aria-label={reviewIcon.label}
+        tabIndex={0}
       >
         {Array.from({ length: Math.min(reviewIcon.count ?? 1, 2) }).map((_, index) => (
           <Icon key={`${reviewIcon.label}-${index}`} href={reviewIcon.href} size="regular" />

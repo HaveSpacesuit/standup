@@ -19,10 +19,10 @@ import {
   Tab,
   Tabs,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material'
+import { AppTooltip as Tooltip } from './AppTooltip'
 import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
 import svgDeveloper from '@stratakit/icons/developer.svg'
@@ -45,6 +45,8 @@ function FieldHint({ tip }: { tip: string }) {
     <Tooltip title={tip} placement="top" arrow>
       <Box
         component="span"
+        tabIndex={0}
+        aria-label={tip}
         sx={{ display: 'inline-flex', alignItems: 'center', cursor: 'default', color: 'text.secondary', ml: 0.25 }}
       >
         <Icon href={`${svgInfo}#icon`} alt="" />

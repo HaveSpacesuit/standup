@@ -5,6 +5,7 @@ import svgUsers from '@stratakit/icons/users.svg'
 import type { WorkItemPullRequestSummary } from '../../../ado/queryEngine'
 import { DevelopmentCardStep } from './DevelopmentCardStep'
 import { PullRequestProgressStrip } from './PullRequestProgressStrip'
+import { AppTooltip } from './AppTooltip'
 import {
   getApprovalSummary,
   getClosedPullRequestLabel,
@@ -30,36 +31,39 @@ export function DevelopmentPullRequestRow({ pullRequest, showHeading = true, sho
   return (
     <Box sx={{ minWidth: 0 }}>
       <Box
-        title={showHeading ? `PR ${pullRequest.id}: ${pullRequest.title}` : undefined}
         sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, fontSize: 11, lineHeight: 1.3, color: 'text.secondary' }}
       >
         {showHeading ? (
-          <Box
-            component="a"
-            href={pullRequest.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            aria-label={`PR ${pullRequest.id}: ${pullRequest.title}`}
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.5,
-              flex: '0 0 auto',
-              color: TERTIARY_TEXT_COLOR,
-              textDecoration: 'none',
-              fontVariantNumeric: 'tabular-nums',
-              '&:hover': { textDecoration: 'underline' },
-            }}
-          >
-            <Icon href={svgGitBranch} />
-            {pullRequest.id}
-          </Box>
+          <AppTooltip title={`PR ${pullRequest.id}: ${pullRequest.title}`}>
+            <Box
+              component="a"
+              href={pullRequest.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              aria-label={`PR ${pullRequest.id}: ${pullRequest.title}`}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.5,
+                flex: '0 0 auto',
+                color: TERTIARY_TEXT_COLOR,
+                textDecoration: 'none',
+                fontVariantNumeric: 'tabular-nums',
+                '&:hover': { textDecoration: 'underline' },
+              }}
+            >
+              <Icon href={svgGitBranch} />
+              {pullRequest.id}
+            </Box>
+          </AppTooltip>
         ) : null}
 
         {repository ? (
-          <Box component="span" title={`Repository: ${repository}`} sx={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: TERTIARY_TEXT_COLOR }}>
-            {repository}
-          </Box>
+          <AppTooltip title={`Repository: ${repository}`}>
+            <Box component="span" tabIndex={0} sx={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: TERTIARY_TEXT_COLOR }}>
+              {repository}
+            </Box>
+          </AppTooltip>
         ) : null}
 
         {closedLabel ? (

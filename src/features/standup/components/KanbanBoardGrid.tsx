@@ -7,6 +7,7 @@ import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../util
 import { DevelopmentCard } from './DevelopmentCard'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import { AdoAvatar } from './AdoAvatar'
+import { AppTooltip } from './AppTooltip'
 
 export type BoardRowData = {
   key: string
@@ -150,17 +151,21 @@ export function KanbanBoardGrid({
                         </Box>
                       </Box>
 
-                      <Typography
-                        variant="caption-md"
-                        sx={{ mt: 0.25, color: 'text.secondary' }}
+                      <AppTooltip
                         title={
                           currentIterationName
                             ? `Effort total includes visible items from ${currentIterationName} only.`
                             : 'Effort total includes visible items from the current sprint only.'
                         }
                       >
-                        Current sprint effort: {statusEffortTotals[status]}
-                      </Typography>
+                        <Typography
+                          variant="caption-md"
+                          sx={{ mt: 0.25, color: 'text.secondary' }}
+                          tabIndex={0}
+                        >
+                          Current sprint effort: {statusEffortTotals[status]}
+                        </Typography>
+                      </AppTooltip>
                     </Box>
                   </Box>
                 </Box>

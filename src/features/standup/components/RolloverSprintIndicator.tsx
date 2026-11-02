@@ -1,4 +1,5 @@
-import { Box, Tooltip } from '@mui/material'
+import { Box } from '@mui/material'
+import { AppTooltip as Tooltip } from './AppTooltip'
 import { Icon } from '@stratakit/mui'
 import svgReschedule from '@stratakit/icons/reschedule.svg'
 
@@ -12,6 +13,7 @@ export function RolloverSprintIndicator({ color = 'currentColor' }: RolloverSpri
       <Box
         component="span"
         aria-label="Rolled over from previous sprint"
+        tabIndex={0}
         sx={{
           display: 'inline-flex',
           alignItems: 'center',

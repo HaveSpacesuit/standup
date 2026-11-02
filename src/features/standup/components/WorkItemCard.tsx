@@ -5,6 +5,7 @@ import { memo } from 'react'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { IdentityRef } from '../../../ado/identity'
 import { AdoAvatar } from './AdoAvatar'
+import { AppTooltip } from './AppTooltip'
 import { getWorkItemIconUrlWithThemeColor } from '../utils/workItemIconColor'
 import { WorkItemTags } from './WorkItemTags'
 import { PullRequestSection } from './PullRequestSection'
@@ -81,31 +82,34 @@ export const WorkItemCard = memo(function WorkItemCard({
   const showTagsRow = hasVisibleTags || (!showPerson && !showFooterEffort)
 
   const badgeNode = showState && item.state ? (
-    <Box
-      component="span"
-      sx={{
-        float: 'right',
-        ml: 0.75,
-        mb: 0.25,
-        px: 0.75,
-        py: 0.125,
-        maxWidth: 130,
-        borderRadius: 999,
-        border: '1px solid',
-        borderColor: `color-mix(in srgb, ${accent} 35%, transparent)`,
-        bgcolor: `color-mix(in srgb, ${accent} 14%, transparent)`,
-        color: accent,
-        fontSize: 10,
-        lineHeight: 1.5,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-      }}
-      title={item.state}
-    >
-      {abbreviateState(item.state)}
-    </Box>
+    <AppTooltip title={item.state}>
+      <Box
+        component="span"
+        tabIndex={0}
+        aria-label={item.state}
+        sx={{
+          float: 'right',
+          ml: 0.75,
+          mb: 0.25,
+          px: 0.75,
+          py: 0.125,
+          maxWidth: 130,
+          borderRadius: 999,
+          border: '1px solid',
+          borderColor: `color-mix(in srgb, ${accent} 35%, transparent)`,
+          bgcolor: `color-mix(in srgb, ${accent} 14%, transparent)`,
+          color: accent,
+          fontSize: 10,
+          lineHeight: 1.5,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {abbreviateState(item.state)}
+      </Box>
+    </AppTooltip>
   ) : !hideEffort && effortPlacement === 'badge' && typeof item.effort === 'number' && !isPullRequestOnly ? (
     <Box
       component="span"
@@ -322,13 +326,15 @@ export const WorkItemCard = memo(function WorkItemCard({
                       src={person.imageUrl}
                       sx={{ width: 16, height: 16, fontSize: 8, flex: '0 0 auto' }}
                     />
-                    <Typography
-                      variant="body-sm"
-                      sx={{ fontSize: 11, fontWeight: 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      title={personName}
-                    >
-                      {personName}
-                    </Typography>
+                    <AppTooltip title={personName}>
+                      <Typography
+                        variant="body-sm"
+                        tabIndex={0}
+                        sx={{ fontSize: 11, fontWeight: 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {personName}
+                      </Typography>
+                    </AppTooltip>
                   </Box>
                 ) : null}
 
@@ -339,13 +345,15 @@ export const WorkItemCard = memo(function WorkItemCard({
                       src={person.imageUrl}
                       sx={{ width: 16, height: 16, fontSize: 8, flex: '0 0 auto' }}
                     />
-                    <Typography
-                      variant="body-sm"
-                      sx={{ fontSize: 11, fontWeight: 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      title={personName}
-                    >
-                      {personName}
-                    </Typography>
+                    <AppTooltip title={personName}>
+                      <Typography
+                        variant="body-sm"
+                        tabIndex={0}
+                        sx={{ fontSize: 11, fontWeight: 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {personName}
+                      </Typography>
+                    </AppTooltip>
                   </Box>
                 ) : item.sprintName && !hideSprint ? (
                   <Box sx={{ ml: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.35, flex: '0 0 auto', color: 'text.secondary', opacity: 0.85 }}>

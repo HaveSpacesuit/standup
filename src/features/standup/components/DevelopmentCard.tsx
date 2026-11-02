@@ -6,7 +6,6 @@ import svgGitBranch from '@stratakit/icons/git-branch.svg'
 import { memo } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
-import { getIconUrlWithThemeColorValue } from '../utils/workItemIconColor'
 import { WorkItemTags } from './WorkItemTags'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 import { DevelopmentCardStep } from './DevelopmentCardStep'
@@ -15,6 +14,7 @@ import { DevelopmentCardCompactLine } from './DevelopmentCardCompactLine'
 import { DevelopmentCardDetails } from './DevelopmentCardDetails'
 import { ChangeBadge, StateBadge } from './DevelopmentCardBadges'
 import { AgingDots } from './AgingDots'
+import { AppTooltip, SuppressTooltips } from './AppTooltip'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getStatusPaletteKey } from './workItemCardDisplay'
@@ -45,6 +45,7 @@ type CardPartProps = {
 }
 
 const HOVER_CARD_WIDTH = 300
+const EFFORT_BADGE_HEIGHT = 18
 
 /**
  * StrataKit styles tooltips as short captions from a cascade layer that outranks sx, so the hover card
@@ -67,81 +68,100 @@ const hoverCardTooltipProps = {
 type CardTitleProps = {
   item: WorkItemSummary
   model: DevelopmentCardModel
-  iconColor: string
   /** Clamp the title to this many lines; omit to show it in full. */
   lines?: number
-  /** Show the full title as a native tooltip; compact cards use their hover card instead. */
+  /** Show the full title in a tooltip; compact cards use their hover card instead. */
   showTitleTooltip?: boolean
 }
 
-function CardTitle({ item, model, iconColor, lines, showTitleTooltip = false }: CardTitleProps) {
+function CardTitle({ item, model, lines, showTitleTooltip = false }: CardTitleProps) {
   return (
-    <Box
-      component="a"
-      href={model.titleUrl}
-      target="_blank"
-      rel="noreferrer noopener"
-      title={showTitleTooltip ? model.titleText : undefined}
-      sx={{
-        display: 'block',
-        minWidth: 0,
-        color: 'text.primary',
-        textDecoration: 'none',
-        '&:hover': { textDecoration: 'underline' },
-      }}
-    >
-      <Typography
-        variant="body-sm"
+    <AppTooltip title={showTitleTooltip ? model.titleText : undefined}>
+      <Box
+        component="a"
+        href={model.titleUrl}
+        target="_blank"
+        rel="noreferrer noopener"
         sx={{
-          lineHeight: 1.25,
-          wordBreak: 'break-word',
-          ...(lines
-            ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines, overflow: 'hidden' }
-            : {}),
+          display: 'block',
+          minWidth: 0,
+          color: 'text.primary',
+          textDecoration: 'none',
+          '&:hover': { textDecoration: 'underline' },
         }}
       >
-        {model.showEffort ? (
-          <Box
-            component="span"
-            sx={{
-              float: 'right',
-              ml: 1.5,
-              mb: 0.25,
-              minWidth: 20,
-              height: 18,
-              px: 1.25,
-              borderRadius: 999,
-              border: '1px solid var(--stratakit-color-border-neutral-muted)',
-              color: 'text.secondary',
-              fontSize: 11,
-              fontWeight: 600,
-              lineHeight: '16px',
-              textAlign: 'center',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            <Box component="span" sx={visuallyHiddenSx}>Effort </Box>
-            {item.effort}
+        <Typography
+          variant="body-sm"
+          sx={{
+            lineHeight: 1.25,
+            wordBreak: 'break-word',
+            // A single clamped text line can be shorter than the floated effort badge.
+            minHeight: lines === 1 && model.showEffort ? EFFORT_BADGE_HEIGHT : undefined,
+            ...(lines
+              ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines, overflow: 'hidden' }
+              : {}),
+          }}
+        >
+          {model.showEffort ? (
+            <Box
+              component="span"
+              sx={{
+                float: 'right',
+                ml: 1.5,
+                mb: 0.25,
+                minWidth: 20,
+                height: EFFORT_BADGE_HEIGHT,
+                px: 1.25,
+                borderRadius: 999,
+                border: '1px solid var(--stratakit-color-border-neutral-muted)',
+                color: 'text.secondary',
+                fontSize: 11,
+                fontWeight: 600,
+                lineHeight: '16px',
+                textAlign: 'center',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              <Box component="span" sx={visuallyHiddenSx}>Effort </Box>
+              {item.effort}
+            </Box>
+          ) : null}
+          {model.pullRequestOnly ? (
+            <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', mr: 0.5, color: TERTIARY_TEXT_COLOR }}>
+              <Icon href={svgGitBranch} />
+            </Box>
+          ) : item.workItemIconUrl ? (
+            <Box
+              component="span"
+              role={item.workItemType ? 'img' : undefined}
+              aria-label={item.workItemType}
+              aria-hidden={item.workItemType ? undefined : true}
+              sx={{
+                width: 14,
+                height: 14,
+                display: 'inline-block',
+                verticalAlign: 'text-bottom',
+                mr: 0.5,
+                // Keep the ADO icon's shape while letting CSS follow the current color scheme.
+                bgcolor: 'var(--stratakit-color-icon-neutral-base)',
+                maskImage: `url(${JSON.stringify(item.workItemIconUrl)})`,
+                maskSize: 'contain',
+                maskRepeat: 'no-repeat',
+                maskPosition: 'center',
+                '@media (forced-colors: active)': {
+                  bgcolor: 'CanvasText',
+                  forcedColorAdjust: 'none',
+                },
+              }}
+            />
+          ) : null}
+          <Box component="span" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>
+            {model.displayId}
           </Box>
-        ) : null}
-        {model.pullRequestOnly ? (
-          <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', mr: 0.5, color: TERTIARY_TEXT_COLOR }}>
-            <Icon href={svgGitBranch} />
-          </Box>
-        ) : item.workItemIconUrl ? (
-          <Box
-            component="img"
-            src={getIconUrlWithThemeColorValue(item.workItemIconUrl, iconColor)}
-            alt={item.workItemType ?? ''}
-            sx={{ width: 14, height: 14, display: 'inline-block', verticalAlign: 'text-bottom', mr: 0.5 }}
-          />
-        ) : null}
-        <Box component="span" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>
-          {model.displayId}
-        </Box>
-        <Box component="span">{model.titleText}</Box>
-      </Typography>
-    </Box>
+          <Box component="span">{model.titleText}</Box>
+        </Typography>
+      </Box>
+    </AppTooltip>
   )
 }
 
@@ -188,18 +208,20 @@ function CardSections({ item, model, accent }: CardPartProps) {
       {showMeta ? (
         <Box sx={{ clear: 'both', display: 'flex', alignItems: 'center', gap: 1.5, mt: 1, minWidth: 0, minHeight: 16 }}>
           {model.showStateBadge && item.state ? <StateBadge state={item.state} /> : null}
-          {model.changeBadgeText ? <ChangeBadge text={model.changeBadgeText} /> : null}
+          {model.changeBadgeText ? <ChangeBadge text={model.changeBadgeText} fullText={model.changeBadgeFullText} /> : null}
           <Box sx={{ flex: '1 1 auto' }} />
           {model.agingDots ? <AgingDots dots={model.agingDots} /> : null}
           {model.showRollover ? <RolloverSprintIndicator color={accent} /> : null}
           {model.showSprint ? (
-            <Typography
-              variant="body-sm"
-              title={item.sprintName}
-              sx={{ fontSize: 10, lineHeight: 1.1, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
-            >
-              {item.sprintName}
-            </Typography>
+            <AppTooltip title={item.sprintName}>
+              <Typography
+                variant="body-sm"
+                tabIndex={0}
+                sx={{ fontSize: 10, lineHeight: 1.1, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+              >
+                {item.sprintName}
+              </Typography>
+            </AppTooltip>
           ) : null}
         </Box>
       ) : null}
@@ -212,9 +234,8 @@ function DevelopmentCardHoverCard({
   item,
   model,
   accent,
-  iconColor,
   changeDetail,
-}: CardPartProps & { iconColor: string; changeDetail?: CardChangeDetail }) {
+}: CardPartProps & { changeDetail?: CardChangeDetail }) {
   return (
     <Box
       data-development-card-hover=""
@@ -237,7 +258,7 @@ function DevelopmentCardHoverCard({
         overflowWrap: 'normal',
       }}
     >
-      <CardTitle item={item} model={model} iconColor={iconColor} />
+      <CardTitle item={item} model={model} />
       <CardSections item={item} model={model} accent={accent} />
       <DevelopmentCardDetails item={item} model={model} changeDetail={changeDetail} />
     </Box>
@@ -259,7 +280,6 @@ export const DevelopmentCard = memo(function DevelopmentCard({
 }: DevelopmentCardProps) {
   const theme = useTheme()
   const accent = theme.palette[getStatusPaletteKey(item.status)].main
-  const iconColor = theme.palette.text.secondary
   const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator })
 
   const leadingEdge = `inset 3px 0 0 ${accent}`
@@ -300,29 +320,31 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         '&:focus-within': raisedSx,
       }}
     >
-      {model.isNew ? (
-        <Box
-          component="span"
-          data-change-dot=""
-          sx={{
-            position: 'absolute',
-            top: -4,
-            right: -4,
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            bgcolor: 'var(--stratakit-color-bg-info-base)',
-            boxShadow: `0 0 0 2px ${(theme.vars || theme).palette.background.paper}`,
-            pointerEvents: 'none',
-          }}
-        >
-          {model.changeBadgeText ? null : <Box component="span" sx={visuallyHiddenSx}>Recently changed</Box>}
-        </Box>
-      ) : null}
-      <CardTitle item={item} model={model} iconColor={iconColor} lines={compact ? 1 : 2} showTitleTooltip={!compact} />
-      {compact
-        ? <DevelopmentCardCompactLine item={item} model={model} accent={accent} />
-        : <CardSections item={item} model={model} accent={accent} />}
+      <SuppressTooltips when={compact}>
+        {model.isNew ? (
+          <Box
+            component="span"
+            data-change-dot=""
+            sx={{
+              position: 'absolute',
+              top: -4,
+              right: -4,
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              bgcolor: 'var(--stratakit-color-bg-info-base)',
+              boxShadow: `0 0 0 2px ${(theme.vars || theme).palette.background.paper}`,
+              pointerEvents: 'none',
+            }}
+          >
+            {model.changeBadgeText ? null : <Box component="span" sx={visuallyHiddenSx}>Recently changed</Box>}
+          </Box>
+        ) : null}
+        <CardTitle item={item} model={model} lines={compact ? 1 : 2} showTitleTooltip={!compact} />
+        {compact
+          ? <DevelopmentCardCompactLine item={item} model={model} accent={accent} />
+          : <CardSections item={item} model={model} accent={accent} />}
+      </SuppressTooltips>
     </Card>
   )
 
@@ -332,7 +354,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
 
   return (
     <Tooltip
-      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} iconColor={iconColor} changeDetail={changeDetail} />}
+      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} changeDetail={changeDetail} />}
       placement="right-start"
       enterDelay={400}
       enterNextDelay={150}

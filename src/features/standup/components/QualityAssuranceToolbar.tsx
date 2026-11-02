@@ -1,5 +1,6 @@
 import { type RefObject } from 'react'
-import { Box, IconButton, InputAdornment, TextField, Tooltip } from '@mui/material'
+import { Box, IconButton, InputAdornment, TextField } from '@mui/material'
+import { AppTooltip as Tooltip } from './AppTooltip'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'

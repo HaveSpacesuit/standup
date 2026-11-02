@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box'
+import { AppTooltip } from './AppTooltip'
 import type { WorkItemPullRequestSummary } from '../../../ado/queryEngine'
 import { getPullRequestProgress, type ProgressSegmentState } from './developmentCardDisplay'
 
@@ -23,15 +24,13 @@ type SegmentProps = {
   fill?: number
   ring?: boolean
   size: StripSize
-  title: string
 }
 
-function Segment({ state, fill = 1, ring = false, size, title }: SegmentProps) {
+function Segment({ state, fill = 1, ring = false, size }: SegmentProps) {
   const { width, height } = SEGMENT_SIZE[size]
   return (
     <Box
       component="span"
-      title={title}
       data-segment-state={ring ? 'ready' : state}
       sx={{
         position: 'relative',
@@ -62,21 +61,23 @@ export function PullRequestProgressStrip({ pullRequest, size = 'regular' }: { pu
   const progress = getPullRequestProgress(pullRequest)
 
   return (
-    <Box
-      component="span"
-      role="img"
-      aria-label={progress.label}
-      data-pr-progress=""
-      sx={{ display: 'inline-flex', alignItems: 'center', gap: SEGMENT_SIZE[size].gap, flex: '0 0 auto' }}
-    >
-      <Segment state={progress.checks.state} title={progress.checks.label} size={size} />
-      <Segment state={progress.review.state} fill={progress.review.fill} title={progress.review.label} size={size} />
-      <Segment
-        state="empty"
-        ring={progress.ready}
-        title={progress.ready ? 'Ready to complete' : 'Not ready to complete'}
-        size={size}
-      />
-    </Box>
+    <AppTooltip title={progress.label}>
+      <Box
+        component="span"
+        role="img"
+        aria-label={progress.label}
+        tabIndex={0}
+        data-pr-progress=""
+        sx={{ display: 'inline-flex', alignItems: 'center', gap: SEGMENT_SIZE[size].gap, flex: '0 0 auto' }}
+      >
+        <Segment state={progress.checks.state} size={size} />
+        <Segment state={progress.review.state} fill={progress.review.fill} size={size} />
+        <Segment
+          state="empty"
+          ring={progress.ready}
+          size={size}
+        />
+      </Box>
+    </AppTooltip>
   )
 }

@@ -19,9 +19,15 @@ The default view is a standup-style Kanban board that:
 
 Development board cards show only what the card's row, column, and the current sprint do not already
 say. Each card has a leading edge in its column's color, the work item type, ID, effort, and a
-two-line title. The state appears only when it differs from the column's usual state, and the sprint
+two-line title. States of three or more words use the first three words' initials in badges and
+"Moved to" tags (for example, ICR and AFT); tooltips and hover details keep the full names.
+The state appears only when it differs from the column's usual state, and the sprint
 only when it is not the current sprint. Each linked PR gets one compact row. The QA board and Sprint
 view keep their own cards.
+Work item type icons use StrataKit's theme-aware neutral icon color in regular cards, compact cards,
+and hover details.
+Hover hints throughout the app use StrataKit tooltips rather than native browser titles. Compact
+cards show their full hover preview instead of opening competing tooltips on individual indicators.
 
 Each card also names its next step and, when it is someone other than the row's developer, who it
 is waiting on. For a PR, the step is the first of: fix failing checks, rework after a rejection,
