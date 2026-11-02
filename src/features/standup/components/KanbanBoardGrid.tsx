@@ -19,6 +19,7 @@ import type { WorkItemCardHighlightState } from './WorkItemCard'
 import { AdoAvatar } from './AdoAvatar'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
+import { partitionHighlighted } from './boardAttention'
 
 export type BoardRowData = {
   key: string
@@ -43,6 +44,9 @@ type KanbanBoardGridProps = {
   changeDetailsByItemId?: Record<number, CardChangeDetail>
   compactCards?: boolean
   rolledOverItemIds: Record<number, boolean>
+  /** Cards matching the selected Needs attention facet, or null while none is selected. */
+  highlightedItemIds?: ReadonlySet<number> | null
+  statusMatchCounts?: Record<StatusColumn, number> | null
 }
 
 export function KanbanBoardGrid({
@@ -58,6 +62,8 @@ export function KanbanBoardGrid({
   changeDetailsByItemId,
   compactCards = false,
   rolledOverItemIds,
+  highlightedItemIds = null,
+  statusMatchCounts = null,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
   const { gridTemplate, minWidth, blockedRail } = layout
@@ -200,7 +206,17 @@ export function KanbanBoardGrid({
                       flex: '0 0 auto',
                     }}
                   >
-                    {statusItemCounts[status]}
+                    {statusMatchCounts ? (
+                      <>
+                        <Box component="span" aria-hidden="true">
+                          {statusMatchCounts[status]}
+                          <Box component="span" sx={{ fontWeight: 500, color: TERTIARY_TEXT_COLOR }}>/{statusItemCounts[status]}</Box>
+                        </Box>
+                        <Box component="span" sx={visuallyHiddenSx}>
+                          {statusMatchCounts[status]} of {statusItemCounts[status]} highlighted
+                        </Box>
+                      </>
+                    ) : statusItemCounts[status]}
                   </Box>
 
                   <AppTooltip
@@ -339,9 +355,10 @@ export function KanbanBoardGrid({
                     return <Box key={cellKey} sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />
                   }
 
-                  const cellItems = cardsByCell[cellKey] ?? []
+                  const { items: cellItems, matchCount } = partitionHighlighted(cardsByCell[cellKey] ?? [], highlightedItemIds)
                   const compact = isCompactStatusColumn(status, compactCards)
-                  const cardLimit = getCollapsedCellCardLimit(compact)
+                  // Matching cards are never tucked behind Show more.
+                  const cardLimit = Math.max(getCollapsedCellCardLimit(compact), matchCount)
                   const isExpanded = expandedCells[cellKey] === true
                   const visibleItems = isExpanded
                     ? cellItems
@@ -378,6 +395,7 @@ export function KanbanBoardGrid({
                             rowMember={row.memberIdentity}
                             showRolloverIndicator={rolledOverItemIds[item.id] === true}
                             compact={compact}
+                            emphasis={highlightedItemIds ? (highlightedItemIds.has(item.id) ? 'match' : 'dim') : undefined}
                           />
                         ))}
                       </Box>
