@@ -1,4 +1,4 @@
-import { Badge, Card, Typography } from '@mui/material'
+import { Card, Tooltip, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
@@ -11,20 +11,18 @@ import { WorkItemTags } from './WorkItemTags'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 import { DevelopmentCardStep } from './DevelopmentCardStep'
 import { DevelopmentPullRequestRow } from './DevelopmentPullRequestRow'
+import { DevelopmentCardCompactLine } from './DevelopmentCardCompactLine'
+import { DevelopmentCardDetails } from './DevelopmentCardDetails'
+import { ChangeBadge, StateBadge } from './DevelopmentCardBadges'
 import { AgingDots } from './AgingDots'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getStatusPaletteKey } from './workItemCardDisplay'
 import {
-  findBlockedTag,
-  getAgingDots,
-  getCardNextStep,
-  getChangeBadgeText,
-  getStateBadgeColor,
-  isDefaultColumnState,
-  shouldShowSprint,
+  getDevelopmentCardModel,
   TERTIARY_TEXT_COLOR,
   visuallyHiddenSx,
+  type DevelopmentCardModel,
 } from './developmentCardDisplay'
 
 type DevelopmentCardProps = {
@@ -36,6 +34,214 @@ type DevelopmentCardProps = {
   /** The developer whose row the card is pinned to; used to call out work now owned by someone else. */
   rowMember?: IdentityRef | null
   showRolloverIndicator?: boolean
+  /** Title and one status line, with the full card shown on hover or keyboard focus. */
+  compact?: boolean
+}
+
+type CardPartProps = {
+  item: WorkItemSummary
+  model: DevelopmentCardModel
+  accent: string
+}
+
+const HOVER_CARD_WIDTH = 300
+
+/**
+ * StrataKit styles tooltips as short captions from a cascade layer that outranks sx, so the hover card
+ * swaps out StrataKit's tooltip class (keeping its popper) and draws its own surface instead.
+ */
+const hoverCardTooltipProps = {
+  className: 'development-card-hover-tooltip',
+  sx: {
+    p: 0,
+    maxWidth: 'none',
+    bgcolor: 'transparent',
+    color: 'inherit',
+    font: 'inherit',
+    borderRadius: 0,
+    // MUI's placement margins use a more specific selector than plain sx.
+    '.MuiTooltip-popper[data-popper-placement] &': { m: 0.5 },
+  },
+} as const
+
+type CardTitleProps = {
+  item: WorkItemSummary
+  model: DevelopmentCardModel
+  iconColor: string
+  /** Clamp the title to this many lines; omit to show it in full. */
+  lines?: number
+  /** Show the full title as a native tooltip; compact cards use their hover card instead. */
+  showTitleTooltip?: boolean
+}
+
+function CardTitle({ item, model, iconColor, lines, showTitleTooltip = false }: CardTitleProps) {
+  return (
+    <Box
+      component="a"
+      href={model.titleUrl}
+      target="_blank"
+      rel="noreferrer noopener"
+      title={showTitleTooltip ? model.titleText : undefined}
+      sx={{
+        display: 'block',
+        minWidth: 0,
+        color: 'text.primary',
+        textDecoration: 'none',
+        '&:hover': { textDecoration: 'underline' },
+      }}
+    >
+      <Typography
+        variant="body-sm"
+        sx={{
+          lineHeight: 1.25,
+          wordBreak: 'break-word',
+          ...(lines
+            ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines, overflow: 'hidden' }
+            : {}),
+        }}
+      >
+        {model.showEffort ? (
+          <Box
+            component="span"
+            sx={{
+              float: 'right',
+              ml: 1.5,
+              mb: 0.25,
+              minWidth: 20,
+              height: 18,
+              px: 1.25,
+              borderRadius: 999,
+              border: '1px solid var(--stratakit-color-border-neutral-muted)',
+              color: 'text.secondary',
+              fontSize: 11,
+              fontWeight: 600,
+              lineHeight: '16px',
+              textAlign: 'center',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            <Box component="span" sx={visuallyHiddenSx}>Effort </Box>
+            {item.effort}
+          </Box>
+        ) : null}
+        {model.pullRequestOnly ? (
+          <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', mr: 0.5, color: TERTIARY_TEXT_COLOR }}>
+            <Icon href={svgGitBranch} />
+          </Box>
+        ) : item.workItemIconUrl ? (
+          <Box
+            component="img"
+            src={getIconUrlWithThemeColorValue(item.workItemIconUrl, iconColor)}
+            alt={item.workItemType ?? ''}
+            sx={{ width: 14, height: 14, display: 'inline-block', verticalAlign: 'text-bottom', mr: 0.5 }}
+          />
+        ) : null}
+        <Box component="span" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>
+          {model.displayId}
+        </Box>
+        <Box component="span">{model.titleText}</Box>
+      </Typography>
+    </Box>
+  )
+}
+
+/** Tags, PRs, next step, and the meta row of the regular card. */
+function CardSections({ item, model, accent }: CardPartProps) {
+  const showMeta = model.showStateBadge
+    || model.showSprint
+    || model.showRollover
+    || Boolean(model.changeBadgeText)
+    || Boolean(model.agingDots)
+
+  return (
+    <>
+      {model.tags.length > 0 ? <WorkItemTags tags={model.tags} /> : null}
+
+      {model.pullRequestOnly ? (
+        <Box sx={{ clear: 'both', mt: 0.75 }}>
+          <DevelopmentPullRequestRow pullRequest={model.pullRequestOnly} showHeading={false} />
+        </Box>
+      ) : model.linkedPullRequests.length > 0 ? (
+        <Box
+          sx={{
+            clear: 'both',
+            mt: 1,
+            pt: 1,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            display: 'grid',
+            gap: 1,
+          }}
+        >
+          {model.linkedPullRequests.map((pullRequest) => (
+            <DevelopmentPullRequestRow key={pullRequest.id} pullRequest={pullRequest} showRepository={model.spansRepositories} />
+          ))}
+        </Box>
+      ) : null}
+
+      {model.cardStep ? (
+        <Box sx={{ clear: 'both' }}>
+          <DevelopmentCardStep step={model.cardStep} />
+        </Box>
+      ) : null}
+
+      {showMeta ? (
+        <Box sx={{ clear: 'both', display: 'flex', alignItems: 'center', gap: 1.5, mt: 1, minWidth: 0, minHeight: 16 }}>
+          {model.showStateBadge && item.state ? <StateBadge state={item.state} /> : null}
+          {model.changeBadgeText ? <ChangeBadge text={model.changeBadgeText} /> : null}
+          <Box sx={{ flex: '1 1 auto' }} />
+          {model.agingDots ? <AgingDots dots={model.agingDots} /> : null}
+          {model.showRollover ? <RolloverSprintIndicator color={accent} /> : null}
+          {model.showSprint ? (
+            <Typography
+              variant="body-sm"
+              title={item.sprintName}
+              sx={{ fontSize: 10, lineHeight: 1.1, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+            >
+              {item.sprintName}
+            </Typography>
+          ) : null}
+        </Box>
+      ) : null}
+    </>
+  )
+}
+
+/** The full card, plus the facts a compact card leaves out, shown while a compact card is hovered or focused. */
+function DevelopmentCardHoverCard({
+  item,
+  model,
+  accent,
+  iconColor,
+  changeDetail,
+}: CardPartProps & { iconColor: string; changeDetail?: CardChangeDetail }) {
+  return (
+    <Box
+      data-development-card-hover=""
+      sx={{
+        position: 'relative',
+        width: HOVER_CARD_WIDTH,
+        maxWidth: 'calc(100vw - 16px)',
+        boxSizing: 'border-box',
+        py: 2,
+        pr: 2.5,
+        pl: 3,
+        bgcolor: 'background.paper',
+        color: 'text.primary',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        boxShadow: `inset 3px 0 0 ${accent}, var(--stratakit-shadow-surface-lg)`,
+        textAlign: 'start',
+        hyphens: 'manual',
+        overflowWrap: 'normal',
+      }}
+    >
+      <CardTitle item={item} model={model} iconColor={iconColor} />
+      <CardSections item={item} model={model} accent={accent} />
+      <DevelopmentCardDetails item={item} model={model} changeDetail={changeDetail} />
+    </Box>
+  )
 }
 
 /**
@@ -49,55 +255,35 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   currentIterationName = null,
   rowMember = null,
   showRolloverIndicator = false,
+  compact = false,
 }: DevelopmentCardProps) {
   const theme = useTheme()
   const accent = theme.palette[getStatusPaletteKey(item.status)].main
-  const isNew = highlightState === 'new'
-  // Done cards are expected to sit still, so only they fade; in-flight cards show aging dots instead.
-  const isFaded = highlightState === 'stale' && item.status === 'Done'
-
-  const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
-  const linkedPullRequests = pullRequestOnly ? [] : (item.activePullRequests ?? [])
-  const spansRepositories = new Set(linkedPullRequests.map((pullRequest) => pullRequest.repositoryName)).size > 1
-  const cardStep = getCardNextStep(item, rowMember)
-  // A blocked card's step line already carries the reason from its blocked tag.
-  const hiddenTag = item.status === 'Blocked' && cardStep ? findBlockedTag(item.tags) : undefined
-  const sortedTags = (item.tags ?? [])
-    .filter((tag) => tag !== hiddenTag)
-    .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
-
-  const showEffort = !pullRequestOnly && typeof item.effort === 'number'
-  const showStateBadge = !pullRequestOnly && !isDefaultColumnState(item.status, item.state) && !cardStep?.coversState
-  const showSprint = !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName)
-  const showRollover = !pullRequestOnly && showRolloverIndicator
-  const changeBadgeText = isNew ? getChangeBadgeText(changeDetail) : null
-  const agingDots = getAgingDots(item.status, changeDetail)
-  const showMeta = showStateBadge || showSprint || showRollover || Boolean(changeBadgeText) || Boolean(agingDots)
+  const iconColor = theme.palette.text.secondary
+  const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator })
 
   const leadingEdge = `inset 3px 0 0 ${accent}`
   const restingShadow = `${leadingEdge}, var(--stratakit-shadow-surface-xs)`
   const raisedSx = {
     zIndex: 2,
-    transform: 'translateY(-1px)',
+    // A compact card opens its hover card rather than lifting.
+    transform: compact ? 'none' : 'translateY(-1px)',
     boxShadow: `${leadingEdge}, var(--stratakit-shadow-surface-md)`,
     opacity: 1,
     filter: 'none',
   }
 
-  const titleUrl = pullRequestOnly ? pullRequestOnly.url : item.workItemUrl
-  const titleText = pullRequestOnly ? pullRequestOnly.title : item.title
-  const displayId = pullRequestOnly ? pullRequestOnly.id : item.id
-
-  return (
+  const card = (
     <Card
       elevation={0}
       data-development-card=""
+      data-compact={compact ? '' : undefined}
       sx={{
         containerType: 'inline-size',
         position: 'relative',
         width: '100%',
         minWidth: 0,
-        py: 1.25,
+        py: compact ? 1 : 1.25,
         pr: 1.75,
         pl: 2.5,
         border: '1px solid',
@@ -107,14 +293,14 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         overflow: 'visible',
         zIndex: 0,
         boxShadow: restingShadow,
-        opacity: isFaded ? 0.68 : 1,
-        filter: isFaded ? 'saturate(0.78)' : 'none',
+        opacity: model.isFaded ? 0.68 : 1,
+        filter: model.isFaded ? 'saturate(0.78)' : 'none',
         transition: 'transform 160ms ease, box-shadow 160ms ease, opacity 120ms ease, filter 120ms ease',
         '&:hover': raisedSx,
         '&:focus-within': raisedSx,
       }}
     >
-      {isNew ? (
+      {model.isNew ? (
         <Box
           component="span"
           data-change-dot=""
@@ -130,148 +316,30 @@ export const DevelopmentCard = memo(function DevelopmentCard({
             pointerEvents: 'none',
           }}
         >
-          {changeBadgeText ? null : <Box component="span" sx={visuallyHiddenSx}>Recently changed</Box>}
+          {model.changeBadgeText ? null : <Box component="span" sx={visuallyHiddenSx}>Recently changed</Box>}
         </Box>
       ) : null}
-      <Box
-        component="a"
-        href={titleUrl}
-        target="_blank"
-        rel="noreferrer noopener"
-        title={titleText}
-        sx={{
-          display: 'block',
-          minWidth: 0,
-          color: 'text.primary',
-          textDecoration: 'none',
-          '&:hover': { textDecoration: 'underline' },
-        }}
-      >
-        <Typography
-          variant="body-sm"
-          sx={{
-            lineHeight: 1.25,
-            display: '-webkit-box',
-            WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: 2,
-            overflow: 'hidden',
-            wordBreak: 'break-word',
-          }}
-        >
-          {showEffort ? (
-            <Box
-              component="span"
-              sx={{
-                float: 'right',
-                ml: 1.5,
-                mb: 0.25,
-                minWidth: 20,
-                height: 18,
-                px: 1.25,
-                borderRadius: 999,
-                border: '1px solid var(--stratakit-color-border-neutral-muted)',
-                color: 'text.secondary',
-                fontSize: 11,
-                fontWeight: 600,
-                lineHeight: '16px',
-                textAlign: 'center',
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              <Box component="span" sx={visuallyHiddenSx}>Effort </Box>
-              {item.effort}
-            </Box>
-          ) : null}
-          {pullRequestOnly ? (
-            <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', mr: 0.5, color: TERTIARY_TEXT_COLOR }}>
-              <Icon href={svgGitBranch} />
-            </Box>
-          ) : item.workItemIconUrl ? (
-            <Box
-              component="img"
-              src={getIconUrlWithThemeColorValue(item.workItemIconUrl, theme.palette.text.secondary)}
-              alt={item.workItemType ?? ''}
-              sx={{ width: 14, height: 14, display: 'inline-block', verticalAlign: 'text-bottom', mr: 0.5 }}
-            />
-          ) : null}
-          <Box component="span" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>
-            {displayId}
-          </Box>
-          <Box component="span">{titleText}</Box>
-        </Typography>
-      </Box>
-
-      {sortedTags.length > 0 ? <WorkItemTags tags={sortedTags} /> : null}
-
-      {pullRequestOnly ? (
-        <Box sx={{ clear: 'both', mt: 0.75 }}>
-          <DevelopmentPullRequestRow pullRequest={pullRequestOnly} showHeading={false} />
-        </Box>
-      ) : linkedPullRequests.length > 0 ? (
-        <Box
-          sx={{
-            clear: 'both',
-            mt: 1,
-            pt: 1,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            display: 'grid',
-            gap: 1,
-          }}
-        >
-          {linkedPullRequests.map((pullRequest) => (
-            <DevelopmentPullRequestRow key={pullRequest.id} pullRequest={pullRequest} showRepository={spansRepositories} />
-          ))}
-        </Box>
-      ) : null}
-
-      {cardStep ? (
-        <Box sx={{ clear: 'both' }}>
-          <DevelopmentCardStep step={cardStep} />
-        </Box>
-      ) : null}
-
-      {showMeta ? (
-        <Box sx={{ clear: 'both', display: 'flex', alignItems: 'center', gap: 1.5, mt: 1, minWidth: 0, minHeight: 16 }}>
-          {showStateBadge && item.state ? (
-            <Badge
-              variant="inline"
-              type="outlined"
-              size="small"
-              color={getStateBadgeColor(item.state)}
-              max={Infinity}
-              badgeContent={item.state}
-              title={`State: ${item.state}`}
-              sx={{ minWidth: 0, maxWidth: '100%', '& .MuiBadge-badge': { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' } }}
-            />
-          ) : null}
-          {changeBadgeText ? (
-            <Badge
-              variant="inline"
-              type="outlined"
-              size="small"
-              color="info"
-              max={Infinity}
-              badgeContent={changeBadgeText}
-              title={`Latest change: ${changeBadgeText}`}
-              data-change-reason=""
-              sx={{ minWidth: 0, flex: '0 1 auto', '& .MuiBadge-badge': { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' } }}
-            />
-          ) : null}
-          <Box sx={{ flex: '1 1 auto' }} />
-          {agingDots ? <AgingDots dots={agingDots} /> : null}
-          {showRollover ? <RolloverSprintIndicator color={accent} /> : null}
-          {showSprint ? (
-            <Typography
-              variant="body-sm"
-              title={item.sprintName}
-              sx={{ fontSize: 10, lineHeight: 1.1, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
-            >
-              {item.sprintName}
-            </Typography>
-          ) : null}
-        </Box>
-      ) : null}
+      <CardTitle item={item} model={model} iconColor={iconColor} lines={compact ? 1 : 2} showTitleTooltip={!compact} />
+      {compact
+        ? <DevelopmentCardCompactLine item={item} model={model} accent={accent} />
+        : <CardSections item={item} model={model} accent={accent} />}
     </Card>
+  )
+
+  if (!compact) {
+    return card
+  }
+
+  return (
+    <Tooltip
+      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} iconColor={iconColor} changeDetail={changeDetail} />}
+      placement="right-start"
+      enterDelay={400}
+      enterNextDelay={150}
+      leaveDelay={100}
+      slotProps={{ tooltip: hoverCardTooltipProps }}
+    >
+      {card}
+    </Tooltip>
   )
 })

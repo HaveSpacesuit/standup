@@ -25,6 +25,7 @@ after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { DevelopmentCard } = await server.ssrLoadModule('/src/features/standup/components/DevelopmentCard.tsx')
 const display = await server.ssrLoadModule('/src/features/standup/components/developmentCardDisplay.ts')
+const { DevelopmentCardDetails } = await server.ssrLoadModule('/src/features/standup/components/DevelopmentCardDetails.tsx')
 
 function render(props: Record<string, unknown>) {
   return renderToStaticMarkup(createElement(Root, null, createElement(DevelopmentCard, props)))
@@ -482,4 +483,159 @@ test('PR rows no longer show their own age', () => {
     currentIterationName: 'Sprint 42',
   }))
   assert.doesNotMatch(text, /\b3d\b/)
+})
+
+const modelOf = (item: Record<string, unknown>, overrides: Record<string, unknown> = {}) => display.getDevelopmentCardModel({
+  item,
+  highlightState: 'none',
+  currentIterationName: 'Sprint 42',
+  rowMember: null,
+  showRolloverIndicator: false,
+  ...overrides,
+})
+
+test('closed PRs are labelled by how they closed, and open PRs by their next step', () => {
+  assert.equal(display.getClosedPullRequestLabel({ status: ' COMPLETED ' }), 'Completed')
+  assert.equal(display.getClosedPullRequestLabel({ status: 'abandoned' }), 'Abandoned')
+  assert.equal(display.getClosedPullRequestLabel({ status: 'active' }), '')
+  assert.equal(display.getClosedPullRequestLabel({}), '')
+  assert.equal(display.getPullRequestStatusText(pr()), 'Needs 2 approvals')
+  assert.equal(display.getPullRequestStatusText(pr({ status: 'completed' })), 'Completed')
+})
+
+test('last change text spells out when a card last changed', () => {
+  const now = Date.parse('2026-10-20T12:00:00Z')
+  const hoursAgo = (hours: number) => new Date(now - hours * 60 * 60 * 1000).toISOString()
+
+  assert.equal(display.getLastChangeText({ reason: 'Moved to Review', changedAt: hoursAgo(72), idleDays: 3, agingLevel: 2 }, now), 'Moved to Review · 3 days ago')
+  assert.equal(display.getLastChangeText({ idleDays: 1, agingLevel: 0 }, now), '1 day ago')
+  assert.equal(display.getLastChangeText({ reason: 'Reassigned', changedAt: hoursAgo(3), idleDays: 0, agingLevel: 0 }, now), 'Reassigned · 3h ago')
+  assert.equal(display.getLastChangeText({ changedAt: hoursAgo(0.2), idleDays: 0, agingLevel: 0 }, now), 'Just now')
+  assert.equal(display.getLastChangeText({ idleDays: 0, agingLevel: 0 }, now), 'Today')
+  assert.equal(display.getLastChangeText(undefined, now), null)
+})
+
+test('the card model hides the folded blocked tag, sorts tags, and uses the PR for PR-only cards', () => {
+  const blocked = modelOf({ ...baseItem, status: 'Blocked', tags: ['web', 'Blocked - waiting on IMS', 'Customer'] })
+  assert.deepEqual(blocked.tags, ['Customer', 'web'])
+  assert.equal(blocked.cardStep.text, 'Blocked · waiting on IMS')
+  assert.equal(blocked.titleText, baseItem.title)
+  assert.equal(blocked.showEffort, true)
+
+  const pullRequest = pr({ id: 77, title: 'Bump dependencies' })
+  const prOnly = modelOf({ id: 5, kind: 'pull-request', title: 'Unlinked', status: 'Review', pullRequest }, { showRolloverIndicator: true })
+  assert.equal(prOnly.pullRequestOnly, pullRequest)
+  assert.deepEqual(prOnly.linkedPullRequests, [])
+  assert.equal(prOnly.titleText, 'Bump dependencies')
+  assert.equal(prOnly.displayId, 77)
+  assert.equal(prOnly.showEffort, false)
+  assert.equal(prOnly.showRollover, false)
+})
+
+test('a compact card uses its own step, or else the most urgent step among its open PRs', () => {
+  const failingChecks = { state: 'failing', checks: [{ name: 'Build', state: 'failing', optional: false, expired: false, source: 'policy' }] }
+  const step = (item: Record<string, unknown>) => display.getCompactCardStep(modelOf(item))?.text ?? null
+
+  assert.equal(step(baseItem), null)
+  assert.equal(step({ ...baseItem, status: 'Blocked', activePullRequests: [pr({ checks: failingChecks })] }), 'Blocked · no reason given')
+  assert.equal(step({
+    ...baseItem,
+    activePullRequests: [pr({ id: 1, approvalCount: 2 }), pr({ id: 2, checks: failingChecks }), pr({ id: 3, reviewState: 'waiting-for-author' })],
+  }), 'Fix failing check: Build')
+  assert.equal(step({ ...baseItem, activePullRequests: [pr({ approvalCount: 2 }), pr({ reviewState: 'waiting-for-author' })] }), 'Respond to review feedback')
+  assert.equal(step({ ...baseItem, activePullRequests: [pr({ status: 'completed' })] }), null)
+  assert.equal(step({ id: 5, kind: 'pull-request', title: 'PR', status: 'Review', pullRequest: pr() }), 'Needs 2 approvals')
+})
+
+test('a compact card keeps its title to one line and folds its details into one status line', () => {
+  const html = render({
+    item: {
+      ...baseItem,
+      tags: ['Customer'],
+      sprintName: 'Sprint 41',
+      activePullRequests: [
+        pr({
+          id: 912,
+          title: 'Folder rename API',
+          checks: { state: 'failing', checks: [{ name: 'Unit tests', state: 'failing', optional: false, expired: false, source: 'policy' }] },
+        }),
+      ],
+    },
+    currentIterationName: 'Sprint 42',
+    compact: true,
+  })
+  const text = textOf(html)
+
+  assert.match(html, /data-compact=""/)
+  assert.match(html, /data-compact-line/)
+  assert.match(html, /-webkit-line-clamp:1/)
+  assert.doesNotMatch(html, /title="Add folder rename to the web client"/, 'the hover card replaces the native title tooltip')
+  assert.doesNotMatch(text, /Customer/, 'tags wait for the hover card')
+  assert.match(html, /data-compact-pr="912"[^>]*aria-label="PR 912: Folder rename API\. Fix failing check: Unit tests"|aria-label="PR 912: Folder rename API\. Fix failing check: Unit tests"[^>]*data-compact-pr="912"/)
+  assert.match(text, /Fix failing check: Unit tests/)
+  assert.match(text, /Effort 5/)
+  assert.match(text, /Sprint 41/)
+  assert.doesNotMatch(html, /data-development-card-hover/, 'the hover card renders only while open')
+})
+
+test('a compact card shows who has handed-off work and what changed', () => {
+  const changedAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+  const html = render({
+    item: { ...baseItem, status: 'Review', state: 'Available for Testing', assignedTo: { displayName: 'Quinn Tester', uniqueName: 'quinn@example.test' } },
+    rowMember: { displayName: 'Alex Example', uniqueName: 'alex@example.test' },
+    highlightState: 'new',
+    changeDetail: { reason: 'Moved to Available for Testing', changedAt, idleDays: 0, agingLevel: 0 },
+    currentIterationName: 'Sprint 42',
+    compact: true,
+  })
+  const text = textOf(html)
+
+  assert.match(text, /In testing/)
+  assert.match(text, /Assigned to Quinn Tester/)
+  assert.match(text, /Latest change: Moved to Available for Testing · 3h/)
+  assert.match(html, /data-change-dot/)
+  assert.doesNotMatch(text, /Recently changed/, 'the change text already announces the change')
+})
+
+test('the regular card is unaffected by the compact layout', () => {
+  const html = render({ item: { ...baseItem, tags: ['Customer'] }, currentIterationName: 'Sprint 42' })
+  assert.doesNotMatch(html, /data-compact/)
+  assert.match(html, /-webkit-line-clamp:2/)
+  assert.match(html, /title="Add folder rename to the web client"/)
+  assert.match(textOf(html), /Customer/)
+})
+
+test('hover card details list the facts a compact card leaves out', () => {
+  const item = {
+    ...baseItem,
+    sprintName: 'Sprint 41',
+    assignedTo: { displayName: 'Alex Example', uniqueName: 'alex@example.test' },
+    activePullRequests: [
+      pr({ id: 912, title: 'Folder rename API', repositoryName: 'pw-web' }),
+      pr({ id: 913, title: 'Folder rename UI', repositoryName: 'pw-api', status: 'abandoned' }),
+    ],
+  }
+  const html = renderToStaticMarkup(createElement(Root, null, createElement(DevelopmentCardDetails, {
+    item,
+    model: modelOf(item, { showRolloverIndicator: true }),
+    changeDetail: { reason: 'Moved to In Progress', idleDays: 2, agingLevel: 1 },
+  })))
+  const text = textOf(html)
+
+  assert.match(html, /<dl[^>]*data-card-details/)
+  assert.match(text, /StateIn Progress/)
+  assert.match(text, /SprintSprint 41 \(rolled over\)/)
+  assert.match(text, /Assigned toAAlex Example/)
+  assert.match(text, /Last changeMoved to In Progress · 2 days ago/)
+  assert.match(text, /PR 912Folder rename APIpw-web · Required checks passing/)
+  assert.match(text, /PR 913Folder rename UIpw-api · Abandoned/)
+
+  const pullRequestOnly = { id: 5, kind: 'pull-request', title: 'PR', status: 'Review', assignedTo: { displayName: 'Sam Developer' }, pullRequest: pr({ id: 77 }) }
+  const prText = textOf(renderToStaticMarkup(createElement(Root, null, createElement(DevelopmentCardDetails, {
+    item: pullRequestOnly,
+    model: modelOf(pullRequestOnly),
+  }))))
+  assert.match(prText, /AuthorSSam Developer/)
+  assert.match(prText, /ChecksRequired checks passing/)
+  assert.doesNotMatch(prText, /State|Assigned to|Last change/)
 })

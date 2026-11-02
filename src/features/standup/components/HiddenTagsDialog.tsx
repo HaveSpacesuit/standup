@@ -53,6 +53,8 @@ type HiddenTagsDialogProps = {
   onHideUsersWithNoActivityChange?: (next: boolean) => void
   hideUsersWithOnlyStaleDoneWork?: boolean
   onHideUsersWithOnlyStaleDoneWorkChange?: (next: boolean) => void
+  compactCards?: boolean
+  onCompactCardsChange?: (next: boolean) => void
   teamIterations?: TeamIterationOption[]
   teamIterationsLoading?: boolean
   title?: string
@@ -64,6 +66,7 @@ const DEFAULT_TAG_RULE_ACTION_OPTIONS: TagRuleAction[] = ['Blocked', 'New', 'Act
 
 // Lets assistive technology announce why the stale-done option can be unavailable.
 const STALE_DONE_HELP_ID = 'hide-users-stale-done-help'
+const COMPACT_CARDS_HELP_ID = 'compact-cards-help'
 
 type RelativeSprintKey = 'current' | 'next' | 'nextNext'
 
@@ -109,6 +112,8 @@ export function HiddenTagsDialog({
   onHideUsersWithNoActivityChange,
   hideUsersWithOnlyStaleDoneWork = false,
   onHideUsersWithOnlyStaleDoneWorkChange,
+  compactCards = false,
+  onCompactCardsChange,
   teamIterations = [],
   teamIterationsLoading = false,
   title = 'Development options',
@@ -117,7 +122,7 @@ export function HiddenTagsDialog({
 }: HiddenTagsDialogProps) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
   const orderedRules = useMemo(() => tagRules, [tagRules])
-  const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness' | 'members'>('work-item-types')
+  const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness' | 'display' | 'members'>('work-item-types')
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
   const relativeSprintLabels = useMemo(() => ({
     current: resolveRelativeSprintName(teamIterations, 0),
@@ -215,6 +220,7 @@ export function HiddenTagsDialog({
             <Tab label="Sprints" value="sprints" />
             <Tab label="Tag rules" value="tag-rules" />
             <Tab label="Freshness" value="freshness" />
+            <Tab label="Display" value="display" />
             <Tab label="Members" value="members" />
           </Tabs>
 
@@ -577,6 +583,27 @@ export function HiddenTagsDialog({
                   sx={{ maxWidth: 220 }}
                 />
               </Box>
+            ) : null}
+
+            {activeTab === 'display' ? (
+              <>
+                <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  Display
+                </Typography>
+                <Typography id={COMPACT_CARDS_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Show each card as its title and a single status line so more of the team fits on screen. Hover over or focus a card to see all of its details.
+                </Typography>
+                <FormControlLabel
+                  label="Compact cards"
+                  control={(
+                    <Checkbox
+                      checked={compactCards}
+                      onChange={(_, checked) => onCompactCardsChange?.(checked)}
+                      slotProps={{ input: { 'aria-describedby': COMPACT_CARDS_HELP_ID } }}
+                    />
+                  )}
+                />
+              </>
             ) : null}
           </Box>
         </Box>

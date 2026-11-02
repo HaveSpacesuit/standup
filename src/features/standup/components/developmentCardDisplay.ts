@@ -12,6 +12,7 @@ import { toIdentityKeys, type IdentityRef } from '../../../ado/identity'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
+import type { WorkItemCardHighlightState } from './WorkItemCard'
 
 export const REQUIRED_APPROVALS = 2
 export const TERTIARY_TEXT_COLOR = 'var(--stratakit-color-text-neutral-tertiary)'
@@ -381,4 +382,126 @@ export function getChangeBadgeText(detail: CardChangeDetail | undefined, now = D
     return detail.reason
   }
   return `${detail.reason} · ${age === 'now' ? 'just now' : age}`
+}
+
+/** "Completed" or "Abandoned" for a closed PR; empty while it is open. */
+export function getClosedPullRequestLabel(pullRequest: Pick<WorkItemPullRequestSummary, 'status'>): string {
+  if (!isPullRequestClosed(pullRequest) || !pullRequest.status) {
+    return ''
+  }
+
+  const status = pullRequest.status.trim().toLowerCase()
+  return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+/** Where a PR stands in one phrase: its next step while open, or how it closed. */
+export function getPullRequestStatusText(pullRequest: WorkItemPullRequestSummary): string {
+  return getPullRequestNextStep(pullRequest)?.text ?? getClosedPullRequestLabel(pullRequest)
+}
+
+const TONE_URGENCY: Record<CardTone, number> = { critical: 0, attention: 1, neutral: 2, positive: 3 }
+
+/** The compact card's one step: the card's own step, else the most urgent next step of its open PRs. */
+export function getCompactCardStep(
+  model: Pick<DevelopmentCardModel, 'cardStep' | 'pullRequestOnly' | 'linkedPullRequests'>,
+): NextStep | null {
+  if (model.cardStep) {
+    return model.cardStep
+  }
+
+  let urgent: NextStep | null = null
+  for (const pullRequest of model.pullRequestOnly ? [model.pullRequestOnly] : model.linkedPullRequests) {
+    const step = getPullRequestNextStep(pullRequest)
+    if (step && (!urgent || TONE_URGENCY[step.tone] < TONE_URGENCY[urgent.tone])) {
+      urgent = step
+    }
+  }
+
+  return urgent
+}
+
+/** "Moved to Review · 3 days ago" for a card's hover details; null when its history is unknown. */
+export function getLastChangeText(detail: CardChangeDetail | undefined, now = Date.now()): string | null {
+  if (!detail) {
+    return null
+  }
+
+  let when: string
+  if (detail.idleDays >= 1) {
+    when = detail.idleDays === 1 ? '1 day ago' : `${detail.idleDays} days ago`
+  } else {
+    const age = formatShortAge(detail.changedAt, now)
+    when = !age ? 'today' : age === 'now' ? 'just now' : `${age} ago`
+  }
+
+  return detail.reason ? `${detail.reason} · ${when}` : when.charAt(0).toUpperCase() + when.slice(1)
+}
+
+export type DevelopmentCardModelInput = {
+  item: WorkItemSummary
+  highlightState: WorkItemCardHighlightState
+  changeDetail?: CardChangeDetail
+  currentIterationName: string | null
+  rowMember: IdentityRef | null
+  showRolloverIndicator: boolean
+}
+
+/** What a Development card shows, shared by its regular, compact, and hover-card layouts. */
+export type DevelopmentCardModel = {
+  /** Set when the card is a pull request with no linked work item. */
+  pullRequestOnly?: WorkItemPullRequestSummary
+  /** PRs linked to the work item; empty for PR-only cards. */
+  linkedPullRequests: WorkItemPullRequestSummary[]
+  spansRepositories: boolean
+  cardStep: NextStep | null
+  tags: string[]
+  isNew: boolean
+  isFaded: boolean
+  showEffort: boolean
+  showStateBadge: boolean
+  showSprint: boolean
+  showRollover: boolean
+  changeBadgeText: string | null
+  agingDots: AgingDots | null
+  titleUrl?: string
+  titleText: string
+  displayId: number
+}
+
+export function getDevelopmentCardModel({
+  item,
+  highlightState,
+  changeDetail,
+  currentIterationName,
+  rowMember,
+  showRolloverIndicator,
+}: DevelopmentCardModelInput): DevelopmentCardModel {
+  const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
+  const linkedPullRequests = pullRequestOnly ? [] : (item.activePullRequests ?? [])
+  const cardStep = getCardNextStep(item, rowMember)
+  // A blocked card's step line already carries the reason from its blocked tag.
+  const hiddenTag = item.status === 'Blocked' && cardStep ? findBlockedTag(item.tags) : undefined
+  const isNew = highlightState === 'new'
+
+  return {
+    pullRequestOnly,
+    linkedPullRequests,
+    spansRepositories: new Set(linkedPullRequests.map((pullRequest) => pullRequest.repositoryName)).size > 1,
+    cardStep,
+    tags: (item.tags ?? [])
+      .filter((tag) => tag !== hiddenTag)
+      .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
+    isNew,
+    // Done cards are expected to sit still, so only they fade; in-flight cards show aging dots instead.
+    isFaded: highlightState === 'stale' && item.status === 'Done',
+    showEffort: !pullRequestOnly && typeof item.effort === 'number',
+    showStateBadge: !pullRequestOnly && !isDefaultColumnState(item.status, item.state) && !cardStep?.coversState,
+    showSprint: !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName),
+    showRollover: !pullRequestOnly && showRolloverIndicator,
+    changeBadgeText: isNew ? getChangeBadgeText(changeDetail) : null,
+    agingDots: getAgingDots(item.status, changeDetail),
+    titleUrl: pullRequestOnly ? pullRequestOnly.url : item.workItemUrl,
+    titleText: pullRequestOnly ? pullRequestOnly.title : item.title,
+    displayId: pullRequestOnly ? pullRequestOnly.id : item.id,
+  }
 }

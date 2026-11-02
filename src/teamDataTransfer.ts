@@ -201,6 +201,7 @@ function parseAssignmentOptions(value: unknown): AssignmentOptions {
       DEFAULT_ASSIGNMENT_SPRINT_FILTER,
       'Imported assignment options sprintFilter is invalid.',
     ),
+    compactCards: value.compactCards === true,
   }
 }
 
