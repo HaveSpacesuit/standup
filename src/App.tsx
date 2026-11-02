@@ -239,6 +239,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onHideUsersWithNoActivityChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, hideUsersWithNoActivity: next }),
           hideUsersWithOnlyStaleDoneWork: assignmentOptions.hideUsersWithOnlyStaleDoneWork,
           onHideUsersWithOnlyStaleDoneWorkChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, hideUsersWithOnlyStaleDoneWork: next }),
+          compactCards: assignmentOptions.compactCards,
+          onCompactCardsChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, compactCards: next }),
           teamIterations,
           teamIterationsLoading,
           teamIterationsError,

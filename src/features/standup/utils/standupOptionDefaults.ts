@@ -20,5 +20,6 @@ export function createDefaultAssignmentOptions(): AssignmentOptions {
     hideUsersWithOnlyStaleDoneWork: false,
     includeWorkItemTypes: [],
     sprintFilter: { ...DEFAULT_ASSIGNMENT_SPRINT_FILTER },
+    compactCards: false,
   }
 }

@@ -57,6 +57,14 @@ row stays visible. Column counts and effort totals still include the hidden rows
 every row ends up hidden the board says so. The setting is saved per team in browser local storage
 and does not change the sprint view.
 
+Development options > Display includes "Compact cards" (off by default). Each card then shows its
+title on one line and a single status line: the state when the column does not imply it, each PR's
+progress, the next step and who it is waiting on, what recently changed, and aging dots and the
+sprint on the right. Hover over or focus a card to see the full card along with its state, sprint,
+owner, last change, and each PR's title, repository, and checks. The setting is saved per team in
+browser local storage, is included in team exports, and does not change the QA board or the sprint
+view.
+
 Hover or focus the Days remaining tag for a current-sprint effort forecast. It splits effort into
 three exclusive buckets, so nothing is counted twice: Not started (Blocked + New), In progress
 (Active + Review), and Complete (Done). A stacked bar above each column shows the split at a glance:

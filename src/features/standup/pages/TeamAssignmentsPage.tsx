@@ -72,6 +72,8 @@ type TeamAssignmentsPageProps = {
   onHideUsersWithNoActivityChange: (next: boolean) => void
   hideUsersWithOnlyStaleDoneWork: boolean
   onHideUsersWithOnlyStaleDoneWorkChange: (next: boolean) => void
+  compactCards?: boolean
+  onCompactCardsChange?: (next: boolean) => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
   teamIterationsError: string | null
@@ -129,6 +131,8 @@ export function TeamAssignmentsPage({
   onHideUsersWithNoActivityChange,
   hideUsersWithOnlyStaleDoneWork,
   onHideUsersWithOnlyStaleDoneWorkChange,
+  compactCards = false,
+  onCompactCardsChange,
   teamIterations,
   teamIterationsLoading,
   teamIterationsError,
@@ -232,6 +236,7 @@ export function TeamAssignmentsPage({
                 currentIterationName={currentIterationName}
                 changeHighlightsByItemId={changeHighlightsByItemId}
                 changeDetailsByItemId={changeDetailsByItemId}
+                compactCards={compactCards}
                 rolledOverItemIds={rolledOverItemIds}
                 workItemAssignees={workItemAssignees}
               />
@@ -271,6 +276,8 @@ export function TeamAssignmentsPage({
             onHideUsersWithNoActivityChange={onHideUsersWithNoActivityChange}
             hideUsersWithOnlyStaleDoneWork={hideUsersWithOnlyStaleDoneWork}
             onHideUsersWithOnlyStaleDoneWorkChange={onHideUsersWithOnlyStaleDoneWorkChange}
+            compactCards={compactCards}
+            onCompactCardsChange={onCompactCardsChange}
             teamIterations={teamIterations}
             teamIterationsLoading={teamIterationsLoading}
           />

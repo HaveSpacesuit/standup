@@ -33,6 +33,7 @@ type KanbanBoardProps = {
   currentIterationName: string | null
   changeHighlightsByItemId: Record<number, ChangeHighlightState>
   changeDetailsByItemId?: Record<number, CardChangeDetail>
+  compactCards?: boolean
   rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
 }
@@ -52,6 +53,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   currentIterationName,
   changeHighlightsByItemId,
   changeDetailsByItemId,
+  compactCards = false,
   rolledOverItemIds,
   workItemAssignees,
 }: KanbanBoardProps) {
@@ -228,6 +230,7 @@ export const KanbanBoard = memo(function KanbanBoard({
         onSetCellExpanded={setCellExpanded}
         changeHighlightsByItemId={changeHighlightsByItemId}
         changeDetailsByItemId={changeDetailsByItemId}
+        compactCards={compactCards}
         rolledOverItemIds={rolledOverItemIds}
       />
     )

@@ -287,6 +287,13 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify column counts and effort totals still include cards from hidden rows, and that hiding
       every row shows an explanatory message instead of an empty board.
 - [ ] Verify both Members options persist per team across a reload and do not affect Sprint view.
+- [ ] In Development options > Display, verify "Compact cards" is off by default and, when checked,
+      each Development card shows a one-line title and one status line (state, PR progress, next step,
+      owner, recent change, aging dots, and sprint), while the QA board and Sprint view are unchanged.
+- [ ] With compact cards on, hover over and keyboard-focus a card and verify its details open beside
+      it (flipping near the window edge) with the full title, tags, PRs, next step, state, sprint,
+      owner, last change, and each PR's checks; verify Escape closes them and their links work.
+- [ ] Verify the compact cards setting persists per team across a reload and survives export/import.
 - [ ] Verify filter combinations use the intended AND/OR semantics and can be cleared.
 - [ ] Verify controls are disabled or explain why they are unavailable before PAT/team setup.
 

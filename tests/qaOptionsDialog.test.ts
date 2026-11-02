@@ -330,6 +330,90 @@ test('team exports preserve the stale done member setting and older imports defa
   assert.equal(parseImportedTeamData(JSON.stringify(legacy)).assignmentOptions.hideUsersWithOnlyStaleDoneWork, false)
 })
 
+test('Development options Display tab toggles compact cards and explains them', () => {
+  hooks.reset()
+  const changes: boolean[] = []
+  const props = {
+    open: true, tagRules: [], onChange: () => {}, onClose: () => {},
+    cardHighlightOptions: { freshDays: 1, staleDays: 7 }, onCardHighlightOptionsChange: () => {},
+    onCompactCardsChange: (next: boolean) => { changes.push(next) },
+  }
+  hooks.beginRender()
+  const tabs = find(HiddenTagsDialog(props), (node) => node.type === 'Tabs')!
+  assert.ok(find(tabs.props.children, (node) => node.type === 'Tab' && node.props.value === 'display'))
+  ;(tabs.props.onChange as (event: null, value: string) => void)(null, 'display')
+  function compactOption(overrides: Record<string, unknown> = {}) {
+    hooks.beginRender()
+    const label = find(HiddenTagsDialog({ ...props, ...overrides }), (node) => node.props.label === 'Compact cards')!
+    assert.ok(label)
+    return label.props.control as Element
+  }
+
+  let checkbox = compactOption()
+  assert.equal(checkbox.props.checked, false)
+  const describedBy = (checkbox.props.slotProps as { input: Record<string, unknown> }).input['aria-describedby']
+  hooks.beginRender()
+  const help = find(HiddenTagsDialog(props), (node) => node.props.id === describedBy)!
+  assert.ok(help)
+  assert.match(String(help.props.children), /Hover over or focus a card to see all of its details\.$/)
+  ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
+
+  checkbox = compactOption({ compactCards: true })
+  assert.equal(checkbox.props.checked, true)
+  ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, false)
+  assert.deepEqual(changes, [true, false])
+})
+
+test('Assignments compact card setting defaults false for missing and older settings', () => {
+  assert.equal(createDefaultAssignmentOptions().compactCards, false)
+  for (const raw of [null, '{}', '{bad', '{"hideUsersWithNoActivity":true}', '{"compactCards":"true"}']) {
+    assert.equal(parseStoredAssignmentOptions(raw).compactCards, false)
+  }
+  for (const compactCards of [true, false]) {
+    const options = { ...createDefaultAssignmentOptions(), compactCards }
+    assert.deepEqual(parseStoredAssignmentOptions(serializeAssignmentOptions(options)), options)
+  }
+})
+
+test('Assignments compact card setting is persisted per team and restored after reload', (t) => {
+  const profile = {
+    orgName: 'org', projectName: 'project', displayName: 'Team',
+    areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+  }
+  const storage = new Map([
+    ['standup:team-profiles', JSON.stringify([{ ...profile, id: 'one' }, { ...profile, id: 'two' }])],
+  ])
+  setupAppStorage(storage, t)
+  function useReloadAppState() {
+    hooks.reset()
+    hooks.beginRender()
+    return useStandupAppState()
+  }
+  let state = useReloadAppState()
+  assert.equal(state.assignmentOptionsByTeam.one.compactCards, false)
+  state.setAssignmentOptionsForTeam('one', { ...state.assignmentOptionsByTeam.one, compactCards: true })
+  assert.equal(JSON.parse(storage.get(assignmentOptionsStorageKey('one'))!).compactCards, true)
+  state = useReloadAppState()
+  assert.equal(state.assignmentOptionsByTeam.one.compactCards, true)
+  assert.equal(state.assignmentOptionsByTeam.two.compactCards, false)
+})
+
+test('team exports preserve the compact card setting and older imports default false', () => {
+  const data = buildTeamDataExport({
+    teamProfile: {
+      id: 'team', orgName: 'org', projectName: 'project', displayName: 'Team',
+      areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+    },
+    assignmentOptions: { ...createDefaultAssignmentOptions(), compactCards: true },
+    assignmentTagRules: [],
+    qaOptions: createDefaultQaOptions(),
+  })
+  assert.equal(parseImportedTeamData(serializeTeamDataExport(data)).assignmentOptions.compactCards, true)
+  const legacy = JSON.parse(serializeTeamDataExport(data))
+  delete legacy.assignmentOptions.compactCards
+  assert.equal(parseImportedTeamData(JSON.stringify(legacy)).assignmentOptions.compactCards, false)
+})
+
 test('QA selectors have purpose and column context in accessible names', () => {
   hooks.reset()
   const props = {

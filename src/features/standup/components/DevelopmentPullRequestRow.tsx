@@ -7,9 +7,9 @@ import { DevelopmentCardStep } from './DevelopmentCardStep'
 import { PullRequestProgressStrip } from './PullRequestProgressStrip'
 import {
   getApprovalSummary,
+  getClosedPullRequestLabel,
   getPullRequestNextStep,
   getToneColor,
-  isPullRequestClosed,
   TERTIARY_TEXT_COLOR,
 } from './developmentCardDisplay'
 
@@ -21,15 +21,10 @@ type DevelopmentPullRequestRowProps = {
   showRepository?: boolean
 }
 
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
 export function DevelopmentPullRequestRow({ pullRequest, showHeading = true, showRepository = false }: DevelopmentPullRequestRowProps) {
-  const closed = isPullRequestClosed(pullRequest)
   const step = getPullRequestNextStep(pullRequest)
   const approvals = getApprovalSummary(pullRequest)
-  const closedLabel = closed && pullRequest.status ? capitalize(pullRequest.status.trim().toLowerCase()) : ''
+  const closedLabel = getClosedPullRequestLabel(pullRequest)
   const repository = showRepository ? pullRequest.repositoryName : undefined
 
   return (

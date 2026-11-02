@@ -31,6 +31,7 @@ type KanbanBoardGridProps = {
   onSetCellExpanded: (cellKey: string, expanded: boolean) => void
   changeHighlightsByItemId: Record<number, WorkItemCardHighlightState>
   changeDetailsByItemId?: Record<number, CardChangeDetail>
+  compactCards?: boolean
   rolledOverItemIds: Record<number, boolean>
 }
 
@@ -47,6 +48,7 @@ export function KanbanBoardGrid({
   onSetCellExpanded,
   changeHighlightsByItemId,
   changeDetailsByItemId,
+  compactCards = false,
   rolledOverItemIds,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
@@ -287,6 +289,7 @@ export function KanbanBoardGrid({
                             currentIterationName={currentIterationName}
                             rowMember={row.memberIdentity}
                             showRolloverIndicator={rolledOverItemIds[item.id] === true}
+                            compact={compactCards}
                           />
                         ))}
                       </Box>
