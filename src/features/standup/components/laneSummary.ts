@@ -15,6 +15,18 @@ export type LaneSummary = {
 /** Lane heads show this many flags; the cards themselves carry the rest. */
 export const LANE_HEAD_FLAG_LIMIT = 2
 
+const PRESENTING_EDGE = 'var(--stratakit-color-border-accent-base)'
+
+/** Draws the speaking lane's outline one grid cell at a time, since a lane is a row of separate grid cells. */
+export function presentingFrameShadow({ left = false, right = false }: { left?: boolean; right?: boolean } = {}): string {
+  return [
+    `inset 0 2px 0 ${PRESENTING_EDGE}`,
+    `inset 0 -2px 0 ${PRESENTING_EDGE}`,
+    ...(left ? [`inset 2px 0 0 ${PRESENTING_EDGE}`] : []),
+    ...(right ? [`inset -2px 0 0 ${PRESENTING_EDGE}`] : []),
+  ].join(', ')
+}
+
 export function getLaneSummary(
   rowKey: string,
   cardsByCell: Record<string, readonly WorkItemSummary[]>,

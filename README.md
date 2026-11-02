@@ -86,6 +86,20 @@ collapse the lane to one line, where each column shows a pip per card, the card 
 per attention signal present; select the chevron or any of the lane's cells to expand it again.
 The Team member header collapses or expands every lane at once. Collapsed lanes are not saved.
 
+Start standup in the toolbar walks the team one person at a time. The speaker's lane is outlined,
+expanded with every card shown, and scrolled into view; every other lane collapses to one line. A
+Standup bar above the board shows a turn timer (amber after two minutes), the speaker with their
+place in line, and the speaking order as avatars, checked once someone has had their turn; select
+an avatar to jump to that person. Next (Ctrl+Down) moves on and becomes Finish for the last person,
+Previous (Ctrl+Up) goes back, and End stops at any point. Order is Alphabetical or Most attention
+first, which ranks people by their cards' signals (blocked counts most, then failing checks, idle
+3+ days, needs approval, and with QA or ready to complete; recently changed doesn't count).
+Changing the order starts again from the top. Only team members take a turn, not the Unassigned or
+Assignee unavailable lanes. The order is fixed when standup starts: people who appear on the board
+later join the end of the line, and people who drop off are skipped. Starting clears the member
+filter and switches to the people view; the member filter stays locked while standup runs, and
+switching to the sprint view or changing team ends it.
+
 Development options > Display includes "Compact cards" (off by default). It makes Blocked, Active,
 and Review cards compact too. Each compact card shows its
 title on one line and a single status line: the state when the column does not imply it, each PR's
@@ -291,6 +305,7 @@ Unreadable saved team profiles or QA options produce a recovery warning. Only re
 - hidden-tag filters persisted per team
 - board toggles for work-item types and sprint scope
 - keyboard shortcut: Ctrl/Cmd + F focuses the quick filter on Development, Quality Assurance, and Backlog
+- keyboard shortcut: Ctrl + Up/Down cycles the Development member filter, or moves between speakers during a standup
 - navigation between Development, Quality Assurance, Backlog, and Tests pages
 
 ### Pull request behavior

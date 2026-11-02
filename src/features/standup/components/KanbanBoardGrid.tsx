@@ -4,7 +4,7 @@ import { Icon } from '@stratakit/mui'
 import svgCheckmark from '@stratakit/icons/checkmark.svg'
 import svgCollapseRowsAll from '@stratakit/icons/collapse-rows-all.svg'
 import svgExpandRowsAll from '@stratakit/icons/expand-rows-all.svg'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
@@ -23,7 +23,7 @@ import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import { partitionHighlighted, type AttentionFacetKey } from './boardAttention'
 import { BoardLaneHead, CollapsedLaneSummary } from './BoardLane'
-import { getLaneSummary, type LaneSummary } from './laneSummary'
+import { getLaneSummary, presentingFrameShadow, type LaneSummary } from './laneSummary'
 
 const NO_SIGNALS: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>> = new Map()
 const NO_COLLAPSED_ROWS: ReadonlySet<string> = new Set()
@@ -60,6 +60,8 @@ type KanbanBoardGridProps = {
   /** Lanes can only be collapsed when these are provided. */
   onToggleRowCollapsed?: (rowKey: string) => void
   onSetAllRowsCollapsed?: (collapsed: boolean) => void
+  /** In standup, the speaker's lane shows every card and every other lane collapses. */
+  presentingRowKey?: string | null
 }
 
 export function KanbanBoardGrid({
@@ -81,8 +83,10 @@ export function KanbanBoardGrid({
   collapsedRowKeys = NO_COLLAPSED_ROWS,
   onToggleRowCollapsed,
   onSetAllRowsCollapsed,
+  presentingRowKey = null,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
+  const scrollerRef = useRef<HTMLDivElement>(null)
   const { gridTemplate, minWidth, blockedRail } = layout
   // Blocked is the only tinted column, and only while it holds cards.
   const blockedTint = `color-mix(in srgb, ${getStatusColumnColor('Blocked', theme.palette)} 8%, transparent)`
@@ -92,9 +96,24 @@ export function KanbanBoardGrid({
     [cardsByCell, rows, signalsByItemId],
   )
 
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    const lane = presentingRowKey && scroller
+      ? [...scroller.querySelectorAll<HTMLElement>('[data-lane]')].find((head) => head.dataset.lane === presentingRowKey)
+      : undefined
+    if (!scroller || !lane) {
+      return
+    }
+
+    const top = scroller.scrollTop + lane.getBoundingClientRect().top - scroller.getBoundingClientRect().top - BOARD_HEADER_HEIGHT
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    scroller.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? 'auto' : 'smooth' })
+  }, [presentingRowKey])
+
   return (
     <Box sx={{ height: '100%' }}>
       <Box
+        ref={scrollerRef}
         sx={{
           height: '100%',
           overflow: 'auto',
@@ -349,7 +368,8 @@ export function KanbanBoardGrid({
               }}
             >
               {rows.map((row) => {
-                const collapsed = collapsedRowKeys.has(row.key)
+                const presenting = row.key === presentingRowKey
+                const collapsed = presentingRowKey ? !presenting : collapsedRowKeys.has(row.key)
                 const toggleCollapsed = onToggleRowCollapsed ? () => onToggleRowCollapsed(row.key) : undefined
 
                 return (
@@ -359,12 +379,14 @@ export function KanbanBoardGrid({
                   summary={laneSummaries.get(row.key) ?? getLaneSummary(row.key, cardsByCell, signalsByItemId)}
                   collapsed={collapsed}
                   onToggleCollapsed={toggleCollapsed}
+                  presenting={presenting}
                 />
 
-                {STATUS_COLUMNS.map((status) => {
+                {STATUS_COLUMNS.map((status, columnIndex) => {
                   const cellKey = `${row.key}:${status}`
+                  const frame = presenting ? presentingFrameShadow({ right: columnIndex === STATUS_COLUMNS.length - 1 }) : undefined
                   if (isRail(status)) {
-                    return <Box key={cellKey} sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />
+                    return <Box key={cellKey} sx={{ borderBottom: '1px solid', borderColor: 'divider', boxShadow: frame }} />
                   }
 
                   if (collapsed) {
@@ -404,8 +426,8 @@ export function KanbanBoardGrid({
 
                   const { items: cellItems, matchCount } = partitionHighlighted(cardsByCell[cellKey] ?? [], highlightedItemIds)
                   const compact = isCompactStatusColumn(status, compactCards)
-                  // Matching cards are never tucked behind Show more.
-                  const cardLimit = Math.max(getCollapsedCellCardLimit(compact), matchCount)
+                  // Matching cards are never tucked behind Show more, and the speaker's lane shows everything.
+                  const cardLimit = presenting ? Infinity : Math.max(getCollapsedCellCardLimit(compact), matchCount)
                   const isExpanded = expandedCells[cellKey] === true
                   const visibleItems = isExpanded
                     ? cellItems
@@ -420,6 +442,7 @@ export function KanbanBoardGrid({
                         py: 1,
                         borderBottom: '1px solid',
                         borderColor: 'divider',
+                        boxShadow: frame,
                         minHeight: 92,
                         minWidth: 0,
                       }}

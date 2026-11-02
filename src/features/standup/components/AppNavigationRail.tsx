@@ -460,7 +460,7 @@ export function AppNavigationRail({
                 Use the quick filter in the toolbar to match work item IDs, titles, sprint details, tags, PR titles, and team member names. On Backlog it matches any text shown in the table.
               </Typography>
               <Typography component="li" variant="body-sm">
-                Ctrl+F (or Cmd+F on macOS) focuses the quick filter on Development, Quality Assurance, and Backlog. The Development member filter can be cycled with Ctrl+Up and Ctrl+Down.
+                Ctrl+F (or Cmd+F on macOS) focuses the quick filter on Development, Quality Assurance, and Backlog. The Development member filter can be cycled with Ctrl+Up and Ctrl+Down; during a standup the same keys move to the previous or next speaker.
               </Typography>
               <Typography component="li" variant="body-sm">
                 Team profiles and saved per-team options persist in local storage so the app can restore the currently selected setup on reload.

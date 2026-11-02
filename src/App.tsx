@@ -149,7 +149,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     filteredBugs: filteredBacklogBugs,
   } = useBacklogPageModel({ bugs: backlogBugs })
 
-  const { activeView, onMemberFilterCycle } = useAppNavigation({
+  const { activeView } = useAppNavigation({
     patConfigured,
     memberFilterOptions,
     selectedMemberFilter,
@@ -199,7 +199,6 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           selectedMemberFilter,
           memberFilterOptions,
           onMemberFilterChange,
-          onMemberFilterCycle,
           teamOptions: teamProfiles,
           selectedTeamId,
           onTeamChange,

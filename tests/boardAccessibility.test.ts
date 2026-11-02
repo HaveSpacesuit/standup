@@ -139,7 +139,6 @@ test('team and member selectors have stable accessible names', () => {
     memberFilterOptions: [],
     members: [],
     onMemberFilterChange: () => {},
-    onMemberFilterCycle: () => {},
     ...teamProps,
     onRefresh: () => {},
     onOpenTagRulesDialog: () => {},

@@ -13,6 +13,8 @@ import { getAssignmentMemberRows } from '../utils/assignmentMembers'
 import { getVisibleBoardRows } from '../utils/boardRowVisibility'
 import { AttentionBar } from './AttentionBar'
 import { getBoardAttention, getHighlightedItemIds, type AttentionFacetKey } from './boardAttention'
+import { StandupPresenterBar } from './StandupPresenterBar'
+import { getStandupOrder, isStandupSpeakerRow, resolveStandupSpeakers, type StandupOrderMode } from './standupOrder'
 
 const LOADING_LAYOUT = getBoardLayout(true)
 
@@ -33,6 +35,9 @@ type KanbanBoardProps = {
   compactCards?: boolean
   rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
+  /** Walks the team lane by lane; see StandupPresenterBar. */
+  standupActive?: boolean
+  onStandupEnd?: () => void
 }
 
 export const KanbanBoard = memo(function KanbanBoard({
@@ -52,10 +57,16 @@ export const KanbanBoard = memo(function KanbanBoard({
   compactCards = false,
   rolledOverItemIds,
   workItemAssignees,
+  standupActive = false,
+  onStandupEnd,
 }: KanbanBoardProps) {
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
   const [attentionFacet, setAttentionFacet] = useState<AttentionFacetKey | null>(null)
   const [collapsedRowKeys, setCollapsedRowKeys] = useState<ReadonlySet<string>>(() => new Set())
+  const [standupOrderMode, setStandupOrderMode] = useState<StandupOrderMode>('alphabetical')
+  const [standupOrderKeys, setStandupOrderKeys] = useState<readonly string[] | null>(null)
+  const [standupIndex, setStandupIndex] = useState(0)
+  const [spokenKeys, setSpokenKeys] = useState<ReadonlySet<string>>(() => new Set())
 
   const rows = useMemo<BoardRowData[]>(() => {
     const hasUnassignedItems = workItems.some((item) => {
@@ -164,6 +175,23 @@ export const KanbanBoard = memo(function KanbanBoard({
 
   const highlightedItemIds = useMemo(() => getHighlightedItemIds(attention, attentionFacet), [attention, attentionFacet])
 
+  const hasStandupSpeakers = visibleRows.some(isStandupSpeakerRow)
+  // The order is fixed when standup starts, so refreshed data can't reshuffle people mid-meeting.
+  if (standupActive && standupOrderKeys === null && hasStandupSpeakers) {
+    setStandupOrderKeys(getStandupOrder(visibleRows, standupOrderMode, cardsByCell, attention.signalsByItemId))
+    setStandupIndex(0)
+    setSpokenKeys(new Set())
+  } else if (!standupActive && standupOrderKeys !== null) {
+    setStandupOrderKeys(null)
+  }
+
+  const standupSpeakers = useMemo(
+    () => (standupActive ? resolveStandupSpeakers(standupOrderKeys ?? [], visibleRows) : []),
+    [standupActive, standupOrderKeys, visibleRows],
+  )
+  const speakerIndex = Math.min(standupIndex, Math.max(standupSpeakers.length - 1, 0))
+  const presentingRowKey = standupSpeakers[speakerIndex]?.key ?? null
+
   const statusMatchCounts = useMemo(() => {
     if (!highlightedItemIds) {
       return null
@@ -202,6 +230,31 @@ export const KanbanBoard = memo(function KanbanBoard({
 
   const setAllRowsCollapsed = (collapsed: boolean) => {
     setCollapsedRowKeys(collapsed ? new Set(visibleRows.map((row) => row.key)) : new Set())
+  }
+
+  const goToSpeaker = (index: number) => {
+    if (index === speakerIndex) {
+      return
+    }
+
+    const leaving = standupSpeakers[speakerIndex]
+    if (leaving) {
+      setSpokenKeys((current) => new Set(current).add(leaving.key))
+    }
+
+    if (index >= standupSpeakers.length) {
+      onStandupEnd?.()
+      return
+    }
+
+    setStandupIndex(Math.max(0, index))
+  }
+
+  const changeStandupOrder = (mode: StandupOrderMode) => {
+    setStandupOrderMode(mode)
+    setStandupOrderKeys(hasStandupSpeakers ? getStandupOrder(visibleRows, mode, cardsByCell, attention.signalsByItemId) : null)
+    setStandupIndex(0)
+    setSpokenKeys(new Set())
   }
 
   let content: ReactNode
@@ -260,13 +313,30 @@ export const KanbanBoard = memo(function KanbanBoard({
             statusMatchCounts={statusMatchCounts}
             signalsByItemId={attention.signalsByItemId}
             collapsedRowKeys={collapsedRowKeys}
-            onToggleRowCollapsed={toggleRowCollapsed}
-            onSetAllRowsCollapsed={setAllRowsCollapsed}
+            // Standup decides which lane is open, so manual collapsing pauses until it ends.
+            onToggleRowCollapsed={presentingRowKey ? undefined : toggleRowCollapsed}
+            onSetAllRowsCollapsed={presentingRowKey ? undefined : setAllRowsCollapsed}
+            presentingRowKey={presentingRowKey}
           />
         </Box>
       </Box>
     )
   }
 
-  return <Box sx={{ height: '100%' }}>{content}</Box>
+  return (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {standupActive ? (
+        <StandupPresenterBar
+          speakers={standupSpeakers}
+          currentIndex={speakerIndex}
+          spokenKeys={spokenKeys}
+          orderMode={standupOrderMode}
+          onOrderModeChange={changeStandupOrder}
+          onGoTo={goToSpeaker}
+          onEnd={() => onStandupEnd?.()}
+        />
+      ) : null}
+      <Box sx={{ flex: '1 1 auto', minHeight: 0 }}>{content}</Box>
+    </Box>
+  )
 })
