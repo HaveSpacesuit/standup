@@ -35,7 +35,6 @@ const props: PageProps = {
   selectedMemberFilter: '',
   memberFilterOptions: [],
   onMemberFilterChange: noop,
-  onMemberFilterCycle: noop,
   teamOptions: [{
     id: 'team', displayName: 'Team', orgName: 'example-org', projectName: 'example-project',
     areaPath: '', iterationPath: '', teamName: 'Team', repoName: '',

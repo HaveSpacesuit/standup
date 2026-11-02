@@ -1,6 +1,6 @@
 import {
   Box,
-  ButtonGroup,
+  Button,
   FormControl,
   IconButton,
   InputAdornment,
@@ -20,8 +20,7 @@ import svgUsers from '@stratakit/icons/users.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
-import svgArrowUp from '@stratakit/icons/arrow-up.svg'
-import svgArrowDown from '@stratakit/icons/arrow-down.svg'
+import svgPlay from '@stratakit/icons/play.svg'
 import svgTimeline from '@stratakit/icons/timeline.svg'
 import svgDeveloper from '@stratakit/icons/developer.svg'
 import { PageToolbar } from './PageToolbar'
@@ -38,7 +37,6 @@ type StandupToolbarProps = {
   memberFilterOptions: string[]
   members: TeamMember[]
   onMemberFilterChange: (value: string) => void
-  onMemberFilterCycle: (direction: -1 | 1) => void
   teamOptions: TeamOption[]
   selectedTeamId: string
   onTeamChange: (value: string) => void
@@ -48,6 +46,9 @@ type StandupToolbarProps = {
   isTeamDataLoading: boolean
   isSprintView: boolean
   onSprintViewChange: (isSprintView: boolean) => void
+  /** While standup runs it decides whose lane is shown, so the member filter is locked. */
+  standupActive?: boolean
+  onStartStandup?: () => void
 }
 
 export function StandupToolbar({
@@ -60,7 +61,6 @@ export function StandupToolbar({
   memberFilterOptions,
   members,
   onMemberFilterChange,
-  onMemberFilterCycle,
   teamOptions,
   selectedTeamId,
   onTeamChange,
@@ -70,6 +70,8 @@ export function StandupToolbar({
   isTeamDataLoading,
   isSprintView,
   onSprintViewChange,
+  standupActive = false,
+  onStartStandup,
 }: StandupToolbarProps) {
   const hasConfiguredTeams = teamOptions.length > 0
 
@@ -160,7 +162,7 @@ export function StandupToolbar({
             displayEmpty
             value={selectedMemberFilter}
             onChange={(event) => handleMemberFilterChange(event.target.value)}
-            disabled={!patConfigured || memberFilterOptions.length === 0}
+            disabled={!patConfigured || memberFilterOptions.length === 0 || standupActive}
             renderValue={(value) => {
               if (!value || typeof value !== 'string') {
                 return renderMemberFilterOption('', 20, true)
@@ -180,35 +182,19 @@ export function StandupToolbar({
           </Select>
         </FormControl>
 
-        <ButtonGroup
-          size="small"
-          sx={{
-            flexShrink: 0,
-            '@container (max-width: 700px)': {
-              display: 'none',
-            },
-          }}
-        >
-          <IconButton
+        {onStartStandup && !standupActive ? (
+          <Button
             size="small"
-            aria-label="Select previous team member filter"
-            aria-keyshortcuts="Ctrl+ArrowUp"
-            onClick={() => onMemberFilterCycle(-1)}
+            variant="contained"
+            color="primary"
+            startIcon={<Icon href={svgPlay} />}
+            onClick={onStartStandup}
             disabled={!patConfigured || memberFilterOptions.length === 0}
+            sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
           >
-            <Icon href={svgArrowUp} />
-          </IconButton>
-
-          <IconButton
-            size="small"
-            aria-label="Select next team member filter"
-            aria-keyshortcuts="Ctrl+ArrowDown"
-            onClick={() => onMemberFilterCycle(1)}
-            disabled={!patConfigured || memberFilterOptions.length === 0}
-          >
-            <Icon href={svgArrowDown} />
-          </IconButton>
-        </ButtonGroup>
+            Start standup
+          </Button>
+        ) : null}
 
         <TeamToolbarControls
           teamOptions={teamOptions}

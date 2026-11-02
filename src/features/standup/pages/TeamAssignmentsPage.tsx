@@ -1,4 +1,4 @@
-import { useMemo, useState, type RefObject } from 'react'
+import { useCallback, useMemo, useState, type RefObject } from 'react'
 import { Alert, AlertTitle, Box, Button, Typography } from '@mui/material'
 import type {
   IterationWindowInfo,
@@ -33,7 +33,6 @@ type TeamAssignmentsPageProps = {
   selectedMemberFilter: string
   memberFilterOptions: string[]
   onMemberFilterChange: (value: string) => void
-  onMemberFilterCycle: (direction: -1 | 1) => void
   teamOptions: TeamOption[]
   selectedTeamId: string
   onTeamChange: (value: string) => void
@@ -92,7 +91,6 @@ export function TeamAssignmentsPage({
   selectedMemberFilter,
   memberFilterOptions,
   onMemberFilterChange,
-  onMemberFilterCycle,
   teamOptions,
   selectedTeamId,
   onTeamChange,
@@ -142,11 +140,31 @@ export function TeamAssignmentsPage({
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
   const [isSprintView, setIsSprintView] = useState(false)
+  const [standupActive, setStandupActive] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
+  const standupLive = standupActive && !isSprintView && !teamIterationsError
   const sprintEffortTotals = useMemo(
     () => getCurrentSprintEffortTotals(workItems, currentIterationName),
     [workItems, currentIterationName],
   )
+
+  // Standup walks every lane, so it starts from the whole team in the People view.
+  const startStandup = () => {
+    onMemberFilterChange('')
+    setIsSprintView(false)
+    setStandupActive(true)
+  }
+  const endStandup = useCallback(() => setStandupActive(false), [])
+  const handleSprintViewChange = (nextIsSprintView: boolean) => {
+    if (nextIsSprintView) {
+      setStandupActive(false)
+    }
+    setIsSprintView(nextIsSprintView)
+  }
+  const handleTeamChange = (value: string) => {
+    setStandupActive(false)
+    onTeamChange(value)
+  }
 
   return (
     <>
@@ -160,16 +178,17 @@ export function TeamAssignmentsPage({
         memberFilterOptions={memberFilterOptions}
         members={members}
         onMemberFilterChange={onMemberFilterChange}
-        onMemberFilterCycle={onMemberFilterCycle}
         teamOptions={teamOptions}
         selectedTeamId={selectedTeamId}
-        onTeamChange={onTeamChange}
+        onTeamChange={handleTeamChange}
         teamManagementUrl={teamManagementUrl}
         onRefresh={onRefresh}
         onOpenTagRulesDialog={() => setTagRulesDialogOpen(true)}
         isTeamDataLoading={isTeamDataLoading}
         isSprintView={isSprintView}
-        onSprintViewChange={setIsSprintView}
+        onSprintViewChange={handleSprintViewChange}
+        standupActive={standupLive}
+        onStartStandup={hasConfiguredTeams ? startStandup : undefined}
       />
 
       {!hasConfiguredTeams ? (
@@ -257,6 +276,8 @@ export function TeamAssignmentsPage({
                 compactCards={compactCards}
                 rolledOverItemIds={rolledOverItemIds}
                 workItemAssignees={workItemAssignees}
+                standupActive={standupLive}
+                onStandupEnd={endStandup}
               />
             )}
           </Box>

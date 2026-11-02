@@ -11,7 +11,7 @@ import { AdoAvatar } from './AdoAvatar'
 import { formatLaneFlag, getLaneFlags, type AttentionFacetKey, type AttentionTone } from './boardAttention'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import type { BoardRowData } from './KanbanBoardGrid'
-import { describeLaneLoad, LANE_HEAD_FLAG_LIMIT, type LaneSummary } from './laneSummary'
+import { describeLaneLoad, LANE_HEAD_FLAG_LIMIT, presentingFrameShadow, type LaneSummary } from './laneSummary'
 
 const BADGE_COLORS: Record<AttentionTone, 'error' | 'warning' | 'info' | 'success'> = {
   critical: 'error',
@@ -62,10 +62,12 @@ type BoardLaneHeadProps = {
   summary: LaneSummary
   collapsed: boolean
   onToggleCollapsed?: () => void
+  /** The lane whose owner is speaking in standup. */
+  presenting?: boolean
 }
 
 /** The sticky first cell of a lane: who it belongs to, how their work spreads across columns, and what needs attention. */
-export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed }: BoardLaneHeadProps) {
+export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, presenting = false }: BoardLaneHeadProps) {
   const avatarSize = collapsed ? 20 : 28
   const headFlags = summary.flags.slice(0, LANE_HEAD_FLAG_LIMIT)
 
@@ -107,6 +109,7 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed }: Bo
     <Box
       data-lane={row.key}
       data-lane-collapsed={collapsed ? '' : undefined}
+      data-lane-presenting={presenting ? '' : undefined}
       sx={{
         position: 'sticky',
         left: 0,
@@ -116,7 +119,10 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed }: Bo
         borderBottom: '1px solid',
         borderRight: '1px solid',
         borderColor: 'divider',
-        bgcolor: 'background.paper',
+        bgcolor: presenting
+          ? 'color-mix(in srgb, var(--stratakit-color-bg-accent-base) 8%, var(--stratakit-color-bg-page-base))'
+          : 'background.paper',
+        boxShadow: presenting ? presentingFrameShadow({ left: true }) : undefined,
         display: 'flex',
         alignItems: collapsed ? 'center' : 'flex-start',
         minWidth: 0,
@@ -141,6 +147,15 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed }: Bo
           }}
         >
           {identity}
+          {presenting ? (
+            <Typography
+              component="span"
+              variant="caption-sm"
+              sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--stratakit-color-text-accent-strong)' }}
+            >
+              Speaking
+            </Typography>
+          ) : null}
           <LaneLoadBar statusCounts={summary.statusCounts} collapsed={false} />
           <Typography variant="caption-md" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
             {summary.openCount === 0 ? 'Nothing open' : (
