@@ -1,12 +1,20 @@
-import { Box, Divider, FormControl, IconButton, MenuItem, Select, Typography } from '@mui/material'
-import { AppTooltip as Tooltip } from './AppTooltip'
+import { Box, Divider, FormControl, MenuItem, Select, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
 import { Icon } from '@stratakit/mui'
 import svgUserAdd from '@stratakit/icons/user-add.svg'
 import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
 import { readStringSelectValue } from '../utils/selectValues'
+import { visuallyHiddenSx } from './developmentCardDisplay'
 
 export type TeamOption = TeamProfile
+
+/** Select value of the "Manage team" menu entry; picking it opens Azure DevOps instead of switching teams. */
+const MANAGE_TEAM_VALUE = '__manage-team__'
+
+/** Select clones every child into an option, so this drops the injected props to stay a plain separator. */
+function TeamMenuSeparator() {
+  return <Divider component="li" role="separator" />
+}
 
 type TeamToolbarControlsProps = {
   teamOptions: TeamOption[]
@@ -29,7 +37,13 @@ export function TeamToolbarControls({
   const selectedTeam = teamOptions.find((team) => team.id === selectedTeamId)
 
   const handleTeamChange = (value: unknown) => {
-    onTeamChange(readStringSelectValue(value))
+    const teamId = readStringSelectValue(value)
+    if (teamId === MANAGE_TEAM_VALUE) {
+      window.open(teamManagementUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    onTeamChange(teamId)
   }
 
   return (
@@ -64,11 +78,19 @@ export function TeamToolbarControls({
           displayEmpty
           disabled={!hasConfiguredTeams}
         >
-          {hasConfiguredTeams ? teamOptions.map((team) => (
-            <MenuItem key={team.id} value={team.id}>
-              {getTeamProfileLabel(team)}
-            </MenuItem>
-          )) : (
+          {hasConfiguredTeams ? [
+            ...teamOptions.map((team) => (
+              <MenuItem key={team.id} value={team.id}>
+                {getTeamProfileLabel(team)}
+              </MenuItem>
+            )),
+            <TeamMenuSeparator key="manage-team-separator" />,
+            <MenuItem key={MANAGE_TEAM_VALUE} value={MANAGE_TEAM_VALUE}>
+              <Icon href={svgUserAdd} />
+              Manage team
+              <Box component="span" sx={visuallyHiddenSx}> (opens in a new tab)</Box>
+            </MenuItem>,
+          ] : (
             <MenuItem value="" disabled>
               No teams configured
             </MenuItem>
@@ -76,37 +98,6 @@ export function TeamToolbarControls({
         </Select>
       </FormControl>
 
-      <Tooltip title="Manage team">
-        <Box
-          component="span"
-          sx={{
-            '@container (max-width: 600px)': {
-              display: 'none',
-            },
-          }}
-        >
-          {hasConfiguredTeams ? (
-            <IconButton
-              size="small"
-              aria-label="Manage team"
-              component="a"
-              href={teamManagementUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-            >
-              <Icon href={svgUserAdd} />
-            </IconButton>
-          ) : (
-            <IconButton
-              size="small"
-              aria-label="Manage team"
-              disabled
-            >
-              <Icon href={svgUserAdd} />
-            </IconButton>
-          )}
-        </Box>
-      </Tooltip>
       <Divider
         orientation="vertical"
         flexItem

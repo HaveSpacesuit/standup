@@ -177,7 +177,7 @@ function declaredStyle(element: Element) {
   return (property: string) => matched.map((style) => style.getPropertyValue(property)).findLast(Boolean) ?? ''
 }
 
-test('the header has the page title, quick filter, team selection, Manage team, options, and Refresh', async (t) => {
+test('the header has the page title, quick filter, team selection, options, and Refresh', async (t) => {
   const quickFilterInputRef = { current: null as HTMLInputElement | null }
   const host = await render(t, { quickFilterInputRef })
 
@@ -188,15 +188,36 @@ test('the header has the page title, quick filter, team selection, Manage team, 
   assert.equal(filter.placeholder, 'Quick filter bugs')
   assert.equal(filter.value, '')
   assert.equal(filter.disabled, false)
-  assert.equal(quickFilterInputRef.current, filter, 'the ref is what lets Ctrl/Cmd+F focus the filter')
+  assert.equal(filter.getAttribute('aria-keyshortcuts'), '/ Control+F Meta+F')
+  assert.equal(quickFilterInputRef.current, filter, 'the ref is what lets / and Ctrl/Cmd+F focus the filter')
   assert.equal(clearFilterButton(host), null, 'there is nothing to clear yet')
+  assert.equal(host.querySelector('kbd')?.textContent, '/', 'an empty filter hints at its shortcut')
 
-  const manageTeam = host.querySelector('a[aria-label="Manage team"]')
-  assert.equal(manageTeam?.getAttribute('href'), defaultProps.teamManagementUrl)
-  assert.equal(manageTeam?.getAttribute('target'), '_blank')
+  assert.equal(host.querySelector('[aria-label="Manage team"]'), null, 'Manage team moved into the Team menu')
 
   assert.equal(button(host, 'Backlog options').disabled, false)
   assert.equal(button(host, 'Refresh').disabled, false)
+})
+
+test('Manage team, at the end of the Team menu, opens Azure DevOps without changing team', async (t) => {
+  const teamChanges: string[] = []
+  const opened: unknown[][] = []
+  const originalOpen = dom.window.open
+  dom.window.open = (...args: unknown[]) => { opened.push(args); return null }
+  t.after(() => { dom.window.open = originalOpen })
+  const host = await render(t, { onTeamChange: (teamId: string) => teamChanges.push(teamId) })
+
+  await act(async () => {
+    host.querySelector('[role="combobox"]')!.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true, button: 0 }))
+  })
+  const listbox = document.querySelector('[role="listbox"]')!
+  const options = [...listbox.querySelectorAll('[role="option"]')]
+  assert.deepEqual(options.map((option) => option.textContent), ['Team Alpha (example-org/example-project)', 'Manage team (opens in a new tab)'])
+  assert.equal(listbox.querySelectorAll('[role="separator"]').length, 1, 'a plain separator, not an option, sets it apart')
+
+  await act(async () => { (options[1] as HTMLElement).click() })
+  assert.deepEqual(opened, [[defaultProps.teamManagementUrl, '_blank', 'noopener,noreferrer']])
+  assert.deepEqual(teamChanges, [])
 })
 
 test('the table lists the ranked bugs under the required columns', async (t) => {

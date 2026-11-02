@@ -39,6 +39,7 @@ type TeamAssignmentsPageProps = {
   teamManagementUrl: string
   onRefresh: () => void
   isTeamDataLoading: boolean
+  teamDataSyncedAt?: number | null
   membersError: string | null
   workItemsError: string | null
   pullRequestBoardItemsError: string | null
@@ -97,6 +98,7 @@ export function TeamAssignmentsPage({
   teamManagementUrl,
   onRefresh,
   isTeamDataLoading,
+  teamDataSyncedAt = null,
   membersError,
   workItemsError,
   pullRequestBoardItemsError,
@@ -185,6 +187,7 @@ export function TeamAssignmentsPage({
         onRefresh={onRefresh}
         onOpenTagRulesDialog={() => setTagRulesDialogOpen(true)}
         isTeamDataLoading={isTeamDataLoading}
+        teamDataSyncedAt={teamDataSyncedAt}
         isSprintView={isSprintView}
         onSprintViewChange={handleSprintViewChange}
         standupActive={standupLive}

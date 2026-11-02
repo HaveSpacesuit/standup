@@ -1,12 +1,12 @@
 import { type RefObject } from 'react'
-import { Box, IconButton, InputAdornment, TextField } from '@mui/material'
+import { Box, IconButton } from '@mui/material'
 import { AppTooltip as Tooltip } from './AppTooltip'
 import { Icon } from '@stratakit/mui'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
-import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import { PageToolbar } from './PageToolbar'
+import { QuickFilterField } from './QuickFilterField'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
 
 type QualityAssuranceToolbarProps = {
@@ -43,34 +43,13 @@ export function QualityAssuranceToolbar({
   return (
     <PageToolbar iconHref={svgInspection} title="Quality Assurance" isPageTitle wrap>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-        <TextField
-          size="small"
-          placeholder="Quick filter cards"
+        <QuickFilterField
+          label="Quick filter cards"
           value={quickFilterInput}
-          onChange={(event) => onQuickFilterInputChange(event.target.value)}
+          onChange={onQuickFilterInputChange}
+          onClear={onQuickFilterClear}
           inputRef={quickFilterInputRef}
           disabled={!patConfigured}
-          sx={{
-            minWidth: 90,
-            maxWidth: 320,
-            flex: '1 1 auto',
-          }}
-          slotProps={{
-            input: {
-              endAdornment: quickFilterInput ? (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    edge="end"
-                    aria-label="Clear quick filter"
-                    onClick={onQuickFilterClear}
-                  >
-                    <Icon href={svgDismiss} />
-                  </IconButton>
-                </InputAdornment>
-              ) : undefined,
-            },
-          }}
         />
       </Box>
 

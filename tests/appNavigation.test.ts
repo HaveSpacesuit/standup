@@ -140,6 +140,47 @@ test('an unmounted quick filter does not suppress browser Find', (t) => {
   assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
 })
 
+const noModifiers = { ctrlKey: false, metaKey: false }
+
+for (const view of ['development', 'qa-activity', 'backlog']) {
+  test(`/ focuses and selects the ${view} quick filter from the toolbar`, (t) => {
+    const { calls, press } = setup(t, { view })
+    assert.equal(press(undefined, noModifiers, '/').defaultPrevented, true)
+    assert.deepEqual(calls, { focus: 1, select: 1, cycle: [] })
+  })
+}
+
+test('/ still types a slash into an editable field', (t) => {
+  const { calls, press } = setup(t)
+  for (const target of [
+    { tagName: 'INPUT', isContentEditable: false },
+    { tagName: 'TEXTAREA', isContentEditable: false },
+    { tagName: 'DIV', isContentEditable: true },
+  ]) {
+    assert.equal(press(target, noModifiers, '/').defaultPrevented, false)
+  }
+  assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
+})
+
+test('/ does not focus behind an active modal', (t) => {
+  const { calls, press } = setup(t, { modal: true })
+  assert.equal(press(undefined, noModifiers, '/').defaultPrevented, false)
+  assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
+})
+
+test('/ on the Tests view is left to the browser', (t) => {
+  const { calls, press } = setup(t, { view: 'tests', hasQuickFilter: false })
+  assert.equal(press(undefined, noModifiers, '/').defaultPrevented, false)
+  assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
+})
+
+test('Ctrl+/ and Alt+/ are not the quick filter shortcut', (t) => {
+  const { calls, press } = setup(t)
+  assert.equal(press(undefined, { ctrlKey: true, metaKey: false }, '/').defaultPrevented, false)
+  assert.equal(press(undefined, { ...noModifiers, altKey: true } as typeof noModifiers, '/').defaultPrevented, false)
+  assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
+})
+
 for (const view of ['development', 'qa-activity', 'backlog']) {
   for (const modifier of ['ctrlKey', 'metaKey']) {
     test(`${modifier}+F preserves browser Find when the ${view} filter cannot receive focus`, (t) => {
