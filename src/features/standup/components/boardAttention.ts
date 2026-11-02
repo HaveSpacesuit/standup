@@ -1,3 +1,10 @@
+import svgClock from '@stratakit/icons/clock.svg'
+import svgError from '@stratakit/icons/error.svg'
+import svgGitMerge from '@stratakit/icons/git-merge.svg'
+import svgHistory from '@stratakit/icons/history.svg'
+import svgLock from '@stratakit/icons/lock.svg'
+import svgUser from '@stratakit/icons/user.svg'
+import svgUsers from '@stratakit/icons/users.svg'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
@@ -19,29 +26,93 @@ export type AttentionFacet = {
   key: AttentionFacetKey
   label: string
   tone: AttentionTone
+  iconHref: string
   description: string
 }
 
-/** Ordered from most to least urgent; the bar and lane summaries both use this order. */
+/** Ordered as the Needs attention bar lists them. */
 export const ATTENTION_FACETS: readonly AttentionFacet[] = [
-  { key: 'blocked', label: 'Blocked', tone: 'critical', description: 'Cards in the Blocked column.' },
-  { key: 'failing', label: 'Failing checks', tone: 'critical', description: 'An open pull request has a failing required check.' },
+  { key: 'blocked', label: 'Blocked', tone: 'critical', iconHref: svgLock, description: 'Cards in the Blocked column.' },
+  {
+    key: 'failing',
+    label: 'Failing checks',
+    tone: 'critical',
+    iconHref: svgError,
+    description: 'An open pull request has a failing required check.',
+  },
   {
     key: 'approval',
     label: 'Needs approval',
     tone: 'attention',
+    iconHref: svgUsers,
     description: `An open pull request has fewer than ${REQUIRED_APPROVALS} approvals and is not waiting on its author.`,
   },
   {
     key: 'idle',
     label: `Idle ${IDLE_ATTENTION_DAYS}+ days`,
     tone: 'attention',
+    iconHref: svgClock,
     description: `Blocked, Active, or Review cards unchanged for ${IDLE_ATTENTION_DAYS} or more days.`,
   },
-  { key: 'qa', label: 'With QA', tone: 'info', description: 'Review cards now assigned to someone other than their developer.' },
-  { key: 'ready', label: 'Ready to complete', tone: 'positive', description: 'An open pull request has passing checks and enough approvals.' },
-  { key: 'changed', label: 'Recently changed', tone: 'info', description: 'Cards with a recent tracked change.' },
+  {
+    key: 'qa',
+    label: 'With QA',
+    tone: 'info',
+    iconHref: svgUser,
+    description: 'Review cards now assigned to someone other than their developer.',
+  },
+  {
+    key: 'ready',
+    label: 'Ready to complete',
+    tone: 'positive',
+    iconHref: svgGitMerge,
+    description: 'An open pull request has passing checks and enough approvals.',
+  },
+  { key: 'changed', label: 'Recently changed', tone: 'info', iconHref: svgHistory, description: 'Cards with a recent tracked change.' },
 ]
+
+const FACETS_BY_KEY = Object.fromEntries(ATTENTION_FACETS.map((facet) => [facet.key, facet])) as Record<AttentionFacetKey, AttentionFacet>
+
+export function getAttentionFacet(key: AttentionFacetKey): AttentionFacet {
+  return FACETS_BY_KEY[key]
+}
+
+/** Lane flags, most urgent first; Recently changed is news rather than a problem, so lanes leave it out. */
+export const LANE_FLAG_ORDER: readonly AttentionFacetKey[] = ['blocked', 'failing', 'idle', 'approval', 'qa', 'ready']
+
+export function formatLaneFlag(key: AttentionFacetKey, count: number): string {
+  switch (key) {
+    case 'blocked':
+      return `${count} blocked`
+    case 'failing':
+      return `${count} failing check${count === 1 ? '' : 's'}`
+    case 'idle':
+      return `${count} idle ${IDLE_ATTENTION_DAYS}d+`
+    case 'approval':
+      return `${count} need${count === 1 ? 's' : ''} approval`
+    case 'qa':
+      return `${count} with QA`
+    case 'ready':
+      return `${count} ready to complete`
+    case 'changed':
+      return `${count} recently changed`
+  }
+}
+
+export type LaneFlag = { facet: AttentionFacet; count: number }
+
+/** Lane flags with at least one card, most urgent first. */
+export function getLaneFlags(
+  items: readonly { id: number }[],
+  signalsByItemId: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>>,
+): LaneFlag[] {
+  return LANE_FLAG_ORDER
+    .map((key) => ({
+      facet: FACETS_BY_KEY[key],
+      count: items.filter((item) => signalsByItemId.get(item.id)?.has(key)).length,
+    }))
+    .filter((flag) => flag.count > 0)
+}
 
 export const ATTENTION_TONE_COLORS: Record<AttentionTone, string> = {
   critical: 'var(--stratakit-color-bg-critical-base)',

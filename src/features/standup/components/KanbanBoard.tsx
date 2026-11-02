@@ -55,6 +55,7 @@ export const KanbanBoard = memo(function KanbanBoard({
 }: KanbanBoardProps) {
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
   const [attentionFacet, setAttentionFacet] = useState<AttentionFacetKey | null>(null)
+  const [collapsedRowKeys, setCollapsedRowKeys] = useState<ReadonlySet<string>>(() => new Set())
 
   const rows = useMemo<BoardRowData[]>(() => {
     const hasUnassignedItems = workItems.some((item) => {
@@ -189,6 +190,20 @@ export const KanbanBoard = memo(function KanbanBoard({
     }))
   }
 
+  const toggleRowCollapsed = (rowKey: string) => {
+    setCollapsedRowKeys((current) => {
+      const next = new Set(current)
+      if (!next.delete(rowKey)) {
+        next.add(rowKey)
+      }
+      return next
+    })
+  }
+
+  const setAllRowsCollapsed = (collapsed: boolean) => {
+    setCollapsedRowKeys(collapsed ? new Set(visibleRows.map((row) => row.key)) : new Set())
+  }
+
   let content: ReactNode
 
   if (!patConfigured) {
@@ -243,6 +258,10 @@ export const KanbanBoard = memo(function KanbanBoard({
             rolledOverItemIds={rolledOverItemIds}
             highlightedItemIds={highlightedItemIds}
             statusMatchCounts={statusMatchCounts}
+            signalsByItemId={attention.signalsByItemId}
+            collapsedRowKeys={collapsedRowKeys}
+            onToggleRowCollapsed={toggleRowCollapsed}
+            onSetAllRowsCollapsed={setAllRowsCollapsed}
           />
         </Box>
       </Box>
