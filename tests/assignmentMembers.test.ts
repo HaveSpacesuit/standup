@@ -25,6 +25,13 @@ test('individual member selection shows only that member row', () => {
   )
 })
 
+test('member rows carry the member identity so cards can detect handoffs', () => {
+  assert.deepEqual(
+    getAssignmentMemberRows([{ displayName: 'Alex Rivers', uniqueName: 'alex@example.test', imageUrl: 'alex-image' }])[0]?.memberIdentity,
+    { displayName: 'Alex Rivers', uniqueName: 'alex@example.test', imageUrl: 'alex-image' },
+  )
+})
+
 test('member filter options come from team membership and are sorted', () => {
   assert.deepEqual(getAssignmentMemberFilterOptions(members), ['Alex Rivers', 'Morgan Lane'])
 })

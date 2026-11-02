@@ -1,5 +1,6 @@
 import { Avatar, Box, Button, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { DevelopmentCard } from './DevelopmentCard'
@@ -11,6 +12,8 @@ export type BoardRowData = {
   label: string
   avatarDescriptor?: string
   avatarUrl?: string
+  /** Set on team member rows; absent on the Unassigned and Assignee unavailable rows. */
+  memberIdentity?: IdentityRef
   isUnassigned?: boolean
 }
 
@@ -278,6 +281,7 @@ export function KanbanBoardGrid({
                             item={item}
                             highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
                             currentIterationName={currentIterationName}
+                            rowMember={row.memberIdentity}
                             showRolloverIndicator={rolledOverItemIds[item.id] === true}
                           />
                         ))}

@@ -212,6 +212,12 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify Development cards have a leading edge in their column's color, show the state only when
       it differs from the column's usual state, and show the sprint only when it is not the current
       sprint, while QA board and Sprint view cards are unchanged.
+- [ ] Verify each open PR's next step is the first that applies of: failing checks, rejected, waiting
+      for the author, checks unavailable, pending checks (Pipeline), missing approvals (Reviewers),
+      and Ready to complete.
+- [ ] Verify a blocked card shows the reason from its blocked tag (which is then not repeated as a
+      tag) or state, Failed testing replaces the state badge, and a Review card assigned to someone
+      other than the row's developer shows In testing or Handed off with that person.
 
 ### Sprint view
 

@@ -23,6 +23,13 @@ two-line title. The state appears only when it differs from the column's usual s
 only when it is not the current sprint. Each linked PR gets one compact row. The QA board and Sprint
 view keep their own cards.
 
+Each card also names its next step and, when it is someone other than the row's developer, who it
+is waiting on. For a PR, the step is the first of: fix failing checks, rework after a rejection,
+respond to review feedback, checks unavailable, waiting on pending checks (the pipeline), more
+approvals needed (two are required, from reviewers), and Ready to complete. A blocked card gives the
+reason from its blocked tag or state. A Review card now assigned to someone other than the row's
+developer says In testing or Handed off and shows who has it.
+
 Development options > Members includes "Hide users with no activity" (off by default).
 When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage
