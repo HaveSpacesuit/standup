@@ -6,7 +6,7 @@ import type { TeamProfile } from '../../../appSettings'
 import { usePullRequestBoardItems } from './usePullRequestBoardItems'
 import { useAdoHistoryHighlights, type CardChangeDetail, type ChangeHighlightState } from './useAdoHistoryHighlights'
 import { useEffortFlowHistory, type EffortFlowPoint } from './useEffortFlowHistory'
-import { useSprintScopeChanges } from './useSprintScopeChanges'
+import { useSprintScopeChanges, type SprintScopeState } from './useSprintScopeChanges'
 import { useTeamData } from './useTeamData'
 import { useWorkItemAssignees } from './useWorkItemAssignees'
 import { useBoardPreferences } from './useBoardPreferences'
@@ -28,7 +28,7 @@ import type { RankedBacklogBug } from '../utils/backlogValue'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
-import type { SprintJourney } from '../utils/sprintJourney'
+import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import type { SprintForecast } from '../utils/sprintForecast'
 
 type UseBoardViewModelArgs = {
@@ -73,6 +73,9 @@ type UseBoardViewModelResult = {
   effortFlowLoading: boolean
   sprintForecast: SprintForecast
   journeysByItemId: Record<number, SprintJourney>
+  /** Sprint-start membership and the items since removed from the sprint. */
+  sprintScope: SprintScopeState
+  departuresByItemId: Record<number, SprintDeparture>
   rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
   qaBuckets: import('../utils/qualityAssuranceBuckets').QualityAssuranceBucket[]
@@ -322,7 +325,7 @@ export function useBoardViewModel({
     reloadNonce: developmentReloadNonce,
   })
 
-  const { points: effortFlowPoints, isLoading: effortFlowLoading, journeysByItemId, sprintForecast } = useEffortFlowHistory({
+  const { points: effortFlowPoints, isLoading: effortFlowLoading, journeysByItemId, departuresByItemId, sprintForecast } = useEffortFlowHistory({
     adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
     tagRules,
@@ -419,6 +422,8 @@ export function useBoardViewModel({
     effortFlowLoading,
     sprintForecast,
     journeysByItemId,
+    sprintScope,
+    departuresByItemId,
     rolledOverItemIds,
     workItemAssignees,
     qaBuckets,

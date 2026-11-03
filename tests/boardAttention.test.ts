@@ -120,7 +120,7 @@ test('board attention counts cards on the given rows only, judging handoffs per 
   )
 
   assert.equal(result.totalCards, 2)
-  assert.deepEqual(result.facetCounts, { blocked: 1, failing: 0, approval: 0, idle: 0, back: 0, qa: 1, ready: 0, changed: 1 })
+  assert.deepEqual(result.facetCounts, { blocked: 1, failing: 0, approval: 0, idle: 0, back: 0, qa: 1, added: 0, ready: 0, changed: 1 })
   assert.deepEqual([...result.signalsByItemId.get(2)].sort(), ['blocked', 'changed'])
   assert.equal(attention.getHighlightedItemIds(result, null), null)
   assert.deepEqual([...attention.getHighlightedItemIds(result, 'qa')], [1])
@@ -145,6 +145,30 @@ test('a sprint lane judges handoffs by each card\'s owner and flags cards that m
   assert.equal(result.facetCounts.qa, 1)
   assert.equal(result.facetCounts.back, 1)
   assert.deepEqual([...attention.getHighlightedItemIds(result, 'back')], [2])
+})
+
+test('a sprint card with an added date is flagged added mid-sprint', () => {
+  const committed = card(1, 'Active')
+  const added = card(2, 'New')
+  const result = attention.getBoardAttention(
+    [{ key: 'sprint:sprint 1' }],
+    { 'sprint:sprint 1:Active': [committed], 'sprint:sprint 1:New': [added] },
+    {},
+    undefined,
+    {
+      rowMemberForItem: () => alex,
+      journeysByItemId: {
+        1: { steps: [{ status: 'Active', at: 1 }], addedAt: null, sprintStart: 1, firstStepSince: 1 },
+        2: { steps: [{ status: 'New', at: 5 }], addedAt: 5, sprintStart: 1, firstStepSince: 5 },
+      },
+    },
+  )
+
+  assert.equal(result.facetCounts.added, 1)
+  assert.deepEqual([...attention.getHighlightedItemIds(result, 'added')], [2])
+  assert.ok(attention.SPRINT_ATTENTION_FACETS.some((facet: { key: string }) => facet.key === 'added'))
+  assert.ok(!attention.PEOPLE_ATTENTION_FACETS.some((facet: { key: string }) => facet.key === 'added'))
+  assert.ok(!attention.LANE_FLAG_ORDER.includes('added'))
 })
 
 test('highlighted cards move to the front of their cell in their existing order', () => {

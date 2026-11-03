@@ -18,6 +18,7 @@ export const STANDUP_ATTENTION_WEIGHTS: Readonly<Record<AttentionFacetKey, numbe
   back: 2,
   approval: 2,
   qa: 1,
+  added: 0,
   ready: 1,
   changed: 0,
 }

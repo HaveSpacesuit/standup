@@ -406,6 +406,84 @@ test('Development sprint lens lays the shared board out by sprint, with owners o
   }
 })
 
+test('with sprint-start scope, the sprint lens splits the current sprint into committed, added, and removed lanes', () => {
+  const html = render(createElement(KanbanBoard, {
+    lens: 'sprint',
+    patConfigured: true,
+    isLoading: false,
+    membersError: null,
+    workItemsError: null,
+    assigneesError: null,
+    members: [{ id: 'a', displayName: 'Alex Example', uniqueName: 'alex@example.com' }],
+    selectedMemberFilter: '',
+    workItems: [
+      { ...boardCard(1, 'Active'), effort: 3 },
+      { ...boardCard(2, 'New'), effort: 1 },
+      { ...boardCard(3, 'New'), sprintName: 'Sprint 2' },
+    ],
+    currentIterationName: 'Sprint 1',
+    changeHighlightsByItemId: {},
+    rolledOverItemIds: {},
+    workItemAssignees: {},
+    sprintScope: {
+      status: 'ready',
+      startItemIds: new Set([1, 4]),
+      removedItems: [{ ...boardCard(4, 'Review'), sprintName: 'Sprint 2', iterationPath: 'Project\\Sprint 2' }],
+      assignees: { 4: { label: 'Alex Example', kind: 'team-member' } },
+    },
+    departuresByItemId: { 4: { leftAt: null, status: 'Active' } },
+    teamIterations: [{ name: 'Sprint 2', path: 'Project\\Sprint 2', timeFrame: 'future' }],
+  }))
+
+  const dom = new JSDOM(html)
+  try {
+    const { document } = dom.window
+    document.querySelectorAll('style').forEach((style) => style.remove())
+    const lanes = [...document.querySelectorAll('[data-lane]')]
+    assert.deepEqual(lanes.map((lane) => lane.getAttribute('data-lane')), ['scope:committed', 'scope:added', 'scope:removed', 'sprint:sprint 2'])
+    assert.deepEqual(
+      lanes.filter((lane) => lane.hasAttribute('data-lane-collapsed')).map((lane) => lane.getAttribute('data-lane')),
+      ['scope:removed', 'sprint:sprint 2'],
+    )
+    assert.ok([...document.querySelectorAll('p, span')].some((node) => node.textContent === 'Scope'))
+    assert.equal(document.querySelector('[data-lane-note="scope-growth"]')?.textContent?.includes('Scope +25%'), true)
+    // The removed card sits in the column it left from, as a dashed outline pip.
+    assert.equal(document.querySelectorAll('[data-collapsed-summary]').length > 0, true)
+    assert.match(html, /Active: 1 card/)
+    assert.equal(document.querySelectorAll('[data-removed]').length, 0, 'the removed lane starts collapsed')
+  } finally {
+    dom.window.close()
+  }
+})
+
+test('a removed card is a dashed outline with struck effort that says where it went', () => {
+  const html = renderBoardGrid({
+    rows: [{ key: 'scope:removed', label: 'Removed from sprint', ghost: true }],
+    cardsByCell: { 'scope:removed:Active': [boardCard(4, 'Active')], 'scope:removed:New': [boardCard(5, 'New')] },
+    removalsByItemId: new Map([[4, { to: 'Sprint 2', at: new Date(2026, 9, 29).getTime() }]]),
+    ownerByItemId: new Map([[4, { displayName: 'Alex Example' }]]),
+    highlightedItemIds: new Set([4]),
+  })
+
+  const dom = new JSDOM(html)
+  try {
+    const { document } = dom.window
+    document.querySelectorAll('style').forEach((style) => style.remove())
+    const cards = [...document.querySelectorAll('[data-removed]')]
+    assert.equal(cards.length, 2)
+    const card = (id: number) => cards.find((node) => node.textContent?.includes(`Card ${id}`))!
+    assert.equal(card(4).querySelector('[data-card-removal]')?.textContent, 'Moved to Sprint 2 · Oct 29')
+    assert.equal(card(5).querySelector('[data-card-removal]')?.textContent, 'Moved out of the sprint')
+    assert.match(card(4).textContent ?? '', /Removed effort 1/)
+    assert.ok(card(4).querySelector('[data-card-owner]'))
+    assert.ok(cards.every((card) => !card.querySelector('[data-journey-trail], [data-compact-line]')))
+    // Removed cards never match a facet, even when the same item is live elsewhere on the board.
+    assert.ok(cards.every((card) => card.getAttribute('data-emphasis') === 'dim'))
+  } finally {
+    dom.window.close()
+  }
+})
+
 test('QA columns are named articles with subordinate headings', () => {
   const html = render(createElement(QualityAssuranceList, {
     isLoading: false,

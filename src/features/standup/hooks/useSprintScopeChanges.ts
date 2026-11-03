@@ -9,7 +9,13 @@ import { parseDateOnly } from '../utils/dateOnly'
 export type SprintScopeState =
   | { status: 'loading' }
   | { status: 'unavailable' }
-  | { status: 'ready'; startItemIds: ReadonlySet<number>; removedItems: WorkItemSummary[] }
+  | {
+    status: 'ready'
+    startItemIds: ReadonlySet<number>
+    removedItems: WorkItemSummary[]
+    /** Who each removed item is assigned to now. */
+    assignees?: Record<number, ResolvedWorkItemAssignee>
+  }
 
 type UseSprintScopeChangesArgs = {
   adoQueryEngine: AdoQueryEngine | null
@@ -100,6 +106,6 @@ export function useSprintScopeChanges({
       .filter((item): item is WorkItemSummary => item !== null)
       .filter((item) => matchesQuickFilter(item, filterText, loaded.assignees[item.id])
         && matchesTeamMemberFilter(loaded.assignees[item.id], selectedMemberFilter))
-    return { status: 'ready', startItemIds: new Set(loaded.changes.startItemIds), removedItems }
+    return { status: 'ready', startItemIds: new Set(loaded.changes.startItemIds), removedItems, assignees: loaded.assignees }
   }, [adoQueryEngine, iterationPath, sprintStart, loaded, key, quickFilterInput, tagRules, selectedMemberFilter])
 }

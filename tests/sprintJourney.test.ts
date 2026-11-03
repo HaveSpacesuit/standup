@@ -13,11 +13,22 @@ const {
   getJourneyCaption,
   getJourneyGhost,
   getJourneyTrail,
+  getSprintDeparture,
   hasMovedBack,
   isBackwardMove,
   journeyStatusAt,
 } = await server.ssrLoadModule('/src/features/standup/utils/sprintJourney.ts')
-const { getSprintLensRows, NO_SPRINT_ROW_KEY } = await server.ssrLoadModule('/src/features/standup/utils/sprintLens.ts')
+const {
+  getRemovedCardStatus,
+  getSprintLensRowKey,
+  getSprintLensRows,
+  getSprintRemovals,
+  NO_SPRINT_ROW_KEY,
+  resolveSprintLensScope,
+  SCOPE_ADDED_ROW_KEY,
+  SCOPE_COMMITTED_ROW_KEY,
+  SCOPE_REMOVED_ROW_KEY,
+} = await server.ssrLoadModule('/src/features/standup/utils/sprintLens.ts')
 const { formatSprintDate, formatSprintDateRange } = await server.ssrLoadModule('/src/features/standup/utils/sprintDates.ts')
 
 type Journey = import('../src/features/standup/utils/sprintJourney.ts').SprintJourney
@@ -171,4 +182,101 @@ test('without the current sprint on the board no sprint lane starts collapsed', 
   )
 
   assert.deepEqual(rows.map((row: { defaultCollapsed?: boolean }) => row.defaultCollapsed), [false, false])
+})
+
+test('a card moved out of the sprint remembers when it left and the column it left from', () => {
+  const timeline = [
+    { timestamp: day(-6), status: 'New', iterationPath: 'Project\\Sprint 0' },
+    { timestamp: day(-3), status: 'New', iterationPath: 'Project\\Sprint 1' },
+    { timestamp: day(2), status: 'Active', iterationPath: 'Project\\Sprint 1' },
+    { timestamp: day(6), status: 'New', iterationPath: 'Project\\Sprint 2' },
+  ]
+
+  assert.deepEqual(
+    getSprintDeparture(timeline, { sprintStart, iterationPath: 'Project\\Sprint 1', currentStatus: 'New' }),
+    { leftAt: day(6), status: 'Active' },
+  )
+  // Leaving Sprint 0 before this sprint started is not a departure from this sprint.
+  assert.deepEqual(
+    getSprintDeparture(timeline, { sprintStart, iterationPath: 'Project\\Sprint 0', currentStatus: 'New' }),
+    { leftAt: null, status: 'New' },
+  )
+  assert.deepEqual(
+    getSprintDeparture(timeline, { sprintStart, currentStatus: 'Review' }),
+    { leftAt: null, status: 'Review' },
+  )
+})
+
+const scopeItem = (id: number, sprintName: string | undefined, extra: Record<string, unknown> = {}) => (
+  { id, title: `Card ${id}`, status: 'Active', effort: 2, sprintName, ...extra }
+)
+const scopeIterations = {
+  currentIterationName: 'Sprint 10',
+  iterationWindow: {
+    current: { name: 'Sprint 10', fullName: 'Project\\Sprint 10', startDate: '2026-10-05', finishDate: '2026-10-16' },
+    next: { name: 'Sprint 11', fullName: 'Project\\Sprint 11', startDate: '2026-10-19', finishDate: '2026-10-30' },
+  },
+  teamIterations: [
+    { id: 'a', name: 'Sprint 9', path: 'Project\\Sprint 9', startDate: '2026-09-21', finishDate: '2026-10-02', timeFrame: 'past' },
+    { id: 'b', name: 'Sprint 8', path: 'Project\\Sprint 8', startDate: '2026-09-07', finishDate: '2026-09-18', timeFrame: 'past' },
+    { id: 'c', name: 'Sprint 10', path: 'Project\\Sprint 10', startDate: '2026-10-05', finishDate: '2026-10-16', timeFrame: 'current' },
+    { id: 'd', name: 'Sprint 11', path: 'Project\\Sprint 11', startDate: '2026-10-19', finishDate: '2026-10-30', timeFrame: 'future' },
+  ],
+}
+
+test('sprint scope splits the current sprint into committed, added, and removed lanes with scope notes', () => {
+  const items = [
+    scopeItem(1, 'Sprint 10', { effort: 5 }),
+    scopeItem(2, 'Sprint 10', { effort: 3 }),
+    scopeItem(3, 'Sprint 10', { effort: 2 }),
+    scopeItem(4, 'Sprint 11'),
+  ]
+  const removedItems = [
+    scopeItem(5, 'Sprint 11', { effort: 2, iterationPath: 'Project\\Sprint 11' }),
+    scopeItem(6, 'Sprint 11', { effort: 1, iterationPath: 'Project\\Sprint 11' }),
+    scopeItem(7, 'Project', { effort: 1, iterationPath: 'Project' }),
+  ]
+  const scope = { startItemIds: new Set([1, 2, 5, 6, 7]), removedItems }
+  const rows = getSprintLensRows(items, { ...scopeIterations, scope, rolledOverItemIds: { 2: true } })
+
+  assert.deepEqual(
+    rows.map((row: { key: string; label: string; defaultCollapsed?: boolean; ghost?: boolean }) => [row.key, row.label, Boolean(row.defaultCollapsed), Boolean(row.ghost)]),
+    [
+      [SCOPE_COMMITTED_ROW_KEY, 'Committed at start', false, false],
+      [SCOPE_ADDED_ROW_KEY, 'Added during sprint', false, false],
+      [SCOPE_REMOVED_ROW_KEY, 'Removed from sprint', true, true],
+      ['sprint:sprint 11', 'Sprint 11', true, false],
+    ],
+  )
+  const notes = (index: number) => rows[index].notes.map((note: { label: string; tone: string }) => [note.label, note.tone])
+  assert.equal(rows[0].subtitle, `Planned ${formatSprintDate(new Date(2026, 9, 5))}`)
+  assert.deepEqual(notes(0), [['1 from Sprint 9', 'info']])
+  // 2 pts added to the 8 committed plus 4 since removed.
+  assert.deepEqual(notes(1), [['Scope +17%', 'attention']])
+  assert.equal(rows[1].notes[0].description, '2 pts added to the 12 pts planned')
+  assert.deepEqual(notes(2), [['2 to Sprint 11', 'neutral'], ['1 moved out', 'neutral']])
+})
+
+test('sprint scope only applies while the current sprint is on the board', () => {
+  const scope = { startItemIds: new Set([1]), removedItems: [] }
+  assert.equal(resolveSprintLensScope([scopeItem(1, 'Sprint 10')], 'Sprint 10', scope), scope)
+  assert.equal(resolveSprintLensScope([scopeItem(1, 'Sprint 11')], 'Sprint 10', scope), null)
+  assert.equal(resolveSprintLensScope([scopeItem(1, 'Sprint 10')], 'Sprint 10', undefined), null)
+
+  const options = { currentIterationName: 'Sprint 10', scope }
+  assert.equal(getSprintLensRowKey(scopeItem(1, 'Sprint 10'), options), SCOPE_COMMITTED_ROW_KEY)
+  assert.equal(getSprintLensRowKey(scopeItem(2, 'Sprint 10'), options), SCOPE_ADDED_ROW_KEY)
+  assert.equal(getSprintLensRowKey(scopeItem(3, 'Sprint 11'), options), 'sprint:sprint 11')
+  assert.equal(getSprintLensRowKey(scopeItem(1, 'Sprint 10'), { currentIterationName: 'Sprint 10' }), 'sprint:sprint 10')
+})
+
+test('removed cards say which team sprint they went to and sit in the column they left from', () => {
+  const moved = scopeItem(5, 'Sprint 11', { iterationPath: 'Project\\Sprint 11', status: 'New' })
+  const outside = scopeItem(6, 'Project', { iterationPath: 'Project' })
+  const removals = getSprintRemovals([moved, outside], { 5: { leftAt: day(3), status: 'Review' } }, scopeIterations)
+
+  assert.deepEqual(removals.get(5), { to: 'Sprint 11', at: day(3) })
+  assert.deepEqual(removals.get(6), { to: null, at: null })
+  assert.equal(getRemovedCardStatus(moved, { leftAt: day(3), status: 'Review' }), 'Review')
+  assert.equal(getRemovedCardStatus(moved, undefined), 'New')
 })

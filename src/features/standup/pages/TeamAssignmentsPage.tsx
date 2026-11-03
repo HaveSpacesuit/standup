@@ -17,10 +17,11 @@ import { StandupToolbar } from '../components/StandupToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
+import type { SprintScopeState } from '../hooks/useSprintScopeChanges'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
 import type { SprintForecast } from '../utils/sprintForecast'
-import type { SprintJourney } from '../utils/sprintJourney'
+import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
 
 type TeamAssignmentsPageProps = {
@@ -79,6 +80,9 @@ type TeamAssignmentsPageProps = {
   teamIterationsLoading: boolean
   teamIterationsError: string | null
   journeysByItemId: Record<number, SprintJourney>
+  /** Sprint-start membership, which splits the Sprint view into committed, added, and removed lanes. */
+  sprintScope?: SprintScopeState
+  departuresByItemId?: Record<number, SprintDeparture>
   rolledOverItemIds: Record<number, boolean>
 }
 
@@ -138,6 +142,8 @@ export function TeamAssignmentsPage({
   teamIterationsLoading,
   teamIterationsError,
   journeysByItemId,
+  sprintScope,
+  departuresByItemId,
   rolledOverItemIds,
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
@@ -272,6 +278,8 @@ export function TeamAssignmentsPage({
                 standupActive={standupLive}
                 onStandupEnd={endStandup}
                 journeysByItemId={journeysByItemId}
+                sprintScope={sprintScope}
+                departuresByItemId={departuresByItemId}
                 iterationWindow={iterationWindow}
                 teamIterations={teamIterations}
               />

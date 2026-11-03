@@ -249,6 +249,18 @@ Prepare data that exercises both populated and empty states:
       card links or covering sticky headers.
 - [ ] Verify Moved back appears in the Needs attention bar only in Sprint view and highlights cards
       that moved to an earlier column this sprint.
+- [ ] Once the scope history loads, verify the current sprint splits into Committed at start (with
+      the planning date and an "N from <previous sprint>" note for rolled-over cards), Added during
+      sprint (with a "Scope +N%" note), and Removed from sprint (collapsed), and the corner label
+      reads Scope.
+- [ ] Verify cards added after the sprint started are flagged Added mid-sprint in the Needs attention
+      bar, and that the facet appears only in Sprint view.
+- [ ] Expand Removed from sprint and verify each removed card is a dashed outline with struck-through
+      effort, sits in the column it left from, says where it went ("Moved to Sprint 43" or "Moved out
+      of the sprint") with the date, and that the lane notes and collapsed pips match, in light and
+      dark modes.
+- [ ] Verify removed cards are excluded from column totals and attention counts and stay dimmed when
+      a Needs attention facet is selected.
 - [ ] Verify switching between People and Sprint views preserves the selected team and filters.
 - [ ] Verify changing the sprint scope updates cards and summary counts without stale cards.
 - [ ] Verify the ribbon's effort flow chart shades the remaining days and marks today in light and dark

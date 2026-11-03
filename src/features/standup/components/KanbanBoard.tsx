@@ -18,8 +18,17 @@ import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHist
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 import { getAssignmentMemberRows } from '../utils/assignmentMembers'
 import { getVisibleBoardRows } from '../utils/boardRowVisibility'
-import { getSprintLensRows, getSprintRowKey, isSprintLensItem } from '../utils/sprintLens'
-import type { SprintJourney } from '../utils/sprintJourney'
+import {
+  getRemovedCardStatus,
+  getSprintLensRowKey,
+  getSprintLensRows,
+  getSprintRemovals,
+  isSprintLensItem,
+  resolveSprintLensScope,
+  SCOPE_REMOVED_ROW_KEY,
+} from '../utils/sprintLens'
+import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
+import type { SprintScopeState } from '../hooks/useSprintScopeChanges'
 import { AttentionBar } from './AttentionBar'
 import {
   getBoardAttention,
@@ -60,6 +69,10 @@ type KanbanBoardProps = {
   lens?: BoardLens
   /** Sprint lens only: each card's journey through the current sprint. */
   journeysByItemId?: Record<number, SprintJourney>
+  /** Sprint lens only: sprint-start membership, which splits the current sprint into committed, added, and removed lanes. */
+  sprintScope?: SprintScopeState
+  /** Sprint lens only: when and from which column each removed card left the sprint. */
+  departuresByItemId?: Record<number, SprintDeparture>
   /** Sprint lens only: dates for the sprint lanes. */
   iterationWindow?: IterationWindowInfo
   teamIterations?: TeamIterationOption[]
@@ -86,6 +99,8 @@ export const KanbanBoard = memo(function KanbanBoard({
   onStandupEnd,
   lens = 'people',
   journeysByItemId = NO_JOURNEYS,
+  sprintScope,
+  departuresByItemId,
   iterationWindow,
   teamIterations,
 }: KanbanBoardProps) {
@@ -104,9 +119,16 @@ export const KanbanBoard = memo(function KanbanBoard({
     [isSprintLens, workItems],
   )
 
+  const lensScope = useMemo(
+    () => (isSprintLens && sprintScope?.status === 'ready'
+      ? resolveSprintLensScope(boardItems, currentIterationName, sprintScope)
+      : null),
+    [boardItems, currentIterationName, isSprintLens, sprintScope],
+  )
+
   const rows = useMemo<BoardRowData[]>(() => {
     if (isSprintLens) {
-      return getSprintLensRows(boardItems, { currentIterationName, iterationWindow, teamIterations })
+      return getSprintLensRows(boardItems, { currentIterationName, iterationWindow, teamIterations, scope: lensScope, rolledOverItemIds })
     }
 
     const hasUnassignedItems = boardItems.some((item) => {
@@ -135,7 +157,7 @@ export const KanbanBoard = memo(function KanbanBoard({
           }]
         : []),
     ]
-  }, [boardItems, currentIterationName, isSprintLens, iterationWindow, members, selectedMemberFilter, teamIterations, workItemAssignees])
+  }, [boardItems, currentIterationName, isSprintLens, iterationWindow, lensScope, members, rolledOverItemIds, selectedMemberFilter, teamIterations, workItemAssignees])
 
   const rowLookup = useMemo(() => {
     return rows.reduce<Record<string, BoardRowData>>((acc, row) => {
@@ -152,9 +174,13 @@ export const KanbanBoard = memo(function KanbanBoard({
 
     const membersByName = new Map(members.map((member) => [member.displayName.trim().toLowerCase(), member]))
     const owners = new Map<number, IdentityRef>()
-    for (const item of boardItems) {
-      const assignee = workItemAssignees[item.id]
-      if (assignee?.kind !== 'team-member') {
+    const removedAssignees = sprintScope?.status === 'ready' ? sprintScope.assignees : undefined
+    const entries: Array<[WorkItemSummary, ResolvedWorkItemAssignee | undefined]> = [
+      ...boardItems.map((item): [WorkItemSummary, ResolvedWorkItemAssignee | undefined] => [item, workItemAssignees[item.id]]),
+      ...(lensScope?.removedItems ?? []).map((item): [WorkItemSummary, ResolvedWorkItemAssignee | undefined] => [item, removedAssignees?.[item.id]]),
+    ]
+    for (const [item, assignee] of entries) {
+      if (assignee?.kind !== 'team-member' || owners.has(item.id)) {
         continue
       }
 
@@ -164,7 +190,14 @@ export const KanbanBoard = memo(function KanbanBoard({
         : { displayName: assignee.label })
     }
     return owners
-  }, [boardItems, isSprintLens, members, workItemAssignees])
+  }, [boardItems, isSprintLens, lensScope, members, sprintScope, workItemAssignees])
+
+  const removalsByItemId = useMemo(
+    () => (lensScope
+      ? getSprintRemovals(lensScope.removedItems, departuresByItemId, { currentIterationName, iterationWindow, teamIterations })
+      : undefined),
+    [currentIterationName, departuresByItemId, iterationWindow, lensScope, teamIterations],
+  )
 
   const statusEffortTotals = useMemo(
     () => getCurrentSprintEffortTotals(boardItems, currentIterationName),
@@ -200,7 +233,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     for (const item of boardItems) {
       let rowKey: string
       if (isSprintLens) {
-        rowKey = getSprintRowKey(item.sprintName)
+        rowKey = getSprintLensRowKey(item, { currentIterationName, scope: lensScope })
       } else {
         const assignee = workItemAssignees[item.id]
         const assigneeKey = assignee?.kind === 'team-member'
@@ -219,12 +252,25 @@ export const KanbanBoard = memo(function KanbanBoard({
       initial[cellKey].push(item)
     }
 
+    if (lensScope) {
+      for (const item of lensScope.removedItems) {
+        const status = getRemovedCardStatus(item, departuresByItemId?.[item.id])
+        // The Blocked rail is too narrow for a card, and a blocked card was mid-work when it left.
+        const column = status === 'Blocked' && layout.blockedRail ? 'Active' : status
+        const cellKey = `${SCOPE_REMOVED_ROW_KEY}:${column}`
+        if (!initial[cellKey]) {
+          initial[cellKey] = []
+        }
+        initial[cellKey].push(item)
+      }
+    }
+
     for (const cellItems of Object.values(initial)) {
       cellItems.sort(sortWorkItemsBySprintAndId)
     }
 
     return initial
-  }, [boardItems, isSprintLens, rows, rowLookup, workItemAssignees])
+  }, [boardItems, currentIterationName, departuresByItemId, isSprintLens, layout.blockedRail, lensScope, rows, rowLookup, workItemAssignees])
 
   const visibleRows = useMemo(
     // Members options hide people, so they leave sprint lanes alone.
@@ -235,15 +281,18 @@ export const KanbanBoard = memo(function KanbanBoard({
     [cardsByCell, changeHighlightsByItemId, hideUsersWithNoActivity, hideUsersWithOnlyStaleDoneWork, isSprintLens, rows],
   )
 
+  // Removed cards no longer count toward the sprint, so they raise no attention.
+  const liveRows = useMemo(() => visibleRows.filter((row) => !row.ghost), [visibleRows])
+
   const attention = useMemo(
     () => getBoardAttention(
-      visibleRows,
+      liveRows,
       cardsByCell,
       changeHighlightsByItemId,
       changeDetailsByItemId,
       ownerByItemId ? { rowMemberForItem: (item) => ownerByItemId.get(item.id), journeysByItemId } : undefined,
     ),
-    [cardsByCell, changeDetailsByItemId, changeHighlightsByItemId, journeysByItemId, ownerByItemId, visibleRows],
+    [cardsByCell, changeDetailsByItemId, changeHighlightsByItemId, journeysByItemId, liveRows, ownerByItemId],
   )
 
   const highlightedItemIds = useMemo(() => getHighlightedItemIds(attention, attentionFacet), [attention, attentionFacet])
@@ -271,7 +320,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     }
 
     const counts: Record<StatusColumn, number> = { Blocked: 0, New: 0, Active: 0, Review: 0, Done: 0 }
-    for (const row of visibleRows) {
+    for (const row of liveRows) {
       for (const status of STATUS_COLUMNS) {
         for (const item of cardsByCell[`${row.key}:${status}`] ?? []) {
           if (highlightedItemIds.has(item.id)) {
@@ -282,7 +331,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     }
 
     return counts
-  }, [cardsByCell, highlightedItemIds, visibleRows])
+  }, [cardsByCell, highlightedItemIds, liveRows])
 
   const setCellExpanded = (cellKey: string, expanded: boolean) => {
     setExpandedCells((current) => ({
@@ -390,8 +439,9 @@ export const KanbanBoard = memo(function KanbanBoard({
             onToggleRowCollapsed={presentingRowKey ? undefined : toggleRowCollapsed}
             onSetAllRowsCollapsed={presentingRowKey ? undefined : setAllRowsCollapsed}
             presentingRowKey={presentingRowKey}
-            cornerLabel={isSprintLens ? 'Sprint' : undefined}
+            cornerLabel={isSprintLens ? (lensScope ? 'Scope' : 'Sprint') : undefined}
             ownerByItemId={ownerByItemId}
+            removalsByItemId={removalsByItemId}
             journeysByItemId={isSprintLens ? journeysByItemId : undefined}
           />
         </Box>
