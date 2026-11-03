@@ -98,6 +98,10 @@ type StandupToolbarProps = {
   /** While standup runs it decides whose lane is shown, so the member filter is locked. */
   standupActive?: boolean
   onStartStandup?: () => void
+  /** Sprint view's primary action, in place of Start standup: plays the sprint from its first day. */
+  onReplaySprint?: () => void
+  /** Replay waits for the sprint's history; until then its button is disabled. */
+  replayAvailable?: boolean
 }
 
 export function StandupToolbar({
@@ -122,6 +126,8 @@ export function StandupToolbar({
   onSprintViewChange,
   standupActive = false,
   onStartStandup,
+  onReplaySprint,
+  replayAvailable = false,
 }: StandupToolbarProps) {
   const hasConfiguredTeams = teamOptions.length > 0
 
@@ -211,7 +217,23 @@ export function StandupToolbar({
           </Select>
         </FormControl>
 
-        {onStartStandup && !standupActive ? (
+        {isSprintView && onReplaySprint ? (
+          <Tooltip title={replayAvailable ? 'Play the sprint from its first day to today' : 'Available once the sprint\u2019s history loads'}>
+            <span>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                startIcon={<Icon href={svgPlay} />}
+                onClick={onReplaySprint}
+                disabled={!patConfigured || !replayAvailable}
+                sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+              >
+                Replay sprint
+              </Button>
+            </span>
+          </Tooltip>
+        ) : onStartStandup && !standupActive ? (
           <Button
             size="small"
             variant="contained"

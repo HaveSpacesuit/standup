@@ -452,6 +452,12 @@ export type DevelopmentCardModelInput = {
   showRolloverIndicator: boolean
   /** The card's sprint journey; when set, its caption replaces the aging dots. */
   journey?: SprintJourney
+  /**
+   * Shows the card as it stood at this moment, for replaying the sprint: its journey caption is
+   * measured from then, and live details the card had no history for (pull requests, next step,
+   * state, tags, changes, sprint) are left out.
+   */
+  asOf?: number
 }
 
 /** What a Development card shows, shared by its regular, compact, and hover-card layouts. */
@@ -486,14 +492,16 @@ export function getDevelopmentCardModel({
   rowMember,
   showRolloverIndicator,
   journey,
+  asOf,
 }: DevelopmentCardModelInput): DevelopmentCardModel {
+  const historical = asOf !== undefined
   const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
-  const linkedPullRequests = pullRequestOnly ? [] : (item.activePullRequests ?? [])
-  const cardStep = getCardNextStep(item, rowMember)
+  const linkedPullRequests = pullRequestOnly || historical ? [] : (item.activePullRequests ?? [])
+  const cardStep = historical ? null : getCardNextStep(item, rowMember)
   // A blocked card's step line already carries the reason from its blocked tag.
   const hiddenTag = item.status === 'Blocked' && cardStep ? findBlockedTag(item.tags) : undefined
-  const isNew = highlightState === 'new'
-  const now = Date.now()
+  const isNew = !historical && highlightState === 'new'
+  const now = asOf ?? Date.now()
   const journeyCaption = journey && !pullRequestOnly
     // A rejected step already says the card was sent back.
     ? getJourneyCaption(journey, now, { skipBack: cardStep?.iconHref === svgStatusRejected })
@@ -504,19 +512,19 @@ export function getDevelopmentCardModel({
     linkedPullRequests,
     spansRepositories: new Set(linkedPullRequests.map((pullRequest) => pullRequest.repositoryName)).size > 1,
     cardStep,
-    tags: (item.tags ?? [])
+    tags: historical ? [] : (item.tags ?? [])
       .filter((tag) => tag !== hiddenTag)
       .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
     isNew,
     // Done cards are expected to sit still, so only they fade; in-flight cards show aging dots instead.
-    isFaded: highlightState === 'stale' && item.status === 'Done',
+    isFaded: !historical && highlightState === 'stale' && item.status === 'Done',
     showEffort: !pullRequestOnly && typeof item.effort === 'number',
-    showStateBadge: !pullRequestOnly && !isDefaultColumnState(item.status, item.state) && !cardStep?.coversState,
-    showSprint: !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName),
-    showRollover: !pullRequestOnly && showRolloverIndicator,
+    showStateBadge: !historical && !pullRequestOnly && !isDefaultColumnState(item.status, item.state) && !cardStep?.coversState,
+    showSprint: !historical && !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName),
+    showRollover: !historical && !pullRequestOnly && showRolloverIndicator,
     changeBadgeText: isNew ? getChangeBadgeText(changeDetail, now) : null,
     changeBadgeFullText: isNew ? getChangeBadgeText(changeDetail, now, false) : null,
-    agingDots: journeyCaption ? null : getAgingDots(item.status, changeDetail),
+    agingDots: journeyCaption || historical ? null : getAgingDots(item.status, changeDetail),
     journeyCaption,
     titleUrl: pullRequestOnly ? pullRequestOnly.url : item.workItemUrl,
     titleText: pullRequestOnly ? pullRequestOnly.title : item.title,

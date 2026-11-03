@@ -50,6 +50,8 @@ type DevelopmentCardProps = {
   owner?: IdentityRef | null
   /** Set for a card that has left the sprint: drawn as a dashed outline that says where it went. */
   removal?: SprintRemoval
+  /** Shows the card as it stood at this moment, while the sprint is replayed. */
+  asOf?: number
 }
 
 type CardPartProps = {
@@ -349,11 +351,14 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   journey,
   owner = null,
   removal,
+  asOf,
 }: DevelopmentCardProps) {
   const theme = useTheme()
   const accent = theme.palette[getStatusPaletteKey(item.status)].main
-  const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator, journey })
-  const trail = journey && model.journeyCaption ? getJourneyTrail(journey, Date.now()) : null
+  const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator, journey, asOf })
+  const trail = journey && model.journeyCaption ? getJourneyTrail(journey, asOf ?? Date.now()) : null
+  // A past day's card has nothing more to show on hover.
+  const hoverCard = compact && asOf === undefined
 
   const edges = emphasis === 'match'
     ? `inset 3px 0 0 ${accent}, 0 0 0 2px var(--stratakit-color-border-accent-base)`
@@ -375,6 +380,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
     <Card
       elevation={0}
       data-development-card=""
+      data-card-id={item.id}
       data-compact={compact ? '' : undefined}
       data-emphasis={emphasis}
       data-removed=""
@@ -405,8 +411,10 @@ export const DevelopmentCard = memo(function DevelopmentCard({
     <Card
       elevation={0}
       data-development-card=""
+      data-card-id={item.id}
       data-compact={compact ? '' : undefined}
       data-emphasis={emphasis}
+      data-as-of={asOf === undefined ? undefined : ''}
       data-journey-id={journey && !model.pullRequestOnly ? item.id : undefined}
       sx={{
         containerType: 'inline-size',
@@ -432,7 +440,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         '&:focus-within': raisedSx,
       }}
     >
-      <SuppressTooltips when={compact}>
+      <SuppressTooltips when={hoverCard}>
         {model.isNew ? (
           <Box
             component="span"
@@ -452,7 +460,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
             {model.changeBadgeText ? null : <Box component="span" sx={visuallyHiddenSx}>Recently changed</Box>}
           </Box>
         ) : null}
-        <CardTitle item={item} model={model} owner={owner} lines={compact ? 1 : 2} showTitleTooltip={!compact} />
+        <CardTitle item={item} model={model} owner={owner} lines={compact ? 1 : 2} showTitleTooltip={!hoverCard} />
         {compact
           ? <DevelopmentCardCompactLine item={item} model={model} accent={accent} />
           : <CardSections item={item} model={model} accent={accent} />}
@@ -463,7 +471,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   )
 
   // A removed card already shows all it has to say.
-  if (!compact || removal) {
+  if (!hoverCard || removal) {
     return card
   }
 

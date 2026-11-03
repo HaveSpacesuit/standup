@@ -239,8 +239,23 @@ test('sprint-start membership counts removed effort and treats late joiners as a
   assert.deepEqual(result.sprintForecast.current, { complete: 8, inProgress: 0, notStarted: 5, total: 13 })
   assert.equal(result.sprintForecast.addedEffort, 5)
   assert.equal(result.sprintForecast.removedEffort, 6)
-  // The removed card left from Active, two days after it started.
-  assert.deepEqual(result.departuresByItemId, { 4: { leftAt: new Date('2026-10-22T12:00:00').getTime(), status: 'Active' } })
+  // The removed card left from Active, two days after it started; its journey ends as it left.
+  const sprintStart = new Date(2026, 9, 19).getTime()
+  assert.deepEqual(result.departuresByItemId, {
+    4: {
+      leftAt: new Date('2026-10-22T12:00:00').getTime(),
+      status: 'Active',
+      journey: {
+        steps: [
+          { status: 'New', at: sprintStart },
+          { status: 'Active', at: new Date('2026-10-20T12:00:00').getTime() },
+        ],
+        addedAt: null,
+        sprintStart,
+        firstStepSince: new Date('2026-10-01T12:00:00').getTime(),
+      },
+    },
+  })
 
   assert.equal(hook.read({ ...args, sprintScope: { status: 'loading' } }).sprintForecast.status, 'loading')
   const unavailable = hook.read({ ...args, sprintScope: { status: 'unavailable' } }).sprintForecast

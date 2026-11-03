@@ -30,6 +30,7 @@ import {
   SCOPE_REMOVED_ROW_KEY,
 } from '../utils/sprintLens'
 import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
+import { getReplayFlowPoints, getSprintReplayBoard } from '../utils/sprintReplay'
 import type { SprintScopeState } from '../hooks/useSprintScopeChanges'
 import { AttentionBar } from './AttentionBar'
 import {
@@ -44,6 +45,7 @@ import { getStandupOrder, isStandupSpeakerRow, resolveStandupSpeakers, type Stan
 
 const LOADING_LAYOUT = getBoardLayout(true)
 const NO_JOURNEYS: Record<number, SprintJourney> = {}
+const NO_HIGHLIGHTS: Record<number, ChangeHighlightState> = {}
 
 /** People lays the board out by developer; Sprint lays the same cards out by sprint. */
 export type BoardLens = 'people' | 'sprint'
@@ -80,6 +82,11 @@ type KanbanBoardProps = {
   teamIterations?: TeamIterationOption[]
   /** Sprint lens only: each column's effort by day, for the flow headers. */
   effortFlowPoints?: EffortFlowPoint[]
+  /**
+   * Sprint lens only: replays the current sprint to the end of a past day, showing each card where it
+   * stood then. Null or unset shows today.
+   */
+  replayAt?: number | null
 }
 
 export const KanbanBoard = memo(function KanbanBoard({
@@ -108,8 +115,10 @@ export const KanbanBoard = memo(function KanbanBoard({
   iterationWindow,
   teamIterations,
   effortFlowPoints,
+  replayAt = null,
 }: KanbanBoardProps) {
   const isSprintLens = lens === 'sprint'
+  const replayingAt = isSprintLens ? replayAt : null
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
   const [attentionFacet, setAttentionFacet] = useState<AttentionFacetKey | null>(null)
   // Explicit choices only; lanes without one fall back to their defaultCollapsed.
@@ -131,9 +140,22 @@ export const KanbanBoard = memo(function KanbanBoard({
     [boardItems, currentIterationName, isSprintLens, sprintScope],
   )
 
+  // A past day redraws the current sprint from history; owners still come from the live board.
+  const replayBoard = useMemo(
+    () => (replayingAt === null
+      ? null
+      : getSprintReplayBoard({ items: boardItems, journeysByItemId, scope: lensScope, departuresByItemId, currentIterationName, at: replayingAt })),
+    [boardItems, currentIterationName, departuresByItemId, journeysByItemId, lensScope, replayingAt],
+  )
+  const shownItems = replayBoard?.items ?? boardItems
+  const shownScope = replayBoard ? replayBoard.scope : lensScope
+  const shownJourneys = replayBoard?.journeysByItemId ?? journeysByItemId
+  const shownHighlights = replayBoard ? NO_HIGHLIGHTS : changeHighlightsByItemId
+  const shownChangeDetails = replayBoard ? undefined : changeDetailsByItemId
+
   const rows = useMemo<BoardRowData[]>(() => {
     if (isSprintLens) {
-      return getSprintLensRows(boardItems, { currentIterationName, iterationWindow, teamIterations, scope: lensScope, rolledOverItemIds })
+      return getSprintLensRows(shownItems, { currentIterationName, iterationWindow, teamIterations, scope: shownScope, rolledOverItemIds })
     }
 
     const hasUnassignedItems = boardItems.some((item) => {
@@ -162,7 +184,7 @@ export const KanbanBoard = memo(function KanbanBoard({
           }]
         : []),
     ]
-  }, [boardItems, currentIterationName, isSprintLens, iterationWindow, lensScope, members, rolledOverItemIds, selectedMemberFilter, teamIterations, workItemAssignees])
+  }, [boardItems, currentIterationName, isSprintLens, iterationWindow, members, rolledOverItemIds, selectedMemberFilter, shownItems, shownScope, teamIterations, workItemAssignees])
 
   const rowLookup = useMemo(() => {
     return rows.reduce<Record<string, BoardRowData>>((acc, row) => {
@@ -198,24 +220,29 @@ export const KanbanBoard = memo(function KanbanBoard({
   }, [boardItems, isSprintLens, lensScope, members, sprintScope, workItemAssignees])
 
   const removalsByItemId = useMemo(
-    () => (lensScope
-      ? getSprintRemovals(lensScope.removedItems, departuresByItemId, { currentIterationName, iterationWindow, teamIterations })
+    () => (shownScope
+      ? getSprintRemovals(shownScope.removedItems, departuresByItemId, { currentIterationName, iterationWindow, teamIterations })
       : undefined),
-    [currentIterationName, departuresByItemId, iterationWindow, lensScope, teamIterations],
+    [currentIterationName, departuresByItemId, iterationWindow, shownScope, teamIterations],
   )
 
   const statusEffortTotals = useMemo(
-    () => getCurrentSprintEffortTotals(boardItems, currentIterationName),
-    [boardItems, currentIterationName],
+    () => getCurrentSprintEffortTotals(shownItems, currentIterationName),
+    [shownItems, currentIterationName],
   )
 
   const columnFlows = useMemo(() => {
     if (!isSprintLens || !effortFlowPoints) {
       return null
     }
-    const items = currentIterationName ? boardItems.filter((item) => item.sprintName === currentIterationName) : boardItems
-    return getColumnFlows({ points: effortFlowPoints, items, journeysByItemId, now: Date.now() })
-  }, [boardItems, currentIterationName, effortFlowPoints, isSprintLens, journeysByItemId])
+    const items = currentIterationName ? shownItems.filter((item) => item.sprintName === currentIterationName) : shownItems
+    return getColumnFlows({
+      points: replayingAt === null ? effortFlowPoints : getReplayFlowPoints(effortFlowPoints, replayingAt),
+      items,
+      journeysByItemId: shownJourneys,
+      now: replayingAt ?? Date.now(),
+    })
+  }, [currentIterationName, effortFlowPoints, isSprintLens, replayingAt, shownItems, shownJourneys])
 
   const statusItemCounts = useMemo(() => {
     const counts: Record<StatusColumn, number> = {
@@ -226,12 +253,12 @@ export const KanbanBoard = memo(function KanbanBoard({
       Done: 0,
     }
 
-    for (const item of boardItems) {
+    for (const item of shownItems) {
       counts[item.status] += 1
     }
 
     return counts
-  }, [boardItems])
+  }, [shownItems])
 
   const layout = useMemo(() => getBoardLayout(statusItemCounts.Blocked > 0), [statusItemCounts.Blocked])
 
@@ -243,10 +270,10 @@ export const KanbanBoard = memo(function KanbanBoard({
       return acc
     }, {})
 
-    for (const item of boardItems) {
+    for (const item of shownItems) {
       let rowKey: string
       if (isSprintLens) {
-        rowKey = getSprintLensRowKey(item, { currentIterationName, scope: lensScope })
+        rowKey = getSprintLensRowKey(item, { currentIterationName, scope: shownScope })
       } else {
         const assignee = workItemAssignees[item.id]
         const assigneeKey = assignee?.kind === 'team-member'
@@ -265,8 +292,8 @@ export const KanbanBoard = memo(function KanbanBoard({
       initial[cellKey].push(item)
     }
 
-    if (lensScope) {
-      for (const item of lensScope.removedItems) {
+    if (shownScope) {
+      for (const item of shownScope.removedItems) {
         const status = getRemovedCardStatus(item, departuresByItemId?.[item.id])
         // The Blocked rail is too narrow for a card, and a blocked card was mid-work when it left.
         const column = status === 'Blocked' && layout.blockedRail ? 'Active' : status
@@ -283,7 +310,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     }
 
     return initial
-  }, [boardItems, currentIterationName, departuresByItemId, isSprintLens, layout.blockedRail, lensScope, rows, rowLookup, workItemAssignees])
+  }, [currentIterationName, departuresByItemId, isSprintLens, layout.blockedRail, rows, rowLookup, shownItems, shownScope, workItemAssignees])
 
   const visibleRows = useMemo(
     // Members options hide people, so they leave sprint lanes alone.
@@ -301,14 +328,18 @@ export const KanbanBoard = memo(function KanbanBoard({
     () => getBoardAttention(
       liveRows,
       cardsByCell,
-      changeHighlightsByItemId,
-      changeDetailsByItemId,
-      ownerByItemId ? { rowMemberForItem: (item) => ownerByItemId.get(item.id), journeysByItemId } : undefined,
+      shownHighlights,
+      shownChangeDetails,
+      ownerByItemId ? { rowMemberForItem: (item) => ownerByItemId.get(item.id), journeysByItemId: shownJourneys } : undefined,
     ),
-    [cardsByCell, changeDetailsByItemId, changeHighlightsByItemId, journeysByItemId, liveRows, ownerByItemId],
+    [cardsByCell, liveRows, ownerByItemId, shownChangeDetails, shownHighlights, shownJourneys],
   )
 
-  const highlightedItemIds = useMemo(() => getHighlightedItemIds(attention, attentionFacet), [attention, attentionFacet])
+  // A past day's board is for looking back, so Needs attention steps aside.
+  const highlightedItemIds = useMemo(
+    () => (replayBoard ? null : getHighlightedItemIds(attention, attentionFacet)),
+    [attention, attentionFacet, replayBoard],
+  )
 
   const hasStandupSpeakers = visibleRows.some(isStandupSpeakerRow)
   // The order is fixed when standup starts, so refreshed data can't reshuffle people mid-meeting.
@@ -415,6 +446,12 @@ export const KanbanBoard = memo(function KanbanBoard({
         No cards match the current filters. Try adjusting the quick filter or member selection.
       </Typography>
     )
+  } else if (replayBoard && rows.length === 0) {
+    content = (
+      <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
+        No cards on the board have history for this day.
+      </Typography>
+    )
   } else {
     content = !isSprintLens && rows.length > 0 && visibleRows.length === 0 ? (
       <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
@@ -422,14 +459,16 @@ export const KanbanBoard = memo(function KanbanBoard({
       </Typography>
     ) : (
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <AttentionBar
-          facetCounts={attention.facetCounts}
-          totalCards={attention.totalCards}
-          activeFacet={attentionFacet}
-          highlightedCount={highlightedItemIds?.size ?? 0}
-          onChange={setAttentionFacet}
-          facets={isSprintLens ? SPRINT_ATTENTION_FACETS : PEOPLE_ATTENTION_FACETS}
-        />
+        {replayBoard ? null : (
+          <AttentionBar
+            facetCounts={attention.facetCounts}
+            totalCards={attention.totalCards}
+            activeFacet={attentionFacet}
+            highlightedCount={highlightedItemIds?.size ?? 0}
+            onChange={setAttentionFacet}
+            facets={isSprintLens ? SPRINT_ATTENTION_FACETS : PEOPLE_ATTENTION_FACETS}
+          />
+        )}
         <Box sx={{ flex: '1 1 auto', minHeight: 0 }}>
           <KanbanBoardGrid
             layout={layout}
@@ -440,13 +479,13 @@ export const KanbanBoard = memo(function KanbanBoard({
             statusItemCounts={statusItemCounts}
             statusEffortTotals={statusEffortTotals}
             onSetCellExpanded={setCellExpanded}
-            changeHighlightsByItemId={changeHighlightsByItemId}
-            changeDetailsByItemId={changeDetailsByItemId}
+            changeHighlightsByItemId={shownHighlights}
+            changeDetailsByItemId={shownChangeDetails}
             compactCards={compactCards}
             rolledOverItemIds={rolledOverItemIds}
             highlightedItemIds={highlightedItemIds}
             statusMatchCounts={statusMatchCounts}
-            signalsByItemId={attention.signalsByItemId}
+            signalsByItemId={replayBoard ? undefined : attention.signalsByItemId}
             collapsedRowKeys={collapsedRowKeys}
             // Standup decides which lane is open, so manual collapsing pauses until it ends.
             onToggleRowCollapsed={presentingRowKey ? undefined : toggleRowCollapsed}
@@ -455,8 +494,9 @@ export const KanbanBoard = memo(function KanbanBoard({
             cornerLabel={isSprintLens ? (lensScope ? 'Scope' : 'Sprint') : undefined}
             ownerByItemId={ownerByItemId}
             removalsByItemId={removalsByItemId}
-            journeysByItemId={isSprintLens ? journeysByItemId : undefined}
+            journeysByItemId={isSprintLens ? shownJourneys : undefined}
             columnFlows={columnFlows}
+            cardsAsOf={replayingAt ?? undefined}
           />
         </Box>
       </Box>

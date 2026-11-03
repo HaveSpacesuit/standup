@@ -32,6 +32,8 @@ const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/co
 const { getBoardLayout } = await server.ssrLoadModule('/src/features/standup/utils/boardLayout.ts')
 const { KanbanBoard } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoard.tsx')
 const { QualityAssuranceList } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceList.tsx')
+const { SprintReplayBar } = await server.ssrLoadModule('/src/features/standup/components/SprintReplayBar.tsx')
+const { getSprintReplayTimeline } = await server.ssrLoadModule('/src/features/standup/utils/sprintReplay.ts')
 
 function render(element: ReturnType<typeof createElement>) {
   return renderToStaticMarkup(createElement(Root, null, element))
@@ -191,6 +193,76 @@ test('the Development view toggle names People and Sprint in visible text', () =
     ])
   } finally {
     dom.window.close()
+  }
+})
+
+test('the Sprint view swaps Start standup for Replay sprint, which waits for the sprint history', () => {
+  const buttons = (dom: JSDOM) => [...dom.window.document.querySelectorAll('button')]
+  const named = (dom: JSDOM, name: string) => buttons(dom).find((button) => button.textContent === name)
+  const props = { onStartStandup: () => {}, onReplaySprint: () => {} }
+  const people = renderDevelopmentToolbar(props)
+  const loading = renderDevelopmentToolbar({ ...props, isSprintView: true })
+  const ready = renderDevelopmentToolbar({ ...props, isSprintView: true, replayAvailable: true })
+  try {
+    assert.ok(named(people, 'Start standup'))
+    assert.equal(named(people, 'Replay sprint'), undefined)
+    assert.equal(named(loading, 'Start standup'), undefined)
+    assert.equal(named(loading, 'Replay sprint')?.hasAttribute('disabled'), true)
+    assert.equal(named(ready, 'Replay sprint')?.hasAttribute('disabled'), false)
+  } finally {
+    for (const dom of [people, loading, ready]) dom.window.close()
+  }
+})
+
+test('the sprint replay bar plays and steps through the days so far, with the future hatched', () => {
+  const points = [
+    { date: '2025-10-27', Blocked: 0, New: 3, Active: 0, Review: 0, Done: 0 },
+    { date: '2025-10-28', Blocked: 0, New: 2, Active: 1, Review: 0, Done: 0 },
+    { date: '2025-10-29', Blocked: 0, New: 1, Active: 1, Review: 0, Done: 1 },
+    { date: '2025-10-30', Blocked: null, New: null, Active: null, Review: null, Done: null },
+  ]
+  const timeline = getSprintReplayTimeline(points)
+  const replay = (index: number) => ({
+    pastDay: index < timeline.todayIndex ? timeline.days[index] : null,
+    index,
+    playing: false,
+    goTo: () => {},
+    step: () => {},
+    togglePlay: () => {},
+    start: () => {},
+    exit: () => {},
+    reset: () => {},
+  })
+  const renderBar = (index: number, status = 'ready') => {
+    const dom = new JSDOM(render(createElement(SprintReplayBar, { timeline, points, replay: replay(index), status, colorScheme: 'light' })))
+    dom.window.document.querySelectorAll('style').forEach((style) => style.remove())
+    return dom
+  }
+
+  const today = renderBar(2)
+  const past = renderBar(0)
+  const loading = renderBar(2, 'loading')
+  try {
+    const bar = (dom: JSDOM) => dom.window.document.querySelector('[data-sprint-replay]')!
+    const button = (dom: JSDOM, name: string) => bar(dom).querySelector(`button[aria-label="${name}"]`) ?? [...bar(dom).querySelectorAll('button')].find((node) => node.textContent === name)
+    assert.equal(bar(today).getAttribute('aria-label'), 'Sprint replay')
+    assert.match(bar(today).querySelector('[aria-live]')?.textContent ?? '', /^Day 3 of 4.* · today$/)
+    assert.equal(button(today, 'Next day')?.hasAttribute('disabled'), true, 'there is no stepping past today')
+    assert.equal(button(today, 'Previous day')?.hasAttribute('disabled'), false)
+    assert.equal(bar(today).querySelector('[data-replay-playhead]'), null, 'today needs no playhead')
+    assert.deepEqual([...bar(today).querySelectorAll('svg path[data-flow-area]')].map((path) => path.getAttribute('data-flow-area')), ['Blocked', 'New', 'Active', 'Review', 'Done'], 'one area per column')
+    const slider = bar(today).querySelector('input[type="range"]')!
+    assert.equal(slider.getAttribute('aria-label'), 'Sprint day')
+    assert.equal(slider.getAttribute('max'), '2')
+
+    assert.match(bar(past).querySelector('[aria-live]')?.textContent ?? '', /^Day 1 of 4/)
+    assert.ok(bar(past).querySelector('[data-replay-playhead]'))
+    assert.equal(button(past, 'Previous day')?.hasAttribute('disabled'), true)
+
+    assert.equal(button(loading, 'Play')?.hasAttribute('disabled'), true)
+    assert.match(bar(loading).textContent ?? '', /Loading sprint history/)
+  } finally {
+    for (const dom of [today, past, loading]) dom.window.close()
   }
 })
 
@@ -532,6 +604,80 @@ test('the sprint lens adds a flow line to each column header, and the People boa
 
   const peopleHtml = render(createElement(KanbanBoard, { ...props, lens: 'people' }))
   assert.doesNotMatch(peopleHtml, /data-column-flow/)
+})
+
+test('a replayed sprint lens shows each card where it stood that day, without Needs attention', () => {
+  const at = (date: string, hour = 10) => new Date(`${date}T${String(hour).padStart(2, '0')}:00:00`).getTime()
+  const sprintStart = at('2025-10-27', 0)
+  const journey = (steps: Array<[string, number]>, addedAt: number | null = null) => ({
+    steps: steps.map(([status, stepAt]) => ({ status, at: stepAt })),
+    addedAt,
+    sprintStart,
+    firstStepSince: sprintStart,
+  })
+  const point = (date: string, active: number | null, done: number | null) => ({ date, Blocked: active === null ? null : 0, New: active === null ? null : 1, Active: active, Review: active === null ? null : 0, Done: done })
+  const props = {
+    lens: 'sprint',
+    patConfigured: true,
+    isLoading: false,
+    membersError: null,
+    workItemsError: null,
+    assigneesError: null,
+    members: [{ id: 'a', displayName: 'Alex Example', uniqueName: 'alex@example.com' }],
+    selectedMemberFilter: '',
+    workItems: [
+      { ...boardCard(1, 'Done'), tags: ['Customer'] },
+      boardCard(2, 'Active'),
+      boardCard(3, 'Review'),
+      { ...boardCard(6, 'New'), sprintName: 'Sprint 2' },
+    ],
+    currentIterationName: 'Sprint 1',
+    changeHighlightsByItemId: { 1: 'new' },
+    rolledOverItemIds: {},
+    workItemAssignees: { 1: { label: 'Alex Example', kind: 'team-member' } },
+    journeysByItemId: {
+      1: journey([['New', sprintStart], ['Active', at('2025-10-28')], ['Done', at('2025-10-29')]]),
+      2: journey([['Active', at('2025-10-29')]], at('2025-10-29')),
+      6: journey([['New', sprintStart]]),
+    },
+    sprintScope: {
+      status: 'ready',
+      startItemIds: new Set([1, 3, 4]),
+      removedItems: [{ ...boardCard(4, 'New'), sprintName: 'Sprint 2' }],
+      assignees: { 4: { label: 'Alex Example', kind: 'team-member' } },
+    },
+    departuresByItemId: { 4: { leftAt: at('2025-10-29'), status: 'Active', journey: journey([['New', sprintStart], ['Active', at('2025-10-28', 9)]]) } },
+    effortFlowPoints: [point('2025-10-27', 0, 0), point('2025-10-28', 2, 0), point('2025-10-29', 1, 1), point('2025-10-30', null, null)],
+  }
+
+  const today = new JSDOM(render(createElement(KanbanBoard, props)))
+  const day2 = new JSDOM(render(createElement(KanbanBoard, { ...props, replayAt: at('2025-10-29', 0) - 1 })))
+  try {
+    const live = today.window.document
+    const past = day2.window.document
+    for (const document of [live, past]) {
+      document.querySelectorAll('style').forEach((style) => style.remove())
+    }
+    assert.ok(live.querySelector('[data-attention-facet]'), 'today shows Needs attention')
+    assert.equal(past.querySelector('[data-attention-facet]'), null, 'a past day does not')
+
+    const ids = (document: Document) => [...document.querySelectorAll('[data-development-card]:not([data-removed])')].map((card) => card.getAttribute('data-card-id')).sort()
+    assert.deepEqual(ids(past), ['1', '4'], 'the card added later, the card without history, and other sprints drop out')
+    assert.deepEqual([...past.querySelectorAll('[data-lane]')].map((lane) => lane.getAttribute('data-lane')), ['scope:committed', 'scope:added', 'scope:removed'])
+    assert.ok([...past.querySelectorAll('[data-development-card]')].every((card) => card.hasAttribute('data-as-of')))
+    assert.equal(past.querySelector('[data-change-dot]'), null, 'recent changes are today\u2019s news')
+    assert.doesNotMatch(past.body.textContent ?? '', /Customer/, 'live details like tags are left out')
+
+    const count = (document: Document, status: string) => [...document.querySelectorAll('h2')].find((heading) => heading.textContent === status)!.nextElementSibling!.textContent
+    assert.equal(count(past, 'Active'), '2', 'both cards were Active at the end of Day 2')
+    assert.equal(count(past, 'Done'), '0')
+    assert.equal(count(live, 'Done'), '1')
+    assert.equal(past.querySelector('[data-column-flow="Done"] [data-column-flow-delta]')?.textContent, '±0 pts', 'the flow stops at the day shown')
+    assert.equal(live.querySelector('[data-column-flow="Done"] [data-column-flow-delta]')?.textContent, '▲1 pts')
+  } finally {
+    today.window.close()
+    day2.window.close()
+  }
 })
 
 test('QA columns are named articles with subordinate headings', () => {

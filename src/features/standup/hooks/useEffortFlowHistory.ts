@@ -29,7 +29,7 @@ type UseEffortFlowHistoryResult = {
   /** Each current-sprint card's path through the board since it joined the sprint, built from the same
    * revision timelines as the effort flow chart (no extra queries). Cards without history are left out. */
   journeysByItemId: Record<number, SprintJourney>
-  /** When and from which column each card removed from the sprint left it. */
+  /** When and from which column each card removed from the sprint left it, with its path until then. */
   departuresByItemId: Record<number, SprintDeparture>
 }
 
@@ -383,6 +383,7 @@ export function useEffortFlowHistory({
     }
 
     const unavailable = new Set(historySnapshot.unavailableItemIds)
+    const now = Date.now()
     const result: Record<number, SprintDeparture> = {}
     for (const item of removedWorkItems) {
       const timeline = timelinesByItemId[item.id]
@@ -390,11 +391,22 @@ export function useEffortFlowHistory({
         continue
       }
 
-      result[item.id] = getSprintDeparture(timeline, {
+      const departure = getSprintDeparture(timeline, {
         sprintStart: sprintStart.getTime(),
         iterationPath: iterationWindow.current?.fullName,
         currentStatus: item.status,
       })
+      result[item.id] = {
+        ...departure,
+        journey: buildSprintJourney(timeline, {
+          sprintStart: sprintStart.getTime(),
+          // Stop just before the move out, whose revision may already reset the state for the next sprint.
+          now: departure.leftAt === null ? now : departure.leftAt - 1,
+          iterationPath: iterationWindow.current?.fullName,
+          committed: true,
+          currentStatus: departure.status,
+        }),
+      }
     }
 
     return result
