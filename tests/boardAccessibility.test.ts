@@ -484,6 +484,56 @@ test('a removed card is a dashed outline with struck effort that says where it w
   }
 })
 
+test('the sprint lens adds a flow line to each column header, and the People board does not', () => {
+  const day = 24 * 60 * 60 * 1000
+  const sprintStart = Date.now() - 6 * day
+  const props = {
+    patConfigured: true,
+    isLoading: false,
+    membersError: null,
+    workItemsError: null,
+    assigneesError: null,
+    members: [{ id: 'a', displayName: 'Alex Example', uniqueName: 'alex@example.com' }],
+    selectedMemberFilter: '',
+    workItems: [boardCard(1, 'Active'), boardCard(2, 'Done')],
+    currentIterationName: 'Sprint 1',
+    changeHighlightsByItemId: {},
+    rolledOverItemIds: {},
+    workItemAssignees: { 1: { label: 'Alex Example', kind: 'team-member' }, 2: { label: 'Alex Example', kind: 'team-member' } },
+    journeysByItemId: {
+      1: { steps: [{ status: 'New', at: sprintStart }, { status: 'Active', at: sprintStart + 2 * day }], addedAt: null, sprintStart, firstStepSince: sprintStart },
+    },
+    effortFlowPoints: [
+      { date: 'd1', Blocked: 0, New: 2, Active: 0, Review: 0, Done: 0 },
+      { date: 'd2', Blocked: 0, New: 1, Active: 1, Review: 0, Done: 0 },
+      { date: 'd3', Blocked: 0, New: 0, Active: 1, Review: 0, Done: 1 },
+      { date: 'd4', Blocked: null, New: null, Active: null, Review: null, Done: null },
+    ],
+  }
+
+  const dom = new JSDOM(render(createElement(KanbanBoard, { ...props, lens: 'sprint' })))
+  try {
+    const { document } = dom.window
+    document.querySelectorAll('style').forEach((style) => style.remove())
+    // The empty Blocked column stays a rail without a flow line.
+    const flows = [...document.querySelectorAll('[data-column-flow]')]
+    assert.deepEqual(flows.map((flow) => flow.getAttribute('data-column-flow')), ['New', 'Active', 'Review', 'Done'])
+    const flow = (status: string) => flows.find((node) => node.getAttribute('data-column-flow') === status)!
+    assert.equal(flow('Done').querySelector('[data-column-flow-delta]')?.textContent, '▲1 pts')
+    assert.equal(flow('Done').querySelector('[data-column-flow-delta]')?.getAttribute('data-column-flow-delta'), 'positive')
+    assert.match(flow('Active').textContent ?? '', /oldest 4d/)
+    assert.match(flow('Active').textContent ?? '', /Active: 1 pts more than at sprint start\. Longest stay in Active: 4 days\./)
+    assert.equal(flow('New').querySelector('[data-column-oldest]'), null)
+    assert.equal(flow('Active').querySelector('svg[data-column-sparkline]')?.getAttribute('aria-hidden'), 'true')
+    assert.equal(flow('Active').querySelector('polyline')?.getAttribute('points')?.split(' ').length, 3, 'one point per elapsed day')
+  } finally {
+    dom.window.close()
+  }
+
+  const peopleHtml = render(createElement(KanbanBoard, { ...props, lens: 'people' }))
+  assert.doesNotMatch(peopleHtml, /data-column-flow/)
+})
+
 test('QA columns are named articles with subordinate headings', () => {
   const html = render(createElement(QualityAssuranceList, {
     isLoading: false,

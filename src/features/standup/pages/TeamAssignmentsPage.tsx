@@ -282,6 +282,7 @@ export function TeamAssignmentsPage({
                 departuresByItemId={departuresByItemId}
                 iterationWindow={iterationWindow}
                 teamIterations={teamIterations}
+                effortFlowPoints={effortFlowPoints}
               />
             )}
           </Box>

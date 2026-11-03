@@ -88,10 +88,19 @@ type BoardLaneHeadProps = {
   onToggleCollapsed?: () => void
   /** The lane whose owner is speaking in standup. */
   presenting?: boolean
+  /** The board's column header height, which the expanded lane head's sticky summary clears. */
+  headerHeight?: number
 }
 
 /** The sticky first cell of a lane: who it belongs to, how their work spreads across columns, and what needs attention. */
-export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, presenting = false }: BoardLaneHeadProps) {
+export function BoardLaneHead({
+  row,
+  summary,
+  collapsed,
+  onToggleCollapsed,
+  presenting = false,
+  headerHeight = BOARD_HEADER_HEIGHT,
+}: BoardLaneHeadProps) {
   const avatarSize = collapsed ? 20 : 28
   // Cards in a ghost lane have left the board, so they raise no attention flags here.
   const headFlags = row.ghost ? [] : summary.flags.slice(0, LANE_HEAD_FLAG_LIMIT)
@@ -192,7 +201,7 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, pres
           sx={{
             // Keeps the summary in view while scrolling through a tall lane.
             position: 'sticky',
-            top: BOARD_HEADER_HEIGHT + 8,
+            top: headerHeight + 8,
             display: 'flex',
             flexDirection: 'column',
             gap: 0.75,

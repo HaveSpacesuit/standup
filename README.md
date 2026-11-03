@@ -121,7 +121,12 @@ and those cards are flagged Added mid-sprint in the Needs attention bar. **Remov
 collapsed by default. It shows the cards taken out of the sprint as dashed outlines with
 struck-through effort, in the column they left from, along with where they went ("Moved to
 Sprint 43 · Nov 1") and notes summing up those destinations. Removed cards never count toward the
-attention bar or column totals. Beside Refresh,
+attention bar or column totals. Each Sprint view column header also gets a flow line. It shows a
+sparkline of the column's effort on each working day so far, leaving room for the days still to
+come. Beside it is the change since the sprint started: Done going up is green, Blocked going up is
+red, and Blocked going down is green. Active and Review also show how long their longest-staying card
+has been there ("oldest 9d", amber from five days). Hover over or focus the line for details.
+Beside Refresh,
 "Synced 5m ago" says when the board's data last loaded from Azure DevOps (hover for the time). It
 reads "Syncing…" while data loads, when the Refresh icon also turns into a spinner. Returning to a
 team that was already loaded keeps that team's earlier time until you refresh. On every page,

@@ -9,12 +9,14 @@ import type {
   WorkItemSummary,
 } from '../../../ado/queryEngine'
 import { getBoardLayout } from '../utils/boardLayout'
+import { getColumnFlows } from '../utils/columnFlow'
 import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
 import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { KanbanBoardGrid, type BoardRowData } from './KanbanBoardGrid'
 import { KanbanBoardLoadingState } from './KanbanBoardLoadingState'
 import { AdoErrorNotice } from './AdoErrorNotice'
 import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
+import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 import { getAssignmentMemberRows } from '../utils/assignmentMembers'
 import { getVisibleBoardRows } from '../utils/boardRowVisibility'
@@ -76,6 +78,8 @@ type KanbanBoardProps = {
   /** Sprint lens only: dates for the sprint lanes. */
   iterationWindow?: IterationWindowInfo
   teamIterations?: TeamIterationOption[]
+  /** Sprint lens only: each column's effort by day, for the flow headers. */
+  effortFlowPoints?: EffortFlowPoint[]
 }
 
 export const KanbanBoard = memo(function KanbanBoard({
@@ -103,6 +107,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   departuresByItemId,
   iterationWindow,
   teamIterations,
+  effortFlowPoints,
 }: KanbanBoardProps) {
   const isSprintLens = lens === 'sprint'
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
@@ -203,6 +208,14 @@ export const KanbanBoard = memo(function KanbanBoard({
     () => getCurrentSprintEffortTotals(boardItems, currentIterationName),
     [boardItems, currentIterationName],
   )
+
+  const columnFlows = useMemo(() => {
+    if (!isSprintLens || !effortFlowPoints) {
+      return null
+    }
+    const items = currentIterationName ? boardItems.filter((item) => item.sprintName === currentIterationName) : boardItems
+    return getColumnFlows({ points: effortFlowPoints, items, journeysByItemId, now: Date.now() })
+  }, [boardItems, currentIterationName, effortFlowPoints, isSprintLens, journeysByItemId])
 
   const statusItemCounts = useMemo(() => {
     const counts: Record<StatusColumn, number> = {
@@ -443,6 +456,7 @@ export const KanbanBoard = memo(function KanbanBoard({
             ownerByItemId={ownerByItemId}
             removalsByItemId={removalsByItemId}
             journeysByItemId={isSprintLens ? journeysByItemId : undefined}
+            columnFlows={columnFlows}
           />
         </Box>
       </Box>
