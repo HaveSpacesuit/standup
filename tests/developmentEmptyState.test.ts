@@ -77,7 +77,7 @@ const props: PageProps = {
   teamIterations: [],
   teamIterationsLoading: false,
   teamIterationsError: null,
-  visitedStatusesByItemId: {},
+  journeysByItemId: {},
   rolledOverItemIds: {},
 }
 

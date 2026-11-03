@@ -18,7 +18,9 @@ import {
 } from '../utils/boardLayout'
 import { formatEffortPoints } from '../utils/sprintEffortTotals'
 import { DevelopmentCard } from './DevelopmentCard'
+import { JourneyGhostLayer } from './JourneyGhostLayer'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
+import type { SprintJourney } from '../utils/sprintJourney'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import { partitionHighlighted, type AttentionFacetKey } from './boardAttention'
@@ -37,6 +39,14 @@ export type BoardRowData = {
   /** Set on team member rows; absent on the Unassigned and Assignee unavailable rows. */
   memberIdentity?: IdentityRef
   isUnassigned?: boolean
+  /** A StrataKit icon shown in place of the avatar, for lanes that are not people. */
+  iconHref?: string
+  /** A quieter line under the label, such as a sprint's dates. */
+  subtitle?: string
+  /** The lane head counts every card ("8 items · 21 pts") rather than only open ones. */
+  countsAllItems?: boolean
+  /** The lane starts collapsed until it is toggled. */
+  defaultCollapsed?: boolean
 }
 
 type KanbanBoardGridProps = {
@@ -63,6 +73,15 @@ type KanbanBoardGridProps = {
   onSetAllRowsCollapsed?: (collapsed: boolean) => void
   /** In standup, the speaker's lane shows every card and every other lane collapses. */
   presentingRowKey?: string | null
+  /** Replaces the "Team member" corner heading, for boards whose lanes are not people. */
+  cornerLabel?: string
+  /**
+   * The developer each card belongs to, for boards whose lanes are not people: cards show their
+   * owner's avatar and judge handoffs against them rather than the lane.
+   */
+  ownerByItemId?: ReadonlyMap<number, IdentityRef>
+  /** Sprint journeys, which add captions, trails, and the hover ghost to cards. */
+  journeysByItemId?: Record<number, SprintJourney>
 }
 
 export function KanbanBoardGrid({
@@ -85,9 +104,13 @@ export function KanbanBoardGrid({
   onToggleRowCollapsed,
   onSetAllRowsCollapsed,
   presentingRowKey = null,
+  cornerLabel,
+  ownerByItemId,
+  journeysByItemId,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
   const scrollerRef = useRef<HTMLDivElement>(null)
+  const cardsAreaRef = useRef<HTMLDivElement>(null)
   const { gridTemplate, minWidth, blockedRail } = layout
   // Blocked is the only tinted column, and only while it holds cards.
   const blockedTint = `color-mix(in srgb, ${getStatusColumnColor('Blocked', theme.palette)} 8%, transparent)`
@@ -166,8 +189,8 @@ export function KanbanBoardGrid({
                 }}
               >
                 <Typography variant="body-sm" sx={{ fontWeight: 700, mr: 'auto', whiteSpace: 'nowrap' }}>
-                  Team member
-                  {memberCount > 0 ? (
+                  {cornerLabel ?? 'Team member'}
+                  {!cornerLabel && memberCount > 0 ? (
                     <>
                       <Box component="span" aria-hidden="true" sx={{ fontWeight: 500, color: TERTIARY_TEXT_COLOR }}>
                         {` · ${memberCount}`}
@@ -306,6 +329,7 @@ export function KanbanBoardGrid({
           </Box>
 
           <Box
+            ref={cardsAreaRef}
             sx={{
               position: 'relative',
               flex: '1 1 auto',
@@ -314,6 +338,7 @@ export function KanbanBoardGrid({
               bgcolor: 'background.default',
             }}
           >
+            {journeysByItemId ? <JourneyGhostLayer containerRef={cardsAreaRef} journeysByItemId={journeysByItemId} /> : null}
             <Box
               aria-hidden="true"
               sx={{
@@ -338,6 +363,7 @@ export function KanbanBoardGrid({
               {STATUS_COLUMNS.map((status, columnIndex) => (
                 <Box
                   key={`background-${status}`}
+                  data-board-column={status}
                   sx={{
                     boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
                     bgcolor: status === 'Blocked' && !blockedRail ? blockedTint : undefined,
@@ -467,19 +493,24 @@ export function KanbanBoardGrid({
                           gap: 0.75,
                         }}
                       >
-                        {visibleItems.map((item) => (
-                          <DevelopmentCard
-                            key={item.id}
-                            item={item}
-                            highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
-                            changeDetail={changeDetailsByItemId?.[item.id]}
-                            currentIterationName={currentIterationName}
-                            rowMember={row.memberIdentity}
-                            showRolloverIndicator={rolledOverItemIds[item.id] === true}
-                            compact={compact}
-                            emphasis={highlightedItemIds ? (highlightedItemIds.has(item.id) ? 'match' : 'dim') : undefined}
-                          />
-                        ))}
+                        {visibleItems.map((item) => {
+                          const owner = ownerByItemId ? ownerByItemId.get(item.id) ?? null : null
+                          return (
+                            <DevelopmentCard
+                              key={item.id}
+                              item={item}
+                              highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
+                              changeDetail={changeDetailsByItemId?.[item.id]}
+                              currentIterationName={currentIterationName}
+                              rowMember={ownerByItemId ? owner : row.memberIdentity}
+                              showRolloverIndicator={rolledOverItemIds[item.id] === true}
+                              compact={compact}
+                              emphasis={highlightedItemIds ? (highlightedItemIds.has(item.id) ? 'match' : 'dim') : undefined}
+                              journey={journeysByItemId?.[item.id]}
+                              owner={owner}
+                            />
+                          )
+                        })}
                       </Box>
 
                       {hiddenCount > 0 ? (

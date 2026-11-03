@@ -8,6 +8,7 @@ import { AgingDots } from './AgingDots'
 import { StateBadge } from './DevelopmentCardBadges'
 import { PullRequestProgressStrip } from './PullRequestProgressStrip'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
+import { JourneyCaptionLabel } from './SprintJourneyParts'
 import {
   getClosedPullRequestLabel,
   getCompactCardStep,
@@ -96,6 +97,7 @@ export function DevelopmentCardCompactLine({ item, model, accent }: { item: Work
   const hasContent = model.showStateBadge
     || pullRequests.length > 0
     || Boolean(step)
+    || Boolean(model.journeyCaption)
     || Boolean(model.changeBadgeText)
     || Boolean(model.agingDots)
     || model.showRollover
@@ -124,6 +126,8 @@ export function DevelopmentCardCompactLine({ item, model, accent }: { item: Work
         <PullRequestGlyph key={pullRequest.id} pullRequest={pullRequest} linked={!model.pullRequestOnly} />
       ))}
       {step ? <StepGlyph step={step} /> : null}
+      {/* The next step matters more than how long the card has waited, so the caption only fills an empty line. */}
+      {!step && model.journeyCaption ? <JourneyCaptionLabel caption={model.journeyCaption} truncate /> : null}
       {owner ? <OwnerGlyph identity={owner} /> : null}
       {/* The change text only takes leftover space, so it truncates before the step does; the corner dot still marks the change. */}
       <Box sx={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>

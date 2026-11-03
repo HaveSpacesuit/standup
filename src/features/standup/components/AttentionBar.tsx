@@ -4,8 +4,9 @@ import { Icon } from '@stratakit/mui'
 import svgFlag from '@stratakit/icons/flag.svg'
 import { AppTooltip } from './AppTooltip'
 import {
-  ATTENTION_FACETS,
   ATTENTION_TONE_COLORS,
+  PEOPLE_ATTENTION_FACETS,
+  type AttentionFacet,
   type AttentionFacetKey,
 } from './boardAttention'
 
@@ -15,6 +16,8 @@ type AttentionBarProps = {
   activeFacet: AttentionFacetKey | null
   highlightedCount: number
   onChange: (facet: AttentionFacetKey | null) => void
+  /** The facets this board offers, in bar order; defaults to the People board's, which leave out journey-only facets. */
+  facets?: readonly AttentionFacet[]
 }
 
 function formatCards(count: number): string {
@@ -28,9 +31,9 @@ const PRESSED_CHIP_STYLE = {
 } as const
 
 /** Facet chips that highlight matching cards in place, so the board keeps its shape while one signal is in focus. */
-export function AttentionBar({ facetCounts, totalCards, activeFacet, highlightedCount, onChange }: AttentionBarProps) {
+export function AttentionBar({ facetCounts, totalCards, activeFacet, highlightedCount, onChange, facets = PEOPLE_ATTENTION_FACETS }: AttentionBarProps) {
   const labelId = useId()
-  const activeLabel = ATTENTION_FACETS.find((facet) => facet.key === activeFacet)?.label
+  const activeLabel = facets.find((facet) => facet.key === activeFacet)?.label
 
   return (
     <Box
@@ -62,7 +65,7 @@ export function AttentionBar({ facetCounts, totalCards, activeFacet, highlighted
           <Icon href={svgFlag} style={{ color: 'var(--stratakit-color-icon-neutral-secondary)' }} />
           Needs attention
         </Typography>
-        {ATTENTION_FACETS.map((facet) => {
+        {facets.map((facet) => {
           const count = facetCounts[facet.key]
           const pressed = activeFacet === facet.key
           const disabled = count === 0 && !pressed

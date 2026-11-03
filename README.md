@@ -101,7 +101,19 @@ later join the end of the line, and people who drop off are skipped. Starting cl
 filter and switches to the people view; the member filter stays locked while standup runs, and
 switching to the sprint view or changing team ends it.
 
-The toolbar's View toggle switches between the People board and the Sprint view. Beside Refresh,
+The toolbar's View toggle switches between the People board and the Sprint view. The Sprint view is
+the same board with one lane per sprint instead of per person: the current sprint first and open,
+other sprints collapsed beneath it (with their dates), and items without a sprint last. It uses the
+same cards, density, lane heads, and Needs attention bar, leaves out pull requests that have no work
+item, and ignores the Members options. Each card shows its owner (the developer whose lane it sits
+in on the People board) as an avatar, and a caption telling its journey this sprint: "Done Nov 2",
+"Back from Review · 2d", "Added today", "Into Active today", "Active at start", or "4d in Active"
+(amber from five days, except in New). A thin trail along the card's bottom edge shows the columns
+it has passed through, each segment sized by the working days spent there. Hover over or focus a
+card to see a dashed ghost where it started the sprint (or was added), or, if it is back there, the
+farthest column it reached. The Needs attention bar adds Moved back (a card moved to an earlier
+column during the sprint, such as Review to Active), and With QA compares a Review card's assignee
+with its owner. Beside Refresh,
 "Synced 5m ago" says when the board's data last loaded from Azure DevOps (hover for the time). It
 reads "Syncing…" while data loads, when the Refresh icon also turns into a spinner. Returning to a
 team that was already loaded keeps that team's earlier time until you refresh. On every page,
@@ -114,14 +126,14 @@ title on one line and a single status line: the state when the column does not i
 progress, the next step and who it is waiting on, what recently changed, and aging dots and the
 sprint on the right. Hover over or focus a card to see the full card along with its state, sprint,
 owner, last change, and each PR's title, repository, and checks. The setting is saved per team in
-browser local storage, is included in team exports, and does not change the QA board or the sprint
-view.
+browser local storage, is included in team exports, applies to both the People board and the Sprint
+view, and does not change the QA board.
 
 A sprint ribbon above the board, in both views, keeps sprint context on one line: the current
 sprint's name and dates (hover for the full iteration path), working-day progress ("Day 5 of 10",
 with days left counting today), current-sprint effort in points with a stacked bar by status, the
 forecast tag, a small effort flow chart (expand it for the detailed chart and data table), and the
-next sprint. Lower-priority parts drop out as the window narrows. Each column header shows its card
+next sprint. The chart shades the sprint's remaining days and marks today with a dashed line. Lower-priority parts drop out as the window narrows. Each column header shows its card
 count and its current-sprint effort in points.
 
 The forecast tag shows the share of today's scope projected to be Done at sprint end: "On track"

@@ -15,8 +15,11 @@ import { DevelopmentCardDetails } from './DevelopmentCardDetails'
 import { ChangeBadge, StateBadge } from './DevelopmentCardBadges'
 import { AgingDots } from './AgingDots'
 import { AppTooltip, SuppressTooltips } from './AppTooltip'
+import { AdoAvatar } from './AdoAvatar'
+import { JourneyCaptionLabel, JourneyTrailBar } from './SprintJourneyParts'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
+import { getJourneyTrail, type SprintJourney } from '../utils/sprintJourney'
 import { getStatusPaletteKey } from './workItemCardDisplay'
 import {
   getDevelopmentCardModel,
@@ -38,6 +41,10 @@ type DevelopmentCardProps = {
   compact?: boolean
   /** Set while a Needs attention facet is selected: matching cards are ringed and the rest recede. */
   emphasis?: 'match' | 'dim'
+  /** The card's sprint journey: adds a caption, a trail along the bottom edge, and the hover ghost. */
+  journey?: SprintJourney
+  /** Shown as an avatar beside the effort, for boards whose lanes are not people. */
+  owner?: IdentityRef | null
 }
 
 type CardPartProps = {
@@ -70,47 +77,52 @@ const hoverCardTooltipProps = {
 type CardTitleProps = {
   item: WorkItemSummary
   model: DevelopmentCardModel
+  /** The developer who owns the card, shown as an avatar when the card's lane is not a person. */
+  owner?: IdentityRef | null
   /** Clamp the title to this many lines; omit to show it in full. */
   lines?: number
   /** Show the full title in a tooltip; compact cards use their hover card instead. */
   showTitleTooltip?: boolean
 }
 
-function CardTitle({ item, model, lines, showTitleTooltip = false }: CardTitleProps) {
+function OwnerAvatar({ owner }: { owner: IdentityRef }) {
+  const name = owner.displayName ?? owner.uniqueName ?? 'Unknown'
   return (
-    <AppTooltip title={showTitleTooltip ? model.titleText : undefined}>
-      <Box
-        component="a"
-        href={model.titleUrl}
-        target="_blank"
-        rel="noreferrer noopener"
-        sx={{
-          display: 'block',
-          minWidth: 0,
-          color: 'text.primary',
-          textDecoration: 'none',
-          '&:hover': { textDecoration: 'underline' },
-        }}
-      >
-        <Typography
-          variant="body-sm"
-          sx={{
-            lineHeight: 1.25,
-            wordBreak: 'break-word',
-            // A single clamped text line can be shorter than the floated effort badge.
-            minHeight: lines === 1 && model.showEffort ? EFFORT_BADGE_HEIGHT : undefined,
-            ...(lines
-              ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines, overflow: 'hidden' }
-              : {}),
-          }}
-        >
+    <AppTooltip title={name}>
+      <Box component="span" role="img" aria-label={`Owner: ${name}`} data-card-owner="" sx={{ display: 'inline-flex', flex: '0 0 auto' }}>
+        <AdoAvatar alt="" src={owner.imageUrl} sx={{ width: EFFORT_BADGE_HEIGHT, height: EFFORT_BADGE_HEIGHT, fontSize: 9 }}>
+          {name.trim().charAt(0).toUpperCase()}
+        </AdoAvatar>
+      </Box>
+    </AppTooltip>
+  )
+}
+
+function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false }: CardTitleProps) {
+  const hasAside = model.showEffort || Boolean(owner)
+
+  return (
+    <Typography
+      variant="body-sm"
+      // A div rather than the default p, since the owner avatar renders a div.
+      render={<div />}
+      sx={{
+        lineHeight: 1.25,
+        wordBreak: 'break-word',
+        // A single clamped text line can be shorter than the floated effort badge.
+        minHeight: lines === 1 && hasAside ? EFFORT_BADGE_HEIGHT : undefined,
+        ...(lines
+          ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines, overflow: 'hidden' }
+          : {}),
+      }}
+    >
+      {/* Outside the link, so the owner's tooltip doesn't open alongside the title's. */}
+      {hasAside ? (
+        <Box component="span" sx={{ float: 'right', ml: 1.5, mb: 0.25, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
           {model.showEffort ? (
             <Box
               component="span"
               sx={{
-                float: 'right',
-                ml: 1.5,
-                mb: 0.25,
                 minWidth: 20,
                 height: EFFORT_BADGE_HEIGHT,
                 px: 1.25,
@@ -128,6 +140,21 @@ function CardTitle({ item, model, lines, showTitleTooltip = false }: CardTitlePr
               {item.effort}
             </Box>
           ) : null}
+          {owner ? <OwnerAvatar owner={owner} /> : null}
+        </Box>
+      ) : null}
+      <AppTooltip title={showTitleTooltip ? model.titleText : undefined}>
+        <Box
+          component="a"
+          href={model.titleUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          sx={{
+            color: 'text.primary',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
           {model.pullRequestOnly ? (
             <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', mr: 0.5, color: TERTIARY_TEXT_COLOR }}>
               <Icon href={svgGitBranch} />
@@ -161,9 +188,9 @@ function CardTitle({ item, model, lines, showTitleTooltip = false }: CardTitlePr
             {model.displayId}
           </Box>
           <Box component="span">{model.titleText}</Box>
-        </Typography>
-      </Box>
-    </AppTooltip>
+        </Box>
+      </AppTooltip>
+    </Typography>
   )
 }
 
@@ -174,6 +201,7 @@ function CardSections({ item, model, accent }: CardPartProps) {
     || model.showRollover
     || Boolean(model.changeBadgeText)
     || Boolean(model.agingDots)
+    || Boolean(model.journeyCaption)
 
   return (
     <>
@@ -213,6 +241,7 @@ function CardSections({ item, model, accent }: CardPartProps) {
           {model.changeBadgeText ? <ChangeBadge text={model.changeBadgeText} fullText={model.changeBadgeFullText} /> : null}
           <Box sx={{ flex: '1 1 auto' }} />
           {model.agingDots ? <AgingDots dots={model.agingDots} /> : null}
+          {model.journeyCaption ? <JourneyCaptionLabel caption={model.journeyCaption} /> : null}
           {model.showRollover ? <RolloverSprintIndicator color={accent} /> : null}
           {model.showSprint ? (
             <AppTooltip title={item.sprintName}>
@@ -237,7 +266,8 @@ function DevelopmentCardHoverCard({
   model,
   accent,
   changeDetail,
-}: CardPartProps & { changeDetail?: CardChangeDetail }) {
+  owner,
+}: CardPartProps & { changeDetail?: CardChangeDetail; owner: IdentityRef | null }) {
   return (
     <Box
       data-development-card-hover=""
@@ -260,7 +290,7 @@ function DevelopmentCardHoverCard({
         overflowWrap: 'normal',
       }}
     >
-      <CardTitle item={item} model={model} />
+      <CardTitle item={item} model={model} owner={owner} />
       <CardSections item={item} model={model} accent={accent} />
       <DevelopmentCardDetails item={item} model={model} changeDetail={changeDetail} />
     </Box>
@@ -280,10 +310,13 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   showRolloverIndicator = false,
   compact = false,
   emphasis,
+  journey,
+  owner = null,
 }: DevelopmentCardProps) {
   const theme = useTheme()
   const accent = theme.palette[getStatusPaletteKey(item.status)].main
-  const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator })
+  const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator, journey })
+  const trail = journey && model.journeyCaption ? getJourneyTrail(journey, Date.now()) : null
 
   const edges = emphasis === 'match'
     ? `inset 3px 0 0 ${accent}, 0 0 0 2px var(--stratakit-color-border-accent-base)`
@@ -307,12 +340,15 @@ export const DevelopmentCard = memo(function DevelopmentCard({
       data-development-card=""
       data-compact={compact ? '' : undefined}
       data-emphasis={emphasis}
+      data-journey-id={journey && !model.pullRequestOnly ? item.id : undefined}
       sx={{
         containerType: 'inline-size',
         position: 'relative',
         width: '100%',
         minWidth: 0,
-        py: compact ? 1 : 1.25,
+        pt: compact ? 1 : 1.25,
+        // Room for the journey trail along the bottom edge.
+        pb: trail ? (compact ? 1.5 : 1.75) : compact ? 1 : 1.25,
         pr: 1.75,
         pl: 2.5,
         border: '1px solid',
@@ -349,10 +385,11 @@ export const DevelopmentCard = memo(function DevelopmentCard({
             {model.changeBadgeText ? null : <Box component="span" sx={visuallyHiddenSx}>Recently changed</Box>}
           </Box>
         ) : null}
-        <CardTitle item={item} model={model} lines={compact ? 1 : 2} showTitleTooltip={!compact} />
+        <CardTitle item={item} model={model} owner={owner} lines={compact ? 1 : 2} showTitleTooltip={!compact} />
         {compact
           ? <DevelopmentCardCompactLine item={item} model={model} accent={accent} />
           : <CardSections item={item} model={model} accent={accent} />}
+        {trail ? <JourneyTrailBar trail={trail} /> : null}
         {emphasis === 'match' ? <Box component="span" sx={visuallyHiddenSx}>Highlighted</Box> : null}
       </SuppressTooltips>
     </Card>
@@ -364,7 +401,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
 
   return (
     <Tooltip
-      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} changeDetail={changeDetail} />}
+      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} changeDetail={changeDetail} owner={owner} />}
       placement="right-start"
       enterDelay={400}
       enterNextDelay={150}
