@@ -261,6 +261,15 @@ Prepare data that exercises both populated and empty states:
       dark modes.
 - [ ] Verify removed cards are excluded from column totals and attention counts and stay dimmed when
       a Needs attention facet is selected.
+- [ ] Verify each Sprint view column header shows a flow line under its title:
+      - a sparkline of the column's effort through today, with room left for the remaining days;
+      - the change since sprint start (▲/▼/±0 pts), green when Done grows, red when Blocked grows,
+        and green when Blocked shrinks;
+      - for Active and Review, "oldest Nd", amber from five days.
+      Check it in light and dark modes, that hovering or focusing it shows a tooltip, and that the
+      People board's headers stay single-line.
+- [ ] Scroll a tall Sprint view lane and verify its sticky summary stays below the taller column
+      headers.
 - [ ] Verify switching between People and Sprint views preserves the selected team and filters.
 - [ ] Verify changing the sprint scope updates cards and summary counts without stale cards.
 - [ ] Verify the ribbon's effort flow chart shades the remaining days and marks today in light and dark

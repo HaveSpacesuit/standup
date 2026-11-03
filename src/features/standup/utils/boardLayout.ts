@@ -5,6 +5,8 @@ export const LANE_COLUMN_WIDTH = 208
 export const BLOCKED_RAIL_WIDTH = 44
 /** Column headers are a single line, so their height is fixed and sticky content below can clear them. */
 export const BOARD_HEADER_HEIGHT = 40
+/** Sprint view headers add a flow line (sparkline, change since the start, oldest card) under the title. */
+export const BOARD_FLOW_HEADER_HEIGHT = 60
 
 /** Faint enough to separate columns without competing with the cards' colored edges. */
 export const BOARD_COLUMN_DIVIDER = 'inset 1px 0 0 var(--stratakit-color-border-glow-base-default)'

@@ -11,12 +11,15 @@ import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import {
   BOARD_COLUMN_DIVIDER as COLUMN_DIVIDER,
+  BOARD_FLOW_HEADER_HEIGHT,
   BOARD_HEADER_HEIGHT,
   getCollapsedCellCardLimit,
   isCompactStatusColumn,
   type BoardLayout,
 } from '../utils/boardLayout'
+import type { ColumnFlow } from '../utils/columnFlow'
 import { formatEffortPoints } from '../utils/sprintEffortTotals'
+import { ColumnFlowLine } from './ColumnFlowLine'
 import { DevelopmentCard } from './DevelopmentCard'
 import { JourneyGhostLayer } from './JourneyGhostLayer'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
@@ -98,6 +101,8 @@ type KanbanBoardGridProps = {
   journeysByItemId?: Record<number, SprintJourney>
   /** Where the cards in ghost lanes went when they left the sprint. */
   removalsByItemId?: ReadonlyMap<number, SprintRemoval>
+  /** How each column has moved this sprint; when set, the headers grow a flow line under the title. */
+  columnFlows?: Record<StatusColumn, ColumnFlow> | null
 }
 
 export function KanbanBoardGrid({
@@ -124,11 +129,13 @@ export function KanbanBoardGrid({
   ownerByItemId,
   journeysByItemId,
   removalsByItemId,
+  columnFlows = null,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
   const scrollerRef = useRef<HTMLDivElement>(null)
   const cardsAreaRef = useRef<HTMLDivElement>(null)
   const { gridTemplate, minWidth, blockedRail } = layout
+  const headerHeight = columnFlows ? BOARD_FLOW_HEADER_HEIGHT : BOARD_HEADER_HEIGHT
   // Blocked is the only tinted column, and only while it holds cards.
   const blockedTint = `color-mix(in srgb, ${getStatusColumnColor('Blocked', theme.palette)} 8%, transparent)`
   const isRail = (status: StatusColumn) => status === 'Blocked' && blockedRail
@@ -147,10 +154,10 @@ export function KanbanBoardGrid({
       return
     }
 
-    const top = scroller.scrollTop + lane.getBoundingClientRect().top - scroller.getBoundingClientRect().top - BOARD_HEADER_HEIGHT
+    const top = scroller.scrollTop + lane.getBoundingClientRect().top - scroller.getBoundingClientRect().top - headerHeight
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
     scroller.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? 'auto' : 'smooth' })
-  }, [presentingRowKey])
+  }, [headerHeight, presentingRowKey])
 
   return (
     <Box sx={{ height: '100%' }}>
@@ -196,7 +203,7 @@ export function KanbanBoardGrid({
                   zIndex: 4,
                   pl: 2,
                   pr: 1,
-                  height: BOARD_HEADER_HEIGHT,
+                  height: headerHeight,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.25,
@@ -237,7 +244,7 @@ export function KanbanBoardGrid({
                     data-blocked-rail=""
                     sx={{
                       position: 'relative',
-                      height: BOARD_HEADER_HEIGHT,
+                      height: headerHeight,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -270,11 +277,13 @@ export function KanbanBoardGrid({
               ) : (
                 <Box
                   key={status}
+                  data-column-header={status}
                   sx={{
                     px: 1.5,
-                    height: BOARD_HEADER_HEIGHT,
+                    py: columnFlows ? 1 : 0,
+                    height: headerHeight,
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: columnFlows ? 'stretch' : 'center',
                     gap: 1,
                     minWidth: 0,
                     boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
@@ -283,63 +292,68 @@ export function KanbanBoardGrid({
                   <Box
                     sx={{
                       width: 4,
-                      height: 16,
+                      height: columnFlows ? 'auto' : 16,
                       borderRadius: 999,
                       bgcolor: getStatusColumnColor(status, theme.palette),
                       flex: '0 0 auto',
                     }}
                   />
-                  <Typography render={<h2 />} variant="body-sm" sx={{ fontWeight: 700 }}>
-                    {status}
-                  </Typography>
-                  <Box
-                    component="span"
-                    sx={{
-                      minWidth: 20,
-                      height: 18,
-                      px: 0.75,
-                      borderRadius: 999,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: 'var(--stratakit-color-bg-glow-on-surface-neutral-pressed)',
-                      color: 'text.secondary',
-                      fontSize: 11,
-                      fontWeight: 700,
-                      fontVariantNumeric: 'tabular-nums',
-                      flex: '0 0 auto',
-                    }}
-                  >
-                    {statusMatchCounts ? (
-                      <>
-                        <Box component="span" aria-hidden="true">
-                          {statusMatchCounts[status]}
-                          <Box component="span" sx={{ fontWeight: 500, color: TERTIARY_TEXT_COLOR }}>/{statusItemCounts[status]}</Box>
-                        </Box>
-                        <Box component="span" sx={visuallyHiddenSx}>
-                          {statusMatchCounts[status]} of {statusItemCounts[status]} highlighted
-                        </Box>
-                      </>
-                    ) : statusItemCounts[status]}
-                  </Box>
+                  <Box sx={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                      <Typography render={<h2 />} variant="body-sm" sx={{ fontWeight: 700 }}>
+                        {status}
+                      </Typography>
+                      <Box
+                        component="span"
+                        sx={{
+                          minWidth: 20,
+                          height: 18,
+                          px: 0.75,
+                          borderRadius: 999,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: 'var(--stratakit-color-bg-glow-on-surface-neutral-pressed)',
+                          color: 'text.secondary',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          fontVariantNumeric: 'tabular-nums',
+                          flex: '0 0 auto',
+                        }}
+                      >
+                        {statusMatchCounts ? (
+                          <>
+                            <Box component="span" aria-hidden="true">
+                              {statusMatchCounts[status]}
+                              <Box component="span" sx={{ fontWeight: 500, color: TERTIARY_TEXT_COLOR }}>/{statusItemCounts[status]}</Box>
+                            </Box>
+                            <Box component="span" sx={visuallyHiddenSx}>
+                              {statusMatchCounts[status]} of {statusItemCounts[status]} highlighted
+                            </Box>
+                          </>
+                        ) : statusItemCounts[status]}
+                      </Box>
 
-                  <AppTooltip
-                    title={
-                      currentIterationName
-                        ? `Effort total includes visible items from ${currentIterationName} only.`
-                        : 'Effort total includes visible items from the current sprint only.'
-                    }
-                  >
-                    <Typography
-                      component="span"
-                      variant="caption-md"
-                      tabIndex={0}
-                      sx={{ ml: 'auto', color: 'text.secondary', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
-                    >
-                      <Box component="span" sx={visuallyHiddenSx}>Current sprint effort: </Box>
-                      {formatEffortPoints(statusEffortTotals[status])}
-                    </Typography>
-                  </AppTooltip>
+                      <AppTooltip
+                        title={
+                          currentIterationName
+                            ? `Effort total includes visible items from ${currentIterationName} only.`
+                            : 'Effort total includes visible items from the current sprint only.'
+                        }
+                      >
+                        <Typography
+                          component="span"
+                          variant="caption-md"
+                          tabIndex={0}
+                          sx={{ ml: 'auto', color: 'text.secondary', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+                        >
+                          <Box component="span" sx={visuallyHiddenSx}>Current sprint effort: </Box>
+                          {formatEffortPoints(statusEffortTotals[status])}
+                        </Typography>
+                      </AppTooltip>
+                    </Box>
+                    {columnFlows ? <ColumnFlowLine status={status} flow={columnFlows[status]} /> : null}
+                  </Box>
                 </Box>
               ))}
             </Box>
@@ -394,7 +408,7 @@ export function KanbanBoardGrid({
                       component="span"
                       sx={{
                         position: 'sticky',
-                        top: BOARD_HEADER_HEIGHT + 12,
+                        top: headerHeight + 12,
                         mt: 1.5,
                         writingMode: 'vertical-rl',
                         transform: 'rotate(180deg)',
@@ -435,6 +449,7 @@ export function KanbanBoardGrid({
                   collapsed={collapsed}
                   onToggleCollapsed={toggleCollapsed}
                   presenting={presenting}
+                  headerHeight={headerHeight}
                 />
 
                 {STATUS_COLUMNS.map((status, columnIndex) => {
