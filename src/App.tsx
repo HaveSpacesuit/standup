@@ -77,6 +77,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     effortFlowLoading,
     sprintForecast,
     journeysByItemId,
+    sprintScope,
+    departuresByItemId,
     rolledOverItemIds,
     workItemAssignees,
     qaBuckets,
@@ -246,6 +248,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           teamIterationsLoading,
           teamIterationsError,
           journeysByItemId,
+          sprintScope,
+          departuresByItemId,
           rolledOverItemIds,
         }}
         qualityAssurancePageProps={{

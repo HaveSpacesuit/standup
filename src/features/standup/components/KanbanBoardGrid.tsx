@@ -23,13 +23,23 @@ import type { WorkItemCardHighlightState } from './WorkItemCard'
 import type { SprintJourney } from '../utils/sprintJourney'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
-import { partitionHighlighted, type AttentionFacetKey } from './boardAttention'
+import { partitionHighlighted, type AttentionFacetKey, type AttentionTone } from './boardAttention'
 import { BoardLaneHead, CollapsedLaneSummary } from './BoardLane'
 import { getLaneSummary, presentingFrameShadow, type LaneSummary } from './laneSummary'
 import { isStandupSpeakerRow } from './standupOrder'
+import type { SprintRemoval } from '../utils/sprintLens'
 
 const NO_SIGNALS: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>> = new Map()
 const NO_COLLAPSED_ROWS: ReadonlySet<string> = new Set()
+
+/** A lane-level fact shown as a badge in the lane head, such as how much scope was added. */
+export type LaneNote = {
+  key: string
+  label: string
+  tone: AttentionTone | 'neutral'
+  iconHref: string
+  description?: string
+}
 
 export type BoardRowData = {
   key: string
@@ -47,6 +57,10 @@ export type BoardRowData = {
   countsAllItems?: boolean
   /** The lane starts collapsed until it is toggled. */
   defaultCollapsed?: boolean
+  /** The lane holds cards that have left the board's scope: they are drawn as outlines and its effort counts as removed. */
+  ghost?: boolean
+  /** Lane facts shown after the attention flags. */
+  notes?: LaneNote[]
 }
 
 type KanbanBoardGridProps = {
@@ -82,6 +96,8 @@ type KanbanBoardGridProps = {
   ownerByItemId?: ReadonlyMap<number, IdentityRef>
   /** Sprint journeys, which add captions, trails, and the hover ghost to cards. */
   journeysByItemId?: Record<number, SprintJourney>
+  /** Where the cards in ghost lanes went when they left the sprint. */
+  removalsByItemId?: ReadonlyMap<number, SprintRemoval>
 }
 
 export function KanbanBoardGrid({
@@ -107,6 +123,7 @@ export function KanbanBoardGrid({
   cornerLabel,
   ownerByItemId,
   journeysByItemId,
+  removalsByItemId,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -430,7 +447,7 @@ export function KanbanBoardGrid({
                   if (collapsed) {
                     const items = cardsByCell[cellKey] ?? []
                     const highlightedCount = highlightedItemIds
-                      ? items.filter((item) => highlightedItemIds.has(item.id)).length
+                      ? row.ghost ? 0 : items.filter((item) => highlightedItemIds.has(item.id)).length
                       : null
 
                     return (
@@ -457,12 +474,13 @@ export function KanbanBoardGrid({
                           items={items}
                           signalsByItemId={signalsByItemId}
                           highlightedCount={highlightedCount}
+                          ghost={row.ghost}
                         />
                       </Box>
                     )
                   }
 
-                  const { items: cellItems, matchCount } = partitionHighlighted(cardsByCell[cellKey] ?? [], highlightedItemIds)
+                  const { items: cellItems, matchCount } = partitionHighlighted(cardsByCell[cellKey] ?? [], row.ghost ? null : highlightedItemIds)
                   const compact = isCompactStatusColumn(status, compactCards)
                   // Matching cards are never tucked behind Show more, and the speaker's lane shows everything.
                   const cardLimit = presenting ? Infinity : Math.max(getCollapsedCellCardLimit(compact), matchCount)
@@ -495,6 +513,7 @@ export function KanbanBoardGrid({
                       >
                         {visibleItems.map((item) => {
                           const owner = ownerByItemId ? ownerByItemId.get(item.id) ?? null : null
+                          const removal = row.ghost ? removalsByItemId?.get(item.id) ?? { to: null, at: null } : undefined
                           return (
                             <DevelopmentCard
                               key={item.id}
@@ -505,9 +524,10 @@ export function KanbanBoardGrid({
                               rowMember={ownerByItemId ? owner : row.memberIdentity}
                               showRolloverIndicator={rolledOverItemIds[item.id] === true}
                               compact={compact}
-                              emphasis={highlightedItemIds ? (highlightedItemIds.has(item.id) ? 'match' : 'dim') : undefined}
-                              journey={journeysByItemId?.[item.id]}
+                              emphasis={highlightedItemIds ? (!removal && highlightedItemIds.has(item.id) ? 'match' : 'dim') : undefined}
+                              journey={removal ? undefined : journeysByItemId?.[item.id]}
                               owner={owner}
+                              removal={removal}
                             />
                           )
                         })}

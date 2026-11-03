@@ -113,7 +113,15 @@ it has passed through, each segment sized by the working days spent there. Hover
 card to see a dashed ghost where it started the sprint (or was added), or, if it is back there, the
 farthest column it reached. The Needs attention bar adds Moved back (a card moved to an earlier
 column during the sprint, such as Review to Active), and With QA compares a Review card's assignee
-with its owner. Beside Refresh,
+with its owner. Once the sprint's scope history loads, the current sprint splits into commitment
+lanes and the corner label reads "Scope". **Committed at start** holds the cards planned when the
+sprint began, with a note for any that rolled over from the previous sprint. **Added during sprint**
+holds the cards added later, with a "Scope +13%" note comparing their effort with what was planned,
+and those cards are flagged Added mid-sprint in the Needs attention bar. **Removed from sprint** is
+collapsed by default. It shows the cards taken out of the sprint as dashed outlines with
+struck-through effort, in the column they left from, along with where they went ("Moved to
+Sprint 43 · Nov 1") and notes summing up those destinations. Removed cards never count toward the
+attention bar or column totals. Beside Refresh,
 "Synced 5m ago" says when the board's data last loaded from Azure DevOps (hover for the time). It
 reads "Syncing…" while data loads, when the Refresh icon also turns into a spinner. Returning to a
 team that was already loaded keeps that team's earlier time until you refresh. On every page,

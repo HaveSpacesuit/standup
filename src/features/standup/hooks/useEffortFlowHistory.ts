@@ -6,7 +6,7 @@ import { EFFORT_FIELD_NAMES, parseEffort } from '../../../ado/workItemsApi'
 import { formatDateKey, parseDateOnly } from '../utils/dateOnly'
 import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { calculateSprintForecast, type SprintForecast } from '../utils/sprintForecast'
-import { buildSprintJourney, type SprintJourney } from '../utils/sprintJourney'
+import { buildSprintJourney, getSprintDeparture, type SprintDeparture, type SprintJourney } from '../utils/sprintJourney'
 import type { SprintScopeState } from './useSprintScopeChanges'
 
 export type EffortFlowPoint = { date: string } & Record<StatusColumn, number | null>
@@ -29,6 +29,8 @@ type UseEffortFlowHistoryResult = {
   /** Each current-sprint card's path through the board since it joined the sprint, built from the same
    * revision timelines as the effort flow chart (no extra queries). Cards without history are left out. */
   journeysByItemId: Record<number, SprintJourney>
+  /** When and from which column each card removed from the sprint left it. */
+  departuresByItemId: Record<number, SprintDeparture>
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -52,6 +54,7 @@ type HistorySnapshot = {
 
 const EMPTY_TIMELINES: Record<number, TimelineEntry[]> = {}
 const EMPTY_ITEMS: WorkItemSummary[] = []
+const EMPTY_DEPARTURES: Record<number, SprintDeparture> = {}
 
 /** Replays a work item's revision history into a chronological (timestamp, status, effort) timeline. */
 function buildItemTimeline(item: WorkItemSummary, updates: WorkItemUpdate[], tagRules: TagRule[]): TimelineEntry[] {
@@ -373,7 +376,31 @@ export function useEffortFlowHistory({
     return result
   }, [historyIsCurrent, historySnapshot, iterationWindow, sprintScope, timelinesByItemId, workItems])
 
-  return { points, isLoading, journeysByItemId, sprintForecast }
+  const departuresByItemId = useMemo<Record<number, SprintDeparture>>(() => {
+    const sprintStart = parseDateOnly(iterationWindow.current?.startDate)
+    if (!sprintStart || !historyIsCurrent || removedWorkItems.length === 0) {
+      return EMPTY_DEPARTURES
+    }
+
+    const unavailable = new Set(historySnapshot.unavailableItemIds)
+    const result: Record<number, SprintDeparture> = {}
+    for (const item of removedWorkItems) {
+      const timeline = timelinesByItemId[item.id]
+      if (!timeline || unavailable.has(item.id)) {
+        continue
+      }
+
+      result[item.id] = getSprintDeparture(timeline, {
+        sprintStart: sprintStart.getTime(),
+        iterationPath: iterationWindow.current?.fullName,
+        currentStatus: item.status,
+      })
+    }
+
+    return result
+  }, [historyIsCurrent, historySnapshot, iterationWindow, removedWorkItems, timelinesByItemId])
+
+  return { points, isLoading, journeysByItemId, departuresByItemId, sprintForecast }
 }
 
 export { STATUS_COLUMNS }

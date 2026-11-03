@@ -2,6 +2,7 @@ import { Card, Tooltip, Typography } from '@mui/material'
 import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
+import svgArrowRight from '@stratakit/icons/arrow-right.svg'
 import svgGitBranch from '@stratakit/icons/git-branch.svg'
 import { memo } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
@@ -20,6 +21,8 @@ import { JourneyCaptionLabel, JourneyTrailBar } from './SprintJourneyParts'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getJourneyTrail, type SprintJourney } from '../utils/sprintJourney'
+import { formatSprintDate } from '../utils/sprintDates'
+import type { SprintRemoval } from '../utils/sprintLens'
 import { getStatusPaletteKey } from './workItemCardDisplay'
 import {
   getDevelopmentCardModel,
@@ -45,6 +48,8 @@ type DevelopmentCardProps = {
   journey?: SprintJourney
   /** Shown as an avatar beside the effort, for boards whose lanes are not people. */
   owner?: IdentityRef | null
+  /** Set for a card that has left the sprint: drawn as a dashed outline that says where it went. */
+  removal?: SprintRemoval
 }
 
 type CardPartProps = {
@@ -83,6 +88,8 @@ type CardTitleProps = {
   lines?: number
   /** Show the full title in a tooltip; compact cards use their hover card instead. */
   showTitleTooltip?: boolean
+  /** Strike through the effort, for cards whose effort no longer counts toward the sprint. */
+  struckEffort?: boolean
 }
 
 function OwnerAvatar({ owner }: { owner: IdentityRef }) {
@@ -98,7 +105,7 @@ function OwnerAvatar({ owner }: { owner: IdentityRef }) {
   )
 }
 
-function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false }: CardTitleProps) {
+function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false, struckEffort = false }: CardTitleProps) {
   const hasAside = model.showEffort || Boolean(owner)
 
   return (
@@ -128,15 +135,16 @@ function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false 
                 px: 1.25,
                 borderRadius: 999,
                 border: '1px solid var(--stratakit-color-border-neutral-muted)',
-                color: 'text.secondary',
+                color: struckEffort ? TERTIARY_TEXT_COLOR : 'text.secondary',
                 fontSize: 11,
                 fontWeight: 600,
                 lineHeight: '16px',
                 textAlign: 'center',
                 fontVariantNumeric: 'tabular-nums',
+                textDecoration: struckEffort ? 'line-through' : undefined,
               }}
             >
-              <Box component="span" sx={visuallyHiddenSx}>Effort </Box>
+              <Box component="span" sx={visuallyHiddenSx}>{struckEffort ? 'Removed effort ' : 'Effort '}</Box>
               {item.effort}
             </Box>
           ) : null}
@@ -260,6 +268,34 @@ function CardSections({ item, model, accent }: CardPartProps) {
   )
 }
 
+/** The one line a removed card shows: where it went, and when. */
+function RemovalLine({ removal }: { removal: SprintRemoval }) {
+  const destination = removal.to ? `Moved to ${removal.to}` : 'Moved out of the sprint'
+  const text = removal.at === null ? destination : `${destination} · ${formatSprintDate(new Date(removal.at))}`
+
+  return (
+    <Box
+      data-card-removal=""
+      sx={{
+        clear: 'both',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.5,
+        mt: 0.75,
+        minWidth: 0,
+        fontSize: 11,
+        lineHeight: 1.3,
+        color: 'text.secondary',
+      }}
+    >
+      <Box component="span" sx={{ display: 'inline-flex', flex: '0 0 auto', color: TERTIARY_TEXT_COLOR }}>
+        <Icon href={svgArrowRight} />
+      </Box>
+      <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</Box>
+    </Box>
+  )
+}
+
 /** The full card, plus the facts a compact card leaves out, shown while a compact card is hovered or focused. */
 function DevelopmentCardHoverCard({
   item,
@@ -312,6 +348,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   emphasis,
   journey,
   owner = null,
+  removal,
 }: DevelopmentCardProps) {
   const theme = useTheme()
   const accent = theme.palette[getStatusPaletteKey(item.status)].main
@@ -334,7 +371,37 @@ export const DevelopmentCard = memo(function DevelopmentCard({
     filter: 'none',
   }
 
-  const card = (
+  const card = removal ? (
+    <Card
+      elevation={0}
+      data-development-card=""
+      data-compact={compact ? '' : undefined}
+      data-emphasis={emphasis}
+      data-removed=""
+      // StrataKit's card layer outranks sx for the border and background, so they go inline.
+      style={{ borderStyle: 'dashed', borderColor: 'var(--stratakit-color-border-neutral-base)', backgroundColor: 'transparent' }}
+      sx={{
+        position: 'relative',
+        width: '100%',
+        minWidth: 0,
+        pt: compact ? 1 : 1.25,
+        pb: compact ? 1 : 1.25,
+        pr: 1.75,
+        pl: 2.5,
+        border: '1px solid',
+        borderRadius: 1,
+        boxShadow: 'none',
+        overflow: 'visible',
+        opacity: isDimmed ? 0.35 : 0.85,
+        filter: isDimmed ? 'grayscale(0.6)' : 'none',
+        transition: 'opacity 120ms ease, filter 120ms ease',
+        '&:hover, &:focus-within': { opacity: 1, filter: 'none' },
+      }}
+    >
+      <CardTitle item={item} model={model} owner={owner} lines={compact ? 1 : 2} showTitleTooltip struckEffort />
+      <RemovalLine removal={removal} />
+    </Card>
+  ) : (
     <Card
       elevation={0}
       data-development-card=""
@@ -395,7 +462,8 @@ export const DevelopmentCard = memo(function DevelopmentCard({
     </Card>
   )
 
-  if (!compact) {
+  // A removed card already shows all it has to say.
+  if (!compact || removal) {
     return card
   }
 

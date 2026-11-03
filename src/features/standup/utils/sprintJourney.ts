@@ -129,6 +129,41 @@ export function buildSprintJourney(
   return { steps, addedAt, sprintStart, firstStepSince }
 }
 
+export type SprintDeparture = {
+  /** When the card left the sprint; null when its history doesn't show the move. */
+  leftAt: number | null
+  /** The column the card was in when it left, or its current column when that is unknown. */
+  status: StatusColumn
+}
+
+/** When a card that started the sprint was moved out of it, and the column it left from. */
+export function getSprintDeparture(
+  timeline: readonly JourneyTimelineEntry[],
+  { sprintStart, iterationPath, currentStatus }: { sprintStart: number; iterationPath?: string; currentStatus: StatusColumn },
+): SprintDeparture {
+  const path = iterationPath?.trim().toLowerCase()
+  const departure: SprintDeparture = { leftAt: null, status: currentStatus }
+  if (!path) {
+    return departure
+  }
+
+  let previous: JourneyTimelineEntry | undefined
+  for (const entry of timeline) {
+    if (
+      previous
+      && entry.timestamp > sprintStart
+      && previous.iterationPath?.trim().toLowerCase() === path
+      && entry.iterationPath?.trim().toLowerCase() !== path
+    ) {
+      departure.leftAt = entry.timestamp
+      departure.status = previous.status
+    }
+    previous = entry
+  }
+
+  return departure
+}
+
 export function hasMovedBack(journey: SprintJourney): boolean {
   return journey.steps.some((step, index) => index > 0 && isBackwardMove(journey.steps[index - 1].status, step.status))
 }

@@ -1,3 +1,4 @@
+import svgAdd from '@stratakit/icons/add.svg'
 import svgClock from '@stratakit/icons/clock.svg'
 import svgError from '@stratakit/icons/error.svg'
 import svgGitMerge from '@stratakit/icons/git-merge.svg'
@@ -21,7 +22,7 @@ import type { WorkItemCardHighlightState } from './WorkItemCard'
 
 export const IDLE_ATTENTION_DAYS = 3
 
-export type AttentionFacetKey = 'blocked' | 'failing' | 'approval' | 'idle' | 'back' | 'qa' | 'ready' | 'changed'
+export type AttentionFacetKey = 'blocked' | 'failing' | 'approval' | 'idle' | 'back' | 'qa' | 'added' | 'ready' | 'changed'
 export type AttentionTone = 'critical' | 'attention' | 'info' | 'positive'
 
 export type AttentionFacet = {
@@ -71,6 +72,13 @@ export const ATTENTION_FACETS: readonly AttentionFacet[] = [
     description: 'Review cards now assigned to someone other than their developer.',
   },
   {
+    key: 'added',
+    label: 'Added mid-sprint',
+    tone: 'info',
+    iconHref: svgAdd,
+    description: 'Cards added to the sprint after it started.',
+  },
+  {
     key: 'ready',
     label: 'Ready to complete',
     tone: 'positive',
@@ -83,7 +91,7 @@ export const ATTENTION_FACETS: readonly AttentionFacet[] = [
 const FACETS_BY_KEY = Object.fromEntries(ATTENTION_FACETS.map((facet) => [facet.key, facet])) as Record<AttentionFacetKey, AttentionFacet>
 
 /** Facets that need sprint journeys, so only the Sprint view offers them. */
-const SPRINT_ONLY_FACETS: ReadonlySet<AttentionFacetKey> = new Set(['back'])
+const SPRINT_ONLY_FACETS: ReadonlySet<AttentionFacetKey> = new Set(['back', 'added'])
 
 export const PEOPLE_ATTENTION_FACETS: readonly AttentionFacet[] = ATTENTION_FACETS.filter((facet) => !SPRINT_ONLY_FACETS.has(facet.key))
 export const SPRINT_ATTENTION_FACETS: readonly AttentionFacet[] = ATTENTION_FACETS
@@ -92,7 +100,7 @@ export function getAttentionFacet(key: AttentionFacetKey): AttentionFacet {
   return FACETS_BY_KEY[key]
 }
 
-/** Lane flags, most urgent first; Recently changed is news rather than a problem, so lanes leave it out. */
+/** Lane flags, most urgent first; Recently changed is news rather than a problem, and Added mid-sprint has its own lane, so lanes leave them out. */
 export const LANE_FLAG_ORDER: readonly AttentionFacetKey[] = ['blocked', 'failing', 'idle', 'back', 'approval', 'qa', 'ready']
 
 export function formatLaneFlag(key: AttentionFacetKey, count: number): string {
@@ -109,6 +117,8 @@ export function formatLaneFlag(key: AttentionFacetKey, count: number): string {
       return `${count} need${count === 1 ? 's' : ''} approval`
     case 'qa':
       return `${count} with QA`
+    case 'added':
+      return `${count} added mid-sprint`
     case 'ready':
       return `${count} ready to complete`
     case 'changed':
@@ -204,6 +214,10 @@ export function getCardAttentionSignals({
     signals.add('qa')
   }
 
+  if (journey && journey.addedAt !== null) {
+    signals.add('added')
+  }
+
   if (openPullRequests.some((pullRequest) => getPullRequestProgress(pullRequest).ready)) {
     signals.add('ready')
   }
@@ -227,7 +241,7 @@ export type BoardAttention = {
 }
 
 function createEmptyFacetCounts(): Record<AttentionFacetKey, number> {
-  return { blocked: 0, failing: 0, approval: 0, idle: 0, back: 0, qa: 0, ready: 0, changed: 0 }
+  return { blocked: 0, failing: 0, approval: 0, idle: 0, back: 0, qa: 0, added: 0, ready: 0, changed: 0 }
 }
 
 export type BoardAttentionOptions = {

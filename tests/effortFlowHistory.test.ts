@@ -212,8 +212,13 @@ test('sprint-start membership counts removed effort and treats late joiners as a
     { ...item, id: 2, status: 'New', effort: 5, createdAt: '2026-10-01' },
   ]
   const removed = { ...item, id: 4, status: 'New' as const, effort: 6, createdAt: '2026-10-01' }
-  const getWorkItemUpdates = t.mock.fn(async (_team, id: number) =>
-    [revision('2026-10-01T12:00:00', 'New', id === 1 ? 8 : id === 2 ? 5 : 6)])
+  const getWorkItemUpdates = t.mock.fn(async (_team, id: number) => (id === 4
+    ? [
+        { ...revision('2026-10-01T12:00:00', 'New', 6), fields: { ...revision('2026-10-01T12:00:00', 'New', 6).fields, 'System.IterationPath': { newValue: 'Project\\Sprint' } } },
+        { revisedDate: '2026-10-20T12:00:00', fields: { 'System.State': { newValue: 'Active' } } },
+        { revisedDate: '2026-10-22T12:00:00', fields: { 'System.State': { newValue: 'New' }, 'System.IterationPath': { newValue: 'Project\\Next' } } },
+      ]
+    : [revision('2026-10-01T12:00:00', 'New', id === 1 ? 8 : 5)]))
   const args: HookArgs = {
     ...baseArgs, workItems: items, historyWorkItems: items,
     adoQueryEngine: { getWorkItemUpdates } as HookArgs['adoQueryEngine'],
@@ -234,6 +239,8 @@ test('sprint-start membership counts removed effort and treats late joiners as a
   assert.deepEqual(result.sprintForecast.current, { complete: 8, inProgress: 0, notStarted: 5, total: 13 })
   assert.equal(result.sprintForecast.addedEffort, 5)
   assert.equal(result.sprintForecast.removedEffort, 6)
+  // The removed card left from Active, two days after it started.
+  assert.deepEqual(result.departuresByItemId, { 4: { leftAt: new Date('2026-10-22T12:00:00').getTime(), status: 'Active' } })
 
   assert.equal(hook.read({ ...args, sprintScope: { status: 'loading' } }).sprintForecast.status, 'loading')
   const unavailable = hook.read({ ...args, sprintScope: { status: 'unavailable' } }).sprintForecast

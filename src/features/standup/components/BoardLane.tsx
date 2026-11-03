@@ -8,9 +8,10 @@ import { BOARD_HEADER_HEIGHT } from '../utils/boardLayout'
 import { formatEffort, formatEffortPoints } from '../utils/sprintEffortTotals'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { AdoAvatar } from './AdoAvatar'
+import { AppTooltip } from './AppTooltip'
 import { formatLaneFlag, getLaneFlags, type AttentionFacetKey, type AttentionTone } from './boardAttention'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
-import type { BoardRowData } from './KanbanBoardGrid'
+import type { BoardRowData, LaneNote } from './KanbanBoardGrid'
 import { describeLaneLoad, LANE_HEAD_FLAG_LIMIT, presentingFrameShadow, type LaneSummary } from './laneSummary'
 
 const BADGE_COLORS: Record<AttentionTone, 'error' | 'warning' | 'info' | 'success'> = {
@@ -21,12 +22,14 @@ const BADGE_COLORS: Record<AttentionTone, 'error' | 'warning' | 'info' | 'succes
 }
 
 const COLLAPSED_PIP_LIMIT = 8
+/** Ghost lanes hold cards that have left, so their load bar and pips recede. */
+const GHOST_OPACITY = 0.45
 
-function toneIconColor(tone: AttentionTone): string {
+function toneIconColor(tone: AttentionTone | 'neutral'): string {
   return `var(--stratakit-color-icon-${tone}-base)`
 }
 
-function LaneLoadBar({ statusCounts, collapsed }: { statusCounts: Record<StatusColumn, number>; collapsed: boolean }) {
+function LaneLoadBar({ statusCounts, collapsed, ghost = false }: { statusCounts: Record<StatusColumn, number>; collapsed: boolean; ghost?: boolean }) {
   const theme = useTheme()
 
   return (
@@ -50,10 +53,31 @@ function LaneLoadBar({ statusCounts, collapsed }: { statusCounts: Record<StatusC
       {STATUS_COLUMNS.filter((status) => statusCounts[status] > 0).map((status) => (
         <Box
           key={status}
-          sx={{ flex: `${statusCounts[status]} 1 0`, minWidth: 3, bgcolor: getStatusColumnColor(status, theme.palette) }}
+          sx={{ flex: `${statusCounts[status]} 1 0`, minWidth: 3, bgcolor: getStatusColumnColor(status, theme.palette), opacity: ghost ? GHOST_OPACITY : undefined }}
         />
       ))}
     </Box>
+  )
+}
+
+function LaneNoteBadge({ note }: { note: LaneNote }) {
+  return (
+    <AppTooltip title={note.description}>
+      <Badge
+        variant="inline"
+        type="outlined"
+        size="small"
+        color={note.tone === 'neutral' ? undefined : BADGE_COLORS[note.tone]}
+        max={Infinity}
+        badgeContent={(
+          <>
+            <Icon href={note.iconHref} style={{ color: toneIconColor(note.tone) }} />
+            {note.label}
+            {note.description ? <Box component="span" sx={visuallyHiddenSx}>: {note.description}</Box> : null}
+          </>
+        )}
+      />
+    </AppTooltip>
   )
 }
 
@@ -69,7 +93,10 @@ type BoardLaneHeadProps = {
 /** The sticky first cell of a lane: who it belongs to, how their work spreads across columns, and what needs attention. */
 export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, presenting = false }: BoardLaneHeadProps) {
   const avatarSize = collapsed ? 20 : 28
-  const headFlags = summary.flags.slice(0, LANE_HEAD_FLAG_LIMIT)
+  // Cards in a ghost lane have left the board, so they raise no attention flags here.
+  const headFlags = row.ghost ? [] : summary.flags.slice(0, LANE_HEAD_FLAG_LIMIT)
+  const notes = row.notes ?? []
+  const effortSign = row.ghost && summary.totalEffort > 0 ? '\u2212' : ''
 
   const identity = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: '1 1 auto' }}>
@@ -158,7 +185,7 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, pres
       {collapsed ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: '1 1 auto' }}>
           {identity}
-          <LaneLoadBar statusCounts={summary.statusCounts} collapsed />
+          <LaneLoadBar statusCounts={summary.statusCounts} collapsed ghost={row.ghost} />
         </Box>
       ) : (
         <Box
@@ -183,16 +210,16 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, pres
               Speaking
             </Typography>
           ) : null}
-          <LaneLoadBar statusCounts={summary.statusCounts} collapsed={false} />
+          <LaneLoadBar statusCounts={summary.statusCounts} collapsed={false} ghost={row.ghost} />
           <Typography variant="caption-md" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
             {row.countsAllItems ? (
               summary.itemCount === 0 ? 'No cards' : (
                 <>
                   <span aria-hidden="true">
-                    {summary.itemCount} {summary.itemCount === 1 ? 'item' : 'items'} · {formatEffortPoints(summary.totalEffort)}
+                    {summary.itemCount} {summary.itemCount === 1 ? 'item' : 'items'} · {effortSign}{formatEffortPoints(summary.totalEffort)}
                   </span>
                   <Box component="span" sx={visuallyHiddenSx}>
-                    {summary.itemCount} {summary.itemCount === 1 ? 'card' : 'cards'}, {formatEffort(summary.totalEffort)} points
+                    {summary.itemCount} {summary.itemCount === 1 ? 'card' : 'cards'}, {formatEffort(summary.totalEffort)} points{row.ghost ? ' removed' : ''}
                   </Box>
                 </>
               )
@@ -230,6 +257,19 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, pres
               ))}
             </Box>
           ) : null}
+          {notes.length > 0 ? (
+            <Box
+              component="ul"
+              aria-label="Sprint scope"
+              sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+            >
+              {notes.map((note) => (
+                <li key={note.key} data-lane-note={note.key}>
+                  <LaneNoteBadge note={note} />
+                </li>
+              ))}
+            </Box>
+          ) : null}
         </Box>
       )}
     </Box>
@@ -241,10 +281,12 @@ type CollapsedLaneSummaryProps = {
   items: readonly WorkItemSummary[]
   signalsByItemId: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>>
   highlightedCount: number | null
+  /** Cards that have left the board's scope: outlined pips and no attention flags. */
+  ghost?: boolean
 }
 
 /** A collapsed lane's cell: a pip per card, the count, and an icon per attention signal present. */
-export function CollapsedLaneSummary({ status, items, signalsByItemId, highlightedCount }: CollapsedLaneSummaryProps) {
+export function CollapsedLaneSummary({ status, items, signalsByItemId, highlightedCount, ghost = false }: CollapsedLaneSummaryProps) {
   const theme = useTheme()
 
   if (items.length === 0) {
@@ -259,12 +301,13 @@ export function CollapsedLaneSummary({ status, items, signalsByItemId, highlight
   }
 
   // Every Blocked card is flagged blocked, so the column already says it.
-  const flags = getLaneFlags(items, signalsByItemId).filter(({ facet }) => facet.key !== 'blocked')
+  const flags = ghost ? [] : getLaneFlags(items, signalsByItemId).filter(({ facet }) => facet.key !== 'blocked')
   const description = [
     `${status}: ${items.length} ${items.length === 1 ? 'card' : 'cards'}`,
     ...flags.map(({ facet, count }) => formatLaneFlag(facet.key, count)),
     ...(highlightedCount ? [`${highlightedCount} highlighted`] : []),
   ].join(', ')
+  const pipColor = getStatusColumnColor(status, theme.palette)
 
   return (
     <>
@@ -279,7 +322,15 @@ export function CollapsedLaneSummary({ status, items, signalsByItemId, highlight
             <Box
               key={index}
               component="span"
-              sx={{ width: 6, height: 10, borderRadius: '2px', bgcolor: getStatusColumnColor(status, theme.palette), opacity: 0.55 }}
+              sx={{
+                width: 6,
+                height: 10,
+                boxSizing: 'border-box',
+                borderRadius: '2px',
+                ...(ghost
+                  ? { border: '1px dashed', borderColor: pipColor }
+                  : { bgcolor: pipColor, opacity: 0.55 }),
+              }}
             />
           ))}
         </Box>
