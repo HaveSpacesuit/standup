@@ -566,6 +566,46 @@ const modelOf = (item: Record<string, unknown>, overrides: Record<string, unknow
   ...overrides,
 })
 
+test('a card replayed to a past day measures its journey from then and leaves out live details', () => {
+  const day = 24 * 60 * 60 * 1000
+  const sprintStart = new Date(2026, 9, 5).getTime()
+  const journey = { steps: [{ status: 'Active', at: sprintStart }], addedAt: null, sprintStart, firstStepSince: sprintStart - day }
+  const item = {
+    ...baseItem,
+    state: 'Ready for Test',
+    sprintName: 'Sprint 41',
+    tags: ['Customer'],
+    activePullRequests: [pr()],
+  }
+  const live = modelOf(item, { journey, highlightState: 'new', showRolloverIndicator: true })
+  assert.equal(live.linkedPullRequests.length, 1)
+  assert.deepEqual(live.tags, ['Customer'])
+  assert.equal(live.isNew, true)
+  assert.equal(live.showSprint, true)
+
+  const replayed = modelOf(item, { journey, highlightState: 'new', showRolloverIndicator: true, asOf: sprintStart + 2 * day })
+  assert.equal(replayed.journeyCaption?.text, '3d in Active', 'days in the column count up to the day shown')
+  assert.deepEqual(replayed.linkedPullRequests, [])
+  assert.equal(replayed.cardStep, null)
+  assert.deepEqual(replayed.tags, [])
+  assert.equal(replayed.isNew, false)
+  assert.equal(replayed.changeBadgeText, null)
+  assert.equal(replayed.showStateBadge, false)
+  assert.equal(replayed.showSprint, false)
+  assert.equal(replayed.showRollover, false)
+  assert.equal(replayed.showEffort, true)
+  assert.equal(replayed.agingDots, null)
+
+  const compact = new JSDOM(render({ item, journey, compact: true, asOf: sprintStart + 2 * day }))
+  try {
+    const card = compact.window.document.querySelector('[data-development-card]')!
+    assert.equal(card.getAttribute('data-card-id'), String(item.id))
+    assert.ok(card.hasAttribute('data-as-of'))
+  } finally {
+    compact.window.close()
+  }
+})
+
 test('closed PRs are labelled by how they closed, and open PRs by their next step', () => {
   assert.equal(display.getClosedPullRequestLabel({ status: ' COMPLETED ' }), 'Completed')
   assert.equal(display.getClosedPullRequestLabel({ status: 'abandoned' }), 'Abandoned')

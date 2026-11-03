@@ -126,6 +126,19 @@ sparkline of the column's effort on each working day so far, leaving room for th
 come. Beside it is the change since the sprint started: Done going up is green, Blocked going up is
 red, and Blocked going down is green. Active and Review also show how long their longest-staying card
 has been there ("oldest 9d", amber from five days). Hover over or focus the line for details.
+
+In the Sprint view, a replay strip under the ribbon shows the sprint's effort by column on each
+working day so far, with the days still to come hatched. **Replay sprint** takes the place of Start
+standup in the toolbar and plays the sprint from its first day to today, one day a second. Use
+Play/Pause, Previous day and Next day, or drag the slider to pick a day; "Day 3 of 10" beside it
+names the day shown. On a past day, cards move (animated, unless the system asks for reduced motion)
+to the column they were in at the end of that day, and a banner notes which day is shown, with
+**Back to today**. Only the current sprint's cards with history that day are shown: cards added later
+leave the board, and cards removed later return to Committed at start. The Needs attention bar,
+recent-change highlights, and live card details (pull requests, next steps, tags, state, and sprint)
+are hidden, effort stays at its current value, and the column flow lines stop at the day shown.
+Switching views or teams, or starting standup, returns to today.
+
 Beside Refresh,
 "Synced 5m ago" says when the board's data last loaded from Azure DevOps (hover for the time). It
 reads "Syncing…" while data loads, when the Refresh icon also turns into a spinner. Returning to a

@@ -270,6 +270,25 @@ Prepare data that exercises both populated and empty states:
       People board's headers stay single-line.
 - [ ] Scroll a tall Sprint view lane and verify its sticky summary stays below the taller column
       headers.
+- [ ] Verify the Sprint view shows a replay strip under the ribbon: a stacked effort chart of the days
+      so far with the remaining days hatched, and "Day N of M · today" beside it. Verify it reads
+      "Loading sprint history…" while history loads, and that the People board has no strip.
+- [ ] Verify the Sprint view toolbar shows **Replay sprint** instead of Start standup, disabled with a
+      tooltip until the sprint's history loads, and that it plays from Day 1 to today, one day a
+      second, then stops on today.
+- [ ] Verify Play/Pause, Previous day, Next day, and dragging or using arrow keys on the slider each
+      move the board to that day; the chart dims after the day shown and marks it with a playhead.
+- [ ] On a past day, verify:
+      - cards animate to the column they were in at the end of that day (and appear without motion
+        when the system asks for reduced motion);
+      - cards added later are gone, cards removed later are back in Committed at start, and other
+        sprints' lanes are hidden;
+      - the info banner names the day, and **Back to today** restores the live board;
+      - the Needs attention bar, recent-change highlights, pull requests, next steps, tags, state, and
+        sprint are hidden, and column counts and flow lines match the day shown;
+      - compact cards show their full content without a hover card.
+- [ ] Verify switching to People, changing team, or starting standup returns the replay to today.
+- [ ] Check the replay strip, banner, and replayed cards in light and dark modes.
 - [ ] Verify switching between People and Sprint views preserves the selected team and filters.
 - [ ] Verify changing the sprint scope updates cards and summary counts without stale cards.
 - [ ] Verify the ribbon's effort flow chart shades the remaining days and marks today in light and dark

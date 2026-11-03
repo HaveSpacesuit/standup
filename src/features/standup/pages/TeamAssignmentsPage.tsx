@@ -1,5 +1,7 @@
-import { useCallback, useMemo, useState, type RefObject } from 'react'
+import { useCallback, useMemo, useRef, useState, type RefObject } from 'react'
 import { Alert, AlertTitle, Box, Button, Typography } from '@mui/material'
+import { Icon } from '@stratakit/mui'
+import svgHistory from '@stratakit/icons/history.svg'
 import type {
   IterationWindowInfo,
   ResolvedWorkItemAssignee,
@@ -13,16 +15,20 @@ import { KanbanBoard } from '../components/KanbanBoard'
 import { HiddenTagsDialog } from '../components/HiddenTagsDialog'
 import { PatMissingNotice } from '../components/PatMissingNotice'
 import { SprintRibbon } from '../components/SprintRibbon'
+import { SprintReplayBar, type SprintReplayStatus } from '../components/SprintReplayBar'
 import { StandupToolbar } from '../components/StandupToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
+import { useCardFlip } from '../hooks/useCardFlip'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
+import { useSprintReplay } from '../hooks/useSprintReplay'
 import type { SprintScopeState } from '../hooks/useSprintScopeChanges'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
 import type { SprintForecast } from '../utils/sprintForecast'
 import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
+import { formatReplayDate, getSprintReplayTimeline } from '../utils/sprintReplay'
 
 type TeamAssignmentsPageProps = {
   patConfigured: boolean
@@ -156,9 +162,20 @@ export function TeamAssignmentsPage({
     [workItems, currentIterationName],
   )
 
+  const boardRef = useRef<HTMLDivElement>(null)
+  const captureCards = useCardFlip(boardRef)
+  const replayTimeline = useMemo(() => getSprintReplayTimeline(effortFlowPoints), [effortFlowPoints])
+  const replayStatus: SprintReplayStatus = effortFlowLoading || isTeamDataLoading
+    ? 'loading'
+    : replayTimeline && replayTimeline.todayIndex > 0 && Object.keys(journeysByItemId).length > 0 ? 'ready' : 'unavailable'
+  const replayReady = isSprintView && replayStatus === 'ready' && !teamIterationsError
+  const replay = useSprintReplay(replayReady ? replayTimeline : null, captureCards)
+  const resetReplay = replay.reset
+
   // Standup walks every lane, so it starts from the whole team in the People view.
   const startStandup = () => {
     onMemberFilterChange('')
+    resetReplay()
     setIsSprintView(false)
     setStandupActive(true)
   }
@@ -167,10 +184,12 @@ export function TeamAssignmentsPage({
     if (nextIsSprintView) {
       setStandupActive(false)
     }
+    resetReplay()
     setIsSprintView(nextIsSprintView)
   }
   const handleTeamChange = (value: string) => {
     setStandupActive(false)
+    resetReplay()
     onTeamChange(value)
   }
 
@@ -198,6 +217,8 @@ export function TeamAssignmentsPage({
         onSprintViewChange={handleSprintViewChange}
         standupActive={standupLive}
         onStartStandup={hasConfiguredTeams ? startStandup : undefined}
+        onReplaySprint={hasConfiguredTeams ? replay.start : undefined}
+        replayAvailable={replayReady}
       />
 
       {!hasConfiguredTeams ? (
@@ -218,6 +239,15 @@ export function TeamAssignmentsPage({
                 : sprintForecast}
             colorScheme={colorScheme}
           />
+          {isSprintView && replayTimeline && !teamIterationsError ? (
+            <SprintReplayBar
+              timeline={replayTimeline}
+              points={effortFlowPoints}
+              replay={replay}
+              status={replayStatus}
+              colorScheme={colorScheme}
+            />
+          ) : null}
           {patConfigured && teamIterationsError ? (
             <Alert
               role="alert"
@@ -253,7 +283,18 @@ export function TeamAssignmentsPage({
                 : 'No cards available for this team and sprint selection. Try Refresh, choose another team, or adjust sprint, work-item type, and hidden-tag filters in Development options.'}
             </Typography>
           ) : null}
-          <Box sx={{ flex: 1, minHeight: 0 }}>
+          {isSprintView && replay.pastDay ? (
+            <Alert
+              data-replay-banner=""
+              severity="info"
+              icon={<Icon href={svgHistory} />}
+              action={<Button size="small" onClick={replay.exit}>Back to today</Button>}
+              sx={{ m: 1, mb: 0 }}
+            >
+              Showing the board at the end of Day {replay.pastDay.day} ({formatReplayDate(replay.pastDay)}). Cards show where each item stood; live details like pull requests and next steps are hidden.
+            </Alert>
+          ) : null}
+          <Box ref={boardRef} sx={{ flex: 1, minHeight: 0 }}>
             {teamIterationsError ? null : (
               <KanbanBoard
                 // Each lens keeps its own collapse and expansion state.
@@ -283,6 +324,7 @@ export function TeamAssignmentsPage({
                 iterationWindow={iterationWindow}
                 teamIterations={teamIterations}
                 effortFlowPoints={effortFlowPoints}
+                replayAt={replay.pastDay?.at ?? null}
               />
             )}
           </Box>

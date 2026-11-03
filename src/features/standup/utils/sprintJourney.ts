@@ -134,6 +134,8 @@ export type SprintDeparture = {
   leftAt: number | null
   /** The column the card was in when it left, or its current column when that is unknown. */
   status: StatusColumn
+  /** The card's path from sprint start until it left, for replaying the days it was still in the sprint. */
+  journey?: SprintJourney
 }
 
 /** When a card that started the sprint was moved out of it, and the column it left from. */

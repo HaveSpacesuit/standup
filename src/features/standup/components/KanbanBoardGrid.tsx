@@ -103,6 +103,8 @@ type KanbanBoardGridProps = {
   removalsByItemId?: ReadonlyMap<number, SprintRemoval>
   /** How each column has moved this sprint; when set, the headers grow a flow line under the title. */
   columnFlows?: Record<StatusColumn, ColumnFlow> | null
+  /** Set while the sprint is replayed to a past day: live cards show how they stood at this moment. */
+  cardsAsOf?: number
 }
 
 export function KanbanBoardGrid({
@@ -130,6 +132,7 @@ export function KanbanBoardGrid({
   journeysByItemId,
   removalsByItemId,
   columnFlows = null,
+  cardsAsOf,
 }: KanbanBoardGridProps) {
   const theme = useTheme()
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -543,6 +546,7 @@ export function KanbanBoardGrid({
                               journey={removal ? undefined : journeysByItemId?.[item.id]}
                               owner={owner}
                               removal={removal}
+                              asOf={removal ? undefined : cardsAsOf}
                             />
                           )
                         })}
