@@ -10,7 +10,6 @@ import type {
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { TeamOption } from '../components/TeamToolbarControls'
 import { KanbanBoard } from '../components/KanbanBoard'
-import { SprintViewBoard } from '../components/SprintSummaryBoard'
 import { HiddenTagsDialog } from '../components/HiddenTagsDialog'
 import { PatMissingNotice } from '../components/PatMissingNotice'
 import { SprintRibbon } from '../components/SprintRibbon'
@@ -21,6 +20,7 @@ import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
 import type { SprintForecast } from '../utils/sprintForecast'
+import type { SprintJourney } from '../utils/sprintJourney'
 import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
 
 type TeamAssignmentsPageProps = {
@@ -78,7 +78,7 @@ type TeamAssignmentsPageProps = {
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
   teamIterationsError: string | null
-  visitedStatusesByItemId: Record<number, import('../utils/statusColumnStyles').StatusColumn[]>
+  journeysByItemId: Record<number, SprintJourney>
   rolledOverItemIds: Record<number, boolean>
 }
 
@@ -137,7 +137,7 @@ export function TeamAssignmentsPage({
   teamIterations,
   teamIterationsLoading,
   teamIterationsError,
-  visitedStatusesByItemId,
+  journeysByItemId,
   rolledOverItemIds,
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
@@ -248,21 +248,11 @@ export function TeamAssignmentsPage({
             </Typography>
           ) : null}
           <Box sx={{ flex: 1, minHeight: 0 }}>
-            {teamIterationsError ? null : isSprintView ? (
-              <SprintViewBoard
-                patConfigured={patConfigured}
-                isLoading={isTeamDataLoading}
-                colorScheme={colorScheme}
-                workItemsError={workItemsError}
-                workItems={workItems}
-                currentIterationName={currentIterationName}
-                visitedStatusesByItemId={visitedStatusesByItemId}
-                members={members}
-                workItemAssignees={workItemAssignees}
-                changeHighlightsByItemId={changeHighlightsByItemId}
-              />
-            ) : (
+            {teamIterationsError ? null : (
               <KanbanBoard
+                // Each lens keeps its own collapse and expansion state.
+                key={isSprintView ? 'sprint' : 'people'}
+                lens={isSprintView ? 'sprint' : 'people'}
                 patConfigured={patConfigured}
                 isLoading={isTeamDataLoading}
                 membersError={membersError}
@@ -281,6 +271,9 @@ export function TeamAssignmentsPage({
                 workItemAssignees={workItemAssignees}
                 standupActive={standupLive}
                 onStandupEnd={endStandup}
+                journeysByItemId={journeysByItemId}
+                iterationWindow={iterationWindow}
+                teamIterations={teamIterations}
               />
             )}
           </Box>

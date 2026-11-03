@@ -30,7 +30,7 @@ const { TeamToolbarControls } = await server.ssrLoadModule('/src/features/standu
 const { TeamSelectorCard } = await server.ssrLoadModule('/src/features/standup/components/TeamSelectorCard.tsx')
 const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoardGrid.tsx')
 const { getBoardLayout } = await server.ssrLoadModule('/src/features/standup/utils/boardLayout.ts')
-const { SprintViewBoard } = await server.ssrLoadModule('/src/features/standup/components/SprintSummaryBoard.tsx')
+const { KanbanBoard } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoard.tsx')
 const { QualityAssuranceList } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceList.tsx')
 
 function render(element: ReturnType<typeof createElement>) {
@@ -364,21 +364,46 @@ test('compact columns show five cards before Show more, full columns three', () 
   assert.match(html, /Show 4 more/)
 })
 
-test('Development sprint board exposes status labels as headings', () => {
-  const html = render(createElement(SprintViewBoard, {
+test('Development sprint lens lays the shared board out by sprint, with owners on the cards', () => {
+  const day = 24 * 60 * 60 * 1000
+  const sprintStart = Date.now() - 6 * day
+  const html = render(createElement(KanbanBoard, {
+    lens: 'sprint',
     patConfigured: true,
     isLoading: false,
-    colorScheme: 'light',
+    membersError: null,
     workItemsError: null,
-    workItems: [],
-    currentIterationName: null,
-    visitedStatusesByItemId: {},
-    members: [],
-    workItemAssignees: {},
+    assigneesError: null,
+    members: [{ id: 'a', displayName: 'Alex Example', uniqueName: 'alex@example.com' }],
+    selectedMemberFilter: '',
+    workItems: [
+      boardCard(1, 'Active'),
+      { ...boardCard(2, 'New'), sprintName: 'Sprint 2' },
+      { id: -9, kind: 'pull-request', title: 'PR only', status: 'Review', pullRequest: { id: 9 } },
+    ],
+    currentIterationName: 'Sprint 1',
     changeHighlightsByItemId: {},
+    rolledOverItemIds: {},
+    workItemAssignees: { 1: { label: 'Alex Example', kind: 'team-member' } },
+    journeysByItemId: {
+      1: { steps: [{ status: 'New', at: sprintStart }, { status: 'Active', at: sprintStart + 2 * day }], addedAt: null, sprintStart, firstStepSince: sprintStart },
+    },
   }))
 
-  assert.match(html, /<h2[^>]*>Active<\/h2>/)
+  const dom = new JSDOM(html)
+  try {
+    const { document } = dom.window
+    assert.ok([...document.querySelectorAll('h2')].some((heading) => heading.textContent === 'Active'))
+    assert.deepEqual([...document.querySelectorAll('[data-lane]')].map((lane) => lane.getAttribute('data-lane')), ['sprint:sprint 1', 'sprint:sprint 2'])
+    assert.equal(document.querySelectorAll('[data-lane-collapsed]').length, 1, 'later sprints start collapsed')
+    assert.doesNotMatch(html, /Team member/)
+    assert.doesNotMatch(html, /PR only/)
+    assert.ok(document.querySelector('[data-card-owner][aria-label="Owner: Alex Example"]'))
+    assert.equal(document.querySelector('[data-journey-caption]')?.textContent?.replace(/\..*$/, ''), '4d in Active')
+    assert.match(document.querySelector('[data-journey-trail]')?.getAttribute('aria-label') ?? '', /^Journey: New from .+, then Active from /)
+  } finally {
+    dom.window.close()
+  }
 })
 
 test('QA columns are named articles with subordinate headings', () => {

@@ -11,6 +11,7 @@ import svgValidate from '@stratakit/icons/validate.svg'
 import { toIdentityKeys, type IdentityRef } from '../../../ado/identity'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
+import { getJourneyCaption, type JourneyCaption, type SprintJourney } from '../utils/sprintJourney'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
 import { abbreviateState } from './workItemCardDisplay'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
@@ -449,6 +450,8 @@ export type DevelopmentCardModelInput = {
   currentIterationName: string | null
   rowMember: IdentityRef | null
   showRolloverIndicator: boolean
+  /** The card's sprint journey; when set, its caption replaces the aging dots. */
+  journey?: SprintJourney
 }
 
 /** What a Development card shows, shared by its regular, compact, and hover-card layouts. */
@@ -469,6 +472,7 @@ export type DevelopmentCardModel = {
   changeBadgeText: string | null
   changeBadgeFullText: string | null
   agingDots: AgingDots | null
+  journeyCaption: JourneyCaption | null
   titleUrl?: string
   titleText: string
   displayId: number
@@ -481,6 +485,7 @@ export function getDevelopmentCardModel({
   currentIterationName,
   rowMember,
   showRolloverIndicator,
+  journey,
 }: DevelopmentCardModelInput): DevelopmentCardModel {
   const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
   const linkedPullRequests = pullRequestOnly ? [] : (item.activePullRequests ?? [])
@@ -489,6 +494,10 @@ export function getDevelopmentCardModel({
   const hiddenTag = item.status === 'Blocked' && cardStep ? findBlockedTag(item.tags) : undefined
   const isNew = highlightState === 'new'
   const now = Date.now()
+  const journeyCaption = journey && !pullRequestOnly
+    // A rejected step already says the card was sent back.
+    ? getJourneyCaption(journey, now, { skipBack: cardStep?.iconHref === svgStatusRejected })
+    : null
 
   return {
     pullRequestOnly,
@@ -507,7 +516,8 @@ export function getDevelopmentCardModel({
     showRollover: !pullRequestOnly && showRolloverIndicator,
     changeBadgeText: isNew ? getChangeBadgeText(changeDetail, now) : null,
     changeBadgeFullText: isNew ? getChangeBadgeText(changeDetail, now, false) : null,
-    agingDots: getAgingDots(item.status, changeDetail),
+    agingDots: journeyCaption ? null : getAgingDots(item.status, changeDetail),
+    journeyCaption,
     titleUrl: pullRequestOnly ? pullRequestOnly.url : item.workItemUrl,
     titleText: pullRequestOnly ? pullRequestOnly.title : item.title,
     displayId: pullRequestOnly ? pullRequestOnly.id : item.id,

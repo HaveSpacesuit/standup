@@ -3,11 +3,13 @@ import svgError from '@stratakit/icons/error.svg'
 import svgGitMerge from '@stratakit/icons/git-merge.svg'
 import svgHistory from '@stratakit/icons/history.svg'
 import svgLock from '@stratakit/icons/lock.svg'
+import svgUndo from '@stratakit/icons/undo.svg'
 import svgUser from '@stratakit/icons/user.svg'
 import svgUsers from '@stratakit/icons/users.svg'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
+import { hasMovedBack, type SprintJourney } from '../utils/sprintJourney'
 import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import {
   getCardNextStep,
@@ -19,7 +21,7 @@ import type { WorkItemCardHighlightState } from './WorkItemCard'
 
 export const IDLE_ATTENTION_DAYS = 3
 
-export type AttentionFacetKey = 'blocked' | 'failing' | 'approval' | 'idle' | 'qa' | 'ready' | 'changed'
+export type AttentionFacetKey = 'blocked' | 'failing' | 'approval' | 'idle' | 'back' | 'qa' | 'ready' | 'changed'
 export type AttentionTone = 'critical' | 'attention' | 'info' | 'positive'
 
 export type AttentionFacet = {
@@ -55,6 +57,13 @@ export const ATTENTION_FACETS: readonly AttentionFacet[] = [
     description: `Blocked, Active, or Review cards unchanged for ${IDLE_ATTENTION_DAYS} or more days.`,
   },
   {
+    key: 'back',
+    label: 'Moved back',
+    tone: 'attention',
+    iconHref: svgUndo,
+    description: 'Cards that moved back to an earlier column during the sprint, such as Review to Active.',
+  },
+  {
     key: 'qa',
     label: 'With QA',
     tone: 'info',
@@ -73,12 +82,18 @@ export const ATTENTION_FACETS: readonly AttentionFacet[] = [
 
 const FACETS_BY_KEY = Object.fromEntries(ATTENTION_FACETS.map((facet) => [facet.key, facet])) as Record<AttentionFacetKey, AttentionFacet>
 
+/** Facets that need sprint journeys, so only the Sprint view offers them. */
+const SPRINT_ONLY_FACETS: ReadonlySet<AttentionFacetKey> = new Set(['back'])
+
+export const PEOPLE_ATTENTION_FACETS: readonly AttentionFacet[] = ATTENTION_FACETS.filter((facet) => !SPRINT_ONLY_FACETS.has(facet.key))
+export const SPRINT_ATTENTION_FACETS: readonly AttentionFacet[] = ATTENTION_FACETS
+
 export function getAttentionFacet(key: AttentionFacetKey): AttentionFacet {
   return FACETS_BY_KEY[key]
 }
 
 /** Lane flags, most urgent first; Recently changed is news rather than a problem, so lanes leave it out. */
-export const LANE_FLAG_ORDER: readonly AttentionFacetKey[] = ['blocked', 'failing', 'idle', 'approval', 'qa', 'ready']
+export const LANE_FLAG_ORDER: readonly AttentionFacetKey[] = ['blocked', 'failing', 'idle', 'back', 'approval', 'qa', 'ready']
 
 export function formatLaneFlag(key: AttentionFacetKey, count: number): string {
   switch (key) {
@@ -88,6 +103,8 @@ export function formatLaneFlag(key: AttentionFacetKey, count: number): string {
       return `${count} failing check${count === 1 ? '' : 's'}`
     case 'idle':
       return `${count} idle ${IDLE_ATTENTION_DAYS}d+`
+    case 'back':
+      return `${count} moved back`
     case 'approval':
       return `${count} need${count === 1 ? 's' : ''} approval`
     case 'qa':
@@ -129,6 +146,8 @@ export type CardAttentionInput = {
   changeDetail?: CardChangeDetail
   /** The developer whose row the card is pinned to. */
   rowMember?: IdentityRef | null
+  /** The card's sprint journey, when the board tracks one. */
+  journey?: SprintJourney
 }
 
 function getOpenPullRequests(item: WorkItemSummary): WorkItemPullRequestSummary[] {
@@ -156,6 +175,7 @@ export function getCardAttentionSignals({
   highlightState = 'none',
   changeDetail,
   rowMember = null,
+  journey,
 }: CardAttentionInput): Set<AttentionFacetKey> {
   const signals = new Set<AttentionFacetKey>()
   const openPullRequests = getOpenPullRequests(item)
@@ -174,6 +194,10 @@ export function getCardAttentionSignals({
 
   if (changeDetail && IDLE_COLUMNS.has(item.status) && changeDetail.idleDays >= IDLE_ATTENTION_DAYS) {
     signals.add('idle')
+  }
+
+  if (journey && hasMovedBack(journey)) {
+    signals.add('back')
   }
 
   if (getCardNextStep(item, rowMember)?.owner?.kind === 'person') {
@@ -203,7 +227,13 @@ export type BoardAttention = {
 }
 
 function createEmptyFacetCounts(): Record<AttentionFacetKey, number> {
-  return { blocked: 0, failing: 0, approval: 0, idle: 0, qa: 0, ready: 0, changed: 0 }
+  return { blocked: 0, failing: 0, approval: 0, idle: 0, back: 0, qa: 0, ready: 0, changed: 0 }
+}
+
+export type BoardAttentionOptions = {
+  /** The developer each card is pinned to, for boards whose rows are not people. */
+  rowMemberForItem?: (item: WorkItemSummary) => IdentityRef | undefined
+  journeysByItemId?: Record<number, SprintJourney>
 }
 
 /** Signals for every card on the given rows; a card's row matters because handoffs are judged against it. */
@@ -212,6 +242,7 @@ export function getBoardAttention(
   cardsByCell: Record<string, readonly WorkItemSummary[]>,
   highlightsByItemId: Record<number, WorkItemCardHighlightState>,
   changeDetailsByItemId: Record<number, CardChangeDetail> | undefined,
+  { rowMemberForItem, journeysByItemId }: BoardAttentionOptions = {},
 ): BoardAttention {
   const signalsByItemId = new Map<number, ReadonlySet<AttentionFacetKey>>()
   const facetCounts = createEmptyFacetCounts()
@@ -223,7 +254,8 @@ export function getBoardAttention(
           item,
           highlightState: highlightsByItemId[item.id],
           changeDetail: changeDetailsByItemId?.[item.id],
-          rowMember: row.memberIdentity,
+          rowMember: rowMemberForItem ? rowMemberForItem(item) : row.memberIdentity,
+          journey: journeysByItemId?.[item.id],
         })
         signalsByItemId.set(item.id, signals)
         for (const signal of signals) {

@@ -1,6 +1,13 @@
 import { Box, Typography } from '@mui/material'
 import { memo, useMemo, useState, type ReactNode } from 'react'
-import type { ResolvedWorkItemAssignee, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import type { IdentityRef } from '../../../ado/identity'
+import type {
+  IterationWindowInfo,
+  ResolvedWorkItemAssignee,
+  TeamIterationOption,
+  TeamMember,
+  WorkItemSummary,
+} from '../../../ado/queryEngine'
 import { getBoardLayout } from '../utils/boardLayout'
 import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
 import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
@@ -11,12 +18,24 @@ import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHist
 import { sortWorkItemsBySprintAndId } from '../utils/workItemSorting'
 import { getAssignmentMemberRows } from '../utils/assignmentMembers'
 import { getVisibleBoardRows } from '../utils/boardRowVisibility'
+import { getSprintLensRows, getSprintRowKey, isSprintLensItem } from '../utils/sprintLens'
+import type { SprintJourney } from '../utils/sprintJourney'
 import { AttentionBar } from './AttentionBar'
-import { getBoardAttention, getHighlightedItemIds, type AttentionFacetKey } from './boardAttention'
+import {
+  getBoardAttention,
+  getHighlightedItemIds,
+  PEOPLE_ATTENTION_FACETS,
+  SPRINT_ATTENTION_FACETS,
+  type AttentionFacetKey,
+} from './boardAttention'
 import { StandupPresenterBar } from './StandupPresenterBar'
 import { getStandupOrder, isStandupSpeakerRow, resolveStandupSpeakers, type StandupOrderMode } from './standupOrder'
 
 const LOADING_LAYOUT = getBoardLayout(true)
+const NO_JOURNEYS: Record<number, SprintJourney> = {}
+
+/** People lays the board out by developer; Sprint lays the same cards out by sprint. */
+export type BoardLens = 'people' | 'sprint'
 
 type KanbanBoardProps = {
   patConfigured: boolean
@@ -38,6 +57,12 @@ type KanbanBoardProps = {
   /** Walks the team lane by lane; see StandupPresenterBar. */
   standupActive?: boolean
   onStandupEnd?: () => void
+  lens?: BoardLens
+  /** Sprint lens only: each card's journey through the current sprint. */
+  journeysByItemId?: Record<number, SprintJourney>
+  /** Sprint lens only: dates for the sprint lanes. */
+  iterationWindow?: IterationWindowInfo
+  teamIterations?: TeamIterationOption[]
 }
 
 export const KanbanBoard = memo(function KanbanBoard({
@@ -59,21 +84,36 @@ export const KanbanBoard = memo(function KanbanBoard({
   workItemAssignees,
   standupActive = false,
   onStandupEnd,
+  lens = 'people',
+  journeysByItemId = NO_JOURNEYS,
+  iterationWindow,
+  teamIterations,
 }: KanbanBoardProps) {
+  const isSprintLens = lens === 'sprint'
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
   const [attentionFacet, setAttentionFacet] = useState<AttentionFacetKey | null>(null)
-  const [collapsedRowKeys, setCollapsedRowKeys] = useState<ReadonlySet<string>>(() => new Set())
+  // Explicit choices only; lanes without one fall back to their defaultCollapsed.
+  const [collapseOverrides, setCollapseOverrides] = useState<Record<string, boolean>>({})
   const [standupOrderMode, setStandupOrderMode] = useState<StandupOrderMode>('alphabetical')
   const [standupOrderKeys, setStandupOrderKeys] = useState<readonly string[] | null>(null)
   const [standupIndex, setStandupIndex] = useState(0)
   const [spokenKeys, setSpokenKeys] = useState<ReadonlySet<string>>(() => new Set())
 
+  const boardItems = useMemo(
+    () => (isSprintLens ? workItems.filter(isSprintLensItem) : workItems),
+    [isSprintLens, workItems],
+  )
+
   const rows = useMemo<BoardRowData[]>(() => {
-    const hasUnassignedItems = workItems.some((item) => {
+    if (isSprintLens) {
+      return getSprintLensRows(boardItems, { currentIterationName, iterationWindow, teamIterations })
+    }
+
+    const hasUnassignedItems = boardItems.some((item) => {
       const assignee = workItemAssignees[item.id]
       return !assignee || assignee.kind === 'unassigned'
     })
-    const hasUnavailableAssignees = workItems.some(
+    const hasUnavailableAssignees = boardItems.some(
       (item) => workItemAssignees[item.id]?.kind === 'history-unavailable',
     )
 
@@ -95,7 +135,7 @@ export const KanbanBoard = memo(function KanbanBoard({
           }]
         : []),
     ]
-  }, [members, selectedMemberFilter, workItems, workItemAssignees])
+  }, [boardItems, currentIterationName, isSprintLens, iterationWindow, members, selectedMemberFilter, teamIterations, workItemAssignees])
 
   const rowLookup = useMemo(() => {
     return rows.reduce<Record<string, BoardRowData>>((acc, row) => {
@@ -104,9 +144,31 @@ export const KanbanBoard = memo(function KanbanBoard({
     }, {})
   }, [rows])
 
+  // The Sprint lens has no person lanes, so each card carries its developer instead.
+  const ownerByItemId = useMemo(() => {
+    if (!isSprintLens) {
+      return undefined
+    }
+
+    const membersByName = new Map(members.map((member) => [member.displayName.trim().toLowerCase(), member]))
+    const owners = new Map<number, IdentityRef>()
+    for (const item of boardItems) {
+      const assignee = workItemAssignees[item.id]
+      if (assignee?.kind !== 'team-member') {
+        continue
+      }
+
+      const member = membersByName.get(assignee.label.trim().toLowerCase())
+      owners.set(item.id, member
+        ? { displayName: member.displayName, uniqueName: member.uniqueName, imageUrl: member.imageUrl }
+        : { displayName: assignee.label })
+    }
+    return owners
+  }, [boardItems, isSprintLens, members, workItemAssignees])
+
   const statusEffortTotals = useMemo(
-    () => getCurrentSprintEffortTotals(workItems, currentIterationName),
-    [currentIterationName, workItems],
+    () => getCurrentSprintEffortTotals(boardItems, currentIterationName),
+    [boardItems, currentIterationName],
   )
 
   const statusItemCounts = useMemo(() => {
@@ -118,12 +180,12 @@ export const KanbanBoard = memo(function KanbanBoard({
       Done: 0,
     }
 
-    for (const item of workItems) {
+    for (const item of boardItems) {
       counts[item.status] += 1
     }
 
     return counts
-  }, [workItems])
+  }, [boardItems])
 
   const layout = useMemo(() => getBoardLayout(statusItemCounts.Blocked > 0), [statusItemCounts.Blocked])
 
@@ -135,15 +197,19 @@ export const KanbanBoard = memo(function KanbanBoard({
       return acc
     }, {})
 
-    for (const item of workItems) {
-      const assignee = workItemAssignees[item.id]
-      const assigneeKey = assignee?.kind === 'team-member'
-        ? assignee.label.toLowerCase()
-        : assignee?.kind === 'history-unavailable'
-          ? '__assignee_history_unavailable__'
-          : '__unassigned__'
-      const resolvedRow = rowLookup[assigneeKey]
-      const rowKey = resolvedRow ? resolvedRow.key : '__unassigned__'
+    for (const item of boardItems) {
+      let rowKey: string
+      if (isSprintLens) {
+        rowKey = getSprintRowKey(item.sprintName)
+      } else {
+        const assignee = workItemAssignees[item.id]
+        const assigneeKey = assignee?.kind === 'team-member'
+          ? assignee.label.toLowerCase()
+          : assignee?.kind === 'history-unavailable'
+            ? '__assignee_history_unavailable__'
+            : '__unassigned__'
+        rowKey = rowLookup[assigneeKey] ? assigneeKey : '__unassigned__'
+      }
       const cellKey = `${rowKey}:${item.status}`
 
       if (!initial[cellKey]) {
@@ -158,19 +224,26 @@ export const KanbanBoard = memo(function KanbanBoard({
     }
 
     return initial
-  }, [rows, rowLookup, workItems, workItemAssignees])
+  }, [boardItems, isSprintLens, rows, rowLookup, workItemAssignees])
 
   const visibleRows = useMemo(
-    () => getVisibleBoardRows(rows, cardsByCell, changeHighlightsByItemId, {
+    // Members options hide people, so they leave sprint lanes alone.
+    () => isSprintLens ? rows : getVisibleBoardRows(rows, cardsByCell, changeHighlightsByItemId, {
       hideUsersWithNoActivity,
       hideUsersWithOnlyStaleDoneWork,
     }),
-    [cardsByCell, changeHighlightsByItemId, hideUsersWithNoActivity, hideUsersWithOnlyStaleDoneWork, rows],
+    [cardsByCell, changeHighlightsByItemId, hideUsersWithNoActivity, hideUsersWithOnlyStaleDoneWork, isSprintLens, rows],
   )
 
   const attention = useMemo(
-    () => getBoardAttention(visibleRows, cardsByCell, changeHighlightsByItemId, changeDetailsByItemId),
-    [cardsByCell, changeDetailsByItemId, changeHighlightsByItemId, visibleRows],
+    () => getBoardAttention(
+      visibleRows,
+      cardsByCell,
+      changeHighlightsByItemId,
+      changeDetailsByItemId,
+      ownerByItemId ? { rowMemberForItem: (item) => ownerByItemId.get(item.id), journeysByItemId } : undefined,
+    ),
+    [cardsByCell, changeDetailsByItemId, changeHighlightsByItemId, journeysByItemId, ownerByItemId, visibleRows],
   )
 
   const highlightedItemIds = useMemo(() => getHighlightedItemIds(attention, attentionFacet), [attention, attentionFacet])
@@ -218,18 +291,17 @@ export const KanbanBoard = memo(function KanbanBoard({
     }))
   }
 
+  const collapsedRowKeys = useMemo<ReadonlySet<string>>(
+    () => new Set(visibleRows.filter((row) => collapseOverrides[row.key] ?? row.defaultCollapsed ?? false).map((row) => row.key)),
+    [collapseOverrides, visibleRows],
+  )
+
   const toggleRowCollapsed = (rowKey: string) => {
-    setCollapsedRowKeys((current) => {
-      const next = new Set(current)
-      if (!next.delete(rowKey)) {
-        next.add(rowKey)
-      }
-      return next
-    })
+    setCollapseOverrides((current) => ({ ...current, [rowKey]: !collapsedRowKeys.has(rowKey) }))
   }
 
   const setAllRowsCollapsed = (collapsed: boolean) => {
-    setCollapsedRowKeys(collapsed ? new Set(visibleRows.map((row) => row.key)) : new Set())
+    setCollapseOverrides(Object.fromEntries(visibleRows.map((row) => [row.key, collapsed])))
   }
 
   const goToSpeaker = (index: number) => {
@@ -269,20 +341,20 @@ export const KanbanBoard = memo(function KanbanBoard({
     content = (
       <KanbanBoardLoadingState layout={LOADING_LAYOUT} statusColumns={STATUS_COLUMNS} />
     )
-  } else if (membersError) {
+  } else if (membersError && !isSprintLens) {
     content = <AdoErrorNotice title="Unable to load team members" message={membersError} />
   } else if (workItemsError) {
     content = <AdoErrorNotice title="Unable to load work items" message={workItemsError} />
-  } else if (assigneesError) {
+  } else if (assigneesError && !isSprintLens) {
     content = <AdoErrorNotice title="Unable to resolve work item assignees" message={assigneesError} />
-  } else if (workItems.length === 0) {
+  } else if (boardItems.length === 0) {
     content = (
       <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
         No cards match the current filters. Try adjusting the quick filter or member selection.
       </Typography>
     )
   } else {
-    content = rows.length > 0 && visibleRows.length === 0 ? (
+    content = !isSprintLens && rows.length > 0 && visibleRows.length === 0 ? (
       <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
         All rows are hidden by the Members options. Try adjusting them in Development options.
       </Typography>
@@ -294,6 +366,7 @@ export const KanbanBoard = memo(function KanbanBoard({
           activeFacet={attentionFacet}
           highlightedCount={highlightedItemIds?.size ?? 0}
           onChange={setAttentionFacet}
+          facets={isSprintLens ? SPRINT_ATTENTION_FACETS : PEOPLE_ATTENTION_FACETS}
         />
         <Box sx={{ flex: '1 1 auto', minHeight: 0 }}>
           <KanbanBoardGrid
@@ -317,6 +390,9 @@ export const KanbanBoard = memo(function KanbanBoard({
             onToggleRowCollapsed={presentingRowKey ? undefined : toggleRowCollapsed}
             onSetAllRowsCollapsed={presentingRowKey ? undefined : setAllRowsCollapsed}
             presentingRowKey={presentingRowKey}
+            cornerLabel={isSprintLens ? 'Sprint' : undefined}
+            ownerByItemId={ownerByItemId}
+            journeysByItemId={isSprintLens ? journeysByItemId : undefined}
           />
         </Box>
       </Box>

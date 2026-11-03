@@ -211,7 +211,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify the board remains usable with many members, columns, cards, and tags.
 - [ ] Verify Development cards have a leading edge in their column's color, show the state only when
       it differs from the column's usual state, and show the sprint only when it is not the current
-      sprint, while QA board and Sprint view cards are unchanged.
+      sprint, while QA board cards are unchanged.
 - [ ] Verify each open PR's next step is the first that applies of: failing checks, rejected, waiting
       for the author, checks unavailable, pending checks (Pipeline), missing approvals (Reviewers),
       and Ready to complete.
@@ -232,16 +232,27 @@ Prepare data that exercises both populated and empty states:
 
 ### Sprint view
 
-- [ ] Select Sprint view and verify items are grouped by sprint/iteration as intended.
-- [ ] Verify left- and right-pointing move-history arrow tips meet the resting card border exactly,
-      without overlapping its content or leaving a gap.
-- [ ] Verify current, past, future, and rollover sprint labels are correct.
-- [ ] Verify switching between Assignment and Sprint views preserves the selected team and filters.
+- [ ] Select Sprint view and verify the board shows one lane per sprint: the current sprint first and
+      expanded, other sprints collapsed beneath it with their dates, and No sprint last.
+- [ ] Verify Sprint view cards match the People board's cards (density, leading edge, PR rows, attention
+      bar, lane heads), pull requests without a work item are left out, and the Members options have
+      no effect.
+- [ ] Verify each card's owner avatar names the developer whose People lane it sits in, and that With
+      QA counts a Review card assigned to someone other than that owner.
+- [ ] Verify journey captions (Done at start or on a date, Back from a column, Added today, Into a
+      column today, at start, and days in a column, amber from five days outside New) match each
+      card's history this sprint.
+- [ ] Verify the trail along each card's bottom edge shows the columns it passed through, sized by
+      working days, and that screen readers announce it as one labelled image.
+- [ ] Hover over and keyboard-focus a card and verify a dashed ghost appears where it started or was
+      added (or the farthest column it reached when it is back where it started), without blocking
+      card links or covering sticky headers.
+- [ ] Verify Moved back appears in the Needs attention bar only in Sprint view and highlights cards
+      that moved to an earlier column this sprint.
+- [ ] Verify switching between People and Sprint views preserves the selected team and filters.
 - [ ] Verify changing the sprint scope updates cards and summary counts without stale cards.
-- [ ] Verify move-history arrowheads remain visible in both directions when cards enlarge on
-      hover or keyboard focus; arrows must not block card links or cover sticky labels/headers.
-- [ ] Verify effort-flow/sprint summary details open when available.
-- [ ] Verify effort-flow chart labels, legends, values, empty state, and tooltip behavior.
+- [ ] Verify the ribbon's effort flow chart shades the remaining days and marks today in light and dark
+      modes, and that the detailed chart, legend, values, empty state, and tooltip still work.
 - [ ] Verify chart and summary values remain correct after refresh and view switching.
 
 ### Work-item interaction
@@ -289,7 +300,8 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify both Members options persist per team across a reload and do not affect Sprint view.
 - [ ] In Development options > Display, verify "Compact cards" is off by default and, when checked,
       each Development card shows a one-line title and one status line (state, PR progress, next step,
-      owner, recent change, aging dots, and sprint), while the QA board and Sprint view are unchanged.
+      owner, recent change, aging dots, and sprint) on both the People board and the Sprint view,
+      while the QA board is unchanged.
 - [ ] With compact cards on, hover over and keyboard-focus a card and verify its details open beside
       it (flipping near the window edge) with the full title, tags, PRs, next step, state, sprint,
       owner, last change, and each PR's checks; verify Escape closes them and their links work.

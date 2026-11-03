@@ -87,7 +87,7 @@ test('a cold empty history is settled and makes no requests', (t) => {
   const result = createHookHarness(t).update(args)
   assert.equal(result.isLoading, false)
   assert.deepEqual(result.points, [])
-  assert.deepEqual(result.visitedStatusesByItemId, {})
+  assert.deepEqual(result.journeysByItemId, {})
   assert.equal(getWorkItemUpdates.mock.callCount(), 0)
   assert.equal(result.sprintForecast.status, 'unavailable')
 })
@@ -241,6 +241,33 @@ test('sprint-start membership counts removed effort and treats late joiners as a
   if (unavailable.status === 'unavailable') assert.match(unavailable.reason, /membership/)
 })
 
+test('journeys replay each card\'s moves since the sprint started from the same revisions as the chart', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 26).getTime() })
+  const getWorkItemUpdates = t.mock.fn(async () => [
+    revision('2026-10-16T12:00:00', 'New'),
+    revision('2026-10-21T12:00:00', 'Active'),
+  ])
+  const args: HookArgs = {
+    ...baseArgs,
+    adoQueryEngine: { getWorkItemUpdates } as HookArgs['adoQueryEngine'],
+    workItems: [{ ...item, status: 'Active', effort: 8, createdAt: '2026-10-16' }],
+    iterationWindow: {
+      current: { name: 'Sprint', fullName: 'Project\\Sprint', startDate: '2026-10-19', finishDate: '2026-10-30' },
+      next: null,
+    },
+  }
+  const hook = createHookHarness(t)
+  assert.deepEqual(hook.update(args).journeysByItemId, {})
+  await new Promise((resolve) => setImmediate(resolve))
+  const journey = hook.read(args).journeysByItemId[123]
+  assert.deepEqual(journey.steps, [
+    { status: 'New', at: new Date(2026, 9, 19).getTime() },
+    { status: 'Active', at: new Date('2026-10-21T12:00:00').getTime() },
+  ])
+  assert.equal(journey.addedAt, null)
+  assert.equal(journey.firstStepSince, new Date('2026-10-16T12:00:00').getTime())
+})
+
 for (const transition of ['empty history', 'missing query engine'] as const) {
   test(`an in-flight load settles on ${transition} and can recover`, async (t) => {
     const pending = Promise.withResolvers<[]>()
@@ -260,24 +287,25 @@ for (const transition of ['empty history', 'missing query engine'] as const) {
     const empty = hook.update(emptyArgs)
     assert.equal(signal?.aborted, true)
     assert.equal(empty.isLoading, false)
-    assert.deepEqual(empty.visitedStatusesByItemId, {})
+    assert.deepEqual(empty.journeysByItemId, {})
     if (transition === 'empty history') assert.deepEqual(empty.points, [])
 
     pending.resolve([])
     await new Promise((resolve) => setImmediate(resolve))
     assert.equal(hook.read(emptyArgs).isLoading, false)
-    assert.deepEqual(hook.read(emptyArgs).visitedStatusesByItemId, {})
+    assert.deepEqual(hook.read(emptyArgs).journeysByItemId, {})
 
     assert.equal(hook.update(args).isLoading, true)
     await new Promise((resolve) => setImmediate(resolve))
     const recovered = hook.read(args)
     assert.equal(recovered.isLoading, false)
     assert.ok(recovered.points.some((point) => point.Active === 3))
-    assert.deepEqual(recovered.visitedStatusesByItemId, { 123: ['Active'] })
+    // No state history to replay, so the card gets no journey rather than an invented one.
+    assert.deepEqual(recovered.journeysByItemId, {})
 
     const settled = hook.update({ ...args, workItems: [] })
     assert.equal(settled.isLoading, false)
     assert.deepEqual(settled.points, [])
-    assert.deepEqual(settled.visitedStatusesByItemId, {})
+    assert.deepEqual(settled.journeysByItemId, {})
   })
 }

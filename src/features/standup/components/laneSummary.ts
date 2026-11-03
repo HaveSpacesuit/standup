@@ -4,6 +4,9 @@ import { getLaneFlags, type AttentionFacetKey, type LaneFlag } from './boardAtte
 
 export type LaneSummary = {
   statusCounts: Record<StatusColumn, number>
+  itemCount: number
+  /** Effort of every card in the lane. */
+  totalEffort: number
   /** Cards outside Done. */
   openCount: number
   /** Effort of the open cards, across every sprint on the board. */
@@ -36,25 +39,31 @@ export function getLaneSummary(
   const laneItems: WorkItemSummary[] = []
   let openCount = 0
   let openEffort = 0
+  let totalEffort = 0
 
   for (const status of STATUS_COLUMNS) {
     const cellItems = cardsByCell[`${rowKey}:${status}`] ?? []
     statusCounts[status] = cellItems.length
     laneItems.push(...cellItems)
+    const cellEffort = cellItems.reduce((sum, item) => sum + (typeof item.effort === 'number' ? item.effort : 0), 0)
+    totalEffort += cellEffort
 
     if (status === 'Done') {
       continue
     }
 
     openCount += cellItems.length
-    for (const item of cellItems) {
-      if (typeof item.effort === 'number') {
-        openEffort += item.effort
-      }
-    }
+    openEffort += cellEffort
   }
 
-  return { statusCounts, openCount, openEffort, flags: getLaneFlags(laneItems, signalsByItemId) }
+  return {
+    statusCounts,
+    itemCount: laneItems.length,
+    totalEffort,
+    openCount,
+    openEffort,
+    flags: getLaneFlags(laneItems, signalsByItemId),
+  }
 }
 
 /** "Cards by column: Active 3, Review 2" */

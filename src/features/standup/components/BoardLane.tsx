@@ -85,7 +85,23 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, pres
           <Icon href={collapsed ? svgChevronRight : svgChevronDown} />
         </IconButton>
       ) : null}
-      {row.isUnassigned ? (
+      {row.iconHref ? (
+        <Box
+          aria-hidden="true"
+          sx={{
+            width: avatarSize,
+            height: avatarSize,
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 1,
+            bgcolor: 'var(--stratakit-color-bg-glow-on-surface-neutral-pressed)',
+          }}
+        >
+          <Icon href={row.iconHref} style={{ color: 'var(--stratakit-color-icon-neutral-base)' }} />
+        </Box>
+      ) : row.isUnassigned ? (
         <Avatar sx={{ width: avatarSize, height: avatarSize }} />
       ) : (
         <AdoAvatar
@@ -95,13 +111,24 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, pres
           sx={{ width: avatarSize, height: avatarSize }}
         />
       )}
-      <Typography
-        render={<h2 />}
-        variant="body-sm"
-        sx={{ fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-      >
-        {row.label}
-      </Typography>
+      <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <Typography
+          render={<h2 />}
+          variant="body-sm"
+          sx={{ fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {row.label}
+        </Typography>
+        {row.subtitle && !collapsed ? (
+          <Typography
+            component="span"
+            variant="caption-sm"
+            sx={{ color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {row.subtitle}
+          </Typography>
+        ) : null}
+      </Box>
     </Box>
   )
 
@@ -158,7 +185,18 @@ export function BoardLaneHead({ row, summary, collapsed, onToggleCollapsed, pres
           ) : null}
           <LaneLoadBar statusCounts={summary.statusCounts} collapsed={false} />
           <Typography variant="caption-md" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-            {summary.openCount === 0 ? 'Nothing open' : (
+            {row.countsAllItems ? (
+              summary.itemCount === 0 ? 'No cards' : (
+                <>
+                  <span aria-hidden="true">
+                    {summary.itemCount} {summary.itemCount === 1 ? 'item' : 'items'} · {formatEffortPoints(summary.totalEffort)}
+                  </span>
+                  <Box component="span" sx={visuallyHiddenSx}>
+                    {summary.itemCount} {summary.itemCount === 1 ? 'card' : 'cards'}, {formatEffort(summary.totalEffort)} points
+                  </Box>
+                </>
+              )
+            ) : summary.openCount === 0 ? 'Nothing open' : (
               <>
                 <span aria-hidden="true">{summary.openCount} open · {formatEffortPoints(summary.openEffort)}</span>
                 <Box component="span" sx={visuallyHiddenSx}>

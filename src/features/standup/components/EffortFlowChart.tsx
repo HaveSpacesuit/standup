@@ -12,6 +12,7 @@ import {
   PointElement,
   Tooltip,
   type Chart,
+  type Plugin,
   type TooltipItem,
   type TooltipModel,
 } from 'chart.js'
@@ -152,6 +153,66 @@ function renderExternalTooltip(
   tooltipEl.style.top = `${top}px`
 }
 
+/** Index of the last day with data; later days in the sprint haven't happened yet. */
+function getLastReachedIndex(points: EffortFlowPoint[]): number {
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    if (STATUS_COLUMNS.some((status) => points[index][status] !== null)) {
+      return index
+    }
+  }
+  return -1
+}
+
+interface TodayMarker {
+  todayIndex: number
+  totalPoints: number
+  inkColor: string
+}
+
+/**
+ * Shades the days still to come and marks today, so the chart reads as "so far" rather than "flatlined".
+ * react-chartjs-2 only reads `plugins` when the chart is created, so the marker is read at draw time.
+ */
+function createTodayPlugin(marker: { readonly current: TodayMarker }): Plugin<'line'> {
+  const shouldDraw = () => marker.current.todayIndex >= 0 && marker.current.todayIndex < marker.current.totalPoints - 1
+
+  return {
+    id: 'sprintToday',
+    beforeDatasetsDraw(chart) {
+      if (!shouldDraw()) {
+        return
+      }
+
+      const { ctx, chartArea } = chart
+      const x = chart.scales.x.getPixelForValue(marker.current.todayIndex)
+      ctx.save()
+      // globalAlpha rather than withAlpha: theme text colors resolve to oklch(), which withAlpha can't rewrite.
+      ctx.globalAlpha = 0.07
+      ctx.fillStyle = marker.current.inkColor
+      ctx.fillRect(x, chartArea.top, chartArea.right - x, chartArea.bottom - chartArea.top)
+      ctx.restore()
+    },
+    afterDatasetsDraw(chart) {
+      if (!shouldDraw()) {
+        return
+      }
+
+      const { ctx, chartArea } = chart
+      const x = Math.round(chart.scales.x.getPixelForValue(marker.current.todayIndex)) + 0.5
+      ctx.save()
+      ctx.globalAlpha = 0.6
+      ctx.strokeStyle = marker.current.inkColor
+      ctx.lineWidth = 1
+      ctx.setLineDash([2, 2])
+      ctx.beginPath()
+      ctx.moveTo(x, chartArea.top)
+      ctx.lineTo(x, chartArea.bottom)
+      ctx.stroke()
+      ctx.restore()
+    },
+  }
+}
+
 export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'compact' }: EffortFlowChartProps) {
   const theme = useTheme()
   const themeTextColor = (theme.vars || theme).palette.text.primary
@@ -229,6 +290,15 @@ export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'com
     }
   }, [points, variant, textColor])
 
+  const todayIndex = getLastReachedIndex(points)
+  const todayMarkerRef = useRef<TodayMarker>({ todayIndex, totalPoints: points.length, inkColor: textColor })
+  // Runs before react-chartjs-2's update effects, so the redraw they trigger sees current values.
+  useLayoutEffect(() => {
+    todayMarkerRef.current = { todayIndex, totalPoints: points.length, inkColor: textColor }
+  }, [todayIndex, points.length, textColor])
+  const [plugins] = useState(() => [createTodayPlugin(todayMarkerRef)])
+  const hasFutureDays = todayIndex >= 0 && todayIndex < points.length - 1
+
   if (points.length === 0) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -244,8 +314,9 @@ export function EffortFlowChart({ points, isLoading, colorScheme, variant = 'com
       <Line
         data={data}
         options={options}
+        plugins={plugins}
         role="img"
-        aria-label="Effort flow chart showing daily effort totals by status during the current sprint"
+        aria-label={`Effort flow chart showing daily effort totals by status during the current sprint${hasFutureDays ? `, through ${formatDateLabel(points[todayIndex].date)}` : ''}`}
       />
       {variant === 'detailed' && (
         <Box component="details" sx={{ mt: 2 }}>

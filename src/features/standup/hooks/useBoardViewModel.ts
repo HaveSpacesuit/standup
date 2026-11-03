@@ -28,7 +28,7 @@ import type { RankedBacklogBug } from '../utils/backlogValue'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
-import type { StatusColumn } from '../utils/statusColumnStyles'
+import type { SprintJourney } from '../utils/sprintJourney'
 import type { SprintForecast } from '../utils/sprintForecast'
 
 type UseBoardViewModelArgs = {
@@ -72,7 +72,7 @@ type UseBoardViewModelResult = {
   effortFlowPoints: EffortFlowPoint[]
   effortFlowLoading: boolean
   sprintForecast: SprintForecast
-  visitedStatusesByItemId: Record<number, StatusColumn[]>
+  journeysByItemId: Record<number, SprintJourney>
   rolledOverItemIds: Record<number, boolean>
   workItemAssignees: Record<number, ResolvedWorkItemAssignee>
   qaBuckets: import('../utils/qualityAssuranceBuckets').QualityAssuranceBucket[]
@@ -322,7 +322,7 @@ export function useBoardViewModel({
     reloadNonce: developmentReloadNonce,
   })
 
-  const { points: effortFlowPoints, isLoading: effortFlowLoading, visitedStatusesByItemId, sprintForecast } = useEffortFlowHistory({
+  const { points: effortFlowPoints, isLoading: effortFlowLoading, journeysByItemId, sprintForecast } = useEffortFlowHistory({
     adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
     tagRules,
@@ -418,7 +418,7 @@ export function useBoardViewModel({
     effortFlowPoints,
     effortFlowLoading,
     sprintForecast,
-    visitedStatusesByItemId,
+    journeysByItemId,
     rolledOverItemIds,
     workItemAssignees,
     qaBuckets,

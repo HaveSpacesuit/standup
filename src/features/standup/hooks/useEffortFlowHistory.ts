@@ -6,6 +6,7 @@ import { EFFORT_FIELD_NAMES, parseEffort } from '../../../ado/workItemsApi'
 import { formatDateKey, parseDateOnly } from '../utils/dateOnly'
 import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import { calculateSprintForecast, type SprintForecast } from '../utils/sprintForecast'
+import { buildSprintJourney, type SprintJourney } from '../utils/sprintJourney'
 import type { SprintScopeState } from './useSprintScopeChanges'
 
 export type EffortFlowPoint = { date: string } & Record<StatusColumn, number | null>
@@ -25,9 +26,9 @@ type UseEffortFlowHistoryResult = {
   points: EffortFlowPoint[]
   isLoading: boolean
   sprintForecast: SprintForecast
-  /** Distinct status columns each item occupied from the start of the current sprint through now,
-   * derived from the same per-item revision timelines used for the effort flow chart (no extra queries). */
-  visitedStatusesByItemId: Record<number, StatusColumn[]>
+  /** Each current-sprint card's path through the board since it joined the sprint, built from the same
+   * revision timelines as the effort flow chart (no extra queries). Cards without history are left out. */
+  journeysByItemId: Record<number, SprintJourney>
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -37,6 +38,7 @@ type TimelineEntry = {
   status: StatusColumn
   effort: number
   hasKnownState: boolean
+  iterationPath?: string
 }
 
 type HistorySnapshot = {
@@ -63,6 +65,7 @@ function buildItemTimeline(item: WorkItemSummary, updates: WorkItemUpdate[], tag
   let currentState = ''
   let currentTags = ''
   let currentEffort: number | undefined
+  let currentIterationPath: string | undefined
   const timeline: TimelineEntry[] = []
 
   for (const update of sorted) {
@@ -83,6 +86,11 @@ function buildItemTimeline(item: WorkItemSummary, updates: WorkItemUpdate[], tag
       currentTags = typeof value === 'string' ? value : ''
     }
 
+    if (Object.hasOwn(fields, 'System.IterationPath')) {
+      const value = fields['System.IterationPath']?.newValue
+      currentIterationPath = typeof value === 'string' ? value : currentIterationPath
+    }
+
     for (const fieldName of EFFORT_FIELD_NAMES) {
       if (Object.hasOwn(fields, fieldName)) {
         const parsed = parseEffort(fields[fieldName]?.newValue)
@@ -98,12 +106,19 @@ function buildItemTimeline(item: WorkItemSummary, updates: WorkItemUpdate[], tag
       hasKnownState: currentState.trim().length > 0,
       // Effort is rarely revised — fall back to the item's current effort until history proves otherwise.
       effort: currentEffort ?? item.effort ?? 0,
+      iterationPath: currentIterationPath,
     })
   }
 
   if (timeline.length === 0) {
     const createdAt = toTimestamp(item.createdAt) ?? now
-    timeline.push({ timestamp: createdAt, status: item.status, effort: item.effort ?? 0, hasKnownState: false })
+    timeline.push({
+      timestamp: createdAt,
+      status: item.status,
+      effort: item.effort ?? 0,
+      hasKnownState: false,
+      iterationPath: item.iterationPath,
+    })
   }
 
   return timeline
@@ -329,36 +344,36 @@ export function useEffortFlowHistory({
     return result
   }, [iterationWindow, timelinesByItemId, workItems])
 
-  const visitedStatusesByItemId = useMemo<Record<number, StatusColumn[]>>(() => {
+  const journeysByItemId = useMemo<Record<number, SprintJourney>>(() => {
     const sprintStart = parseDateOnly(iterationWindow.current?.startDate)
-    if (!sprintStart) {
+    if (!sprintStart || !historyIsCurrent) {
       return {}
     }
 
-    const sprintStartMs = sprintStart.getTime()
-    const nowMs = Date.now()
-    const result: Record<number, StatusColumn[]> = {}
+    const unavailable = new Set(historySnapshot.unavailableItemIds)
+    const startItemIds = sprintScope?.status === 'ready' ? sprintScope.startItemIds : null
+    const now = Date.now()
+    const result: Record<number, SprintJourney> = {}
 
-    for (const [itemIdText, timeline] of Object.entries(timelinesByItemId)) {
-      const visited = new Set<StatusColumn>()
-      const atSprintStart = statusAsOf(timeline, sprintStartMs)
-      if (atSprintStart) {
-        visited.add(atSprintStart.status)
+    for (const item of workItems) {
+      const timeline = timelinesByItemId[item.id]
+      if (item.kind === 'pull-request' || !timeline || unavailable.has(item.id)) {
+        continue
       }
 
-      for (const entry of timeline) {
-        if (entry.timestamp > sprintStartMs && entry.timestamp <= nowMs) {
-          visited.add(entry.status)
-        }
-      }
-
-      result[Number(itemIdText)] = Array.from(visited)
+      result[item.id] = buildSprintJourney(timeline, {
+        sprintStart: sprintStart.getTime(),
+        now,
+        iterationPath: iterationWindow.current?.fullName,
+        committed: startItemIds ? startItemIds.has(item.id) : undefined,
+        currentStatus: item.status,
+      })
     }
 
     return result
-  }, [iterationWindow, timelinesByItemId])
+  }, [historyIsCurrent, historySnapshot, iterationWindow, sprintScope, timelinesByItemId, workItems])
 
-  return { points, isLoading, visitedStatusesByItemId, sprintForecast }
+  return { points, isLoading, journeysByItemId, sprintForecast }
 }
 
 export { STATUS_COLUMNS }
