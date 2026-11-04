@@ -113,6 +113,21 @@ test('journey captions say where the card stands in its sprint', () => {
   assert.equal(caption(journey([['New', sprintStart]], null, day(-1)), day(6)), 'neutral: 7d in New')
 })
 
+test('a long wait reads in coarser units, with the exact date and day count in its tooltip', () => {
+  const recent = getJourneyCaption(journey([['New', sprintStart]], null, day(-1)), day(6))
+  assert.doesNotMatch(recent.tooltip, /\d{4}|days\)/, 'a recent date needs no year or day count')
+
+  const backlog = getJourneyCaption(journey([['New', sprintStart]], null, day(-437)), day(6))
+  assert.equal(backlog.text, '1y in New')
+  assert.equal(backlog.tone, 'neutral')
+  assert.match(backlog.tooltip, /^In New since .*2025 \(443 days\)$/)
+
+  const active = getJourneyCaption(journey([['New', sprintStart], ['Active', day(1)]]), day(31))
+  assert.equal(active.text, '4w in Active')
+  assert.equal(active.tone, 'attention')
+  assert.match(active.tooltip, /\(30 days\)$/)
+})
+
 test('journey trails size each column by working days and lead in for cards added later', () => {
   // Wed 7 Oct to Mon 12 Oct: the weekend doesn't stretch the Active stretch.
   const committed = getJourneyTrail(journey([['New', sprintStart], ['Active', day(2)]]), day(7))

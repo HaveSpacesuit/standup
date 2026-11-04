@@ -108,8 +108,11 @@ same cards, density, lane heads, and Needs attention bar, leaves out pull reques
 item, and ignores the Members options. Each card shows its owner (the developer whose lane it sits
 in on the People board) as an avatar, and a caption telling its journey this sprint: "Done Nov 2",
 "Back from Review · 2d", "Added today", "Into Active today", "Active at start", or "4d in Active"
-(amber from five days, except in New). A thin trail along the card's bottom edge shows the columns
-it has passed through, each segment sized by the working days spent there. Hover over or focus a
+(amber from five days, except in New). Longer waits read in weeks, months, or years, such as
+"3w in Active" or "1y in New", and the same units apply to the flow lines' "oldest" and to pull
+request and change ages; hover over or focus a caption for the exact date and number of days. A thin
+trail along the card's bottom edge shows the columns it has passed through, each segment sized by the
+working days spent there. Hover over or focus a
 card to see a dashed ghost where it started the sprint (or was added), or, if it is back there, the
 farthest column it reached. The Needs attention bar adds Moved back (a card moved to an earlier
 column during the sprint, such as Review to Active), and With QA compares a Review card's assignee
