@@ -6,6 +6,7 @@ const server = await createServer({ configFile: false, server: { middlewareMode:
 after(() => server.close())
 const {
   countWorkingDays,
+  formatDayCount,
   formatSprintDateRange,
   getSprintProgress,
 } = await server.ssrLoadModule('/src/features/standup/utils/sprintDates.ts')
@@ -31,6 +32,18 @@ test('counts weekdays inclusively and never goes negative', () => {
   assert.equal(countWorkingDays(day(24), day(25)), 0)
   assert.equal(countWorkingDays(day(30, 18), day(30)), 1)
   assert.equal(countWorkingDays(day(30), day(19)), 0)
+})
+
+test('day counts coarsen to weeks, months, and years as they grow, never stepping backward', () => {
+  const cases: Array<[number, string]> = [
+    [0, '0d'], [13, '13d'],
+    [14, '2w'], [60, '8w'],
+    [61, '2mo'], [364, '11mo'],
+    [365, '1y'], [443, '1y'], [729, '1y'], [730, '2y'],
+  ]
+  for (const [days, expected] of cases) {
+    assert.equal(formatDayCount(days), expected, `${days} days`)
+  }
 })
 
 test('sprint progress reports the working day, length, and days left while the sprint is active', () => {

@@ -12,6 +12,7 @@ import { toIdentityKeys, type IdentityRef } from '../../../ado/identity'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getJourneyCaption, type JourneyCaption, type SprintJourney } from '../utils/sprintJourney'
+import { formatDayCount } from '../utils/sprintDates'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
 import { abbreviateState } from './workItemCardDisplay'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
@@ -164,7 +165,7 @@ export function formatShortAge(value: string | undefined, now = Date.now()): str
   }
 
   const days = Math.floor(hours / 24)
-  return days < 14 ? `${days}d` : `${Math.floor(days / 7)}w`
+  return formatDayCount(days)
 }
 
 export type StepOwner =

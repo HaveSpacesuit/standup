@@ -38,6 +38,25 @@ export function formatSprintDate(date: Date): string {
   return SHORT_DATE.format(date)
 }
 
+const DAYS_PER_MONTH = 365.25 / 12
+
+/**
+ * A count of days, coarser as it grows so long waits stay readable: "13d", then "2w"–"8w",
+ * "2mo"–"11mo", and "1y" on. Each unit rounds down.
+ */
+export function formatDayCount(days: number): string {
+  if (days < 14) {
+    return `${days}d`
+  }
+  if (days < 61) {
+    return `${Math.floor(days / 7)}w`
+  }
+  if (days < 365) {
+    return `${Math.floor(days / DAYS_PER_MONTH)}mo`
+  }
+  return `${Math.floor(days / 365)}y`
+}
+
 /** Weekdays from `from` through `to`, both inclusive; 0 when `to` is before `from`. */
 export function countWorkingDays(from: Date, to: Date): number {
   let workingDays = 0

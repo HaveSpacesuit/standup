@@ -242,6 +242,9 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify journey captions (Done at start or on a date, Back from a column, Added today, Into a
       column today, at start, and days in a column, amber from five days outside New) match each
       card's history this sprint.
+- [ ] Verify a card waiting two weeks or more shows coarser units (for example "3w in Active", "4mo
+      in New", "1y in New"), and that its tooltip gives the date, with the year when it is not this
+      year, and the exact number of days. Check the column flow line's "oldest" uses the same units.
 - [ ] Verify the trail along each card's bottom edge shows the columns it passed through, sized by
       working days, and that screen readers announce it as one labelled image.
 - [ ] Hover over and keyboard-focus a card and verify a dashed ghost appears where it started or was

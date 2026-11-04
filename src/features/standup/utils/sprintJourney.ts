@@ -2,7 +2,7 @@ import svgAdd from '@stratakit/icons/add.svg'
 import svgClock from '@stratakit/icons/clock.svg'
 import svgStatusSuccess from '@stratakit/icons/status-success.svg'
 import svgUndo from '@stratakit/icons/undo.svg'
-import { countWorkingDays, formatSprintDate } from './sprintDates'
+import { countWorkingDays, formatDayCount, formatSprintDate } from './sprintDates'
 import { STATUS_COLUMNS, type StatusColumn } from './statusColumnStyles'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -209,6 +209,18 @@ export function calendarDaysBetween(from: number, to: number): number {
 }
 
 const WEEKDAY_DATE = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+const WEEKDAY_DATE_WITH_YEAR = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+
+/** "Tue, Oct 27", with the year once it isn't the current one. */
+function formatWeekdayDate(at: number, now: number): string {
+  const date = new Date(at)
+  return (date.getFullYear() === new Date(now).getFullYear() ? WEEKDAY_DATE : WEEKDAY_DATE_WITH_YEAR).format(date)
+}
+
+/** The exact count, for tooltips when the caption rounds to weeks, months, or years. */
+function exactDays(days: number): string {
+  return days < 14 ? '' : ` (${days} days)`
+}
 
 function formatDay(at: number): string {
   return formatSprintDate(new Date(at))
@@ -239,7 +251,7 @@ export function getJourneyCaption(journey: SprintJourney, now: number, { skipBac
     }
     return {
       text: `Done ${formatDay(since)}`,
-      tooltip: `Moved to Done on ${WEEKDAY_DATE.format(new Date(since))}`,
+      tooltip: `Moved to Done on ${formatWeekdayDate(since, now)}`,
       tone: 'positive',
       iconHref: svgStatusSuccess,
     }
@@ -248,8 +260,8 @@ export function getJourneyCaption(journey: SprintJourney, now: number, { skipBac
   const back = skipBack ? null : getLastBackMove(journey)
   if (back) {
     return {
-      text: `Back from ${back.from} · ${days === 0 ? 'today' : `${days}d`}`,
-      tooltip: `Moved back from ${back.from} to ${back.to} on ${WEEKDAY_DATE.format(new Date(back.at))}`,
+      text: `Back from ${back.from} · ${days === 0 ? 'today' : formatDayCount(days)}`,
+      tooltip: `Moved back from ${back.from} to ${back.to} on ${formatWeekdayDate(back.at, now)}${exactDays(days)}`,
       tone: 'attention',
       iconHref: svgUndo,
     }
@@ -267,8 +279,8 @@ export function getJourneyCaption(journey: SprintJourney, now: number, { skipBac
   }
 
   return {
-    text: `${days}d in ${last.status}`,
-    tooltip: `In ${last.status} since ${WEEKDAY_DATE.format(new Date(since))}`,
+    text: `${formatDayCount(days)} in ${last.status}`,
+    tooltip: `In ${last.status} since ${formatWeekdayDate(since, now)}${exactDays(days)}`,
     tone: days >= 5 && last.status !== 'New' ? 'attention' : 'neutral',
     iconHref: svgClock,
   }

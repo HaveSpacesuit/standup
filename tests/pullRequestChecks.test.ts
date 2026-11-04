@@ -231,3 +231,22 @@ for (const [status, expectedState] of [
     }
   })
 }
+
+test('an open pull request\'s age coarsens to weeks, months, and years', () => {
+  const day = 24 * 60 * 60 * 1000
+  const ageOf = (daysAgo: number) => {
+    const html = renderToStaticMarkup(createElement(
+      Root,
+      null,
+      createElement(PullRequestChecksRow, {
+        pullRequest: { id: 7, title: 'Old pull request', url: '', status: 'active', recentActivityAt: new Date(Date.now() - daysAgo * day - 60_000).toISOString() },
+      }),
+    ))
+    return /(\d+(?:d|w|mo|y)) old/.exec(html)?.[1]
+  }
+
+  assert.equal(ageOf(3), '3d')
+  assert.equal(ageOf(20), '2w')
+  assert.equal(ageOf(100), '3mo')
+  assert.equal(ageOf(400), '1y')
+})

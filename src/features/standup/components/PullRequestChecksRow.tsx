@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import type { WorkItemPullRequestSummary } from '../../../ado/queryEngine'
+import { formatDayCount } from '../utils/sprintDates'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
 
 type PullRequestChecksRowProps = {
@@ -26,12 +27,7 @@ function formatAge(value: string | undefined): string {
     return `${elapsedHours}h old`
   }
 
-  const elapsedDays = Math.floor(elapsedHours / 24)
-  if (elapsedDays < 14) {
-    return `${elapsedDays}d old`
-  }
-
-  return `${Math.floor(elapsedDays / 7)}w old`
+  return `${formatDayCount(Math.floor(elapsedHours / 24))} old`
 }
 
 export function PullRequestChecksRow({ pullRequest }: PullRequestChecksRowProps) {

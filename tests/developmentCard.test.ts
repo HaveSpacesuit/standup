@@ -165,6 +165,8 @@ test('short ages round down to hours, days, then weeks', () => {
   assert.equal(display.formatShortAge('2026-03-10T09:00:00Z', now), '3h')
   assert.equal(display.formatShortAge('2026-03-08T12:00:00Z', now), '2d')
   assert.equal(display.formatShortAge('2026-02-10T12:00:00Z', now), '4w')
+  assert.equal(display.formatShortAge('2025-12-01T12:00:00Z', now), '3mo')
+  assert.equal(display.formatShortAge('2024-12-01T12:00:00Z', now), '1y')
   assert.equal(display.formatShortAge(undefined, now), '')
   assert.equal(display.formatShortAge('not a date', now), '')
 })

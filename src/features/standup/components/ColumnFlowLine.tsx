@@ -8,6 +8,7 @@ import {
   type ColumnFlowTone,
 } from '../utils/columnFlow'
 import { getStatusColumnColor, type StatusColumn } from '../utils/statusColumnStyles'
+import { formatDayCount } from '../utils/sprintDates'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 
@@ -111,7 +112,7 @@ export function ColumnFlowLine({ status, flow }: { status: StatusColumn; flow: C
               color: oldestDays >= COLUMN_OLDEST_ATTENTION_DAYS ? 'warning.main' : TERTIARY_TEXT_COLOR,
             }}
           >
-            oldest {oldestDays}d
+            oldest {formatDayCount(oldestDays)}
           </Box>
         ) : null}
         <Box component="span" sx={visuallyHiddenSx}>
