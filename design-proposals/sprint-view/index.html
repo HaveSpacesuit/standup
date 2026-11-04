@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="en" data-color-scheme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprint view — design proposals</title>
+<style>
+@font-face { font-family: "InterVariable"; src: url("https://rsms.me/inter/font-files/InterVariable.woff2?v=4.1") format("woff2"); font-weight: 100 900; font-display: swap; }
+:root,[data-color-scheme=light]{color-scheme:light;--stratakit-color-bg-mono-base:oklch(55.22% .018 253.99);--stratakit-color-bg-mono-muted:oklch(87.77% .005 247.88);--stratakit-color-bg-mono-transparent:oklch(55.22% .018 253.99/.16);--stratakit-color-bg-accent-base:var(--_stratakit-accent-500,oklch(54% .1 170.26));--stratakit-color-bg-accent-muted:var(--_stratakit-accent-50,oklch(89.34% .027 178.99));--stratakit-color-bg-info-base:oklch(55.68% .187 255.82);--stratakit-color-bg-info-muted:oklch(89.45% .042 250.5);--stratakit-color-bg-info-transparent:oklch(55.68% .187 255.82/.16);--stratakit-color-bg-positive-base:oklch(53.64% .173 140.57);--stratakit-color-bg-positive-muted:oklch(89.17% .046 138.13);--stratakit-color-bg-positive-transparent:oklch(53.64% .173 140.57/.16);--stratakit-color-bg-attention-base:oklch(55.63% .116 75.58);--stratakit-color-bg-attention-muted:oklch(89.65% .049 84.55);--stratakit-color-bg-attention-transparent:oklch(56.98% .174 41.22/.16);--stratakit-color-bg-critical-base:oklch(58.02% .221 19.39);--stratakit-color-bg-critical-muted:oklch(90.3% .042 5.14);--stratakit-color-bg-critical-transparent:oklch(58.02% .221 19.39/.16);--stratakit-color-bg-page-depth:oklch(97.87% .002 247.84);--stratakit-color-bg-page-base:oklch(99.06% .002 247.84);--stratakit-color-bg-elevation-base:oklch(99.65% .002 247.84);--stratakit-color-bg-elevation-emphasis:oklch(18.15% .003 247.97);--stratakit-color-bg-elevation-level-1:oklch(100% none none);--stratakit-color-bg-elevation-overlay:oklch(100% none none/.8);--stratakit-color-bg-elevation-level-2:oklch(100% none none);--stratakit-color-bg-neutral-base:oklch(100% none none);--stratakit-color-bg-neutral-inverse:oklch(100% none none);--stratakit-color-bg-glow-base-hover-\%:4.0%;--stratakit-color-bg-glow-base-pressed-\%:8.0%;--stratakit-color-bg-glow-on-surface-accent-hover:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 12%);--stratakit-color-bg-glow-on-surface-accent-pressed:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 16%);--stratakit-color-bg-glow-on-surface-neutral-hover:oklch(0% none none/.04);--stratakit-color-bg-glow-on-surface-neutral-pressed:oklch(0% none none/.08);--stratakit-color-bg-glow-on-surface-critical-pressed:oklch(58.02% .221 19.39/.16);--stratakit-color-bg-glow-on-surface-critical-hover:oklch(58.02% .221 19.39/.12);--stratakit-color-bg-glow-on-surface-disabled:oklch(0% none none/.04);--stratakit-color-bg-glow-on-surface-accent-active-hover:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 24%);--stratakit-color-bg-glow-on-surface-neutral-active-hover:oklch(0% none none/.12);--stratakit-color-bg-glow-strong-pressed-\%:16.0%;--stratakit-color-bg-glow-strong-hover-\%:8.0%;--stratakit-color-bg-control-textbox:oklch(100% none none);--stratakit-color-bg-control-table-zebra:oklch(0% none none/.02);--stratakit-color-bg-control-scrollbar-surface:oklch(0% none none/.48);--stratakit-color-bg-control-switch:oklch(94.86% .002 247.84);--stratakit-color-icon-neutral-primary:oklch(26.92% .008 268.32);--stratakit-color-icon-neutral-base:oklch(41.45% .013 256.75);--stratakit-color-icon-neutral-secondary:oklch(55.22% .018 253.99);--stratakit-color-icon-neutral-disabled:oklch(62.09% .017 257.22);--stratakit-color-icon-neutral-emphasis:oklch(100% none none);--stratakit-color-icon-accent-base:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-icon-accent-strong:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-icon-info-base:oklch(48.74% .162 255.58);--stratakit-color-icon-positive-base:oklch(46.81% .151 140.37);--stratakit-color-icon-attention-base:oklch(48.69% .101 75.71);--stratakit-color-icon-critical-base:oklch(50.74% .193 19.05);--stratakit-color-icon-mono-base:oklch(48.26% .017 254.7);--stratakit-color-border-mono-base:oklch(55.22% .018 253.99);--stratakit-color-border-mono-muted:oklch(79.56% .008 241.69);--stratakit-color-border-accent-base:var(--_stratakit-accent-500,oklch(54% .1 170.26));--stratakit-color-border-accent-muted:var(--_stratakit-accent-100,oklch(82.26% .045 176.56));--stratakit-color-border-accent-strong:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-border-info-base:oklch(55.68% .187 255.82);--stratakit-color-border-info-muted:oklch(82.51% .071 249.98);--stratakit-color-border-positive-base:oklch(53.64% .173 140.57);--stratakit-color-border-positive-muted:oklch(82.11% .078 138.1);--stratakit-color-border-attention-base:oklch(55.63% .116 75.58);--stratakit-color-border-attention-muted:oklch(82.78% .08 84.58);--stratakit-color-border-critical-base:oklch(58.02% .221 19.39);--stratakit-color-border-critical-muted:oklch(83.74% .075 6.15);--stratakit-color-border-glow-base-hover-\%:8.0%;--stratakit-color-border-glow-base-pressed-\%:12.0%;--stratakit-color-border-glow-base-default:oklch(0% none none/.08);--stratakit-color-border-glow-on-surface-faded:oklch(0% none none/.04);--stratakit-color-border-glow-on-surface-disabled:oklch(0% none none/.08);--stratakit-color-border-glow-strong-hover-\%:8.0%;--stratakit-color-border-glow-strong-pressed-\%:16.0%;--stratakit-color-border-glow-strong-default:oklch(0% none none/.12);--stratakit-color-border-neutral-base:oklch(62.09% .017 257.22);--stratakit-color-border-neutral-muted:oklch(75.82% .01 252.83);--stratakit-color-border-neutral-inverse:oklch(14.4% .003 247.09);--stratakit-color-border-neutral-disabled:oklch(91.52% .005 258.33);--stratakit-color-border-elevation-base:oklch(100% none none/.48);--stratakit-color-border-page-base:oklch(0% none none/.48);--stratakit-color-text-mono-base:oklch(48.26% .017 254.7);--stratakit-color-text-accent-base:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-text-accent-strong:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-text-info-base:oklch(48.74% .162 255.58);--stratakit-color-text-positive-base:oklch(46.81% .151 140.37);--stratakit-color-text-attention-base:oklch(48.69% .101 75.71);--stratakit-color-text-critical-base:oklch(50.74% .193 19.05);--stratakit-color-text-neutral-emphasis:oklch(100% none none);--stratakit-color-text-neutral-primary:oklch(29.76% .011 268.32);--stratakit-color-text-neutral-secondary:oklch(41.45% .013 256.75);--stratakit-color-text-neutral-tertiary:oklch(55.22% .018 253.99);--stratakit-color-text-neutral-disabled:oklch(62.09% .017 257.22);--stratakit-color-text-neutral-placeholder:oklch(62.09% .017 257.22);--stratakit-color-static-black:oklch(0% none none);--stratakit-color-static-white:oklch(100% none none);--stratakit-color-static-accent:var(--_stratakit-accent-500,oklch(54% .1 170.26));--stratakit-color-glow-hue:oklch(0% none none);--stratakit-color-brand-logo-fill:oklch(41.45% .013 256.75);--stratakit-color-brand-logo-stroke:oklch(24.37% .006 268.32)}
+[data-color-scheme=dark]{color-scheme:dark;--stratakit-color-bg-mono-base:oklch(55.22% .018 253.99);--stratakit-color-bg-mono-muted:oklch(34.4% .011 264.42);--stratakit-color-bg-mono-transparent:oklch(55.22% .018 253.99/.16);--stratakit-color-bg-accent-base:var(--_stratakit-accent-500,oklch(54% .1 170.26));--stratakit-color-bg-accent-muted:var(--_stratakit-accent-800,oklch(33.76% .059 170.74));--stratakit-color-bg-info-base:oklch(55.68% .187 255.82);--stratakit-color-bg-info-muted:oklch(34.71% .108 254.29);--stratakit-color-bg-info-transparent:oklch(55.68% .187 255.82/.16);--stratakit-color-bg-positive-base:oklch(53.64% .173 140.57);--stratakit-color-bg-positive-muted:oklch(33.63% .106 139.87);--stratakit-color-bg-positive-transparent:oklch(53.64% .173 140.57/.16);--stratakit-color-bg-attention-base:oklch(55.63% .116 75.58);--stratakit-color-bg-attention-muted:oklch(34.69% .071 77.24);--stratakit-color-bg-attention-transparent:oklch(56.98% .174 41.22/.16);--stratakit-color-bg-critical-base:oklch(58.02% .221 19.39);--stratakit-color-bg-critical-muted:oklch(36.08% .133 17.52);--stratakit-color-bg-critical-transparent:oklch(58.02% .221 19.39/.16);--stratakit-color-bg-page-depth:oklch(22.52% .005 268.32);--stratakit-color-bg-page-base:oklch(24.37% .006 268.32);--stratakit-color-bg-elevation-base:oklch(26.92% .008 268.32);--stratakit-color-bg-elevation-emphasis:oklch(14.4% .003 247.09);--stratakit-color-bg-elevation-level-1:oklch(26.92% .008 268.32);--stratakit-color-bg-elevation-overlay:oklch(0% none none/.8);--stratakit-color-bg-elevation-level-2:oklch(26.92% .008 268.32);--stratakit-color-bg-neutral-base:oklch(34.4% .011 264.42);--stratakit-color-bg-neutral-inverse:oklch(99.06% .002 247.84);--stratakit-color-bg-glow-base-hover-\%:4.0%;--stratakit-color-bg-glow-base-pressed-\%:8.0%;--stratakit-color-bg-glow-on-surface-accent-hover:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 12%);--stratakit-color-bg-glow-on-surface-accent-pressed:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 16%);--stratakit-color-bg-glow-on-surface-neutral-hover:oklch(100% none none/.04);--stratakit-color-bg-glow-on-surface-neutral-pressed:oklch(100% none none/.08);--stratakit-color-bg-glow-on-surface-critical-pressed:oklch(58.02% .221 19.39/.16);--stratakit-color-bg-glow-on-surface-critical-hover:oklch(58.02% .221 19.39/.12);--stratakit-color-bg-glow-on-surface-disabled:oklch(100% none none/.04);--stratakit-color-bg-glow-on-surface-accent-active-hover:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 24%);--stratakit-color-bg-glow-on-surface-neutral-active-hover:oklch(100% none none/.12);--stratakit-color-bg-glow-strong-pressed-\%:16.0%;--stratakit-color-bg-glow-strong-hover-\%:8.0%;--stratakit-color-bg-control-textbox:oklch(24.37% .006 268.32);--stratakit-color-bg-control-table-zebra:oklch(0% none none/.08);--stratakit-color-bg-control-scrollbar-surface:oklch(100% none none/.4);--stratakit-color-bg-control-switch:oklch(22.52% .005 268.32);--stratakit-color-icon-neutral-primary:oklch(99.06% .002 247.84);--stratakit-color-icon-neutral-base:oklch(85.95% .006 255.48);--stratakit-color-icon-neutral-secondary:oklch(75.82% .01 252.83);--stratakit-color-icon-neutral-disabled:oklch(62.09% .017 257.22);--stratakit-color-icon-neutral-emphasis:oklch(100% none none);--stratakit-color-icon-accent-base:var(--_stratakit-accent-300,oklch(67.95% .077 175.72));--stratakit-color-icon-accent-strong:var(--_stratakit-accent-0,oklch(87.59% .175 168.9));--stratakit-color-icon-info-base:oklch(68.84% .131 251.14);--stratakit-color-icon-positive-base:oklch(67.58% .14 138.68);--stratakit-color-icon-attention-base:oklch(69.31% .129 79.75);--stratakit-color-icon-critical-base:oklch(70.76% .147 9.28);--stratakit-color-icon-mono-base:oklch(69.04% .014 255.53);--stratakit-color-border-mono-base:oklch(62.09% .017 257.22);--stratakit-color-border-mono-muted:oklch(41.45% .013 256.75);--stratakit-color-border-accent-base:var(--_stratakit-accent-400,oklch(60.98% .092 173.18));--stratakit-color-border-accent-muted:var(--_stratakit-accent-700,oklch(40.38% .071 171.73));--stratakit-color-border-accent-strong:var(--_stratakit-accent-0,oklch(87.59% .175 168.9));--stratakit-color-border-info-base:oklch(62.11% .161 252.88);--stratakit-color-border-info-muted:oklch(41.55% .136 255.23);--stratakit-color-border-positive-base:oklch(60.59% .164 139.21);--stratakit-color-border-positive-muted:oklch(40.36% .129 140.08);--stratakit-color-border-attention-base:oklch(62.6% .132 74.4);--stratakit-color-border-attention-muted:oklch(41.7% .086 77.28);--stratakit-color-border-critical-base:oklch(64.49% .185 12.51);--stratakit-color-border-critical-muted:oklch(43.46% .163 18.38);--stratakit-color-border-glow-base-hover-\%:8.0%;--stratakit-color-border-glow-base-pressed-\%:12.0%;--stratakit-color-border-glow-base-default:oklch(100% none none/.08);--stratakit-color-border-glow-on-surface-faded:oklch(100% none none/.04);--stratakit-color-border-glow-on-surface-disabled:oklch(100% none none/.08);--stratakit-color-border-glow-strong-hover-\%:16.0%;--stratakit-color-border-glow-strong-pressed-\%:24.0%;--stratakit-color-border-glow-strong-default:oklch(100% none none/.16);--stratakit-color-border-neutral-base:oklch(55.22% .018 253.99);--stratakit-color-border-neutral-muted:oklch(41.45% .013 256.75);--stratakit-color-border-neutral-inverse:oklch(99.06% .002 247.84);--stratakit-color-border-neutral-disabled:oklch(34.4% .011 264.42);--stratakit-color-border-elevation-base:oklch(100% none none/.36);--stratakit-color-border-page-base:oklch(100% none none/.36);--stratakit-color-text-mono-base:oklch(69.04% .014 255.53);--stratakit-color-text-accent-base:var(--_stratakit-accent-300,oklch(67.95% .077 175.72));--stratakit-color-text-accent-strong:var(--_stratakit-accent-0,oklch(87.59% .175 168.9));--stratakit-color-text-info-base:oklch(68.84% .131 251.14);--stratakit-color-text-positive-base:oklch(67.58% .14 138.68);--stratakit-color-text-attention-base:oklch(69.31% .129 79.75);--stratakit-color-text-critical-base:oklch(70.76% .147 9.28);--stratakit-color-text-neutral-emphasis:oklch(100% none none);--stratakit-color-text-neutral-primary:oklch(99.06% .002 247.84);--stratakit-color-text-neutral-secondary:oklch(79.56% .008 241.69);--stratakit-color-text-neutral-tertiary:oklch(69.04% .014 255.53);--stratakit-color-text-neutral-disabled:oklch(62.09% .017 257.22);--stratakit-color-text-neutral-placeholder:oklch(62.09% .017 257.22);--stratakit-color-static-black:oklch(0% none none);--stratakit-color-static-white:oklch(100% none none);--stratakit-color-static-accent:var(--_stratakit-accent-500,oklch(54% .1 170.26));--stratakit-color-glow-hue:oklch(100% none none);--stratakit-color-brand-logo-fill:oklch(94.86% .002 247.84);--stratakit-color-brand-logo-stroke:oklch(99.06% .002 247.84)}
+:root {
+  --font: "InterVariable", "Noto Sans", "Open Sans", sans-serif;
+  --c-Blocked: var(--stratakit-color-bg-critical-base);
+  --c-New: var(--stratakit-color-bg-info-base);
+  --c-Active: var(--stratakit-color-bg-accent-base);
+  --c-Review: var(--stratakit-color-bg-attention-base);
+  --c-Done: var(--stratakit-color-bg-positive-base);
+  --t-1: var(--stratakit-color-text-neutral-primary);
+  --t-2: var(--stratakit-color-text-neutral-secondary);
+  --t-3: var(--stratakit-color-text-neutral-tertiary);
+  --t-critical: var(--stratakit-color-text-critical-base);
+  --t-attention: var(--stratakit-color-text-attention-base);
+  --t-positive: var(--stratakit-color-text-positive-base);
+  --t-info: var(--stratakit-color-text-info-base);
+  --t-accent: var(--stratakit-color-text-accent-strong);
+  --icon: var(--stratakit-color-icon-neutral-base);
+  --page: var(--stratakit-color-bg-page-base);
+  --depth: var(--stratakit-color-bg-page-depth);
+  --surface: var(--stratakit-color-bg-elevation-level-1);
+  --divider: var(--stratakit-color-border-glow-strong-default);
+  --faint: var(--stratakit-color-border-glow-base-default);
+  --control: var(--stratakit-color-border-neutral-muted);
+  --track: var(--stratakit-color-bg-glow-on-surface-neutral-pressed);
+  --hover: var(--stratakit-color-bg-glow-on-surface-neutral-hover);
+  --shadow: 0 1px 2px rgb(0 0 0 / .08);
+  --tint: 14%;
+}
+[data-color-scheme=dark] { --tint: 22%; --shadow: 0 1px 2px rgb(0 0 0 / .45); }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--font); font-size: 14px; color: var(--t-1); background: var(--depth); -webkit-font-smoothing: antialiased; }
+button, select, input { font: inherit; color: inherit; }
+svg.i { width: 16px; height: 16px; flex: 0 0 auto; color: var(--icon); }
+.spacer { flex: 1 1 auto; }
+.muted { color: var(--t-3); }
+[hidden] { display: none !important; }
+
+/* ---------- Demo chrome (outside the mock app) ---------- */
+.demo-head { padding: 14px 20px 6px; }
+.demo-head h1 { font-size: 20px; margin: 0 0 2px; font-weight: 650; }
+.demo-head p { margin: 0; color: var(--t-2); font-size: 13px; max-width: 1100px; }
+.controls { padding: 8px 20px 12px; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.group { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.group-label { font-size: 11px; color: var(--t-3); text-transform: uppercase; letter-spacing: .04em; margin-right: 2px; }
+.tbtn { appearance: none; font-size: 12px; height: 28px; padding: 0 10px; border-radius: 4px; border: 1px solid var(--control); background: var(--surface); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.tbtn:hover { background: color-mix(in srgb, var(--surface), var(--t-1) 5%); }
+.tbtn[aria-pressed="true"] { background: var(--stratakit-color-bg-accent-muted); border-color: var(--stratakit-color-border-accent-strong); color: var(--t-accent); font-weight: 600; }
+.tbtn .num { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: 10px; font-weight: 700; background: var(--track); }
+.tbtn[aria-pressed="true"] .num { background: var(--stratakit-color-bg-accent-base); color: white; }
+.tbtn.preset { border-style: dashed; }
+
+/* ---------- Mock app frame ---------- */
+.app { display: flex; height: 820px; margin: 0 20px 16px; border: 1px solid var(--divider); border-radius: 8px; overflow: hidden; background: var(--page); box-shadow: 0 2px 10px rgb(0 0 0 / .06); }
+.nav-rail { width: 14px; flex: 0 0 auto; border-right: 1px solid var(--divider); display: flex; justify-content: center; padding-top: 12px; }
+.nav-rail svg.i { width: 10px; height: 10px; }
+.main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+
+/* Toolbar */
+.tb { height: 44px; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--divider); background: var(--page); font-size: 13px; white-space: nowrap; }
+.page-title { display: inline-flex; gap: 6px; align-items: center; font-weight: 700; font-size: 15px; margin-right: 4px; }
+.field { height: 28px; border: 1px solid var(--control); border-radius: 4px; background: var(--stratakit-color-bg-control-textbox); display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; font-size: 12px; color: var(--t-1); }
+.field.placeholder { color: var(--stratakit-color-text-neutral-placeholder); }
+.field .caret { margin-left: auto; }
+.kbd { font-size: 10px; border: 1px solid var(--control); border-radius: 3px; padding: 0 4px; color: var(--t-3); margin-left: auto; }
+.icon-btn { appearance: none; width: 28px; height: 28px; border-radius: 4px; display: inline-grid; place-items: center; border: 0; background: none; cursor: pointer; padding: 0; }
+.icon-btn:hover { background: var(--hover); }
+.btn-group { display: inline-flex; border: 1px solid var(--control); border-radius: 4px; overflow: hidden; }
+.btn-group > * { border-radius: 0; }
+.btn-group > * + * { border-left: 1px solid var(--control); }
+.btn-group button[aria-pressed="true"] { background: var(--track); }
+.seg-btn { appearance: none; height: 26px; border: 0; background: none; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer; }
+.btn { appearance: none; height: 28px; padding: 0 10px; border-radius: 4px; border: 1px solid var(--control); background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: color-mix(in srgb, var(--surface), var(--t-1) 5%); }
+.btn.accent { background: var(--stratakit-color-bg-accent-base); border-color: transparent; color: white; font-weight: 600; }
+.btn.accent svg.i { color: white; }
+.btn:disabled { opacity: .55; cursor: default; }
+.tb-label { font-weight: 700; font-size: 12px; }
+.vsep { width: 1px; height: 20px; background: var(--divider); }
+.synced { font-size: 11px; color: var(--t-3); }
+
+/* Avatars */
+.avatar { --h: 210; width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; flex: 0 0 auto; font-size: 10px; font-weight: 700; letter-spacing: .02em; background: hsl(var(--h) 38% 80%); color: hsl(var(--h) 45% 22%); }
+[data-color-scheme=dark] .avatar { background: hsl(var(--h) 22% 34%); color: hsl(var(--h) 40% 90%); }
+.avatar.all { background: var(--track); color: var(--icon); }
+.avatar.sm { width: 20px; height: 20px; font-size: 8px; }
+
+/* Presenter bar (P5) */
+.presenter { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 6px 12px; min-height: 44px; background: color-mix(in srgb, var(--stratakit-color-bg-accent-base) 10%, var(--page)); border-bottom: 1px solid var(--stratakit-color-border-accent-muted); font-size: 13px; white-space: nowrap; }
+.live { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; color: var(--t-accent); }
+.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--stratakit-color-bg-critical-base); box-shadow: 0 0 0 3px color-mix(in srgb, var(--stratakit-color-bg-critical-base) 25%, transparent); }
+.timer { display: inline-flex; gap: 5px; align-items: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+.timer.over { color: var(--t-attention); }
+.now { display: inline-flex; gap: 8px; align-items: center; }
+.now b { font-size: 14px; }
+.queue { display: inline-flex; gap: 5px; align-items: center; padding-left: 4px; }
+.queue .avatar { opacity: .45; position: relative; }
+.queue .avatar.done { opacity: .9; }
+.queue .avatar.done::after { content: "✓"; position: absolute; right: -3px; bottom: -3px; width: 11px; height: 11px; border-radius: 50%; background: var(--stratakit-color-bg-positive-base); color: white; font-size: 8px; display: grid; place-items: center; box-shadow: 0 0 0 1.5px var(--page); }
+.queue .avatar.cur { opacity: 1; box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--stratakit-color-border-accent-base); }
+.presenter select { height: 26px; border: 1px solid var(--control); border-radius: 4px; background: var(--surface); font-size: 12px; padding: 0 4px; }
+
+/* Sprint ribbon (P2) */
+.ribbon { flex: 0 0 auto; display: flex; align-items: center; gap: 18px; padding: 0 12px; height: 42px; border-bottom: 1px solid var(--divider); background: var(--page); font-size: 12px; color: var(--t-2); white-space: nowrap; }
+.ribbon b { color: var(--t-1); }
+.r-item { display: inline-flex; align-items: center; gap: 7px; }
+.r-track { width: 110px; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; position: relative; }
+.r-track i { position: absolute; inset: 0 auto 0 0; background: var(--stratakit-color-bg-mono-base); border-radius: 3px; }
+.stack { display: flex; width: 380px; height: 18px; border-radius: 4px; overflow: hidden; gap: 1px; background: var(--track); }
+.stack i { display: grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 600; color: white; min-width: 0; overflow: hidden; }
+.fc-chip { appearance: none; height: 24px; border-radius: 999px; border: 1px solid var(--stratakit-color-border-attention-base); background: color-mix(in srgb, var(--stratakit-color-bg-attention-base) 10%, var(--surface)); color: var(--t-attention); display: inline-flex; align-items: center; gap: 5px; padding: 0 9px 0 7px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.fc-chip svg.i { color: var(--t-attention); }
+.spark { display: block; }
+
+/* Attention bar (P4) */
+.attn { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--divider); background: var(--page); flex-wrap: wrap; font-size: 12px; }
+.attn-label { font-weight: 700; font-size: 12px; margin-right: 4px; display: inline-flex; gap: 5px; align-items: center; }
+.fchip { appearance: none; height: 26px; border-radius: 999px; border: 1px solid var(--control); background: var(--surface); padding: 0 10px 0 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.fchip:hover:not(:disabled) { background: color-mix(in srgb, var(--surface), var(--t-1) 5%); }
+.fchip .sev { width: 8px; height: 8px; border-radius: 50%; }
+.fchip .n { font-weight: 650; font-variant-numeric: tabular-nums; color: var(--t-2); }
+.fchip[aria-pressed="true"] { background: var(--stratakit-color-bg-accent-muted); border-color: var(--stratakit-color-border-accent-strong); color: var(--t-accent); font-weight: 600; }
+.fchip:disabled { opacity: .5; cursor: default; }
+.sev-critical { background: var(--stratakit-color-bg-critical-base); }
+.sev-attention { background: var(--stratakit-color-bg-attention-base); }
+.sev-info { background: var(--stratakit-color-bg-info-base); }
+.sev-positive { background: var(--stratakit-color-bg-positive-base); }
+.sev-neutral { background: var(--stratakit-color-bg-mono-base); }
+.link-btn { appearance: none; border: 0; background: none; color: var(--t-accent); font-size: 12px; cursor: pointer; padding: 2px 4px; }
+
+/* Board */
+.board-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; position: relative; scrollbar-gutter: stable; }
+.board { min-width: 1175px; min-height: 100%; }
+.p1 .board { background: var(--depth); }
+.bhead { position: sticky; top: 0; z-index: 6; display: grid; background: var(--page); border-bottom: 1px solid var(--divider); }
+.corner { position: sticky; left: 0; z-index: 2; background: var(--page); border-right: 1px solid var(--divider); padding: 10px 12px; display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 12px; }
+.corner .icon-btn { width: 24px; height: 24px; }
+.ch { padding: 10px 14px 10px 12px; display: flex; gap: 8px; align-items: stretch; min-width: 0; }
+.cbar { width: 4px; border-radius: 999px; flex: 0 0 auto; background: var(--col); }
+.ch-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.ch-row { display: flex; align-items: center; gap: 6px; }
+.ch h2 { font-size: 12px; margin: 0; font-weight: 700; }
+.ccount { margin-left: auto; color: var(--col); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ccount small { font-size: 11px; color: var(--t-3); font-weight: 600; }
+.ceff { font-size: 11px; color: var(--t-2); margin-top: 2px; }
+.ch.one-line .ccount { margin-left: 0; font-size: 11px; color: var(--t-2); background: var(--track); border-radius: 999px; padding: 0 6px; height: 18px; display: inline-grid; place-items: center; }
+.ch.one-line .cpts { margin-left: auto; font-size: 11px; color: var(--t-3); font-variant-numeric: tabular-nums; }
+.ch.rail-h { padding: 8px 0; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+.ch.rail-h .cbar { width: 22px; height: 4px; }
+.ch.rail-h .ok { font-size: 11px; font-weight: 700; color: var(--t-positive); display: inline-flex; align-items: center; gap: 1px; }
+.ch.rail-h .ok svg.i { color: var(--t-positive); width: 14px; height: 14px; }
+.board { position: relative; }
+.rail-label { position: absolute; top: var(--bh, 44px); bottom: 0; width: 44px; z-index: 1; pointer-events: none; display: flex; justify-content: center; }
+.rail-label span { position: sticky; top: calc(var(--bh, 44px) + 12px); align-self: flex-start; margin-top: 12px; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--t-3); white-space: nowrap; }
+
+.lane { display: grid; border-bottom: 1px solid var(--divider); position: relative; }
+.lane.presenting::after { content: ""; position: absolute; inset: 0; border: 2px solid var(--stratakit-color-border-accent-base); pointer-events: none; z-index: 5; }
+.lane.muted > * { opacity: .4; }
+.lane-head { position: sticky; left: 0; z-index: 3; background: var(--page); border-right: 1px solid var(--divider); padding: 10px 12px; }
+.lane.presenting .lane-head { background: color-mix(in srgb, var(--stratakit-color-bg-accent-base) 8%, var(--page)); }
+.lh-sticky { position: sticky; top: calc(var(--bh, 54px) + 8px); display: flex; flex-direction: column; gap: 6px; }
+.lh-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lh-top h3 { margin: 0; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chev { appearance: none; width: 18px; height: 18px; border: 0; background: none; padding: 0; display: inline-grid; place-items: center; border-radius: 3px; cursor: pointer; margin-left: -4px; }
+.chev:hover { background: var(--hover); }
+.chev svg.i { width: 12px; height: 12px; }
+.loadbar { display: flex; gap: 1px; height: 5px; border-radius: 3px; overflow: hidden; background: var(--track); }
+.loadbar i { min-width: 3px; }
+.lh-meta { font-size: 11px; color: var(--t-2); font-variant-numeric: tabular-nums; }
+.lh-flags { display: flex; flex-wrap: wrap; gap: 4px; }
+.lflag { display: inline-flex; align-items: center; gap: 4px; height: 18px; border-radius: 999px; padding: 0 7px 0 5px; font-size: 10.5px; font-weight: 600; border: 1px solid; }
+.lflag svg.i { width: 11px; height: 11px; }
+.lflag.critical { color: var(--t-critical); border-color: var(--stratakit-color-border-critical-muted); background: color-mix(in srgb, var(--stratakit-color-bg-critical-base) 7%, var(--page)); }
+.lflag.critical svg.i { color: var(--t-critical); }
+.lflag.attention { color: var(--t-attention); border-color: var(--stratakit-color-border-attention-muted); background: color-mix(in srgb, var(--stratakit-color-bg-attention-base) 7%, var(--page)); }
+.lflag.attention svg.i { color: var(--t-attention); }
+.lflag.info { color: var(--t-info); border-color: var(--stratakit-color-border-info-muted); background: color-mix(in srgb, var(--stratakit-color-bg-info-base) 7%, var(--page)); }
+.lflag.info svg.i { color: var(--t-info); }
+.lflag.positive { color: var(--t-positive); border-color: var(--stratakit-color-border-positive-muted); background: color-mix(in srgb, var(--stratakit-color-bg-positive-base) 7%, var(--page)); }
+.lflag.positive svg.i { color: var(--t-positive); }
+.speaking { font-size: 10px; font-weight: 700; color: var(--t-accent); text-transform: uppercase; letter-spacing: .05em; }
+
+.cell { padding: 8px 16px 8px 8px; min-height: 92px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.p1 .cell + .cell, .p1 .ch + .ch { box-shadow: inset 1px 0 0 var(--faint); }
+.p1 .cell { padding: 8px 10px; }
+.p1 .cell.blocked-hot { background: color-mix(in srgb, var(--c-Blocked) 8%, var(--depth)); }
+.cell.rail-cell { padding: 0; }
+.more { appearance: none; align-self: flex-start; border: 0; background: none; color: var(--t-accent); font-size: 12px; font-weight: 600; padding: 2px 4px; cursor: pointer; border-radius: 3px; }
+.more:hover { background: var(--hover); }
+
+/* Collapsed lanes (P3) */
+.lane.collapsed .lane-head { padding: 7px 12px; }
+.lane.collapsed .lh-sticky { flex-direction: row; align-items: center; gap: 8px; }
+.lane.collapsed .lh-top { flex: 1 1 auto; }
+.lane.collapsed .loadbar { width: 34px; flex: 0 0 auto; }
+.lane.collapsed .cell { min-height: 0; padding-top: 7px; padding-bottom: 7px; flex-direction: row; align-items: center; gap: 6px; }
+.sum-count { font-size: 11px; font-weight: 600; color: var(--t-2); font-variant-numeric: tabular-nums; }
+.sum-dots { display: inline-flex; gap: 3px; align-items: center; }
+.sum-dots svg.i { width: 12px; height: 12px; }
+.sum-dots .critical { color: var(--t-critical); }
+.sum-dots .attention { color: var(--t-attention); }
+.sum-dots .info { color: var(--t-info); }
+.sum-dots .positive { color: var(--t-positive); }
+.sum-pip { display: inline-flex; gap: 2px; }
+.sum-pip i { width: 6px; height: 10px; border-radius: 2px; background: var(--col); opacity: .55; }
+
+/* Footer (current) */
+.foot { flex: 0 0 auto; height: 56px; display: flex; align-items: center; gap: 16px; padding: 4px 16px; border-top: 1px solid var(--divider); background: var(--page); font-size: 12px; }
+.foot > div { flex: 1 1 0; min-width: 0; }
+.foot b { font-size: 12px; }
+.foot .path { display: block; font-size: 11px; color: var(--t-2); }
+.foot .mid { height: 100%; border-left: 1px solid var(--divider); border-right: 1px solid var(--divider); display: flex; align-items: center; gap: 4px; padding: 0 12px; }
+.chip-o { height: 24px; border-radius: 999px; border: 1px solid var(--control); padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.chip-o svg.i { width: 14px; height: 14px; }
+</style>
+<style>
+/* Cards: the quiet Development card from PR #82 */
+.card { position: relative; width: 100%; background: var(--surface); border: 1px solid var(--divider); border-radius: 6px; box-shadow: inset 3px 0 0 var(--accent), var(--shadow); padding: 6px 8px 6px 11px; font-size: 12px; line-height: 1.35; transition: opacity .15s, filter .15s; }
+.card.dim { opacity: .28; filter: grayscale(.7); }
+.card.match { box-shadow: inset 3px 0 0 var(--accent), 0 0 0 2px var(--stratakit-color-border-accent-base); }
+.chg-dot { position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--stratakit-color-bg-info-base); box-shadow: 0 0 0 2px var(--page); }
+.trow { display: flex; gap: 5px; align-items: flex-start; }
+.trow svg.i { width: 14px; height: 14px; margin-top: 1px; }
+.title { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card.compact .title { -webkit-line-clamp: 1; }
+.wi-id { font-weight: 650; font-variant-numeric: tabular-nums; }
+.effort { flex: 0 0 auto; height: 18px; min-width: 18px; padding: 0 5px; border: 1px solid var(--control); border-radius: 999px; font-size: 10.5px; font-weight: 600; display: inline-grid; place-items: center; color: var(--t-2); }
+.tags { display: flex; gap: 4px; margin-top: 4px; }
+.tag { font-size: 10px; border: 1px solid var(--control); border-radius: 999px; padding: 0 5px; color: var(--t-2); line-height: 15px; }
+.prrow { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--faint); margin-top: 5px; padding-top: 5px; color: var(--t-3); font-size: 11px; }
+.prrow svg.i { width: 13px; height: 13px; color: var(--t-3); }
+.strip { display: inline-flex; gap: 2px; }
+.strip i { width: 16px; height: 4px; border-radius: 2px; background: var(--track); }
+.strip i.ok { background: var(--stratakit-color-bg-positive-base); }
+.strip i.fail { background: var(--stratakit-color-bg-critical-base); }
+.strip i.run { background: var(--stratakit-color-bg-attention-base); }
+.strip i.part { background: linear-gradient(to right, var(--stratakit-color-bg-positive-base) 50%, var(--track) 50%); }
+.strip i.ready { background: none; box-shadow: inset 0 0 0 1.5px var(--stratakit-color-bg-positive-base); }
+.appr { display: inline-flex; gap: 3px; align-items: center; }
+.step { display: flex; gap: 4px; align-items: center; font-size: 11px; margin-top: 4px; min-width: 0; }
+.step span.t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.step svg.i { width: 13px; height: 13px; }
+.tone-critical, .tone-critical svg.i { color: var(--t-critical); }
+.tone-attention, .tone-attention svg.i { color: var(--t-attention); }
+.tone-positive, .tone-positive svg.i { color: var(--t-positive); }
+.tone-info, .tone-info svg.i { color: var(--t-info); }
+.tone-neutral, .tone-neutral svg.i { color: var(--t-2); }
+.who { margin-left: auto; flex: 0 0 auto; font-size: 10px; background: var(--track); border-radius: 999px; padding: 0 6px; color: var(--t-2); line-height: 16px; display: inline-flex; gap: 3px; align-items: center; }
+.who .avatar { width: 13px; height: 13px; font-size: 7px; }
+.meta { display: flex; gap: 4px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
+.badge { height: 18px; border-radius: 999px; padding: 0 6px; font-size: 10.5px; border: 1px solid var(--stratakit-color-border-neutral-base); display: inline-flex; align-items: center; white-space: nowrap; }
+.badge.info { border-color: var(--stratakit-color-border-info-base); color: var(--t-info); }
+.sprint-tag { font-size: 10.5px; color: var(--t-2); display: inline-flex; gap: 3px; align-items: center; }
+.sprint-tag svg.i { width: 12px; height: 12px; }
+.aging { margin-left: auto; display: inline-flex; gap: 2px; align-items: center; }
+.aging i { width: 5px; height: 5px; border-radius: 50%; background: var(--track); }
+.aging i.on { background: var(--t-3); }
+.aging.hot i.on { background: var(--stratakit-color-bg-critical-base); }
+.meta svg.roll { width: 13px; height: 13px; color: var(--t-3); }
+.cline { display: flex; align-items: center; gap: 4px; font-size: 11px; margin-top: 3px; min-width: 0; color: var(--t-2); }
+.cline .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cline svg.i { width: 12px; height: 12px; }
+
+/* Rationale (outside the mock app) */
+.rationale { padding: 4px 20px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px; }
+.rcard { background: var(--surface); border: 1px solid var(--divider); border-radius: 8px; padding: 12px 14px; font-size: 12.5px; line-height: 1.5; color: var(--t-2); }
+.rcard h3 { margin: 0 0 6px; font-size: 14px; color: var(--t-1); display: flex; gap: 8px; align-items: center; }
+.rcard h3 .num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; background: var(--stratakit-color-bg-accent-base); color: white; flex: 0 0 auto; }
+.rcard h4 { margin: 8px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--t-3); }
+.rcard ul { margin: 0; padding-left: 18px; }
+.rcard li { margin: 2px 0; }
+.rcard b { color: var(--t-1); font-weight: 600; }
+.rcard .facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 11.5px; }
+.rcard.wide { grid-column: 1 / -1; }
+.section-title { padding: 6px 20px 0; font-size: 15px; font-weight: 650; }
+kbd { font: 600 10.5px/1 var(--font); border: 1px solid var(--control); border-bottom-width: 2px; border-radius: 3px; padding: 1px 4px; color: var(--t-1); }
+</style>
+<style>
+/* ---------- Sprint view mock additions ---------- */
+.app { height: 900px; }
+.hint { margin: -4px 20px 10px; font-size: 12px; color: var(--t-3); }
+.hint b { color: var(--t-2); font-weight: 600; }
+.dep-note { font-size: 11.5px; color: var(--t-3); }
+.tip { position: fixed; z-index: 100; display: none; max-width: 280px; padding: 4px 8px; border-radius: 4px; font-size: 12px; line-height: 1.35; background: var(--stratakit-color-bg-elevation-emphasis); color: var(--t-1); outline: 1px solid var(--stratakit-color-border-elevation-base); box-shadow: 0 4px 14px rgb(0 0 0 / .2); pointer-events: none; }
+.rdiv { width: 1px; height: 18px; background: var(--divider); flex: 0 0 auto; }
+.stack8 { display: flex; width: 120px; height: 8px; border-radius: 999px; overflow: hidden; background: var(--track); }
+.qw-tag, .pnum { display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; font-size: 9.5px; font-weight: 700; background: var(--stratakit-color-bg-accent-muted); color: var(--t-accent); }
+.fchip .pnum { margin-left: 2px; }
+
+/* Board shells */
+.board-scroll { container: board / inline-size; }
+.board.lg { --grid: 175px repeat(5, minmax(200px, 1fr)); min-width: 1175px; }
+.board.ob { --grid: 208px repeat(5, minmax(190px, 1fr)); min-width: 1160px; background: var(--depth); }
+.board .bhead, .board.ob .lane { grid-template-columns: var(--grid); }
+.board.ob .cell { padding: 8px 10px; min-height: 64px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.board.ob .lane.collapsed .cell { min-height: 0; flex-direction: row; }
+.lh-sub { font-size: 11px; color: var(--t-3); margin-top: -3px; }
+.lh-top svg.lh-ic { width: 13px; height: 13px; }
+.lflag.neutral { color: var(--t-2); border-color: var(--control); background: var(--page); }
+.sum-pip.ghost i { background: none; opacity: 1; box-shadow: inset 0 0 0 1px var(--col); }
+.lane-empty { font-size: 11px; color: var(--t-3); font-style: italic; }
+
+/* Today's Sprint view (legacy) */
+.lg-corner { position: sticky; left: 0; z-index: 2; background: var(--page); border-right: 1px solid var(--divider); padding: 12px 16px; font-weight: 700; font-size: 12px; display: flex; align-items: center; }
+.lg-ch { padding: 12px 16px; display: flex; gap: 8px; align-items: stretch; min-width: 0; }
+.lg-ch .cbar { min-height: 34px; }
+.lg-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.lg-top h2 { font-size: 12px; margin: 0; font-weight: 700; }
+.lg-cnt { color: var(--col); font-weight: 700; font-size: 14px; }
+.lg-eff { font-size: 11px; color: var(--t-2); margin-top: 2px; }
+.lg-body { position: relative; }
+.lg-bg { position: absolute; inset: 0; display: grid; grid-template-columns: var(--grid); pointer-events: none; }
+.lg-bg > :first-child { background: var(--page); border-right: 1px solid var(--divider); position: sticky; left: 0; z-index: 1; }
+.lg-rows { position: relative; z-index: 1; display: grid; grid-template-columns: var(--grid); grid-auto-rows: max-content; }
+.lg-sprint { grid-column: 1; position: sticky; left: 0; z-index: 3; padding: 8px 12px; font-size: 11px; font-weight: 700; align-self: start; }
+.lg-sep { grid-column: 1 / -1; border-top: 1px solid var(--divider); align-self: start; z-index: 2; pointer-events: none; }
+.lg-cell { padding: 8px; min-width: 0; }
+.lcard { background: var(--surface); border: 1px solid var(--divider); border-left: 4px solid var(--accent); border-radius: 6px; padding: 8px 10px; font-size: 12px; line-height: 1.35; box-shadow: var(--shadow); }
+.l-top { display: flex; gap: 6px; align-items: flex-start; }
+.l-top svg.i { width: 14px; height: 14px; margin-top: 1px; }
+.l-title { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.l-mid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.l-state { font-size: 10.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.l-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--faint); font-size: 11px; color: var(--t-2); }
+.l-person { display: inline-flex; gap: 4px; align-items: center; min-width: 0; white-space: nowrap; overflow: hidden; }
+.l-person .avatar { width: 16px; height: 16px; font-size: 7px; }
+.mv { position: relative; z-index: 2; pointer-events: none; transform: translateX(var(--g)); }
+.mv i { position: absolute; top: 50%; }
+.mv i.line { height: 2px; margin-top: -1px; }
+.mv i.head { width: 0; height: 0; margin-top: -5px; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+
+/* Cards (P1+) */
+.card:focus-visible { outline: 2px solid var(--stratakit-color-border-accent-base); outline-offset: 1px; }
+.trow .avatar.xs { width: 18px; height: 18px; font-size: 7.5px; margin-top: 0; }
+.effort.struck { text-decoration: line-through; color: var(--t-3); }
+.roll { display: inline-flex; }
+.roll svg.i { width: 13px; height: 13px; color: var(--t-3); }
+.cap { margin-left: auto; display: inline-flex; gap: 3px; align-items: center; font-size: 11px; white-space: nowrap; }
+.cap svg.i { width: 12px; height: 12px; }
+.card.has-trail { padding-bottom: 9px; }
+.trail { position: absolute; left: 3px; right: 0; bottom: 0; height: 4px; display: flex; gap: 1px; border-radius: 0 0 5px 0; overflow: hidden; }
+.trail i { min-width: 2px; }
+.trail i.lead { background: repeating-linear-gradient(90deg, var(--control) 0 2px, transparent 2px 4px); }
+.ghost-card { background: transparent; border-style: dashed; box-shadow: none; opacity: .85; }
+.other-card { opacity: .9; }
+.trail-layer { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.ghost { position: absolute; border: 1.5px dashed var(--col); border-radius: 6px; background: color-mix(in srgb, var(--col) 9%, var(--page)); display: flex; align-items: center; gap: 6px; padding: 0 8px; font-size: 11px; color: var(--t-2); box-shadow: var(--shadow); white-space: nowrap; overflow: hidden; }
+.ghost b { color: var(--t-1); font-weight: 650; }
+.trail-svg { position: absolute; left: 0; top: 0; overflow: visible; }
+
+/* Flow headers (P4) */
+.ch-flow { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 11px; color: var(--t-2); white-space: nowrap; min-width: 0; }
+.ch-flow .delta { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ch-flow .oldest { margin-left: auto; font-variant-numeric: tabular-nums; }
+.cspark { flex: 0 0 auto; display: block; }
+@container board (max-width: 1100px) { .cspark { display: none; } }
+
+/* Sprint replay (P5) */
+.replay { flex: 0 0 auto; display: flex; align-items: center; gap: 14px; padding: 8px 14px 4px 12px; border-bottom: 1px solid var(--divider); background: var(--page); }
+.rp-ctl { display: inline-flex; align-items: center; gap: 2px; }
+.rp-ctl .btn { width: 82px; justify-content: center; margin-right: 4px; }
+.rp-track { position: relative; flex: 1 1 auto; height: 58px; min-width: 300px; }
+.rp-cfd { position: absolute; left: 0; top: 0; width: 100%; height: 40px; display: block; border-radius: 4px; }
+.rp-after { position: absolute; top: 0; height: 40px; background: color-mix(in srgb, var(--page) 62%, transparent); pointer-events: none; }
+.rp-future { position: absolute; top: 0; right: 0; height: 40px; background: repeating-linear-gradient(135deg, var(--track) 0 2px, transparent 2px 7px); border-left: 1px dashed var(--t-3); border-radius: 0 4px 4px 0; pointer-events: none; }
+.rp-future span { position: absolute; right: 8px; top: 4px; font-size: 10.5px; color: var(--t-2); background: color-mix(in srgb, var(--page) 80%, transparent); padding: 0 4px; border-radius: 3px; }
+.rp-head { position: absolute; top: -3px; height: 46px; width: 2px; margin-left: -1px; background: var(--stratakit-color-bg-accent-base); border-radius: 1px; pointer-events: none; z-index: 1; }
+.rp-range { position: absolute; top: 0; left: -7px; height: 46px; margin: 0; padding: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; z-index: 2; }
+.rp-range::-webkit-slider-runnable-track { height: 46px; background: transparent; }
+.rp-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: 33px; border-radius: 50%; background: var(--stratakit-color-bg-accent-base); border: 2px solid var(--page); box-shadow: 0 0 0 1px var(--stratakit-color-border-accent-strong), var(--shadow); }
+.rp-range::-moz-range-track { background: transparent; }
+.rp-range::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--stratakit-color-bg-accent-base); border: 2px solid var(--page); }
+.rp-range:focus { outline: none; }
+.rp-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 1px var(--stratakit-color-border-accent-strong), 0 0 0 4px color-mix(in srgb, var(--stratakit-color-bg-accent-base) 35%, transparent); }
+.rp-ticks { position: absolute; left: 0; right: 0; top: 45px; height: 13px; font-size: 10px; color: var(--t-3); }
+.rp-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-ticks span.today { color: var(--t-accent); font-weight: 700; }
+.rp-ticks span.fut { opacity: .6; }
+.rp-day { width: 120px; flex: 0 0 auto; display: flex; flex-direction: column; font-size: 11.5px; color: var(--t-2); line-height: 1.3; }
+.rp-day b { font-size: 13px; color: var(--t-1); }
+.pastbar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 6px 12px; min-height: 40px; background: color-mix(in srgb, var(--stratakit-color-bg-accent-base) 10%, var(--page)); border-bottom: 1px solid var(--stratakit-color-border-accent-muted); font-size: 12px; white-space: nowrap; }
+.pastbar b { color: var(--t-accent); }
+.pastbar svg.i { color: var(--t-accent); }
+
+/* Rationale extras */
+.rcard .size { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--t-2); background: var(--track); border-radius: 999px; padding: 1px 8px; }
+.qw-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.qw-table th, .qw-table td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--faint); vertical-align: top; }
+.qw-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--t-3); border-top: 0; }
+.order { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.order .step-pill { border: 1px solid var(--control); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--t-1); background: var(--page); }
+.order .arrow { color: var(--t-3); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="sk-developer" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M9.121 3.514a.5.5 0 0 1 .364.607l-2 8a.5.5 0 0 1-.97-.243l2-8a.501.501 0 0 1 .606-.364Zm2.025 1.632a.501.501 0 0 1 .63-.064l.077.064 2.5 2.5a.5.5 0 0 1 0 .707l-2.5 2.5a.5.5 0 1 1-.707-.707L13.293 8l-2.147-2.147-.064-.078a.5.5 0 0 1 .064-.629Zm-7 0a.5.5 0 0 1 .706.707L2.706 8l2.146 2.146.065.078a.5.5 0 0 1-.693.694l-.079-.065-2.499-2.5a.5.5 0 0 1 0-.707l2.5-2.5Z"/></symbol>
+<symbol id="sk-search" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M7.5 3a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm4.227 8.02a5.5 5.5 0 1 0-.707.707l2.127 2.127a.5.5 0 1 0 .707-.707l-2.127-2.127Z" clip-rule="evenodd"/></symbol>
+<symbol id="sk-users" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M4.5 8A3.5 3.5 0 0 1 8 11.5v2a.5.5 0 0 1-1 0v-2a2.5 2.5 0 0 0-5 0v2a.5.5 0 0 1-1 0v-2A3.5 3.5 0 0 1 4.5 8Zm7 0a3.5 3.5 0 0 1 3.5 3.5v2a.5.5 0 0 1-1 0v-2a2.5 2.5 0 0 0-5 0c0-.686-.154-1.335-.428-1.917A3.497 3.497 0 0 1 11.5 8Zm-7-6a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Zm7 0a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Zm-7 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></symbol>
+<symbol id="sk-user-add" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M12.5 10a.5.5 0 0 1 .5.5V12h1.5a.5.5 0 0 1 0 1H13v1.5a.5.5 0 0 1-1 0V13h-1.5a.5.5 0 0 1 0-1H12v-1.5a.5.5 0 0 1 .5-.5ZM8 9.5c.701 0 1.374.12 2 .342v1.078a4.978 4.978 0 0 0-2-.42 5 5 0 0 0-4.622 3.093c-.142.344-.577.496-.849.241a.472.472 0 0 1-.118-.515A6 6 0 0 1 8 9.5Zm0-8a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm0 1a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></symbol>
+<symbol id="sk-arrow-up" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7.725 2.082a.5.5 0 0 1 .629.064l3.5 3.5.064.078a.5.5 0 0 1-.693.694l-.079-.065L8.5 3.707V13.5a.5.5 0 0 1-1 0V3.707L4.854 6.353a.5.5 0 1 1-.707-.707l3.5-3.5.078-.064Z"/></symbol>
+<symbol id="sk-arrow-down" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 2a.5.5 0 0 1 .5.5v9.793l2.646-2.647a.5.5 0 0 1 .707.707l-3.5 3.5a.5.5 0 0 1-.707 0l-3.5-3.5-.064-.078a.5.5 0 0 1 .693-.693l.078.064L7.5 12.293V2.5A.5.5 0 0 1 8 2Z"/></symbol>
+<symbol id="sk-timeline" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-1 0v-13A.5.5 0 0 1 8 1ZM6.5 9.5h-1a.5.5 0 0 0-.5.5v2.5a.5.5 0 0 0 .5.5h1v1h-1A1.5 1.5 0 0 1 4 12.5V10a1.5 1.5 0 0 1 1.5-1.5h1v1Zm7-1A1.5 1.5 0 0 1 15 10v2.5a1.5 1.5 0 0 1-1.5 1.5h-4v-1h4a.5.5 0 0 0 .5-.5V10a.5.5 0 0 0-.5-.5h-4v-1h4ZM6.5 3h-4a.5.5 0 0 0-.5.5V6a.5.5 0 0 0 .5.5h4v1h-4A1.5 1.5 0 0 1 1 6V3.5A1.5 1.5 0 0 1 2.5 2h4v1Zm4-1A1.5 1.5 0 0 1 12 3.5V6a1.5 1.5 0 0 1-1.5 1.5h-1v-1h1A.5.5 0 0 0 11 6V3.5a.5.5 0 0 0-.5-.5h-1V2h1Z"/></symbol>
+<symbol id="sk-settings" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8.235 1.504c.234.009.465.03.69.063.665.096 1.023.647 1.07 1.147l.005.1.01.129a.997.997 0 0 0 .489.727l.121.06a.999.999 0 0 0 .87-.056l.088-.045c.426-.195 1.026-.18 1.442.252l.085.099.14.185c.319.435.586.911.79 1.42.267.666-.092 1.288-.543 1.555A.999.999 0 0 0 13 8l.009.134a1 1 0 0 0 .484.726c.451.267.81.889.543 1.555a6.494 6.494 0 0 1-.93 1.605c-.443.561-1.159.563-1.615.307a1 1 0 0 0-.87-.056l-.121.06a.998.998 0 0 0-.498.855c-.006.525-.366 1.145-1.073 1.247a6.513 6.513 0 0 1-.692.063L8 14.5c-.316 0-.627-.024-.929-.068-.708-.102-1.068-.722-1.074-1.247a.997.997 0 0 0-.386-.781L5.5 12.33a1 1 0 0 0-.991-.005c-.457.256-1.174.255-1.616-.307a6.494 6.494 0 0 1-.928-1.604c-.266-.666.092-1.288.543-1.555l.106-.072a.997.997 0 0 0 .377-.654L3 8a.998.998 0 0 0-.492-.86c-.451-.267-.81-.89-.543-1.555l.09-.215c.222-.5.505-.967.839-1.39l.085-.099c.416-.431 1.016-.447 1.442-.252l.089.045.116.056a.994.994 0 0 0 .873-.06l.112-.074a1 1 0 0 0 .386-.782l.006-.099c.046-.5.404-1.052 1.07-1.148l.228-.028A6.53 6.53 0 0 1 8 1.5l.235.004ZM8 2.5c-.267 0-.53.02-.786.057-.129.02-.216.138-.217.268a1.997 1.997 0 0 1-.998 1.712l-.12.064a1.998 1.998 0 0 1-1.86-.056c-.113-.063-.26-.048-.34.054a5.47 5.47 0 0 0-.786 1.359c-.048.12.012.255.124.32C3.605 6.628 4 7.269 4 8l-.004.137a2 2 0 0 1-.98 1.584c-.111.067-.172.2-.123.322.196.491.462.948.785 1.358a.26.26 0 0 0 .297.073l.044-.02a1.999 1.999 0 0 1 2.978 1.721c.002.13.088.25.217.269a6.2 6.2 0 0 0 .39.042L8 13.5c.133 0 .266-.005.396-.014l.388-.042a.261.261 0 0 0 .213-.22l.004-.049c.007-.64.321-1.261.883-1.638l.115-.073a1.999 1.999 0 0 1 1.981-.01c.1.056.224.051.307-.019l.033-.034a5.51 5.51 0 0 0 .626-.996l.16-.362a.26.26 0 0 0-.084-.294l-.04-.028a1.999 1.999 0 0 1-.978-1.584L11.999 8c0-.687.348-1.292.876-1.652l.107-.07a.273.273 0 0 0 .138-.275l-.014-.045a5.495 5.495 0 0 0-.786-1.359c-.08-.102-.226-.117-.34-.054a2 2 0 0 1-1.86.056l-.121-.064A2 2 0 0 1 9 2.825a.272.272 0 0 0-.17-.257l-.047-.01a5.55 5.55 0 0 0-.388-.043L8 2.5Zm0 3a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Zm0 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></symbol>
+<symbol id="sk-cloud-sync" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7.646 6.646a.5.5 0 0 1 .63-.064l.078.064 1.5 1.5a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 1 1-.708-.708L8.293 9H8a2 2 0 1 0 2 2 .5.5 0 0 1 1 0 3 3 0 1 1-3-3h.293l-.647-.646-.064-.079a.5.5 0 0 1 .064-.629ZM8 2.5a4.5 4.5 0 0 1 4.413 3.621 3.5 3.5 0 0 1 .087 6.732V11.79a2.499 2.499 0 0 0-.348-4.703 1 1 0 0 1-.72-.772 3.501 3.501 0 0 0-6.625-.75 1 1 0 0 1-.637.551A3.002 3.002 0 0 0 2 9c0 1.11.604 2.076 1.5 2.595v1.112a4 4 0 0 1 .395-7.552A4.5 4.5 0 0 1 8 2.5Z"/></symbol>
+<symbol id="sk-chevron-down" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M11.146 6.146a.5.5 0 1 1 .707.708l-3.5 3.5a.5.5 0 0 1-.707 0l-3.5-3.5a.5.5 0 1 1 .708-.708L8 9.293l3.146-3.147Z"/></symbol>
+<symbol id="sk-chevron-right" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M6.146 4.146a.5.5 0 0 1 .708 0l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 1 1-.708-.707L9.293 8 6.146 4.854a.5.5 0 0 1 0-.708Z"/></symbol>
+<symbol id="sk-play" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M4 3.36a1.25 1.25 0 0 1 1.918-1.056l7.345 4.64a1.25 1.25 0 0 1 0 2.113l-7.345 4.64A1.25 1.25 0 0 1 4 12.64V3.36Zm1.384-.21A.25.25 0 0 0 5 3.36v9.28a.25.25 0 0 0 .384.21l7.345-4.64a.25.25 0 0 0 0-.42L5.384 3.15Z"/></symbol>
+<symbol id="sk-stop" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M12.5 2A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9A1.5 1.5 0 0 1 3.5 2h9Zm-9 1a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-9Z"/></symbol>
+<symbol id="sk-stopwatch" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M9.5 1.5a.5.5 0 0 1 0 1h-1v1.023a5.5 5.5 0 1 1-1 0V2.5h-1a.5.5 0 0 1 0-1h3ZM8 4.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm1.646 2.146a.5.5 0 1 1 .707.708l-2 2a.5.5 0 1 1-.707-.708l2-2Z"/></symbol>
+<symbol id="sk-git-branch" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M3.5 2A1.5 1.5 0 0 1 4 4.91V5a2.5 2.5 0 0 0 2.5 2.5h2A3.5 3.5 0 0 1 12 11v1.3l1.15-1.15a.5.5 0 0 1 .7.7l-2.35 2.36-2.35-2.36a.5.5 0 0 1 .7-.7L11 12.29V11a2.5 2.5 0 0 0-2.5-2.5h-2c-.98 0-1.86-.4-2.5-1.05v3.64a1.5 1.5 0 1 1-1 0V4.9A1.5 1.5 0 0 1 3.5 2Zm0 10a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm0-9a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z"/></symbol>
+<symbol id="sk-git-merge" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M2.15 11.65a.5.5 0 0 1 .7-.71L4 12.09V4.7a1.5 1.5 0 1 1 1 0v3.64a3.5 3.5 0 0 1 2.5-1.06h2A2.5 2.5 0 0 0 12 4.8v-.08a1.5 1.5 0 1 1 1 0v.08a3.5 3.5 0 0 1-3.5 3.5h-2A2.5 2.5 0 0 0 5 10.8v1.3l1.15-1.15a.5.5 0 0 1 .7.7L4.5 14l-2.35-2.35ZM12.5 3.79a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Zm-8 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z"/></symbol>
+<symbol id="sk-status-success" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7.25 1.855a1.5 1.5 0 0 1 1.5 0l4.196 2.423a1.5 1.5 0 0 1 .75 1.299v4.846a1.5 1.5 0 0 1-.75 1.298L8.75 14.144a1.5 1.5 0 0 1-1.5 0l-4.196-2.423a1.5 1.5 0 0 1-.75-1.298V5.577a1.5 1.5 0 0 1 .75-1.299L7.25 1.855Zm1 .866a.5.5 0 0 0-.5 0L3.554 5.144a.5.5 0 0 0-.25.433v4.846a.5.5 0 0 0 .25.432l4.196 2.423a.5.5 0 0 0 .5 0l4.196-2.423a.5.5 0 0 0 .25-.432V5.577a.5.5 0 0 0-.25-.433L8.25 2.721ZM9.85 5.7a.501.501 0 0 1 .8.6l-3 4a.502.502 0 0 1-.754.053l-1.5-1.5-.064-.078a.5.5 0 0 1 .693-.693l.079.064 1.091 1.092L9.85 5.7Z"/></symbol>
+<symbol id="sk-status-rejected" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7.25 1.855a1.5 1.5 0 0 1 1.5 0l4.196 2.423a1.5 1.5 0 0 1 .75 1.299v4.846a1.5 1.5 0 0 1-.75 1.298L8.75 14.144a1.5 1.5 0 0 1-1.5 0l-4.196-2.423a1.5 1.5 0 0 1-.75-1.298V5.577a1.5 1.5 0 0 1 .75-1.299L7.25 1.855Zm1 .866a.5.5 0 0 0-.5 0L3.554 5.144a.5.5 0 0 0-.25.433v4.846a.5.5 0 0 0 .25.432l4.196 2.423a.5.5 0 0 0 .5 0l4.196-2.423a.5.5 0 0 0 .25-.432V5.577a.5.5 0 0 0-.25-.433L8.25 2.721ZM6.146 6.146a.5.5 0 0 1 .63-.064l.078.064L8 7.293l1.146-1.147.08-.063a.5.5 0 0 1 .628.77L8.707 8l1.147 1.146.064.08a.5.5 0 0 1-.693.692l-.079-.065L8 8.707 6.854 9.853a.5.5 0 0 1-.708-.707L7.293 8 6.146 6.853l-.064-.078a.5.5 0 0 1 .064-.629Z"/></symbol>
+<symbol id="sk-status-pending" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8.051 1.504a.502.502 0 0 1 .084.016l.023.005.004.002c.032.01.062.024.09.041l4.695 2.71a1.5 1.5 0 0 1 .75 1.299v4.846c0 .535-.287 1.03-.75 1.298l-4.692 2.707a.502.502 0 0 1-.093.043l-.024.007a.507.507 0 0 1-.064.015l-.033.003a.477.477 0 0 1-.147-.01c-.013-.003-.026-.005-.038-.009-.005-.001-.01-.001-.014-.003l-.026-.012a.507.507 0 0 1-.054-.025l-.012-.005-.496-.287a.5.5 0 0 1 .5-.865l.246.143 4.447-2.568a.5.5 0 0 0 .25-.432V5.577a.501.501 0 0 0-.25-.433L7.999 2.576l-.246.143a.5.5 0 1 1-.499-.866l.496-.286.022-.01a.5.5 0 0 1 .058-.027l.012-.005c.02-.006.04-.01.06-.014l.005-.002a.494.494 0 0 1 .06-.007L7.99 1.5h.021c.014 0 .027.002.041.004ZM4.74 11.967a.5.5 0 0 1 .603-.08l.62.359a.5.5 0 0 1-.5.865l-.62-.358a.5.5 0 0 1-.103-.786ZM2.673 9.945a.5.5 0 0 1 .631.478.5.5 0 0 0 .25.432.5.5 0 0 1-.5.866 1.5 1.5 0 0 1-.75-1.298c0-.224.154-.42.37-.478ZM8 4.5a.5.5 0 0 1 .5.5v2.717l1.007.604.532.318.16.097.044.025.01.007.003.002.001.001.082.06a.5.5 0 0 1-.505.84l-.09-.042h-.001v-.001l-.003-.002-.012-.006-.043-.026-.16-.097-.531-.319-1.25-.75A.5.5 0 0 1 7.5 8V5a.5.5 0 0 1 .5-.5ZM2.933 7.159a.5.5 0 0 1 .371.483v.715a.5.5 0 0 1-1 0v-.715a.5.5 0 0 1 .629-.483Zm.121-2.88a.492.492 0 0 1 .595.077l.008.008c.23.23.18.617-.103.78a.5.5 0 0 0-.25.433.5.5 0 0 1-1 0 1.5 1.5 0 0 1 .75-1.299Zm2.406-1.39a.5.5 0 0 1 .501.866l-.619.356a.5.5 0 1 1-.5-.866l.618-.357Z"/></symbol>
+<symbol id="sk-status-warning" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M6.94 2.354a1.5 1.5 0 0 1 2.121 0l4.586 4.586a1.5 1.5 0 0 1 0 2.12l-4.586 4.587a1.5 1.5 0 0 1-2.121 0L2.354 9.06a1.5 1.5 0 0 1 0-2.121L6.94 2.354Zm1.414.707a.5.5 0 0 0-.707 0L3.061 7.647a.5.5 0 0 0 0 .707l4.586 4.586a.5.5 0 0 0 .707 0l4.586-4.586a.5.5 0 0 0 0-.707L8.354 3.06ZM8 9.5A.75.75 0 1 1 8 11a.75.75 0 0 1 0-1.5ZM8 5a.5.5 0 0 1 .5.5V8a.5.5 0 0 1-1 0V5.5A.5.5 0 0 1 8 5Z"/></symbol>
+<symbol id="sk-error" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 1a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM8 10a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm0-5.5a.5.5 0 0 1 .5.5v3.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5Z"/></symbol>
+<symbol id="sk-lock" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M8 3a2 2 0 0 1 2 2v2H6V5a2 2 0 0 1 2-2ZM5 7V5a3 3 0 0 1 6 0v2h.5A1.5 1.5 0 0 1 13 8.5v4a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5v-4A1.5 1.5 0 0 1 4.5 7H5Zm6.5 1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5h7Z" clip-rule="evenodd"/></symbol>
+<symbol id="sk-calendar" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M10.5 1a.5.5 0 0 1 .5.5V2h1.5A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9A1.5 1.5 0 0 1 3.5 2H5v-.5a.5.5 0 0 1 1 0V2h4v-.5a.5.5 0 0 1 .5-.5ZM3 12.5a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V6H3v6.5ZM3.5 3a.5.5 0 0 0-.5.5V5h10V3.5a.5.5 0 0 0-.5-.5H11v.5a.5.5 0 0 1-1 0V3H6v.5a.5.5 0 0 1-1 0V3H3.5Z"/></symbol>
+<symbol id="sk-info" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 1a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Zm0 4a.5.5 0 0 1 .5.5v3.5h1a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1h1v-3h-1a.5.5 0 0 1 0-1H8Zm-.125-2.25a.625.625 0 1 1 0 1.25.625.625 0 0 1 0-1.25Z"/></symbol>
+<symbol id="sk-window-expand" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M6.146 9.147a.5.5 0 1 1 .708.707l-3.147 3.147H5.5a.5.5 0 1 1 0 1h-3a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 1 0v1.793l3.146-3.147Zm3 0a.5.5 0 0 1 .63-.064l.078.064L13 12.293v-1.792a.5.5 0 0 1 1 0v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1h1.793L9.146 9.854l-.064-.078a.5.5 0 0 1 .064-.629ZM13.5 2a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V3.708L9.854 6.854a.5.5 0 0 1-.708-.707L12.293 3H10.5a.5.5 0 0 1 0-1h3Zm-8 0a.5.5 0 0 1 0 1H3.707l3.147 3.147.064.078a.5.5 0 0 1-.693.693l-.079-.064L3 3.708V5.5a.5.5 0 0 1-1 0v-3l.01-.1A.5.5 0 0 1 2.5 2h3Z"/></symbol>
+<symbol id="sk-filter" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M13 2a.501.501 0 0 1 .424.765L9.75 8.643V13a.5.5 0 0 1-.314.464l-2.5 1A.5.5 0 0 1 6.25 14V8.643L2.577 2.765A.5.5 0 0 1 3 2h10ZM7.174 8.235a.5.5 0 0 1 .076.265v4.762l1.5-.6V8.5a.5.5 0 0 1 .077-.265L12.099 3H3.902l3.272 5.235Z"/></symbol>
+<symbol id="sk-checkmark" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M11.607 4.191a.5.5 0 0 1 .787.617l-5.5 7a.503.503 0 0 1-.777.012l-2.5-3-.057-.084a.5.5 0 0 1 .752-.627l.072.07 2.105 2.526 5.118-6.514Z"/></symbol>
+<symbol id="sk-dismiss" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M4.854 4.146a.5.5 0 1 0-.708.708L7.293 8l-3.147 3.146a.5.5 0 1 0 .708.707L8 8.707l3.146 3.146a.5.5 0 1 0 .707-.707L8.707 8l3.146-3.146a.5.5 0 1 0-.707-.708L8 7.293 4.854 4.146Z" clip-rule="evenodd"/></symbol>
+<symbol id="sk-clock" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 1a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM8 4a.5.5 0 0 1 .5.5v3.293l1.854 1.853.064.079a.5.5 0 0 1-.693.693l-.079-.064-2-2A.5.5 0 0 1 7.5 8V4.5A.5.5 0 0 1 8 4Z"/></symbol>
+<symbol id="sk-history" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.5A6.5 6.5 0 1 1 1.5 8a.5.5 0 0 1 1 0A5.5 5.5 0 1 0 8 2.5C6.046 2.5 4.09 3.514 3.09 5H5a.5.5 0 0 1 0 1H2a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 1 0v1.611C3.75 2.511 5.89 1.5 8 1.5Zm0 3a.5.5 0 0 1 .5.5v2.793l1.354 1.353.064.079a.5.5 0 0 1-.693.693l-.079-.064-1.5-1.5A.5.5 0 0 1 7.5 8V5a.5.5 0 0 1 .5-.5Z"/></symbol>
+<symbol id="sk-collapse-rows-all" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7.725 11.082a.501.501 0 0 1 .629.064l2 2 .064.078a.5.5 0 0 1-.693.694l-.079-.065L8 12.207l-1.646 1.646a.5.5 0 0 1-.708-.707l2-2 .079-.064ZM13.5 9a.5.5 0 0 1 0 1h-11a.5.5 0 0 1 0-1h11Zm0-3a.5.5 0 0 1 0 1h-11a.5.5 0 0 1 0-1h11ZM9.646 2.146a.5.5 0 0 1 .707.707l-2 2a.5.5 0 0 1-.707 0l-2-2-.064-.078a.5.5 0 0 1 .693-.693l.079.064L8 3.793l1.646-1.647Z"/></symbol>
+<symbol id="sk-expand-rows-all" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M9.646 11.146a.5.5 0 0 1 .707.707l-2 2a.5.5 0 0 1-.707 0l-2-2-.064-.078a.5.5 0 0 1 .693-.693l.079.064L8 12.793l1.646-1.647ZM13.5 9a.5.5 0 0 1 0 1h-11a.5.5 0 0 1 0-1h11Zm0-3a.5.5 0 0 1 0 1h-11a.5.5 0 0 1 0-1h11ZM7.725 2.082a.5.5 0 0 1 .629.064l2 2 .064.078a.5.5 0 0 1-.693.694l-.079-.065L8 3.207 6.354 4.853a.5.5 0 1 1-.708-.707l2-2 .079-.064Z"/></symbol>
+<symbol id="sk-visibility-show" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M13.325 7.546C12.969 6.66 11.589 4 7.957 4 4.325 4 2.945 6.66 2.588 7.546a1.21 1.21 0 0 0 0 .908C2.945 9.34 4.325 12 7.957 12c3.631 0 5.012-2.66 5.368-3.546a1.211 1.211 0 0 0 0-.908Zm-9.809.374C3.818 7.17 4.944 5 7.956 5c3.013 0 4.139 2.17 4.441 2.92a.209.209 0 0 1 0 .16c-.302.75-1.428 2.92-4.44 2.92-3.013 0-4.139-2.17-4.44-2.92a.209.209 0 0 1 0-.16ZM7.956 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" clip-rule="evenodd"/></symbol>
+<symbol id="sk-document" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8.293 2A1 1 0 0 1 9 2.293L12.707 6l.066.073a1 1 0 0 1 .227.634V12.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5v-9A1.5 1.5 0 0 1 4.5 2h3.793ZM4.5 3a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5V7H9.5A1.5 1.5 0 0 1 8 5.5V3H4.5Zm6 7.5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1h5Zm0-2.5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1h5ZM9 5.5a.5.5 0 0 0 .5.5h1.793L9 3.707V5.5Z"/></symbol>
+<symbol id="sk-warning" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 12.75a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5ZM6.68 2.885c.568-1.047 2.072-1.047 2.64 0l4.82 8.9A1.5 1.5 0 0 1 12.82 14H10.5v-1h2.321a.5.5 0 0 0 .44-.738l-4.822-8.9a.5.5 0 0 0-.879 0l-4.821 8.9a.5.5 0 0 0 .44.738h2.32v1H3.18a1.5 1.5 0 0 1-1.319-2.215l4.82-8.9ZM8 6.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V7a.5.5 0 0 1 .5-.5Z"/></symbol>
+<symbol id="sk-arrow-left" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M5.647 4.146a.5.5 0 0 1 .707.707L3.707 7.5H13.5a.5.5 0 0 1 0 1H3.707l2.647 2.646.064.078a.5.5 0 0 1-.693.694l-.078-.065-3.5-3.5a.5.5 0 0 1 0-.707l3.5-3.5Z"/></symbol>
+<symbol id="sk-arrow-right" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M9.646 4.146a.5.5 0 0 1 .63-.064l.078.064 3.5 3.5a.5.5 0 0 1 0 .707l-3.5 3.5a.5.5 0 1 1-.708-.707L12.293 8.5H2.5a.5.5 0 0 1 0-1h9.793L9.646 4.853l-.064-.078a.5.5 0 0 1 .064-.629Z"/></symbol>
+<symbol id="sk-flag" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M5.5 2c1.385 0 2.105.43 2.757.821.598.36 1.129.679 2.243.679.65 0 1.325-.22 1.86-.457a7.122 7.122 0 0 0 .809-.425l.043-.027.01-.006v-.001l.06-.034A.501.501 0 0 1 14 3v7a.5.5 0 0 1-.173.378l-.05.038v.001l-.003.001-.004.003-.016.01-.058.037a8.137 8.137 0 0 1-.93.49c-.59.262-1.415.542-2.266.542-1.385 0-2.105-.43-2.757-.821C7.145 10.319 6.614 10 5.5 10c-.65 0-1.325.22-1.86.457a7.143 7.143 0 0 0-.634.321L3 10.781V13.5a.5.5 0 0 1-1 0v-10a.5.5 0 0 1 .223-.417l.003-.001.004-.003.016-.01.058-.037a8.146 8.146 0 0 1 .93-.49C3.824 2.281 4.649 2 5.5 2Zm0 1c-.65 0-1.325.22-1.86.457a7.127 7.127 0 0 0-.634.321L3 3.781v5.873c.074-.036.152-.074.234-.111C3.824 9.281 4.65 9 5.5 9c1.385 0 2.105.43 2.757.821.598.36 1.129.679 2.243.679.65 0 1.325-.22 1.86-.457a7.13 7.13 0 0 0 .634-.321L13 9.718V3.845c-.075.036-.152.075-.234.112-.59.262-1.415.543-2.266.543-1.385 0-2.105-.43-2.757-.821C7.145 3.319 6.614 3 5.5 3Z"/></symbol>
+<symbol id="sk-chart" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M13.5 2A1.5 1.5 0 0 1 15 3.5v7a1.5 1.5 0 0 1-1.5 1.5h-1.691l.638 1.276.036.095a.5.5 0 0 1-.876.439l-.054-.086L10.69 12H5.31l-.862 1.724a.5.5 0 0 1-.894-.448L4.19 12H2.5A1.5 1.5 0 0 1 1 10.5v-7A1.5 1.5 0 0 1 2.5 2h11Zm-11 1a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5h-11Zm3 4a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2a.5.5 0 0 1 .5-.5ZM8 4.5a.5.5 0 0 1 .5.5v4.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5ZM10.5 6a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0v-3a.5.5 0 0 1 .5-.5Z"/></symbol>
+<symbol id="sk-notifications" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.5a1 1 0 0 1 .99 1.123C10.72 3.063 12 4.633 12 6.5v.692c0 1.282.416 2.529 1.185 3.554l.115.154a1 1 0 0 1-.8 1.6H10a2 2 0 0 1-4 0H3.5a1 1 0 0 1-.8-1.6l.116-.154.14-.194A5.923 5.923 0 0 0 4 7.192V6.5a4.002 4.002 0 0 1 3.008-3.876A1 1 0 0 1 8 1.5Zm-1 11a1 1 0 1 0 2 0H7Zm1-9a3 3 0 0 0-3 3v.692l-.006.28a6.923 6.923 0 0 1-1.379 3.874L3.5 11.5h9l-.115-.154a6.923 6.923 0 0 1-1.379-3.873L11 7.193V6.5a3 3 0 0 0-3-3Z"/></symbol>
+<symbol id="sk-user" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8.001 9.5a6 6 0 0 1 5.589 3.82.472.472 0 0 1-.12.515c-.272.254-.707.102-.849-.242a4.998 4.998 0 0 0-9.243 0c-.142.344-.577.496-.849.241a.471.471 0 0 1-.118-.515A6 6 0 0 1 8.001 9.5ZM8 1.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm0 1a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></symbol>
+<symbol id="sk-panel-expand-left" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M14 3.5a.5.5 0 0 0-.5-.5H6v10h7.5a.5.5 0 0 0 .5-.5v-9ZM5 13V3H2.5a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5H5Zm10-.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9ZM8.646 5.646a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1 0 .708l-2 2a.5.5 0 1 1-.708-.708L10.293 8 8.646 6.354a.5.5 0 0 1 0-.708Z" clip-rule="evenodd"/></symbol>
+<symbol id="sk-more-horizontal" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M4 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></symbol>
+<symbol id="wi-pbi" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9A1.5 1.5 0 0 1 3.5 2Zm0 1a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-9ZM5 5h6v1H5V5Zm0 2.5h6v1H5v-1ZM5 10h4v1H5v-1Z"/></symbol>
+<symbol id="wi-bug" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 3a2 2 0 0 1 2 2v.6a2.5 2.5 0 0 1 2 2.4V9h1.5v1H12v.5a4 4 0 0 1-8 0V10H2.5V9H4V8a2.5 2.5 0 0 1 2-2.4V5a2 2 0 0 1 2-2Zm-1.5 3.5A1.5 1.5 0 0 0 5 8v2.5a3 3 0 0 0 2.5 2.96V6.5h-1Zm2 0v6.96A3 3 0 0 0 11 10.5V8a1.5 1.5 0 0 0-1.5-1.5h-1ZM8 4a1 1 0 0 0-1 1v.5h2V5a1 1 0 0 0-1-1ZM4.15 2.85l.7-.7 1.3 1.3-.7.7-1.3-1.3Zm6.4.6 1.3-1.3.7.7-1.3 1.3-.7-.7Z"/></symbol>
+<symbol id="sk-pause" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M5.5 2a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5h2Zm0 13A1.5 1.5 0 0 0 7 13.5v-11A1.5 1.5 0 0 0 5.5 1h-2A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h2Zm7-13a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5h2Zm0 13a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 12.5 1h-2A1.5 1.5 0 0 0 9 2.5v11a1.5 1.5 0 0 0 1.5 1.5h2Z" clip-rule="evenodd"/></symbol>
+<symbol id="sk-add" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7.5 12.5v-4h-4a.5.5 0 0 1 0-1h4v-4a.5.5 0 0 1 1 0v4h4a.5.5 0 0 1 0 1h-4v4a.5.5 0 0 1-1 0Z"/></symbol>
+<symbol id="sk-minus" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M12.5 7.5a.5.5 0 0 1 0 1h-9a.5.5 0 0 1 0-1h9Z"/></symbol>
+<symbol id="sk-undo" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M3.647 2.146a.5.5 0 0 1 .707.708L3.207 4H9.5a4.5 4.5 0 0 1 0 9h-5a.5.5 0 0 1 0-1h5a3.5 3.5 0 0 0 0-7H3.207l1.147 1.146.064.079a.5.5 0 0 1-.693.693l-.078-.064-2-2a.5.5 0 0 1 0-.708l2-2Z"/></symbol>
+<symbol id="sk-chevron-left" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M9.146 4.146a.5.5 0 1 1 .708.708L6.707 8l3.147 3.146a.5.5 0 1 1-.708.707l-3.5-3.5a.5.5 0 0 1 0-.707l3.5-3.5Z"/></symbol>
+<symbol id="sk-layers" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M13.353 10.522a.5.5 0 0 1 .386.918l-5.02 2.738c-.448.244-.99.244-1.438 0l-5.02-2.738-.084-.058a.5.5 0 0 1 .47-.86l.092.04L7.761 13.3a.5.5 0 0 0 .478 0l5.021-2.738.093-.04ZM2.061 7.76a.5.5 0 0 1 .585-.24l.093.04 5.022 2.74a.5.5 0 0 0 .478 0l5.021-2.738a.5.5 0 1 1 .479.877l-5.02 2.739c-.448.244-.99.244-1.438 0l-5.02-2.74-.084-.056a.5.5 0 0 1-.116-.621Zm5.22-5.938c.448-.245.99-.245 1.438 0l5.02 2.739a.5.5 0 0 1 0 .877l-5.02 2.739c-.448.244-.99.244-1.438 0l-5.02-2.74a.5.5 0 0 1 0-.876l5.02-2.74Zm.958.877a.5.5 0 0 0-.478 0L3.543 5 7.76 7.3a.5.5 0 0 0 .478 0L12.456 5 8.239 2.7Z"/></symbol>
+</svg>
+<header class="demo-head">
+  <h1>Development page — Sprint view proposals</h1>
+  <p>Interactive mock of the Sprint view, aiming to make it feel like the same board as the People view while keeping its job: showing how the sprint is progressing. Data is synthetic: Sprint 42, Day 9 of 15, so there is history to show. Toggle proposals on their own or combine them.</p>
+</header>
+<section class="controls" aria-label="Demo controls">
+  <div class="group"><span class="group-label">Presets</span>
+    <button class="tbtn preset" data-act="preset" data-v="today">Today's Sprint view</button>
+    <button class="tbtn preset" data-act="preset" data-v="core">Core (1–4)</button>
+    <button class="tbtn preset" data-act="preset" data-v="all">Everything (1–5)</button>
+  </div>
+  <div class="group"><span class="group-label">Proposals</span>
+    <button class="tbtn" data-act="toggle-p" data-v="1"><span class="num">1</span>One board, two lenses</button>
+    <button class="tbtn" data-act="toggle-p" data-v="2"><span class="num">2</span>Journey trails</button>
+    <button class="tbtn" data-act="toggle-p" data-v="3"><span class="num">3</span>Commitment lanes</button>
+    <button class="tbtn" data-act="toggle-p" data-v="4"><span class="num">4</span>Flow headers</button>
+    <button class="tbtn" data-act="toggle-p" data-v="5"><span class="num">5</span>Sprint replay</button>
+  </div>
+  <div class="group"><span class="group-label">Quick win</span>
+    <button class="tbtn" data-act="qw" id="qw-btn">QW1 · Ribbon chart track</button>
+  </div>
+  <div class="group"><span class="group-label">Density</span>
+    <button class="tbtn" data-act="density" data-v="comfortable">Comfortable</button>
+    <button class="tbtn" data-act="density" data-v="compact">Compact</button>
+  </div>
+  <div class="group"><span class="group-label">Theme</span>
+    <button class="tbtn" data-act="theme" data-v="light">Light</button>
+    <button class="tbtn" data-act="theme" data-v="dark">Dark</button>
+  </div>
+  <span class="dep-note" id="dep-note"></span>
+</section>
+<p class="hint">Try: <b>hover or tab to a card</b> to see where it started (2) · <b>click a Needs attention chip</b> (1) · <b>expand “Removed from sprint”</b> (3) · <b>drag the timeline or press Replay sprint</b> (5).</p>
+
+<div class="app" id="app">
+  <div class="nav-rail"><svg class="i" aria-hidden="true"><use href="#sk-chevron-right"/></svg></div>
+  <div class="main">
+    <div class="tb" id="toolbar"></div>
+    <section class="ribbon" id="ribbon" aria-label="Current sprint"></section>
+    <section class="replay" id="replay" aria-label="Sprint timeline" hidden></section>
+    <div class="pastbar" id="pastbar" role="status" hidden></div>
+    <div class="attn" id="attn" hidden></div>
+    <div class="board-scroll" id="scroller"><div class="board" id="board"></div></div>
+  </div>
+</div>
+
+<div class="section-title">What the Sprint view is for, and where it drifts</div>
+<section class="rationale">
+  <article class="rcard wide">
+    <h3>Intent to preserve</h3>
+    <p>The People view answers <i>“who is doing what?”</i>. The Sprint view should answer three different questions: <b>How far along is the sprint?</b> <b>What moved, and when?</b> <b>What changed in scope since we committed?</b> Every proposal keeps those questions. What changes is the presentation, so switching views feels like changing the lens on one board, not opening another app.</p>
+    <h4>Where it's out of sync today</h4>
+    <ul>
+      <li><b>Two card designs.</b> Sprint still uses the legacy card (state pill, “Effort 8” footer, full owner name). People uses the quieter Development card.</li>
+      <li><b>Two header styles.</b> Here: tinted full-height columns, a large colored count, and “Current sprint effort: N”. People: neutral headers with a count pill and “N pts”.</li>
+      <li><b>Settings stop at the view switch.</b> Compact density and the Needs attention bar don't exist here, so blocked or failing work is easier to miss in the view meant to show sprint health.</li>
+      <li><b>The 175px “Sprint” column</b> mostly repeats the sprint name the ribbon already shows.</li>
+      <li><b>Staircase layout.</b> One card per row means 25 items take 25 rows. Most of the canvas is empty, and you can't scan a single column without scrolling.</li>
+      <li><b>Move arrows say little.</b> They show only the farthest column visited: not when, not for how long, not how many moves. They're <code>aria-hidden</code> and have no legend.</li>
+      <li><b>Scope change is invisible.</b> Mid-sprint additions look identical to committed work, and removed items silently disappear, even though the forecast chip counts both.</li>
+      <li><b>“Progress through the sprint” lives only in a 120×28 ribbon chart.</b> The board itself only ever shows today.</li>
+    </ul>
+  </article>
+</section>
+
+<div class="section-title">Proposals</div>
+<section class="rationale">
+  <article class="rcard">
+    <h3><span class="num">1</span>One board, two lenses<span class="size">M</span></h3>
+    <p>Same board as People. The view switch changes how lanes are grouped (by person or by sprint), not the design language.</p>
+    <h4>What changes</h4>
+    <ul>
+      <li>Same grid, column headers (count pill + “N pts”), calm canvas (only a non-empty Blocked cell is tinted), cards, density setting, and <b>Needs attention</b> bar as People.</li>
+      <li>Cards <b>pack into cells</b> instead of a staircase, so about 25 items fit on one screen.</li>
+      <li>The 175px Sprint column becomes the 208px <b>lane header</b> used in People: a status bar, items · pts, and flags. Other sprints become collapsed lanes.</li>
+      <li>The Development card gets an <b>owner avatar</b> beside the effort pill (name in a StrataKit tooltip), since lanes here aren't people.</li>
+    </ul>
+    <h4>Why</h4>
+    <p>One mental model, and every future improvement to the People view lands here for free.</p>
+    <h4>StrataKit &amp; data</h4>
+    <p>No new data. Let <code>KanbanBoardGrid</code> take lanes as input (people or sprint groups), move <code>AttentionBar</code> up from <code>KanbanBoard</code> to the page, and add a <code>showOwner</code> prop to <code>DevelopmentCard</code>.</p>
+    <h4>Watch-outs</h4>
+    <p>Packing removes the per-row arrows, so ship it together with 2 to keep the “what moved” story.</p>
+  </article>
+  <article class="rcard">
+    <h3><span class="num">2</span>Journey trails<span class="size">M</span></h3>
+    <p>Replace arrows with a tiny, honest timeline on every card.</p>
+    <h4>What changes</h4>
+    <ul>
+      <li>The <b>bottom edge of each card becomes a 4px timeline</b> on a shared scale from Day 0 to today, colored by the column the item was in each day. A dotted lead marks an item added late.</li>
+      <li>One caption in the meta row replaces the aging dots: “7d in Active”, <span class="tone-attention">“Back from Review · 2d”</span>, or <span class="tone-positive">“Done Oct 30”</span>.</li>
+      <li><b>Hover or focus</b> shows a dashed “Started here” ghost in the starting column, joined to the card by a curved connector.</li>
+      <li>Needs attention gains a <b>Moved back</b> chip.</li>
+    </ul>
+    <h4>Why</h4>
+    <p>Answers “what moved, and when?” for every card at a glance. Works in packed cells, and is accessible: <code>role="img"</code> with a text journey.</p>
+    <h4>Data</h4>
+    <p><code>useEffortFlowHistory</code> already builds a per-item <code>TimelineEntry</code> list. Expose the status spans instead of only <code>visitedStatusesByItemId</code>.</p>
+    <h4>Watch-outs</h4>
+    <p>Trail colors must match the column bars exactly. The ghost appears only on hover or focus; it's never a permanent overlay.</p>
+  </article>
+  <article class="rcard">
+    <h3><span class="num">3</span>Commitment lanes<span class="size">M</span></h3>
+    <p>Make scope change a first-class part of the board.</p>
+    <h4>What changes</h4>
+    <ul>
+      <li>Lanes become <b>Committed at start</b>, <b>Added during sprint</b>, and <b>Removed from sprint</b>. Removed is collapsed by default and holds dashed ghost cards with struck-through effort and “Moved to Sprint 43 · Oct 29”.</li>
+      <li>Lane flags make scope visible: “3 from Sprint 41”, “Scope +12%”.</li>
+      <li>The next sprint stays a collapsed lane at the bottom.</li>
+    </ul>
+    <h4>Why</h4>
+    <p>Uses the same committed / added / removed math as the forecast, so the chip and the board finally tell the same story. Sprint reviews can point at the board instead of a spreadsheet.</p>
+    <h4>Data</h4>
+    <p>Already loaded: <code>useSprintScopeChanges</code> (<code>startItemIds</code>, <code>removedItems</code>) and <code>rolledOverItemIds</code>.</p>
+    <h4>Watch-outs</h4>
+    <p>An item that moves between iterations several times needs one rule. Suggest: its first entry decides “committed” vs “added”.</p>
+  </article>
+  <article class="rcard">
+    <h3><span class="num">4</span>Flow headers<span class="size">S</span></h3>
+    <p>Put sprint progress where people already look.</p>
+    <h4>What changes</h4>
+    <ul>
+      <li>Each column header gets a 64×18 <b>sparkline</b> of its points across the sprint, plus the change since start, colored by meaning: Done ▲ is positive, Blocked ▲ is critical.</li>
+      <li>Active and Review show their <b>oldest item</b> (“oldest 9d”).</li>
+      <li>Sparklines hide when the board is narrower than about 1100px.</li>
+    </ul>
+    <h4>Why</h4>
+    <p>“Is Done growing? Is Review piling up?” becomes visible without opening the ribbon chart.</p>
+    <h4>Data</h4>
+    <p><code>effortFlowPoints</code> from <code>useEffortFlowHistory</code>; the oldest age comes from the same timelines.</p>
+  </article>
+  <article class="rcard">
+    <h3><span class="num">5</span>Sprint replay<span class="size">L</span></h3>
+    <p>Let the board show the sprint's story, not just today.</p>
+    <h4>What changes</h4>
+    <ul>
+      <li>A slim <b>timeline strip</b> under the ribbon: cumulative flow across all 15 days, future days hatched, the forecast as a dashed line, and a playhead.</li>
+      <li>Drag the slider, step with ◀ ▶, or press <b>Play</b>. Cards animate to where they stood at the end of each day (FLIP; honors reduced motion).</li>
+      <li>On a past day, a banner offers “Back to today”, and the attention bar and live details (PRs, next steps) are hidden.</li>
+      <li>In the Sprint view, the toolbar's primary action becomes <b>Replay sprint</b>, mirroring Start standup in People.</li>
+    </ul>
+    <h4>Why</h4>
+    <p>Lets you tell the sprint's story in a retro or review in about 30 seconds.</p>
+    <h4>StrataKit &amp; data</h4>
+    <p>The scrubber is a MUI Slider, which StrataKit already themes. The timeline chart is a deliberate extension beyond StrataKit. Status per day already exists via <code>statusAsOf</code>. The exact add or remove day needs <code>System.IterationPath</code> parsed from revisions already fetched, and removed items may need one extra revisions query.</p>
+    <h4>Watch-outs</h4>
+    <p>Animation cost on large boards: animate only visible cards, and skip animation when reduced motion is on.</p>
+  </article>
+  <article class="rcard wide">
+    <h3>Quick wins</h3>
+    <table class="qw-table">
+      <thead><tr><th>#</th><th>Change</th><th>Where</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>QW1</td><td>Draw a faint track for days not yet reached, plus a today marker, in the ribbon chart.</td><td><code>EffortFlowChart</code> (ribbon)</td><td><b>Real bug.</b> Early in a sprint only a sliver of the chart is drawn (Day 2 draws 2/15 of the width), which looks broken. Toggle it in the demo.</td></tr>
+        <tr><td>QW2</td><td>Drop the 175px Sprint column when only one sprint is shown.</td><td><code>SprintViewBoard</code> (SprintSummaryBoard.tsx)</td><td>Included in 1.</td></tr>
+        <tr><td>QW3</td><td>Use the People header style and the neutral canvas.</td><td><code>SprintViewBoard</code></td><td>Included in 1.</td></tr>
+        <tr><td>QW4</td><td>Give move arrows a text alternative, e.g. “Moved here from New since sprint start”.</td><td><code>MoveHistoryArrow</code></td><td>Can ship without 2.</td></tr>
+        <tr><td>QW5</td><td>Apply the compact density setting to the Sprint view.</td><td><code>SprintViewBoard</code></td><td>Included in 1.</td></tr>
+        <tr><td>QW6</td><td>Show the owner as an avatar only, with the name in a tooltip.</td><td>Sprint card footer</td><td>Included in 1.</td></tr>
+      </tbody>
+    </table>
+    <h4 style="margin-top:12px">Suggested order</h4>
+    <div class="order"><span class="step-pill"><b>1 + 2</b> together</span><span class="arrow">→</span><span class="step-pill"><b>3</b></span><span class="arrow">→</span><span class="step-pill"><b>4</b></span><span class="arrow">→</span><span class="step-pill"><b>5</b></span><span class="muted" style="font-size:12px;margin-left:8px">QW1 and QW4 any time</span></div>
+  </article>
+</section>
+<script>
+/* ---------- Data ---------- */
+const COLS = ['Blocked', 'New', 'Active', 'Review', 'Done'];
+const K = { B: 'Blocked', N: 'New', A: 'Active', R: 'Review', D: 'Done' };
+const PROGRESS = { New: 0, Active: 1, Review: 2, Done: 3 };
+const SPRINT = { name: 'Sprint 42', prev: 'Sprint 41', next: 'Sprint 43', nextStarts: 'Nov 17', range: 'Oct 27 – Nov 14', days: 15, today: 9 };
+const T = SPRINT.today;
+const DATES = ['Oct 27', 'Oct 28', 'Oct 29', 'Oct 30', 'Oct 31', 'Nov 3', 'Nov 4', 'Nov 5', 'Nov 6', 'Nov 7', 'Nov 10', 'Nov 11', 'Nov 12', 'Nov 13', 'Nov 14'];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const PROJECTED = 58;
+const QA_NAME = 'Taylor Reed';
+const PEOPLE = {
+  AE: { name: 'Alex Example', h: 210 }, BN: { name: 'Blair Nguyen', h: 25 }, CM: { name: 'Casey Morgan', h: 140 },
+  DO: { name: 'Dana Ortiz', h: 280 }, EP: { name: 'Ellis Park', h: 45 }, FS: { name: 'Frankie Shah', h: 330 },
+};
+// h: [[day, status]] — the status from the end of that day on. Day 0 is the sprint start.
+const ITEMS = [
+  { id: 4710, t: 'pbi', title: 'Single sign-on for the partner portal', who: 'AE', pts: 8, h: [[0, 'N'], [2, 'A'], [6, 'B']], tags: ['Security'], next: ['critical', 'lock', 'Waiting on IdP certificate from IT'], sig: ['blocked'] },
+  { id: 4890, t: 'bug', title: 'Export times out above 10k rows', who: 'EP', pts: 5, h: [[0, 'A'], [7, 'B']], next: ['critical', 'lock', 'Blocked by 4712 · database index'], sig: ['blocked'] },
+  { id: 4802, t: 'pbi', title: 'Saved filters on the Documents grid', who: 'BN', pts: 5, h: [[0, 'N']], rolled: true },
+  { id: 4860, t: 'pbi', title: 'Bulk rename dialog', who: 'CM', pts: 3, h: [[0, 'N']] },
+  { id: 4910, t: 'bug', title: 'Breadcrumb truncates long folder names', who: 'DO', pts: 2, h: [[0, 'N']], rolled: true },
+  { id: 4881, t: 'bug', title: 'Thumbnail flicker while scrolling', who: 'FS', pts: 2, added: 4, h: [[4, 'N']] },
+  { id: 4882, t: 'pbi', title: 'Audit log CSV export', who: 'AE', pts: 3, added: 8, h: [[8, 'N']], sig: ['recent'] },
+  { id: 4821, t: 'pbi', title: 'Drag-and-drop upload into folders', who: 'AE', pts: 8, h: [[0, 'N'], [1, 'A']], pr: { id: 912, checks: 'fail', review: '', a: '0/2' }, next: ['critical', 'error', 'Build failing · 2 tests'], sig: ['failing'] },
+  { id: 4833, t: 'pbi', title: 'Version history side panel', who: 'BN', pts: 5, h: [[0, 'A'], [3, 'R'], [7, 'A']], next: ['attention', 'undo', 'Reopened from review · 2 comments'] },
+  { id: 4845, t: 'bug', title: 'Search returns archived items', who: 'CM', pts: 3, h: [[0, 'N'], [5, 'A']] },
+  { id: 4870, t: 'pbi', title: 'Share link expiry settings', who: 'DO', pts: 5, added: 2, h: [[2, 'N'], [3, 'A']], pr: { id: 918, checks: 'pass', review: 'partial', a: '1/2' }, next: ['attention', 'users', 'Needs 1 more approval'], sig: ['approval'] },
+  { id: 4871, t: 'pbi', title: 'Workspace templates', who: 'EP', pts: 8, h: [[0, 'A']], rolled: true, next: ['attention', 'clock', 'No updates for 4 days'], sig: ['idle'] },
+  { id: 4891, t: 'bug', title: 'Date picker ignores locale', who: 'FS', pts: 2, h: [[0, 'N'], [6, 'A']] },
+  { id: 4900, t: 'pbi', title: 'Folder color labels', who: 'CM', pts: 3, h: [[0, 'N'], [3, 'A'], [5, 'R'], [8, 'A']], next: ['attention', 'undo', 'Back from testing · 1 bug found'], sig: ['recent'] },
+  { id: 4777, t: 'pbi', title: 'Offline mode for mobile web', who: 'BN', pts: 8, h: [[0, 'A'], [4, 'R']], state: 'Available for Testing', next: ['info', 'user', `In testing · ${QA_NAME}`], sig: ['qa'] },
+  { id: 4790, t: 'pbi', title: 'Inline PDF annotations', who: 'AE', pts: 5, h: [[0, 'A'], [2, 'R']], pr: { id: 901, checks: 'pass', review: 'approved', ready: true, a: '2/2' }, next: ['positive', 'status-success', 'Ready to complete'], sig: ['ready'] },
+  { id: 4851, t: 'bug', title: 'Upload progress stuck at 99%', who: 'DO', pts: 3, h: [[0, 'N'], [1, 'A'], [5, 'R']], pr: { id: 915, checks: 'pass', review: 'rejected', a: '1/2' }, next: ['critical', 'status-rejected', 'Changes requested'] },
+  { id: 4880, t: 'bug', title: 'Tooltip clipped in dark mode', who: 'FS', pts: 1, added: 3, h: [[3, 'A'], [8, 'R']], pr: { id: 921, checks: 'pass', review: 'approved', ready: true, a: '2/2' }, next: ['positive', 'status-success', 'Ready to complete'], sig: ['ready', 'recent'] },
+  { id: 4901, t: 'pbi', title: 'Keyboard shortcuts help panel', who: 'EP', pts: 3, h: [[0, 'N'], [2, 'A'], [6, 'R']], state: 'Available for Testing', next: ['info', 'user', `In testing · ${QA_NAME}`], sig: ['qa'] },
+  { id: 4700, t: 'pbi', title: 'Recent files widget', who: 'AE', pts: 5, h: [[0, 'R'], [2, 'D']] },
+  { id: 4701, t: 'bug', title: 'Sort order resets on refresh', who: 'BN', pts: 2, h: [[0, 'A'], [3, 'D']] },
+  { id: 4872, t: 'pbi', title: 'Pin folders to the sidebar', who: 'CM', pts: 5, h: [[0, 'N'], [1, 'A'], [4, 'R'], [6, 'D']] },
+  { id: 4873, t: 'bug', title: 'Duplicate toast after save', who: 'DO', pts: 1, added: 3, h: [[3, 'A'], [5, 'D']] },
+  { id: 4874, t: 'pbi', title: 'Empty-state illustrations', who: 'FS', pts: 3, h: [[0, 'A'], [5, 'R'], [7, 'D']] },
+  { id: 4892, t: 'bug', title: 'Missing alt text on avatars', who: 'EP', pts: 1, h: [[0, 'N'], [4, 'A'], [6, 'R'], [8, 'D']], sig: ['recent'] },
+  { id: 4815, t: 'pbi', title: 'Project dashboard redesign', who: 'BN', pts: 8, h: [[0, 'N']], removed: 3, to: 'Sprint 43' },
+  { id: 4830, t: 'bug', title: 'Legacy browser warning banner', who: 'EP', pts: 2, h: [[0, 'N'], [2, 'A']], removed: 5, to: 'Backlog' },
+  { id: 4950, t: 'pbi', title: 'Activity feed for shared folders', who: 'CM', pts: 5, h: [[0, 'N']], nextSprint: true },
+];
+ITEMS.forEach((it) => { it.h = it.h.map(([d, s]) => [d, K[s]]); });
+const BY_ID = Object.fromEntries(ITEMS.map((it) => [String(it.id), it]));
+const DEFAULT_STATE = { Blocked: 'Committed', New: 'Approved', Active: 'In Progress', Review: 'In Code Review', Done: 'Done' };
+const FACETS = [
+  { key: 'blocked', label: 'Blocked', tone: 'critical' },
+  { key: 'failing', label: 'Failing checks', tone: 'critical' },
+  { key: 'approval', label: 'Needs approval', tone: 'attention' },
+  { key: 'idle', label: 'Idle 3d+', tone: 'attention' },
+  { key: 'back', label: 'Moved back', tone: 'attention', p: 2 },
+  { key: 'qa', label: 'With QA', tone: 'info' },
+  { key: 'added', label: 'Added mid-sprint', tone: 'info', p: 3 },
+  { key: 'ready', label: 'Ready to complete', tone: 'positive' },
+];
+
+/* ---------- Timeline helpers ---------- */
+const dayDate = (d) => DATES[Math.max(d, 1) - 1];
+const wk = (d) => WEEKDAYS[(Math.max(d, 1) - 1) % 5];
+function statusAt(it, d) {
+  if (it.added != null && d < it.added) return null;
+  if (it.removed != null && d >= it.removed) return null;
+  let s = null;
+  for (const [day, st] of it.h) if (day <= d) s = st;
+  return s;
+}
+const lastStatus = (it) => it.h[it.h.length - 1][1];
+const movesUntil = (it, d) => it.h.filter(([day]) => day <= d);
+const sinceDay = (it, d) => { const m = movesUntil(it, d); return m[m.length - 1][0]; };
+const isBack = (from, to) => PROGRESS[from] != null && PROGRESS[to] != null && PROGRESS[to] < PROGRESS[from];
+function backMove(it, d) {
+  const m = movesUntil(it, d);
+  if (m.length < 2) return null;
+  const from = m[m.length - 2][1], to = m[m.length - 1][1];
+  return isBack(from, to) ? { from, day: m[m.length - 1][0] } : null;
+}
+function everMovedBack(it, d) {
+  const m = movesUntil(it, d);
+  return m.some((x, k) => k > 0 && isBack(m[k - 1][1], x[1]));
+}
+function segments(it, d) {
+  const m = movesUntil(it, d);
+  return m.map(([day, st], k) => ({ st, from: day, to: k + 1 < m.length ? m[k + 1][0] : d }));
+}
+const inSprint = (it, d) => !it.nextSprint && statusAt(it, d) != null;
+const sumPts = (t) => COLS.reduce((s, c) => s + t[c].pts, 0);
+const TOT = [];
+for (let d = 0; d <= T; d++) {
+  const r = Object.fromEntries(COLS.map((c) => [c, { n: 0, pts: 0 }]));
+  for (const it of ITEMS) if (inSprint(it, d)) { const s = statusAt(it, d); r[s].n++; r[s].pts += it.pts; }
+  TOT.push(r);
+}
+const START_PTS = ITEMS.filter((it) => it.added == null && !it.nextSprint).reduce((s, it) => s + it.pts, 0);
+function flagsOf(it) {
+  const f = new Set(it.sig || []);
+  if (everMovedBack(it, T)) f.add('back');
+  if (it.added != null) f.add('added');
+  return f;
+}
+function stateFor(it, col) { return it.state && statusAt(it, T) === col ? it.state : DEFAULT_STATE[col]; }
+function stateLabel(s) { const w = s.split(/\s+/); return w.length >= 3 ? w.slice(0, 3).map((x) => x[0].toUpperCase()).join('') : s; }
+
+/* ---------- Generic helpers ---------- */
+const S = { p: new Set([1, 2, 3, 4, 5]), qw: true, compact: false, theme: 'light', filter: null, collapsed: new Set(['removed', 'other']), day: T, playing: false, timer: null, hoverCard: null };
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+const icon = (name, cls = '') => `<svg class="i ${cls}" aria-hidden="true"><use href="#${name.startsWith('wi-') ? name : 'sk-' + name}"/></svg>`;
+const initials = (p) => p.name.split(' ').map((w) => w[0]).join('');
+const avatarHtml = (p, cls = '', tip = false) => `<span class="avatar ${cls}" style="--h:${p.h}" role="img" aria-label="${p.name}"${tip ? ` data-tip="${p.name}"` : ''}>${initials(p)}</span>`;
+const typeIcon = (it) => icon(it.t === 'bug' ? 'wi-bug' : 'wi-pbi');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+/* ---------- Card pieces ---------- */
+function strip(pr) {
+  const checks = { pass: 'ok', fail: 'fail', run: 'run' }[pr.checks] || '';
+  const review = { approved: 'ok', partial: 'part', rejected: 'fail' }[pr.review] || '';
+  return `<span class="strip" aria-label="Checks, review, merge"><i class="${checks}"></i><i class="${review}"></i><i class="${pr.ready ? 'ready' : ''}"></i></span>`;
+}
+const prRow = (it) => `<div class="prrow">${icon('git-branch')}<span>PR ${it.pr.id}</span>${strip(it.pr)}<span class="appr" style="margin-left:auto">${icon('users')}${it.pr.a}</span></div>`;
+function stepLine(it, cls = 'step') {
+  if (!it.next) return '';
+  const [tone, ic, text] = it.next;
+  return `<div class="${cls} tone-${tone}">${icon(ic)}<span class="t">${esc(text)}</span></div>`;
+}
+function aging(n) {
+  const on = Math.min(4, n);
+  return `<span class="aging ${n >= 3 ? 'hot' : ''}" data-tip="Unchanged for ${n} days" aria-label="Unchanged for ${n} days">${[0, 1, 2, 3].map((k) => `<i class="${k < on ? 'on' : ''}"></i>`).join('')}</span>`;
+}
+function caption(it, d, skipBack = false) {
+  const col = statusAt(it, d), since = sinceDay(it, d), n = d - since;
+  if (col === 'Done') return { tone: 'positive', ic: 'status-success', text: `Done ${dayDate(since)}`, tip: `Moved to Done on ${wk(since)} ${dayDate(since)}` };
+  const back = skipBack ? null : backMove(it, d);
+  if (back) return { tone: 'attention', ic: 'undo', text: `Back from ${back.from} · ${n}d`, tip: `Moved back from ${back.from} to ${col} on ${dayDate(back.day)}` };
+  if (since === 0 && n === 0) return { tone: 'neutral', ic: 'clock', text: `${col} at start`, tip: 'Sprint start' };
+  if (n === 0) {
+    const added = it.added === since && movesUntil(it, d).length === 1;
+    return { tone: 'info', ic: added ? 'add' : 'clock', text: added ? `Added ${dayDate(since)}` : `Into ${col} ${dayDate(since)}`, tip: added ? 'Added to the sprint today' : `Moved to ${col} today` };
+  }
+  const hot = n >= 5 && col !== 'New';
+  return { tone: hot ? 'attention' : 'neutral', ic: 'clock', text: `${n}d in ${col}`, tip: `In ${col} since ${dayDate(since)}` };
+}
+function capHtml(it, d, line = false) {
+  // The live next step already reports back moves, so don't repeat it in the caption.
+  const c = caption(it, d, d === T && it.next && it.next[1] === 'undo');
+  if (line) return `<div class="cline tone-${c.tone}">${icon(c.ic)}<span class="t">${esc(c.text)}</span></div>`;
+  return `<span class="cap tone-${c.tone}" data-tip="${esc(c.tip)}">${icon(c.ic)}${esc(c.text)}</span>`;
+}
+function trailHtml(it, d) {
+  const segs = segments(it, d);
+  const lead = segs[0].from;
+  const parts = lead > 0 ? [`<i class="lead" style="flex:${lead}"></i>`] : [];
+  for (const s of segs) parts.push(`<i style="flex:${Math.max(s.to - s.from, 0.4)};background:var(--c-${s.st})"></i>`);
+  const story = (lead > 0 ? `added ${dayDate(lead)}, ` : '') + segs.map((s) => `${s.st} from ${dayDate(s.from)}`).join(', then ');
+  return `<span class="trail" role="img" aria-label="Journey: ${story}">${parts.join('')}</span>`;
+}
+function metaRow(it, col, d) {
+  const parts = [];
+  if (it.state && statusAt(it, d) === col) {
+    const label = stateLabel(it.state);
+    parts.push(`<span class="badge"${label !== it.state ? ` data-tip="${esc(it.state)}"` : ''}>${esc(label)}</span>`);
+  }
+  if (it.rolled) parts.push(`<span class="roll" data-tip="Rolled over from ${SPRINT.prev}">${icon('history')}</span>`);
+  if (S.p.has(2)) parts.push(capHtml(it, d));
+  else if (['Active', 'Review', 'Blocked'].includes(col)) parts.push(aging(d - sinceDay(it, d)));
+  return parts.length ? `<div class="meta">${parts.join('')}</div>` : '';
+}
+
+/* ---------- Card (Development card + owner avatar) ---------- */
+function cardHtml(it, o) {
+  const { col, d, ghost, other } = o;
+  const past = d < T;
+  const trail = S.p.has(2) && !ghost && !other;
+  const effort = `<span class="effort${ghost ? ' struck' : ''}" aria-label="Effort ${it.pts}">${it.pts}</span>`;
+  const head = `<div class="trow">${typeIcon(it)}<div class="title"><span class="wi-id">${it.id}</span> ${esc(it.title)}</div>${effort}${avatarHtml(PEOPLE[it.who], 'xs', true)}</div>`;
+  let body;
+  if (ghost) body = `<div class="cline">${icon('arrow-right')}<span class="t">Moved to ${it.to} · ${dayDate(it.removed)}</span></div>`;
+  else if (other) body = `<div class="cline">${icon('calendar')}<span class="t">${it.nextSprint ? 'Planned' : `Moved from ${SPRINT.name} · ${dayDate(it.removed)}`}</span></div>`;
+  else if (past) body = capHtml(it, d, true);
+  else if (S.compact) body = it.next ? stepLine(it, 'cline') : S.p.has(2) ? capHtml(it, d, true) : '';
+  else body = (it.tags ? `<div class="tags">${it.tags.map((t) => `<span class="tag">${t}</span>`).join('')}</div>` : '') + (it.pr ? prRow(it) : '') + stepLine(it) + metaRow(it, col, d);
+  const mark = S.filter && !past && !ghost && !other ? (flagsOf(it).has(S.filter) ? ' match' : ' dim') : '';
+  const cls = ['card', S.compact && 'compact', ghost && 'ghost-card', other && 'other-card', trail && 'has-trail'].filter(Boolean).join(' ');
+  const live = !ghost && !other ? ` data-live="1" tabindex="0"` : '';
+  return `<div class="${cls}${mark}" style="--accent:var(--c-${col})" data-id="${other ? 'n' : ''}${it.id}"${live}>${head}${body}${trail ? trailHtml(it, d) : ''}</div>`;
+}
+
+/* ---------- Lanes (P1, P3) ---------- */
+function laneData(d) {
+  const live = ITEMS.filter((it) => inSprint(it, d));
+  const wrap = (it, extra = {}) => ({ it, col: statusAt(it, d), ...extra });
+  const lanes = [];
+  if (S.p.has(3)) {
+    lanes.push({ key: 'committed', title: 'Committed at start', sub: `Planned ${dayDate(0)}`, ic: 'flag', items: live.filter((it) => it.added == null).map((it) => wrap(it)) });
+    lanes.push({ key: 'added', title: 'Added during sprint', sub: 'Scope added after planning', ic: 'add', empty: 'Nothing added yet', items: live.filter((it) => it.added != null).map((it) => wrap(it)) });
+    lanes.push({ key: 'removed', title: 'Removed from sprint', sub: 'Shown where they left', ic: 'minus', ghost: true, empty: 'Nothing removed yet',
+      items: ITEMS.filter((it) => it.removed != null && it.removed <= d).map((it) => ({ it, col: statusAt(it, it.removed - 1), ghost: true })) });
+  } else {
+    lanes.push({ key: 'sprint', title: SPRINT.name, sub: SPRINT.range, ic: 'calendar', items: live.map((it) => wrap(it)) });
+  }
+  const nxt = ITEMS.filter((it) => it.nextSprint || (it.to === SPRINT.next && it.removed <= d));
+  lanes.push({ key: 'other', title: SPRINT.next, sub: `Starts ${SPRINT.nextStarts}`, ic: 'calendar', other: true, items: nxt.map((it) => ({ it, col: lastStatus(it), other: true })) });
+  return lanes;
+}
+function laneFlags(l) {
+  const live = l.items.filter((x) => !x.ghost && !x.other);
+  const flags = [];
+  const b = live.filter((x) => x.col === 'Blocked').length;
+  if (b) flags.push(['critical', 'lock', `${b} blocked`]);
+  if (l.key === 'committed' || l.key === 'sprint') {
+    const n = live.filter((x) => x.it.rolled).length;
+    if (n) flags.push(['info', 'history', `${n} from ${SPRINT.prev}`, `Rolled over from ${SPRINT.prev}`]);
+  }
+  if (l.key === 'added') {
+    const pts = live.reduce((s, x) => s + x.it.pts, 0);
+    if (pts) flags.push(['attention', 'add', `Scope +${Math.round(pts / START_PTS * 100)}%`, `${pts} pts added to the ${START_PTS} pts committed at planning`]);
+  }
+  if (l.key === 'removed') {
+    const to = {};
+    l.items.forEach((x) => { to[x.it.to] = (to[x.it.to] || 0) + 1; });
+    Object.entries(to).forEach(([k, n]) => flags.push(['neutral', 'arrow-right', `${n} to ${k}`]));
+  }
+  return flags.map(([tone, ic, text, tip]) => `<span class="lflag ${tone}"${tip ? ` data-tip="${esc(tip)}"` : ''}>${icon(ic)}${esc(text)}</span>`).join('');
+}
+function laneHead(l, byCol) {
+  const collapsed = S.collapsed.has(l.key);
+  const chev = `<button class="chev" data-act="lane" data-v="${l.key}" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Expand' : 'Collapse'} ${esc(l.title)}">${icon(collapsed ? 'chevron-right' : 'chevron-down')}</button>`;
+  const ptsOf = (list) => list.reduce((s, x) => s + x.it.pts, 0);
+  const load = `<div class="loadbar" aria-hidden="true">${COLS.filter((c) => byCol[c].length).map((c) => `<i style="flex:${ptsOf(byCol[c])};background:var(--c-${c})${l.ghost ? ';opacity:.45' : ''}"></i>`).join('')}</div>`;
+  const n = l.items.length, pts = ptsOf(l.items);
+  const top = `<div class="lh-top">${chev}${icon(l.ic, 'lh-ic')}<h3>${esc(l.title)}</h3></div>`;
+  if (collapsed) return `<div class="lane-head"><div class="lh-sticky">${top}${n ? load : ''}</div></div>`;
+  const meta = n ? `${n} item${n === 1 ? '' : 's'} · ${l.ghost ? '−' : ''}${pts} pts` : l.empty || 'No items';
+  const flags = laneFlags(l);
+  return `<div class="lane-head"><div class="lh-sticky">${top}<div class="lh-sub">${esc(l.sub)}</div>${n ? load : ''}<div class="lh-meta">${meta}</div>${flags ? `<div class="lh-flags">${flags}</div>` : ''}</div></div>`;
+}
+function laneCell(l, col, list, d) {
+  const hot = col === 'Blocked' && list.length && !l.ghost && !l.other ? ' blocked-hot' : '';
+  if (S.collapsed.has(l.key)) {
+    if (!list.length) return '<div class="cell"><span class="muted">–</span></div>';
+    return `<div class="cell${hot}" style="--col:var(--c-${col})"><span class="sum-pip${l.ghost ? ' ghost' : ''}">${'<i></i>'.repeat(Math.min(list.length, 8))}</span><span class="sum-count">${list.length}</span></div>`;
+  }
+  let sorted = list;
+  if (S.filter && d === T) sorted = [...list.filter((x) => flagsOf(x.it).has(S.filter)), ...list.filter((x) => !flagsOf(x.it).has(S.filter))];
+  return `<div class="cell${hot}">${sorted.map((x) => cardHtml(x.it, { col, d, ghost: x.ghost, other: x.other })).join('')}</div>`;
+}
+
+/* ---------- Column headers (P1 + P4) ---------- */
+function flowRow(col, list, d) {
+  const w = 64, h = 18;
+  const series = TOT.slice(0, d + 1).map((t) => t[col].pts);
+  const max = Math.max(...TOT.map((t) => t[col].pts), 1);
+  const x = (k) => (k / SPRINT.days * (w - 3) + 1.5).toFixed(1), y = (v) => (h - 2 - v / max * (h - 5)).toFixed(1);
+  const line = series.map((v, k) => `${x(k)},${y(v)}`).join(' ');
+  const svg = `<svg class="cspark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><line x1="0" x2="${w}" y1="${h - 1}" y2="${h - 1}" stroke="var(--divider)"/><polyline points="${line}" fill="none" stroke="var(--col)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${x(d)}" cy="${y(series[d])}" r="2.2" fill="var(--col)"/></svg>`;
+  const delta = series[d] - series[0];
+  let tone = 'neutral';
+  if (col === 'Done' && delta > 0) tone = 'positive';
+  if (col === 'Blocked') tone = delta > 0 ? 'critical' : delta < 0 ? 'positive' : 'neutral';
+  const txt = delta > 0 ? `▲${delta}` : delta < 0 ? `▼${-delta}` : '±0';
+  let oldest = '';
+  if ((col === 'Active' || col === 'Review') && list.length) {
+    const a = Math.max(...list.map((x) => d - sinceDay(x.it, d)));
+    oldest = `<span class="oldest${a >= 5 ? ' tone-attention' : ''}" data-tip="Longest time any item has been in ${col}">oldest ${a}d</span>`;
+  }
+  return `<div class="ch-flow">${svg}<span class="delta tone-${tone}" data-tip="${col}: ${delta < 0 ? '−' : '+'}${Math.abs(delta)} pts since sprint start">${txt} pts</span>${oldest}</div>`;
+}
+function obHeader(col, list, d) {
+  const pts = list.reduce((s, x) => s + x.it.pts, 0);
+  const filtering = S.filter && d === T;
+  const count = filtering ? `${list.filter((x) => flagsOf(x.it).has(S.filter)).length}<small>/${list.length}</small>` : list.length;
+  return `<div class="ch one-line" style="--col:var(--c-${col})" role="columnheader"><span class="cbar"></span><div class="ch-body"><div class="ch-row"><h2>${col}</h2><span class="ccount">${count}</span><span class="cpts">${pts} pts</span></div>${S.p.has(4) ? flowRow(col, list, d) : ''}</div></div>`;
+}
+function obBoard(d) {
+  const lanes = laneData(d);
+  const live = lanes.flatMap((l) => l.items.filter((x) => !x.ghost && !x.other));
+  const corner = `<div class="corner">${S.p.has(3) ? 'Scope' : 'Sprint'}<span class="spacer"></span><button class="icon-btn" data-act="collapse-all" aria-label="Collapse all lanes" data-tip="Collapse all lanes">${icon('collapse-rows-all')}</button><button class="icon-btn" data-act="expand-all" aria-label="Expand all lanes" data-tip="Expand all lanes">${icon('expand-rows-all')}</button></div>`;
+  const head = `<div class="bhead" id="bhead">${corner}${COLS.map((c) => obHeader(c, live.filter((x) => x.col === c), d)).join('')}</div>`;
+  const body = lanes.map((l) => {
+    const byCol = Object.fromEntries(COLS.map((c) => [c, l.items.filter((x) => x.col === c)]));
+    return `<div class="lane${S.collapsed.has(l.key) ? ' collapsed' : ''}" data-lane="${l.key}">${laneHead(l, byCol)}${COLS.map((c) => laneCell(l, c, byCol[c], d)).join('')}</div>`;
+  }).join('');
+  return head + body + '<div class="trail-layer" id="trail-layer"></div>';
+}
+
+/* ---------- Today's Sprint view (legacy) ---------- */
+function tintBg(i) {
+  const base = (k) => `color-mix(in srgb, var(--c-${COLS[k]}) var(--tint), var(--page))`;
+  const me = base(i);
+  const left = i > 0 ? `color-mix(in srgb, ${me} 55%, ${base(i - 1)})` : me;
+  const right = i < COLS.length - 1 ? `color-mix(in srgb, ${me} 55%, ${base(i + 1)})` : me;
+  return `linear-gradient(to right, ${left} 0%, ${me} 2%, ${me} 98%, ${right} 100%)`;
+}
+function legacyCard(it, col) {
+  const p = PEOPLE[it.who];
+  return `<div class="lcard" style="--accent:var(--c-${col})" data-id="${it.id}"><div class="l-top">${typeIcon(it)}<div class="l-title"><b>${it.id}</b> ${esc(it.title)}</div></div><div class="l-mid"><span class="l-state">${esc(stateFor(it, col))}</span></div><div class="l-foot"><span>Effort ${it.pts}</span><span class="l-person">${avatarHtml(p)}<span>${p.name}</span></span></div></div>`;
+}
+function legacyArrow(it, col, row) {
+  const cur = COLS.indexOf(col);
+  const visited = new Set(movesUntil(it, T).map(([, s]) => COLS.indexOf(s)));
+  visited.delete(cur);
+  if (!visited.size) return '';
+  const left = [...visited].filter((i) => i < cur), right = [...visited].filter((i) => i > cur);
+  const src = left.length ? Math.min(...left) : Math.max(...right);
+  const half = (50 / Math.abs(cur - src)).toFixed(2);
+  const c = `var(--c-${COLS[src]})`;
+  if (src < cur) return `<div class="mv" style="grid-row:${row};grid-column:${src + 2} / ${cur + 2};--g:8px" aria-hidden="true"><i class="line" style="left:${half}%;right:8px;background:${c}"></i><i class="head" style="right:0;border-left:8px solid ${c}"></i></div>`;
+  return `<div class="mv" style="grid-row:${row};grid-column:${cur + 3} / ${src + 3};--g:-8px" aria-hidden="true"><i class="line" style="left:8px;right:${half}%;background:${c}"></i><i class="head" style="left:0;border-right:8px solid ${c}"></i></div>`;
+}
+function legacyBoard() {
+  const cur = ITEMS.filter((it) => inSprint(it, T)).sort((a, b) => COLS.indexOf(statusAt(a, T)) - COLS.indexOf(statusAt(b, T)) || a.id - b.id);
+  const nxt = ITEMS.filter((it) => it.nextSprint || it.to === SPRINT.next).sort((a, b) => a.id - b.id);
+  const head = `<div class="bhead" id="bhead"><div class="lg-corner">Sprint</div>${COLS.map((col, i) => {
+    const list = cur.filter((it) => statusAt(it, T) === col);
+    const pts = list.reduce((s, it) => s + it.pts, 0);
+    return `<div class="lg-ch" style="--col:var(--c-${col});background:${tintBg(i)}"><span class="cbar"></span><div class="ch-body"><div class="lg-top"><h2>${col}</h2><span class="lg-cnt">${list.length}</span></div><div class="lg-eff" data-tip="Effort total includes visible items from ${SPRINT.name} only.">Current sprint effort: ${pts}</div></div></div>`;
+  }).join('')}</div>`;
+  let row = 1, rows = '';
+  const group = (name, list, colOf) => {
+    rows += `<div class="lg-sprint" style="grid-row:${row} / span ${list.length};align-self:stretch"><span style="position:sticky;top:calc(var(--bh) + 8px);display:block">${name}</span></div>`;
+    for (const it of list) {
+      const col = colOf(it);
+      rows += legacyArrow(it, col, row) + `<div class="lg-cell" style="grid-row:${row};grid-column:${COLS.indexOf(col) + 2}">${legacyCard(it, col)}</div>`;
+      row++;
+    }
+  };
+  group(SPRINT.name, cur, (it) => statusAt(it, T));
+  rows += `<div class="lg-sep" style="grid-row:${row++}"></div>`;
+  group(SPRINT.next, nxt, lastStatus);
+  const bg = `<div class="lg-bg"><div></div>${COLS.map((_, i) => `<div style="background:${tintBg(i)}"></div>`).join('')}</div>`;
+  return `${head}<div class="lg-body">${bg}<div class="lg-rows">${rows}</div></div>`;
+}
+/* ---------- Toolbar, ribbon, attention bar ---------- */
+function toolbarHtml() {
+  const primary = S.p.has(5)
+    ? `<button class="btn accent" data-act="replay-start" data-tip="Play the sprint from Day 0 to today">${icon('play')}Replay sprint</button>`
+    : `<button class="btn accent">${icon('play')}Start standup</button>`;
+  return `<span class="page-title">${icon('developer')}Development</span>
+    <span class="field placeholder" style="width:190px">${icon('search')}Quick filter<span class="kbd">/</span></span>
+    <span class="field" style="width:150px"><span class="avatar all sm">${icon('users')}</span>All members${icon('chevron-down', 'caret')}</span>
+    ${primary}
+    <span class="vsep"></span><span class="tb-label">View</span><span class="btn-group"><button class="seg-btn">${icon('users')}People</button><button class="seg-btn" aria-pressed="true">${icon('timeline')}Sprint</button></span>
+    <span class="spacer"></span>
+    <span class="tb-label">Team</span><span class="field" style="width:140px">Web Team${icon('chevron-down', 'caret')}</span>
+    <button class="icon-btn" aria-label="Manage team" data-tip="Manage team">${icon('user-add')}</button>
+    <button class="icon-btn" aria-label="Development options" data-tip="Development options">${icon('settings')}</button>
+    <span class="synced">Synced 2m ago</span>
+    <button class="icon-btn" aria-label="Refresh" data-tip="Refresh">${icon('cloud-sync')}</button>`;
+}
+function ribbonChart(w, h) {
+  const order = ['Done', 'Review', 'Active', 'New', 'Blocked'];
+  const max = Math.max(...TOT.map(sumPts)) * 1.05;
+  const x = (k) => (k / SPRINT.days * w).toFixed(1), y = (v) => (h - v / max * h).toFixed(1);
+  let lower = TOT.map(() => 0), paths = '';
+  for (const c of order) {
+    const upper = lower.map((v, k) => v + TOT[k][c].pts);
+    paths += `<path d="M${upper.map((v, k) => `${x(k)},${y(v)}`).join(' L')} L${lower.map((v, k) => `${x(k)},${y(v)}`).reverse().join(' L')} Z" fill="var(--c-${c})" fill-opacity=".85"/>`;
+    lower = upper;
+  }
+  const tx = x(T);
+  const track = S.qw ? `<rect width="${w}" height="${h}" rx="3" fill="var(--track)"/>` : '';
+  const today = S.qw ? `<line x1="${tx}" x2="${tx}" y1="0" y2="${h}" stroke="var(--t-2)" stroke-dasharray="2 2"/>` : '';
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Effort flow, day ${T} of ${SPRINT.days}">${track}${paths}${today}</svg>`;
+}
+function ribbonHtml() {
+  const t = TOT[T], total = sumPts(t);
+  const added = ITEMS.filter((it) => it.added != null).reduce((s, it) => s + it.pts, 0);
+  const removed = ITEMS.filter((it) => it.removed != null).reduce((s, it) => s + it.pts, 0);
+  const stack = COLS.filter((c) => t[c].pts).map((c) => `<i style="flex:${t[c].pts};background:var(--c-${c})"></i>`).join('');
+  return `<span class="r-item">${icon('calendar')}<b>${SPRINT.name}</b></span><span class="rdiv"></span>
+    <span class="r-item">Day <b>${T}</b> of ${SPRINT.days}<span class="r-track"><i style="width:${(T / SPRINT.days * 100).toFixed(1)}%"></i></span>${SPRINT.days - T} days left</span><span class="rdiv"></span>
+    <span class="r-item"><span><b>${total}</b> pts</span><span class="stack8" data-tip="${COLS.map((c) => `${c} ${t[c].pts}`).join(' · ')}">${stack}</span></span>
+    <button class="fc-chip" data-tip="Committed ${START_PTS} · added +${added} · removed −${removed}">${icon('status-warning')}At risk · ${PROJECTED}% projected${icon('chevron-down')}</button><span class="rdiv"></span>
+    <span class="r-item">${ribbonChart(120, 28)}<button class="icon-btn" aria-label="Expand effort flow" data-tip="Expand effort flow">${icon('window-expand')}</button>${S.qw ? '<span class="qw-tag" data-tip="Quick win 1: track and today marker">QW1</span>' : ''}</span>
+    <span class="spacer"></span><span class="muted">Next: <b>${SPRINT.next}</b> · starts ${SPRINT.nextStarts}</span>`;
+}
+function attnHtml() {
+  const live = ITEMS.filter((it) => inSprint(it, T));
+  const chips = FACETS.filter((f) => !f.p || S.p.has(f.p)).map((f) => {
+    const n = live.filter((it) => flagsOf(it).has(f.key)).length;
+    const on = S.filter === f.key;
+    const pn = f.p ? `<span class="pnum" data-tip="New with proposal ${f.p}">${f.p}</span>` : '';
+    return `<button class="fchip" data-act="filter" data-v="${f.key}" aria-pressed="${on}" ${n === 0 && !on ? 'disabled' : ''}><span class="sev sev-${f.tone}"></span>${f.label}${pn}<span class="n">${n}</span></button>`;
+  }).join('');
+  const m = S.filter ? live.filter((it) => flagsOf(it).has(S.filter)).length : 0;
+  const status = S.filter ? `<span class="muted" style="margin-left:6px">${m} of ${live.length} items</span><button class="link-btn" data-act="clear-filter">Clear</button>` : '';
+  return `<span class="attn-label">${icon('flag')}Needs attention</span>${chips}${status}`;
+}
+
+/* ---------- Sprint replay (P5) ---------- */
+const pct = (d) => `${(d / SPRINT.days * 100).toFixed(3)}%`;
+function replayHtml() {
+  const W = 150, H = 40, order = ['Done', 'Review', 'Active', 'New', 'Blocked'];
+  const max = Math.max(...TOT.map(sumPts)) * 1.08;
+  const x = (k) => (k * W / SPRINT.days).toFixed(2), y = (v) => (H - v / max * H).toFixed(2);
+  let lower = TOT.map(() => 0), paths = '';
+  for (const c of order) {
+    const upper = lower.map((v, k) => v + TOT[k][c].pts);
+    paths += `<path d="M${upper.map((v, k) => `${x(k)},${y(v)}`).join(' L')} L${lower.map((v, k) => `${x(k)},${y(v)}`).reverse().join(' L')} Z" fill="var(--c-${c})" fill-opacity=".8"/>`;
+    lower = upper;
+  }
+  const proj = `<line x1="${x(T)}" y1="${y(TOT[T].Done.pts)}" x2="${W}" y2="${y(PROJECTED / 100 * sumPts(TOT[T]))}" stroke="var(--c-Done)" stroke-width="1.5" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>`;
+  const svg = `<svg class="rp-cfd" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><rect width="${W}" height="${H}" fill="var(--track)" opacity=".6"/>${paths}${proj}</svg>`;
+  const ticks = [[0, `Start · ${dayDate(0)}`, 'translateX(0)'], [5, dayDate(5)], [T, `${dayDate(T)} · today`, '', 'today'], [SPRINT.days, `${dayDate(SPRINT.days)} · end`, 'translateX(-100%)', 'fut']]
+    .map(([d, t, tf, cls]) => `<span class="${cls || ''}" style="left:${pct(d)}${tf ? `;transform:${tf}` : ''}">${t}</span>`).join('');
+  return `<div class="rp-ctl"><button class="btn" data-act="play" id="rp-play"></button>
+      <button class="icon-btn" data-act="step" data-v="-1" aria-label="Previous day" data-tip="Previous day">${icon('chevron-left')}</button>
+      <button class="icon-btn" data-act="step" data-v="1" aria-label="Next day" data-tip="Next day">${icon('chevron-right')}</button></div>
+    <div class="rp-track">${svg}<div class="rp-after" id="rp-after"></div><div class="rp-future" style="left:${pct(T)}"><span>Projected ${PROJECTED}% done</span></div><div class="rp-head" id="rp-head"></div>
+      <input type="range" class="rp-range" id="rp-range" min="0" max="${T}" step="1" aria-label="Sprint day" style="width:calc(${pct(T)} + 14px)">
+      <div class="rp-ticks" aria-hidden="true">${ticks}</div></div>
+    <div class="rp-day" aria-live="polite"><b id="rp-day-b"></b><span id="rp-day-s"></span></div>`;
+}
+function updateReplay() {
+  if (!S.p.has(5) || !$('#rp-head')) return;
+  $('#rp-head').style.left = pct(S.day);
+  Object.assign($('#rp-after').style, { left: pct(S.day), width: pct(T - S.day) });
+  const r = $('#rp-range');
+  if (+r.value !== S.day) r.value = S.day;
+  r.setAttribute('aria-valuetext', `Day ${S.day}, ${wk(S.day)} ${dayDate(S.day)}`);
+  $('#rp-day-b').textContent = S.day === 0 ? 'Sprint start' : `Day ${S.day} of ${SPRINT.days}`;
+  $('#rp-day-s').textContent = `${wk(S.day)} ${dayDate(S.day)}${S.day === T ? ' · today' : ''}`;
+  $('#rp-play').innerHTML = S.playing ? `${icon('pause')}Pause` : `${icon('play')}Play`;
+}
+function pastHtml() {
+  const when = S.day === 0 ? `<b>sprint start</b> · ${wk(0)} ${dayDate(0)}` : `end of <b>Day ${S.day}</b> · ${wk(S.day)} ${dayDate(S.day)}`;
+  return `${icon('history')}<span>Viewing ${when}. Cards show where each item stood; live PR and next-step details are hidden.</span><span class="spacer"></span><button class="btn" data-act="today">Back to today</button>`;
+}
+function go(d) {
+  d = Math.max(0, Math.min(T, d));
+  if (d === S.day) { updateReplay(); return; }
+  S.day = d;
+  renderDynamic(true);
+  updateReplay();
+}
+function play() {
+  if (S.day >= T) go(0);
+  S.playing = true;
+  updateReplay();
+  S.timer = setInterval(() => { if (S.day >= T) stop(); else go(S.day + 1); }, 1000);
+}
+function stop() {
+  clearInterval(S.timer);
+  S.timer = null;
+  if (S.playing) { S.playing = false; updateReplay(); }
+}
+function captureRects() {
+  const m = new Map();
+  document.querySelectorAll('#board .card[data-id]').forEach((el) => m.set(el.dataset.id, el.getBoundingClientRect()));
+  return m;
+}
+function flip(prev) {
+  if (reduceMotion.matches) return;
+  document.querySelectorAll('#board .card[data-id]').forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > innerHeight) return;
+    const p = prev.get(el.dataset.id);
+    if (!p) { el.animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 360, easing: 'ease-out' }); return; }
+    const dx = p.left - r.left, dy = p.top - r.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    el.animate([{ transform: `translate(${dx}px, ${dy}px)`, zIndex: 3 }, { transform: 'none', zIndex: 3 }], { duration: 480, easing: 'cubic-bezier(.2,.7,.2,1)' });
+  });
+}
+
+/* ---------- Hover ghost (P2) ---------- */
+function clearGhost() { const l = $('#trail-layer'); if (l) l.innerHTML = ''; S.hoverCard = null; }
+function showGhost(card) {
+  const layer = $('#trail-layer');
+  if (!layer || !S.p.has(2)) return;
+  layer.innerHTML = '';
+  const it = BY_ID[card.dataset.id], d = S.day, col = statusAt(it, d), segs = segments(it, d);
+  let target, label;
+  if (segs[0].st !== col) {
+    target = segs[0].st;
+    label = it.added > 0 && segs[0].from === it.added ? `<b>Added here</b> · ${dayDate(it.added)}` : `<b>Started here</b> · ${dayDate(0)}`;
+  } else {
+    const ci = COLS.indexOf(col), others = segs.filter((s) => s.st !== col);
+    if (!others.length) return;
+    const s = others.reduce((a, b) => (Math.abs(COLS.indexOf(b.st) - ci) > Math.abs(COLS.indexOf(a.st) - ci) ? b : a));
+    target = s.st;
+    label = `<b>In ${s.st}</b> · ${dayDate(s.from)}–${dayDate(s.to)}`;
+  }
+  const br = $('#board').getBoundingClientRect(), cr = card.getBoundingClientRect();
+  const hr = document.querySelectorAll('#bhead .ch')[COLS.indexOf(target)].getBoundingClientRect();
+  const gw = Math.min(hr.width - 20, 210), gh = 28;
+  const gx = hr.left - br.left + (hr.width - gw) / 2, gy = cr.top - br.top + 4;
+  const ghostLeft = gx + gw <= cr.left - br.left;
+  const x1 = ghostLeft ? gx + gw : gx, y1 = gy + gh / 2;
+  const x2 = ghostLeft ? cr.left - br.left - 3 : cr.right - br.left + 3, y2 = cr.top - br.top + Math.min(cr.height / 2, 26);
+  const lift = Math.min(y1, y2) - 22, mx = (x1 + x2) / 2;
+  const c = `var(--c-${target})`;
+  layer.innerHTML = `<svg class="trail-svg" width="${br.width}" height="${br.height}" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 Z" fill="${c}"/></marker></defs><path d="M${x1},${y1} C${mx},${lift} ${mx},${lift} ${x2},${y2}" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ah)"/></svg>
+    <div class="ghost" style="--col:${c};left:${gx}px;top:${gy}px;width:${gw}px;height:${gh}px">${icon('history')}<span>${label}</span></div>`;
+}
+
+/* ---------- Tooltip (stands in for the StrataKit Tooltip) ---------- */
+const tip = Object.assign(document.createElement('div'), { className: 'tip', role: 'tooltip' });
+document.body.append(tip);
+function showTip(el) {
+  tip.textContent = el.dataset.tip;
+  tip.style.display = 'block';
+  const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+  const x = Math.max(8, Math.min(r.left + r.width / 2 - tw / 2, innerWidth - tw - 8));
+  const y = r.bottom + 6 + th > innerHeight - 8 ? r.top - th - 6 : r.bottom + 6;
+  Object.assign(tip.style, { left: `${x}px`, top: `${y}px` });
+}
+const hideTip = () => { tip.style.display = 'none'; };
+
+/* ---------- Render ---------- */
+const PRESETS = { today: { p: [], qw: false }, core: { p: [1, 2, 3, 4], qw: true }, all: { p: [1, 2, 3, 4, 5], qw: true } };
+function renderAll() {
+  document.documentElement.dataset.colorScheme = S.theme;
+  if (!S.p.has(5)) { stop(); S.day = T; }
+  const f = FACETS.find((x) => x.key === S.filter);
+  if (!S.p.has(1) || (f && f.p && !S.p.has(f.p))) S.filter = null;
+  $('#app').classList.toggle('p1', S.p.has(1));
+  document.querySelectorAll('[data-act="toggle-p"]').forEach((b) => b.setAttribute('aria-pressed', S.p.has(+b.dataset.v)));
+  document.querySelectorAll('[data-act="preset"]').forEach((b) => {
+    const p = PRESETS[b.dataset.v];
+    b.setAttribute('aria-pressed', p.qw === S.qw && p.p.length === S.p.size && p.p.every((n) => S.p.has(n)));
+  });
+  $('#qw-btn').setAttribute('aria-pressed', S.qw);
+  document.querySelectorAll('[data-act="density"]').forEach((b) => { b.setAttribute('aria-pressed', (b.dataset.v === 'compact') === S.compact); b.disabled = !S.p.has(1); });
+  document.querySelectorAll('[data-act="theme"]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === S.theme));
+  $('#dep-note').textContent = S.p.has(1) ? '2–5 build on 1: turning one on also turns on 1; turning 1 off resets the rest.' : 'Density applies to the new board (1). Today’s Sprint view has no density setting.';
+  $('#toolbar').innerHTML = toolbarHtml();
+  $('#ribbon').innerHTML = ribbonHtml();
+  const rp = $('#replay');
+  rp.hidden = !S.p.has(5);
+  rp.innerHTML = S.p.has(5) ? replayHtml() : '';
+  renderDynamic(false);
+  updateReplay();
+}
+function renderDynamic(animate = false) {
+  const prev = animate ? captureRects() : null;
+  const past = S.p.has(5) && S.day < T;
+  hideTip();
+  const pb = $('#pastbar');
+  pb.hidden = !past;
+  pb.innerHTML = past ? pastHtml() : '';
+  const at = $('#attn');
+  at.hidden = !S.p.has(1) || past;
+  at.innerHTML = at.hidden ? '' : attnHtml();
+  const sc = $('#scroller'), top = sc.scrollTop, left = sc.scrollLeft;
+  const board = $('#board');
+  S.hoverCard = null;
+  board.className = `board ${S.p.has(1) ? 'ob' : 'lg'}`;
+  board.innerHTML = S.p.has(1) ? obBoard(S.day) : legacyBoard();
+  board.style.setProperty('--bh', `${$('#bhead').offsetHeight}px`);
+  sc.scrollTop = top;
+  sc.scrollLeft = left;
+  if (prev) flip(prev);
+}
+
+/* ---------- Events ---------- */
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled) return;
+  const v = b.dataset.v;
+  switch (b.dataset.act) {
+    case 'preset': stop(); S.p = new Set(PRESETS[v].p); S.qw = PRESETS[v].qw; S.day = T; renderAll(); break;
+    case 'toggle-p': {
+      const n = +v;
+      stop();
+      if (S.p.has(n)) { if (n === 1) S.p.clear(); else S.p.delete(n); } else { S.p.add(n); S.p.add(1); }
+      renderAll();
+      break;
+    }
+    case 'qw': S.qw = !S.qw; renderAll(); break;
+    case 'density': S.compact = v === 'compact'; renderAll(); break;
+    case 'theme': S.theme = v; renderAll(); break;
+    case 'filter': S.filter = S.filter === v ? null : v; renderDynamic(); break;
+    case 'clear-filter': S.filter = null; renderDynamic(); break;
+    case 'lane': if (S.collapsed.has(v)) S.collapsed.delete(v); else S.collapsed.add(v); renderDynamic(); break;
+    case 'collapse-all': laneData(S.day).forEach((l) => S.collapsed.add(l.key)); renderDynamic(); break;
+    case 'expand-all': S.collapsed.clear(); renderDynamic(); break;
+    case 'play': if (S.playing) stop(); else play(); break;
+    case 'step': stop(); go(S.day + +v); break;
+    case 'today': stop(); go(T); break;
+    case 'replay-start': stop(); go(0); play(); break;
+  }
+});
+document.addEventListener('input', (e) => { if (e.target.id === 'rp-range') { stop(); go(+e.target.value); } });
+document.addEventListener('mouseover', (e) => { const el = e.target.closest('[data-tip]'); if (el) showTip(el); else hideTip(); });
+document.addEventListener('focusin', (e) => { const el = e.target.closest('[data-tip]'); if (el) showTip(el); else hideTip(); });
+document.addEventListener('scroll', hideTip, true);
+const boardEl = $('#board');
+const onEnter = (e) => {
+  const card = e.target.closest('.card[data-live]');
+  if (!card || card === S.hoverCard) return;
+  S.hoverCard = card;
+  showGhost(card);
+};
+const onLeave = (e) => {
+  const card = e.target.closest('.card[data-live]');
+  if (card && !card.contains(e.relatedTarget)) clearGhost();
+};
+boardEl.addEventListener('mouseover', onEnter);
+boardEl.addEventListener('mouseout', onLeave);
+boardEl.addEventListener('focusin', onEnter);
+boardEl.addEventListener('focusout', onLeave);
+$('#scroller').addEventListener('scroll', clearGhost);
+
+renderAll();
+</script>
+</body>
+</html>
