@@ -446,7 +446,7 @@ test('QA selectors have purpose and column context in accessible names', () => {
   assert.deepEqual(stateSelects.map((select) => select.props['aria-label']), [
     'Ready for QA column states',
     'Recently completed column states',
-    'Needs follow-up column states',
+    'Back in development column states',
     'Newly added column states',
   ])
 })

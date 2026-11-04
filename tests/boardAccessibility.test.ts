@@ -57,16 +57,15 @@ test('QA cards can expand beyond their columns without creating nested scroll co
     const getStyles = (element: Element) => styles.filter((css) =>
       [...element.classList].some((className) => css.includes(`.${className}{`)),
     ).join('')
-    const column = document.querySelector('article[aria-labelledby]')
+    const column = document.querySelector('section[data-qa-column="new"]')
     assert.ok(column)
-    assert.ok(getStyles(column).includes('overflow:visible;'))
+    assert.doesNotMatch(getStyles(column), /overflow(?:-[xy])?:(?:auto|scroll|hidden|clip);/)
     const body = column.lastElementChild
     assert.ok(body)
     assert.doesNotMatch(getStyles(body), /overflow(?:-[xy])?:(?:auto|scroll|hidden|clip);/)
-    const main = document.querySelector('main')
-    assert.ok(main)
-    assert.match(getStyles(main), /overflow-y:auto;/)
-    assert.match(getStyles(main), /padding-(?:left|right):max\([^;]*2\.5%\);/)
+    const scrollContainer = document.querySelector('[data-qa-scroll-container]')
+    assert.ok(scrollContainer)
+    assert.match(getStyles(scrollContainer), /overflow:auto;/)
   } finally {
     dom.window.close()
   }
@@ -680,7 +679,7 @@ test('a replayed sprint lens shows each card where it stood that day, without Ne
   }
 })
 
-test('QA columns are named articles with subordinate headings', () => {
+test('QA columns are named sections with subordinate headings', () => {
   const html = render(createElement(QualityAssuranceList, {
     isLoading: false,
     error: null,
@@ -692,6 +691,6 @@ test('QA columns are named articles with subordinate headings', () => {
     }],
   }))
 
-  assert.match(html, /<article[^>]*aria-labelledby="qa-column-new"/)
+  assert.match(html, /<section[^>]*aria-labelledby="qa-column-new"[^>]*data-qa-column="new"/)
   assert.match(html, /<h2[^>]*id="qa-column-new"[^>]*>Newly added<\/h2>/)
 })

@@ -237,6 +237,7 @@ function filterQa(quickFilterInput: string, items: WorkItemSummary[]): WorkItemS
   function Board() {
     const result = useQualityAssurancePageModel({
       buckets: [{ id: 'needs-testing', title: 'Ready for QA', items }],
+      boardItems: [],
       qaOptions: parseStoredQaOptions(null),
     })
     if (result.quickFilterInput !== quickFilterInput) {

@@ -8,7 +8,8 @@ import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmpt
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { QaOptions } from '../utils/qaOptions'
-import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
+import type { ProjectWorkItemState, TeamIterationOption, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import type { WorkItemUpdate } from '../../../ado/types'
 
 type QualityAssurancePageProps = {
   patConfigured: boolean
@@ -22,6 +23,12 @@ type QualityAssurancePageProps = {
   onQuickFilterClear: () => void
   quickFilterInputRef: RefObject<HTMLInputElement | null>
   buckets: QualityAssuranceBucket[]
+  updatesByItemId: Record<number, WorkItemUpdate[]>
+  boardItems: WorkItemSummary[]
+  currentIterationName: string | null
+  teamMembers: TeamMember[]
+  compactCards: boolean
+  lookbackDays: number
   onRefresh: () => void
   isLoading: boolean
   newItemsError: string | null
@@ -53,6 +60,12 @@ export function QualityAssurancePage({
   onQuickFilterClear,
   quickFilterInputRef,
   buckets,
+  updatesByItemId,
+  boardItems,
+  currentIterationName,
+  teamMembers,
+  compactCards,
+  lookbackDays,
   onRefresh,
   isLoading,
   newItemsError,
@@ -72,7 +85,21 @@ export function QualityAssurancePage({
   teamIterationsError,
 }: QualityAssurancePageProps) {
   const [optionsOpen, setOptionsOpen] = useState(false)
+  const [view, setView] = useState<'flow' | 'testers'>('flow')
+  const [standupActive, setStandupActive] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
+  const handleTeamChange = (teamId: string) => {
+    setStandupActive(false)
+    onTeamChange(teamId)
+  }
+  const handleViewChange = (nextView: 'flow' | 'testers') => {
+    if (nextView !== 'testers') setStandupActive(false)
+    setView(nextView)
+  }
+  const startStandup = () => {
+    setView('testers')
+    setStandupActive(true)
+  }
   const recoveryWarning = qaOptionsUnreadable
     ? `Saved QA options for this team could not be read. Defaults are in use: all work item types, a 21-day lookback, no sprint restrictions or hidden-tag filters, and default state/tag classification. The stored data has been kept. Back up this team’s “standup:qa-options:${selectedTeamId}” entry in browser local storage, then import a backup via Settings > Teams, edit QA Options and close to save, or choose Use default QA options to reset. Closing without changes keeps the unreadable data.`
 
@@ -84,7 +111,7 @@ export function QualityAssurancePage({
         patConfigured={patConfigured}
         teamOptions={teamOptions}
         selectedTeamId={selectedTeamId}
-        onTeamChange={onTeamChange}
+        onTeamChange={handleTeamChange}
         teamManagementUrl={teamManagementUrl}
         quickFilterInput={quickFilterInput}
         onQuickFilterInputChange={onQuickFilterInputChange}
@@ -93,6 +120,10 @@ export function QualityAssurancePage({
         onRefresh={onRefresh}
         onOpenOptions={() => setOptionsOpen(true)}
         isLoading={isLoading}
+        view={view}
+        onViewChange={handleViewChange}
+        onStartStandup={startStandup}
+        standupActive={standupActive}
       />
 
       {recoveryWarning ? <Alert severity="warning" role="alert">{recoveryWarning}</Alert> : null}
@@ -115,8 +146,19 @@ export function QualityAssurancePage({
           error={newItemsError}
           historyWarning={historyWarning}
           buckets={buckets}
+          updatesByItemId={updatesByItemId}
+          boardItems={boardItems}
+          currentIterationName={currentIterationName}
+          teamMembers={teamMembers}
+          compactCards={compactCards}
+          lookbackDays={lookbackDays}
+          options={qaOptions}
+          teamIterations={teamIterations}
           colorScheme={colorScheme}
           cardHighlightOptions={cardHighlightOptions}
+          view={view}
+          standupActive={standupActive}
+          onStandupEnd={() => setStandupActive(false)}
         />
       )}
 
@@ -136,6 +178,7 @@ export function QualityAssurancePage({
           retryProjectWorkItemStates={retryProjectWorkItemStates}
           teamIterations={teamIterations}
           teamIterationsLoading={teamIterationsLoading}
+          teamMembers={teamMembers}
         />
       ) : null}
     </>

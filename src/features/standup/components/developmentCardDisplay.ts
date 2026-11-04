@@ -451,6 +451,7 @@ export type DevelopmentCardModelInput = {
   currentIterationName: string | null
   rowMember: IdentityRef | null
   showRolloverIndicator: boolean
+  expectedStateNames?: readonly string[]
   /** The card's sprint journey; when set, its caption replaces the aging dots. */
   journey?: SprintJourney
   /**
@@ -492,6 +493,7 @@ export function getDevelopmentCardModel({
   currentIterationName,
   rowMember,
   showRolloverIndicator,
+  expectedStateNames,
   journey,
   asOf,
 }: DevelopmentCardModelInput): DevelopmentCardModel {
@@ -520,7 +522,11 @@ export function getDevelopmentCardModel({
     // Done cards are expected to sit still, so only they fade; in-flight cards show aging dots instead.
     isFaded: !historical && highlightState === 'stale' && item.status === 'Done',
     showEffort: !pullRequestOnly && typeof item.effort === 'number',
-    showStateBadge: !historical && !pullRequestOnly && !isDefaultColumnState(item.status, item.state) && !cardStep?.coversState,
+    showStateBadge: !historical
+      && !pullRequestOnly
+      && !expectedStateNames?.some((state) => normalizeStateName(state) === normalizeStateName(item.state))
+      && !isDefaultColumnState(item.status, item.state)
+      && !cardStep?.coversState,
     showSprint: !historical && !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName),
     showRollover: !historical && !pullRequestOnly && showRolloverIndicator,
     changeBadgeText: isNew ? getChangeBadgeText(changeDetail, now) : null,

@@ -1,20 +1,20 @@
 import type { Theme } from '@mui/material/styles'
 import type { QualityAssuranceBucketId } from './qualityAssuranceBuckets'
 
-type QaAccentPaletteKey = 'info' | 'warning' | 'error' | 'success'
+type QaAccentPaletteKey = 'info' | 'warning' | 'primary' | 'success'
 
 const BUCKET_ACCENT: Record<QualityAssuranceBucketId, QaAccentPaletteKey> = {
   new: 'info',
   'needs-testing': 'warning',
-  'needs-development': 'error',
+  'needs-development': 'primary',
   done: 'success',
   'history-unavailable': 'warning',
 }
 
 export const QUALITY_ASSURANCE_BUCKET_ORDER: readonly QualityAssuranceBucketId[] = [
   'new',
-  'needs-development',
   'needs-testing',
+  'needs-development',
   'done',
 ]
 

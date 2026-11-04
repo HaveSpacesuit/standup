@@ -159,6 +159,7 @@ export type WorkItemUpdateRelation = {
 
 export type WorkItemUpdate = {
   revisedDate?: string
+  revisedBy?: IdentityRef
   fields?: Record<string, WorkItemFieldUpdate>
   relations?: {
     added?: WorkItemUpdateRelation[]

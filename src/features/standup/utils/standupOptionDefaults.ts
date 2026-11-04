@@ -7,6 +7,7 @@ export function createDefaultQaOptions(): QaOptions {
   return {
     generalFilters: [],
     includeWorkItemTypes: [],
+    testers: [],
     lookbackDays: DEFAULT_QA_LOOKBACK_DAYS,
     sprintFilter: { ...EMPTY_SPRINT_FILTER },
     stateGroups: null,
