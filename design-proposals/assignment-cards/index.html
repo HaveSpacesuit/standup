@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="en" data-color-scheme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assignments card proposals — interactive demo</title>
+<style>
+@font-face { font-family: "InterVariable"; src: url("https://rsms.me/inter/font-files/InterVariable.woff2?v=4.1") format("woff2"); font-weight: 100 900; font-display: swap; }
+:root{--stratakit-space-50:2px;--stratakit-space-100:4px;--stratakit-space-150:6px;--stratakit-space-200:8px;--stratakit-space-300:12px;--stratakit-space-400:16px;--stratakit-radius-sm:4px;--stratakit-radius-md:8px;--stratakit-radius-round:9999px;--stratakit-color-bg-mono-base:oklch(55.22% .018 253.99);--stratakit-color-bg-mono-muted:oklch(87.77% .005 247.88);--stratakit-color-bg-mono-transparent:oklch(55.22% .018 253.99/.16);--stratakit-color-bg-accent-base:var(--_stratakit-accent-500,oklch(54% .1 170.26));--stratakit-color-bg-accent-muted:var(--_stratakit-accent-50,oklch(89.34% .027 178.99));--stratakit-color-bg-info-base:oklch(55.68% .187 255.82);--stratakit-color-bg-info-muted:oklch(89.45% .042 250.5);--stratakit-color-bg-info-transparent:oklch(55.68% .187 255.82/.16);--stratakit-color-bg-positive-base:oklch(53.64% .173 140.57);--stratakit-color-bg-positive-muted:oklch(89.17% .046 138.13);--stratakit-color-bg-positive-transparent:oklch(53.64% .173 140.57/.16);--stratakit-color-bg-attention-base:oklch(55.63% .116 75.58);--stratakit-color-bg-attention-muted:oklch(89.65% .049 84.55);--stratakit-color-bg-attention-transparent:oklch(56.98% .174 41.22/.16);--stratakit-color-bg-critical-base:oklch(58.02% .221 19.39);--stratakit-color-bg-critical-muted:oklch(90.3% .042 5.14);--stratakit-color-bg-critical-transparent:oklch(58.02% .221 19.39/.16);--stratakit-color-bg-page-depth:oklch(97.87% .002 247.84);--stratakit-color-bg-page-base:oklch(99.06% .002 247.84);--stratakit-color-bg-elevation-base:oklch(99.65% .002 247.84);--stratakit-color-bg-elevation-emphasis:oklch(18.15% .003 247.97);--stratakit-color-bg-elevation-level-1:oklch(100% none none);--stratakit-color-bg-elevation-overlay:oklch(100% none none/.8);--stratakit-color-bg-elevation-level-2:oklch(100% none none);--stratakit-color-bg-neutral-base:oklch(100% none none);--stratakit-color-bg-neutral-inverse:oklch(100% none none);--stratakit-color-bg-glow-base-hover-\%:4.0%;--stratakit-color-bg-glow-base-pressed-\%:8.0%;--stratakit-color-bg-glow-on-surface-accent-hover:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 12%);--stratakit-color-bg-glow-on-surface-accent-pressed:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 16%);--stratakit-color-bg-glow-on-surface-neutral-hover:oklch(0% none none/.04);--stratakit-color-bg-glow-on-surface-neutral-pressed:oklch(0% none none/.08);--stratakit-color-bg-glow-on-surface-critical-pressed:oklch(58.02% .221 19.39/.16);--stratakit-color-bg-glow-on-surface-critical-hover:oklch(58.02% .221 19.39/.12);--stratakit-color-bg-glow-on-surface-disabled:oklch(0% none none/.04);--stratakit-color-bg-glow-on-surface-accent-active-hover:oklch(from var(--_stratakit-accent-500,oklch(54% .1 170.26)) l c h / 24%);--stratakit-color-bg-glow-on-surface-neutral-active-hover:oklch(0% none none/.12);--stratakit-color-bg-glow-strong-pressed-\%:16.0%;--stratakit-color-bg-glow-strong-hover-\%:8.0%;--stratakit-color-bg-control-textbox:oklch(100% none none);--stratakit-color-bg-control-table-zebra:oklch(0% none none/.02);--stratakit-color-bg-control-scrollbar-surface:oklch(0% none none/.48);--stratakit-color-bg-control-switch:oklch(94.86% .002 247.84);--stratakit-color-icon-neutral-primary:oklch(26.92% .008 268.32);--stratakit-color-icon-neutral-base:oklch(41.45% .013 256.75);--stratakit-color-icon-neutral-secondary:oklch(55.22% .018 253.99);--stratakit-color-icon-neutral-disabled:oklch(62.09% .017 257.22);--stratakit-color-icon-neutral-emphasis:oklch(100% none none);--stratakit-color-icon-accent-base:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-icon-accent-strong:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-icon-info-base:oklch(48.74% .162 255.58);--stratakit-color-icon-positive-base:oklch(46.81% .151 140.37);--stratakit-color-icon-attention-base:oklch(48.69% .101 75.71);--stratakit-color-icon-critical-base:oklch(50.74% .193 19.05);--stratakit-color-icon-mono-base:oklch(48.26% .017 254.7);--stratakit-color-border-mono-base:oklch(55.22% .018 253.99);--stratakit-color-border-mono-muted:oklch(79.56% .008 241.69);--stratakit-color-border-accent-base:var(--_stratakit-accent-500,oklch(54% .1 170.26));--stratakit-color-border-accent-muted:var(--_stratakit-accent-100,oklch(82.26% .045 176.56));--stratakit-color-border-accent-strong:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-border-info-base:oklch(55.68% .187 255.82);--stratakit-color-border-info-muted:oklch(82.51% .071 249.98);--stratakit-color-border-positive-base:oklch(53.64% .173 140.57);--stratakit-color-border-positive-muted:oklch(82.11% .078 138.1);--stratakit-color-border-attention-base:oklch(55.63% .116 75.58);--stratakit-color-border-attention-muted:oklch(82.78% .08 84.58);--stratakit-color-border-critical-base:oklch(58.02% .221 19.39);--stratakit-color-border-critical-muted:oklch(83.74% .075 6.15);--stratakit-color-border-glow-base-hover-\%:8.0%;--stratakit-color-border-glow-base-pressed-\%:12.0%;--stratakit-color-border-glow-base-default:oklch(0% none none/.08);--stratakit-color-border-glow-on-surface-faded:oklch(0% none none/.04);--stratakit-color-border-glow-on-surface-disabled:oklch(0% none none/.08);--stratakit-color-border-glow-strong-hover-\%:8.0%;--stratakit-color-border-glow-strong-pressed-\%:16.0%;--stratakit-color-border-glow-strong-default:oklch(0% none none/.12);--stratakit-color-border-neutral-base:oklch(62.09% .017 257.22);--stratakit-color-border-neutral-muted:oklch(75.82% .01 252.83);--stratakit-color-border-neutral-inverse:oklch(14.4% .003 247.09);--stratakit-color-border-neutral-disabled:oklch(91.52% .005 258.33);--stratakit-color-border-elevation-base:oklch(100% none none/.48);--stratakit-color-border-page-base:oklch(0% none none/.48);--stratakit-color-text-mono-base:oklch(48.26% .017 254.7);--stratakit-color-text-accent-base:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-text-accent-strong:var(--_stratakit-accent-600,oklch(47.28% .087 169.96));--stratakit-color-text-info-base:oklch(48.74% .162 255.58);--stratakit-color-text-positive-base:oklch(46.81% .151 140.37);--stratakit-color-text-attention-base:oklch(48.69% .101 75.71);--stratakit-color-text-critical-base:oklch(50.74% .193 19.05);--stratakit-color-text-neutral-emphasis:oklch(100% none none);--stratakit-color-text-neutral-primary:oklch(29.76% .011 268.32);--stratakit-color-text-neutral-secondary:oklch(41.45% .013 256.75);--stratakit-color-text-neutral-tertiary:oklch(55.22% .018 253.99);--stratakit-color-text-neutral-disabled:oklch(62.09% .017 257.22);--stratakit-color-text-neutral-placeholder:oklch(62.09% .017 257.22);--stratakit-color-static-black:oklch(0% none none);--stratakit-color-static-white:oklch(100% none none);--stratakit-color-static-accent:var(--_stratakit-accent-500,oklch(54% .1 170.26));--stratakit-color-glow-hue:oklch(0% none none);--stratakit-color-brand-logo-fill:oklch(41.45% .013 256.75);--stratakit-color-brand-logo-stroke:oklch(24.37% .006 268.32)}
+:root {
+  --stratakit-font-family-sans: "InterVariable", "Noto Sans", "Open Sans", sans-serif;
+  --c-Blocked: var(--stratakit-color-bg-critical-base);
+  --c-New: var(--stratakit-color-bg-info-base);
+  --c-Active: var(--stratakit-color-bg-accent-base);
+  --c-Review: var(--stratakit-color-bg-attention-base);
+  --c-Done: var(--stratakit-color-bg-positive-base);
+  --t-1: var(--stratakit-color-text-neutral-primary);
+  --t-2: var(--stratakit-color-text-neutral-secondary);
+  --t-3: var(--stratakit-color-text-neutral-tertiary);
+  --t-critical: var(--stratakit-color-text-critical-base);
+  --t-attention: var(--stratakit-color-text-attention-base);
+  --t-positive: var(--stratakit-color-text-positive-base);
+  --t-info: var(--stratakit-color-text-info-base);
+  --surface: var(--stratakit-color-bg-elevation-level-1);
+  --divider: var(--stratakit-color-border-glow-strong-default);
+  --track: var(--stratakit-color-bg-glow-on-surface-neutral-pressed);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--stratakit-font-family-sans); font-size: 14px; color: var(--t-1); background: var(--stratakit-color-bg-page-base); -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.sk-icon { width: 16px; height: 16px; flex: 0 0 auto; display: inline-block; vertical-align: text-bottom; }
+.spacer { flex: 1 1 auto; }
+[hidden] { display: none !important; }
+
+/* ---------- Page chrome ---------- */
+.page-head { padding: 16px 20px 8px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.page-head h1 { font-size: var(--stratakit-font-size-headline-md); margin: 0; font-weight: 600; }
+.page-head p { margin: 0; color: var(--t-2); font-size: 13px; }
+.controls { padding: 4px 20px 10px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; border-bottom: 1px solid var(--divider); }
+.tabs { display: inline-flex; gap: 2px; border-bottom: 1px solid var(--divider); }
+.tab { appearance: none; border: 0; background: none; font: inherit; font-size: 13px; padding: 6px 10px; color: var(--t-2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--t-1); font-weight: 600; border-bottom-color: var(--stratakit-color-border-accent-strong); }
+.group-label { font-size: 11px; color: var(--t-3); text-transform: uppercase; letter-spacing: .04em; }
+.toggles { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tbtn { appearance: none; font: inherit; font-size: 12px; height: 28px; padding: 0 10px; border-radius: var(--stratakit-radius-sm); border: 1px solid var(--stratakit-color-border-neutral-muted); background: var(--surface); color: var(--t-1); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.tbtn:hover { background: color-mix(in srgb, var(--surface), black 4%); }
+.tbtn[aria-pressed="true"] { background: var(--stratakit-color-bg-accent-muted); border-color: var(--stratakit-color-border-accent-strong); color: var(--stratakit-color-text-accent-strong); font-weight: 600; }
+.tbtn .num { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: 10px; font-weight: 700; background: var(--track); }
+.tbtn[aria-pressed="true"] .num { background: var(--stratakit-color-bg-accent-base); color: white; }
+.tbtn.preset { border-style: dashed; }
+
+.rationale { padding: 10px 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; border-bottom: 1px solid var(--divider); background: var(--stratakit-color-bg-page-depth); }
+.rcard { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--stratakit-radius-md); padding: 10px 12px; font-size: 12px; line-height: 1.45; color: var(--t-2); }
+.rcard h3 { margin: 0 0 4px; font-size: 13px; color: var(--t-1); display: flex; gap: 6px; align-items: center; }
+.rcard h3 .num { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; background: var(--stratakit-color-bg-accent-base); color: white; }
+.rcard .tag { font-weight: 600; color: var(--t-1); }
+.rcard ul { margin: 2px 0 4px; padding-left: 16px; }
+.rcard li { margin: 1px 0; }
+.rcard .facts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 11px; }
+.rcard .facts span b { color: var(--t-1); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 11px; color: var(--t-2); margin-top: 6px; }
+.legend > span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- Board ---------- */
+.toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 20px; font-size: 13px; }
+.toolbar .title { font-weight: 700; font-size: 16px; display: inline-flex; gap: 6px; align-items: center; }
+.toolbar .sprint-chip { font-size: 12px; color: var(--t-2); border: 1px solid var(--stratakit-color-border-neutral-muted); border-radius: 999px; padding: 1px 8px; }
+.toolbar .note { color: var(--t-3); font-size: 12px; }
+.board-scroll { overflow: visible; border-top: 1px solid var(--divider); }
+.board { display: grid; grid-template-columns: 168px repeat(5, minmax(250px, 1fr)); min-width: 1460px; }
+.hcell { position: sticky; top: 0; z-index: 20; padding: 10px 12px; border-bottom: 1px solid var(--divider); display: flex; gap: 8px; align-items: stretch; }
+.hcell.member { left: 0; z-index: 21; background: var(--surface); border-right: 1px solid var(--divider); font-weight: 700; font-size: 12px; align-items: flex-start; }
+.hcell .bar { width: 4px; border-radius: 999px; min-height: 32px; }
+.hcell .h-name { font-weight: 700; font-size: 12px; }
+.hcell .h-sub { font-size: 11px; color: var(--t-2); }
+.hcell .h-count { margin-left: auto; font-weight: 700; font-size: 14px; }
+.rowhead { position: sticky; left: 0; z-index: 15; background: var(--surface); padding: 10px 12px; border-right: 1px solid var(--divider); border-bottom: 1px solid var(--divider); display: flex; gap: 8px; align-items: flex-start; font-size: 12px; }
+.rowhead .note { display: block; font-size: 10px; color: var(--t-3); margin-top: 2px; }
+.cell { padding: 6px; border-bottom: 1px solid var(--divider); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tint-Blocked { background: color-mix(in srgb, var(--c-Blocked) 14%, var(--surface)); }
+.tint-New { background: color-mix(in srgb, var(--c-New) 14%, var(--surface)); }
+.tint-Active { background: color-mix(in srgb, var(--c-Active) 14%, var(--surface)); }
+.tint-Review { background: color-mix(in srgb, var(--c-Review) 14%, var(--surface)); }
+.tint-Done { background: color-mix(in srgb, var(--c-Done) 14%, var(--surface)); }
+
+/* ---------- Avatars ---------- */
+.avatar { display: inline-grid; place-items: center; border-radius: 50%; width: 16px; height: 16px; font-size: 7px; font-weight: 700; color: oklch(32% .06 var(--h)); background: oklch(88% .07 var(--h)); flex: 0 0 auto; letter-spacing: 0; }
+.avatar.lg { width: 26px; height: 26px; font-size: 10px; }
+
+/* ---------- Card: shared ---------- */
+.card { position: relative; container-type: inline-size; border-radius: var(--stratakit-radius-sm); background: var(--surface); padding: 4px 6px; font-size: 12px; line-height: 1.25; transition: transform 160ms ease, box-shadow 160ms ease, opacity 120ms ease, filter 120ms ease; outline: none; }
+.card:focus-visible { outline: 2px solid var(--stratakit-color-border-accent-strong); outline-offset: 2px; }
+.col-Blocked { --accent: var(--c-Blocked); }
+.col-New { --accent: var(--c-New); }
+.col-Active { --accent: var(--c-Active); }
+.col-Review { --accent: var(--c-Review); }
+.col-Done { --accent: var(--c-Done); }
+.title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; word-break: break-word; color: var(--t-1); }
+.type-ic { width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 4px; }
+.type-ic.bug { color: var(--c-Blocked); }
+.type-ic.pbi { color: var(--c-New); }
+.wi-id { font-weight: 700; color: var(--accent); margin-right: 4px; }
+.sec { clear: both; margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--divider); display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+
+/* ---------- Card: current replica ---------- */
+.card.classic { border: 1px solid var(--accent); box-shadow: 0 2px 1px -1px rgb(0 0 0 / .2), 0 1px 1px 0 rgb(0 0 0 / .14), 0 1px 3px 0 rgb(0 0 0 / .12); }
+.card.classic:not(.expanded):hover, .card.classic:not(.expanded):focus-within { z-index: 30; transform: translateY(-2px) scale(1.05); box-shadow: 0 7px 8px -4px rgb(0 0 0 / .2), 0 12px 17px 2px rgb(0 0 0 / .14), 0 5px 22px 4px rgb(0 0 0 / .12); opacity: 1; filter: none; }
+.card.glow { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 72%, transparent), 0 0 14px color-mix(in srgb, var(--accent) 42%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.card.stale { opacity: .68; filter: saturate(.78); }
+.state-chip { float: right; margin: 0 0 1px 6px; padding: 0 6px; max-width: 130px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 10px; line-height: 1.5; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-line { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: break-word; color: var(--t-2); }
+.pr-only .pr-line { -webkit-line-clamp: 3; color: var(--t-1); }
+.pr-ic { width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 4px; color: var(--accent); }
+.pr-id { color: var(--accent); margin-right: 4px; }
+.appr-icons { float: right; display: inline-flex; gap: 1px; margin: 1px 0 0 4px; }
+.appr-icons.positive { color: var(--c-Done); }
+.appr-icons.attention { color: var(--c-Review); }
+.appr-icons.critical { color: var(--c-Blocked); }
+.checks-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; margin-top: 3px; }
+.checks-l { display: grid; gap: 1px; min-width: 0; }
+.ck { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.2; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ck.opt { padding-left: 20px; color: var(--t-1); }
+.critical-t { color: var(--t-critical); } .attention-t { color: var(--t-attention); } .positive-t { color: var(--t-positive); } .neutral-t { color: var(--t-3); }
+.age { font-size: 10px; color: var(--t-2); opacity: .85; white-space: nowrap; align-self: center; }
+.footer { clear: both; margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--divider); display: flex; align-items: center; gap: 4px; min-width: 0; }
+.footer .ef-l { font-size: 10px; color: var(--t-2); }
+.footer .ef-v { font-size: 11px; font-weight: 500; color: var(--accent); }
+.sprint { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; color: var(--t-2); opacity: .85; white-space: nowrap; }
+.sprint .sk-icon { width: 13px; height: 13px; color: var(--accent); }
+.tags { clear: both; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.tagpill { display: inline-flex; align-items: center; height: 16px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--divider); font-size: 9px; font-weight: 500; color: var(--t-2); background: var(--surface); white-space: nowrap; }
+
+/* ---------- Proposal 1: Quiet card ---------- */
+.card.quiet { border: 1px solid var(--divider); box-shadow: inset 3px 0 0 var(--accent), 0 1px 2px rgb(0 0 0 / .06); padding: 5px 7px 5px 10px; }
+.card.quiet:not(.expanded):hover, .card.quiet:not(.expanded):focus-within { z-index: 30; transform: translateY(-1px); box-shadow: inset 3px 0 0 var(--accent), 0 6px 16px rgb(0 0 0 / .14); opacity: 1; filter: none; }
+.card.quiet .title { -webkit-line-clamp: 2; }
+.card.quiet.expanded .title { -webkit-line-clamp: unset; }
+.card.expanded .title, .card.expanded .pr-line { display: block; }
+.card.quiet .wi-id { color: var(--t-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.card.quiet .type-ic { color: var(--stratakit-color-icon-neutral-secondary); }
+.card.quiet .pr-ic, .card.quiet .pr-id { color: var(--t-3); }
+.card.quiet .sec { border-top-color: var(--stratakit-color-border-glow-base-default); margin-top: 4px; padding-top: 4px; }
+.effort-bubble { float: right; margin: 0 0 1px 6px; min-width: 20px; height: 18px; padding: 0 5px; border-radius: 999px; border: 1px solid var(--stratakit-color-border-neutral-muted); color: var(--t-2); font-size: 11px; font-weight: 600; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.qpr { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: var(--t-2); }
+.qpr .qpr-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qpr .sk-icon { width: 14px; height: 14px; }
+.appr-txt { font-size: 11px; color: var(--t-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.appr-txt.positive { color: var(--t-positive); font-weight: 600; }
+.appr-txt.critical { color: var(--t-critical); font-weight: 600; }
+.appr-txt.attention { color: var(--t-attention); font-weight: 600; }
+.detail { font-size: 11px; line-height: 1.25; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.detail .sk-icon { width: 14px; height: 14px; }
+.detail span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta { clear: both; display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11px; color: var(--t-3); min-width: 0; min-height: 16px; }
+.meta .sprint { font-size: 10px; }
+.badge { display: inline-flex; align-items: center; gap: 3px; height: 16px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--stratakit-color-border-neutral-muted); color: var(--t-2); font-size: 10px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-width: 0; flex: 0 1 auto; }
+.badge .sk-icon { width: 12px; height: 12px; }
+.badge.critical { border-color: var(--stratakit-color-border-critical-muted); color: var(--t-critical); background: var(--stratakit-color-bg-critical-transparent); }
+.badge.attention { border-color: var(--stratakit-color-border-attention-muted); color: var(--t-attention); background: var(--stratakit-color-bg-attention-transparent); }
+.badge.positive { border-color: var(--stratakit-color-border-positive-muted); color: var(--t-positive); background: var(--stratakit-color-bg-positive-transparent); }
+.badge.info { border-color: var(--stratakit-color-border-info-muted); color: var(--t-info); background: var(--stratakit-color-bg-info-transparent); }
+
+/* ---------- Proposal 2: Next step & owner ---------- */
+.step { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.3; color: var(--t-2); min-width: 0; min-height: 18px; }
+.step .sk-icon { width: 14px; height: 14px; }
+.step .txt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step.critical { color: var(--t-critical); font-weight: 500; }
+.step.attention { color: var(--t-attention); font-weight: 500; }
+.step.positive { color: var(--t-positive); font-weight: 500; }
+.step.neutral { color: var(--t-2); }
+.card > .step { margin-top: 4px; clear: both; }
+.owner { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 999px; background: var(--stratakit-color-bg-glow-on-surface-neutral-pressed); color: var(--t-2); font-size: 10px; font-weight: 500; white-space: nowrap; }
+.owner.person { padding-left: 2px; background: var(--stratakit-color-bg-info-transparent); color: var(--t-info); }
+.owner.person .avatar { width: 14px; height: 14px; font-size: 6px; }
+
+/* ---------- Proposal 3: PR progress strip ---------- */
+.pr-row { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; color: var(--t-2); }
+.pr-row .pr-ic { margin-right: 0; }
+.pr-row .pr-id { margin-right: 0; }
+.repo { font-size: 10px; color: var(--t-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.strip { display: inline-flex; gap: 2px; flex: 0 0 auto; align-items: center; }
+.seg { position: relative; width: 26px; height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.seg > i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; }
+.seg.critical > i { background: var(--stratakit-color-bg-critical-base); }
+.seg.attention > i { background: var(--stratakit-color-bg-attention-base); }
+.seg.positive > i { background: var(--stratakit-color-bg-positive-base); }
+.seg.pending > i { background: repeating-linear-gradient(-45deg, var(--stratakit-color-bg-attention-base) 0 3px, color-mix(in srgb, var(--stratakit-color-bg-attention-base) 35%, transparent) 3px 6px); }
+.seg.ready { background: transparent; box-shadow: inset 0 0 0 1.5px var(--stratakit-color-bg-positive-base); }
+.compact .seg { width: 14px; height: 5px; }
+
+/* ---------- Proposal 4: Meaningful aging ---------- */
+.card.changed::before { content: ""; position: absolute; top: -4px; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--stratakit-color-bg-info-base); box-shadow: 0 0 0 2px var(--surface); z-index: 2; }
+.aging { display: inline-flex; gap: 2px; align-items: center; flex: 0 0 auto; }
+.aging i { width: 5px; height: 5px; border-radius: 50%; background: var(--track); }
+.aging i.on { background: var(--t-3); }
+.aging.attention i.on { background: var(--stratakit-color-bg-attention-base); }
+.aging.critical i.on { background: var(--stratakit-color-bg-critical-base); }
+
+/* ---------- Proposal 5: Compact + hover details ---------- */
+.card.compact .title { -webkit-line-clamp: 1; }
+.card.compact:not(.expanded):hover, .card.compact:not(.expanded):focus-within { transform: none; }
+.glyphs { clear: both; display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 10px; color: var(--t-3); min-height: 16px; min-width: 0; }
+.glyph { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.glyph .sk-icon { width: 13px; height: 13px; }
+.glyph.critical { color: var(--t-critical); } .glyph.attention { color: var(--t-attention); } .glyph.positive { color: var(--t-positive); } .glyph.neutral { color: var(--t-3); }
+.hovercard { display: none; position: absolute; top: -6px; left: calc(100% + 8px); width: 320px; z-index: 60; background: var(--surface); border-radius: var(--stratakit-radius-md); box-shadow: 0 10px 28px rgb(0 0 0 / .22), 0 0 0 1px var(--divider); padding: 8px; cursor: default; }
+.flip .hovercard { left: auto; right: calc(100% + 8px); }
+.card.compact:hover > .hovercard, .card.compact:focus-within > .hovercard { display: block; }
+.hovercard .card { box-shadow: none !important; border: 0 !important; padding: 0 !important; transform: none !important; }
+.hovercard .card.quiet { padding-left: 8px !important; box-shadow: inset 3px 0 0 var(--accent) !important; }
+.hc-extra { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--divider); display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 11px; color: var(--t-2); }
+.hc-extra dt { color: var(--t-3); }
+.hc-extra dd { margin: 0; display: flex; align-items: center; gap: 4px; min-width: 0; }
+
+/* ---------- Gallery ---------- */
+.gallery-scroll { overflow: visible; }
+.gallery { display: grid; grid-template-columns: 190px repeat(var(--cols), 294px); gap: 10px 12px; padding: 14px 20px 40px; align-items: start; }
+.g-colhead { position: sticky; top: 0; z-index: 25; background: var(--stratakit-color-bg-page-base); padding: 6px 0; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--divider); }
+.g-colhead small { display: block; font-weight: 400; color: var(--t-3); font-size: 11px; }
+.g-rowhead { font-size: 12px; color: var(--t-1); font-weight: 600; padding-top: 6px; }
+.g-rowhead small { display: block; font-weight: 400; color: var(--t-2); font-size: 11px; margin-top: 2px; line-height: 1.35; }
+.g-cell { padding: 6px; border-radius: var(--stratakit-radius-md); }
+.g-cell .colname { font-size: 10px; color: var(--t-3); margin: 0 0 4px 2px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="sk-git-branch" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M3.5 2A1.5 1.5 0 0 1 4 4.91V5a2.5 2.5 0 0 0 2.5 2.5h2A3.5 3.5 0 0 1 12 11v1.3l1.15-1.15a.5.5 0 0 1 .7.7l-2.35 2.36-2.35-2.36a.5.5 0 0 1 .7-.7L11 12.29V11a2.5 2.5 0 0 0-2.5-2.5h-2c-.98 0-1.86-.4-2.5-1.05v3.64a1.5 1.5 0 1 1-1 0V4.9A1.5 1.5 0 0 1 3.5 2Zm0 10a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm0-9a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z"/></symbol>
+<symbol id="sk-git-merge" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M2.15 11.65a.5.5 0 0 1 .7-.71L4 12.09V4.7a1.5 1.5 0 1 1 1 0v3.64a3.5 3.5 0 0 1 2.5-1.06h2A2.5 2.5 0 0 0 12 4.8v-.08a1.5 1.5 0 1 1 1 0v.08a3.5 3.5 0 0 1-3.5 3.5h-2A2.5 2.5 0 0 0 5 10.8v1.3l1.15-1.15a.5.5 0 0 1 .7.7L4.5 14l-2.35-2.35ZM12.5 3.79a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Zm-8 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z"/></symbol>
+<symbol id="sk-status-success" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7.25 1.855a1.5 1.5 0 0 1 1.5 0l4.196 2.423a1.5 1.5 0 0 1 .75 1.299v4.846a1.5 1.5 0 0 1-.75 1.298L8.75 14.144a1.5 1.5 0 0 1-1.5 0l-4.196-2.423a1.5 1.5 0 0 1-.75-1.298V5.577a1.5 1.5 0 0 1 .75-1.299L7.25 1.855Zm1 .866a.5.5 0 0 0-.5 0L3.554 5.144a.5.5 0 0 0-.25.433v4.846a.5.5 0 0 0 .25.432l4.196 2.423a.5.5 0 0 0 .5 0l4.196-2.423a.5.5 0 0 0 .25-.432V5.577a.5.5 0 0 0-.25-.433L8.25 2.721ZM9.85 5.7a.501.501 0 0 1 .8.6l-3 4a.502.502 0 0 1-.754.053l-1.5-1.5-.064-.078a.5.5 0 0 1 .693-.693l.079.064 1.091 1.092L9.85 5.7Z"/></symbol>
+<symbol id="sk-status-pending" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8.051 1.504a.502.502 0 0 1 .084.016l.023.005.004.002c.032.01.062.024.09.041l4.695 2.71a1.5 1.5 0 0 1 .75 1.299v4.846c0 .535-.287 1.03-.75 1.298l-4.692 2.707a.502.502 0 0 1-.093.043l-.024.007a.507.507 0 0 1-.064.015l-.033.003a.477.477 0 0 1-.147-.01c-.013-.003-.026-.005-.038-.009-.005-.001-.01-.001-.014-.003l-.026-.012a.507.507 0 0 1-.054-.025l-.012-.005-.496-.287a.5.5 0 0 1 .5-.865l.246.143 4.447-2.568a.5.5 0 0 0 .25-.432V5.577a.501.501 0 0 0-.25-.433L7.999 2.576l-.246.143a.5.5 0 1 1-.499-.866l.496-.286.022-.01a.5.5 0 0 1 .058-.027l.012-.005c.02-.006.04-.01.06-.014l.005-.002a.494.494 0 0 1 .06-.007L7.99 1.5h.021c.014 0 .027.002.041.004ZM4.74 11.967a.5.5 0 0 1 .603-.08l.62.359a.5.5 0 0 1-.5.865l-.62-.358a.5.5 0 0 1-.103-.786ZM2.673 9.945a.5.5 0 0 1 .631.478.5.5 0 0 0 .25.432.5.5 0 0 1-.5.866 1.5 1.5 0 0 1-.75-1.298c0-.224.154-.42.37-.478ZM8 4.5a.5.5 0 0 1 .5.5v2.717l1.007.604.532.318.16.097.044.025.01.007.003.002.001.001.082.06a.5.5 0 0 1-.505.84l-.09-.042h-.001v-.001l-.003-.002-.012-.006-.043-.026-.16-.097-.531-.319-1.25-.75A.5.5 0 0 1 7.5 8V5a.5.5 0 0 1 .5-.5ZM2.933 7.159a.5.5 0 0 1 .371.483v.715a.5.5 0 0 1-1 0v-.715a.5.5 0 0 1 .629-.483Zm.121-2.88a.492.492 0 0 1 .595.077l.008.008c.23.23.18.617-.103.78a.5.5 0 0 0-.25.433.5.5 0 0 1-1 0 1.5 1.5 0 0 1 .75-1.299Zm2.406-1.39a.5.5 0 0 1 .501.866l-.619.356a.5.5 0 1 1-.5-.866l.618-.357Z"/></symbol>
+<symbol id="sk-status-rejected" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7.25 1.855a1.5 1.5 0 0 1 1.5 0l4.196 2.423a1.5 1.5 0 0 1 .75 1.299v4.846a1.5 1.5 0 0 1-.75 1.298L8.75 14.144a1.5 1.5 0 0 1-1.5 0l-4.196-2.423a1.5 1.5 0 0 1-.75-1.298V5.577a1.5 1.5 0 0 1 .75-1.299L7.25 1.855Zm1 .866a.5.5 0 0 0-.5 0L3.554 5.144a.5.5 0 0 0-.25.433v4.846a.5.5 0 0 0 .25.432l4.196 2.423a.5.5 0 0 0 .5 0l4.196-2.423a.5.5 0 0 0 .25-.432V5.577a.5.5 0 0 0-.25-.433L8.25 2.721ZM6.146 6.146a.5.5 0 0 1 .63-.064l.078.064L8 7.293l1.146-1.147.08-.063a.5.5 0 0 1 .628.77L8.707 8l1.147 1.146.064.08a.5.5 0 0 1-.693.692l-.079-.065L8 8.707 6.854 9.853a.5.5 0 0 1-.708-.707L7.293 8 6.146 6.853l-.064-.078a.5.5 0 0 1 .064-.629Z"/></symbol>
+<symbol id="sk-error" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 1a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM8 10a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm0-5.5a.5.5 0 0 1 .5.5v3.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5Z"/></symbol>
+<symbol id="sk-stopwatch" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M9.5 1.5a.5.5 0 0 1 0 1h-1v1.023a5.5 5.5 0 1 1-1 0V2.5h-1a.5.5 0 0 1 0-1h3ZM8 4.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm1.646 2.146a.5.5 0 1 1 .707.708l-2 2a.5.5 0 1 1-.707-.708l2-2Z"/></symbol>
+<symbol id="sk-validate" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M6.586 2.207a2 2 0 0 1 2.828 0l.5.5a1 1 0 0 0 .707.293h.38a2 2 0 0 1 2 2v.379a1 1 0 0 0 .292.707l.5.5a2 2 0 0 1 0 2.828l-.5.5a1.001 1.001 0 0 0-.293.707V11a2 2 0 0 1-2 2h-.379a1 1 0 0 0-.707.293l-.5.5a2 2 0 0 1-2.828 0l-.5-.5A1 1 0 0 0 5.38 13H5a2 2 0 0 1-2-2v-.379a1 1 0 0 0-.293-.707l-.5-.5a2 2 0 0 1 0-2.828l.5-.5A1 1 0 0 0 3 5.379V5a2 2 0 0 1 2-2h.379a1 1 0 0 0 .707-.293l.5-.5Zm2.121.707a1 1 0 0 0-1.414 0l-.5.5A2 2 0 0 1 5.38 4H5a1 1 0 0 0-1 1v.379a2 2 0 0 1-.586 1.414l-.5.5a1 1 0 0 0 0 1.414l.5.5A2 2 0 0 1 4 10.621V11a1 1 0 0 0 1 1h.379a2 2 0 0 1 1.414.586l.5.5a1 1 0 0 0 1.414 0l.5-.5A2 2 0 0 1 10.621 12h.38a1 1 0 0 0 1-1v-.379a2 2 0 0 1 .585-1.414l.5-.5a1 1 0 0 0 0-1.414l-.5-.5A2.001 2.001 0 0 1 12 5.379V5a1 1 0 0 0-1-1h-.379a2 2 0 0 1-1.414-.586l-.5-.5Zm1.44 3.232a.5.5 0 0 1 .707.708l-3.5 3.5a.5.5 0 0 1-.707 0l-1.5-1.5-.065-.079a.5.5 0 0 1 .694-.693l.078.064L7 9.293l3.147-3.147Z"/></symbol>
+<symbol id="sk-reschedule" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M13.5 8.508a.5.5 0 0 1 .402.582A6.003 6.003 0 0 1 8 14a5.992 5.992 0 0 1-5-2.687V12.5a.5.5 0 0 1-1 0V10a.5.5 0 0 1 .5-.5H5a.5.5 0 0 1 0 1H3.672A4.996 4.996 0 0 0 8 13c2.45 0 4.49-1.763 4.918-4.09a.5.5 0 0 1 .582-.402ZM8 4.5a.5.5 0 0 1 .5.5v2.793l1.354 1.354.064.078a.5.5 0 0 1-.693.693l-.078-.064-1.5-1.5A.5.5 0 0 1 7.5 8V5a.5.5 0 0 1 .5-.5ZM8 2a5.992 5.992 0 0 1 5 2.687V3.5a.5.5 0 0 1 1 0V6a.5.5 0 0 1-.5.5H11a.5.5 0 0 1 0-1h1.328A4.996 4.996 0 0 0 8 3a5.001 5.001 0 0 0-4.917 4.09.501.501 0 0 1-.984-.18A6.003 6.003 0 0 1 8 2Z"/></symbol>
+<symbol id="sk-users" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M4.5 8A3.5 3.5 0 0 1 8 11.5v2a.5.5 0 0 1-1 0v-2a2.5 2.5 0 0 0-5 0v2a.5.5 0 0 1-1 0v-2A3.5 3.5 0 0 1 4.5 8Zm7 0a3.5 3.5 0 0 1 3.5 3.5v2a.5.5 0 0 1-1 0v-2a2.5 2.5 0 0 0-5 0c0-.686-.154-1.335-.428-1.917A3.497 3.497 0 0 1 11.5 8Zm-7-6a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Zm7 0a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Zm-7 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></symbol>
+<symbol id="sk-user-edit" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M12.43 10.258a1.558 1.558 0 0 1 2.027 2.366l-2.632 2.256a.501.501 0 0 1-.325.12H10a.5.5 0 0 1-.5-.5V13l.011-.107a.503.503 0 0 1 .163-.272l2.756-2.363Zm1.408.788a.558.558 0 0 0-.756-.029l-2.583 2.213V14h.815l2.493-2.136a.558.558 0 0 0 .031-.818ZM8 9.5a5.97 5.97 0 0 1 2.483.538 3.516 3.516 0 0 0-.701.792 5.002 5.002 0 0 0-6.404 2.764c-.143.343-.578.495-.85.24a.472.472 0 0 1-.117-.514A6.001 6.001 0 0 1 8 9.5Zm0-8a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm0 1a2.5 2.5 0 1 0 0 5.001 2.5 2.5 0 0 0 0-5Z"/></symbol>
+<symbol id="sk-lock" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M8 3a2 2 0 0 1 2 2v2H6V5a2 2 0 0 1 2-2ZM5 7V5a3 3 0 0 1 6 0v2h.5A1.5 1.5 0 0 1 13 8.5v4a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5v-4A1.5 1.5 0 0 1 4.5 7H5Zm6.5 1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5h7Z" clip-rule="evenodd"/></symbol>
+<symbol id="sk-inspection" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M12.5 2A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9A1.5 1.5 0 0 1 3.5 2h9Zm-9 1a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-9Zm3.225 5.582a.5.5 0 0 1 .693.693l-.064.079-.647.646.647.646.064.079a.5.5 0 0 1-.693.693l-.079-.064L6 10.707l-.646.646a.5.5 0 1 1-.708-.707L5.293 10l-.647-.646-.064-.079a.5.5 0 0 1 .693-.693l.079.064.646.647.646-.647.079-.064ZM11.5 9.5a.5.5 0 0 1 0 1H9a.5.5 0 0 1 0-1h2.5ZM6.543 4.547a.5.5 0 0 1 .914.406l-1 2.25a.5.5 0 0 1-.66.254L5.7 7.4l-1-.75-.075-.069a.5.5 0 0 1 .588-.783l.087.052.498.373.745-1.676ZM11.5 5.5a.5.5 0 0 1 0 1H9a.5.5 0 0 1 0-1h2.5Z"/></symbol>
+</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="wit-pbi" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M3.5 1.5h9A1.5 1.5 0 0 1 14 3v10a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13V3a1.5 1.5 0 0 1 1.5-1.5Zm1.5 3v1.2h6V4.5H5Zm0 2.9v1.2h6V7.4H5Zm0 2.9v1.2h4v-1.2H5Z"/></symbol>
+  <symbol id="wit-bug" viewBox="0 0 16 16"><path fill="currentColor" d="M6.2 2.1 7 3.3a2.7 2.7 0 0 1 2 0l.8-1.2.8.55-.78 1.17c.5.38.86.92 1 1.55H5.18c.14-.63.5-1.17 1-1.55L5.4 2.65l.8-.55ZM4.7 6.4h6.6c.13.33.2.7.2 1.1v.4h2v1h-2v.6c0 .32-.04.63-.12.92l1.85.9-.44.9-1.8-.88A3.5 3.5 0 0 1 8.5 13.4V8.2h-1v5.2a3.5 3.5 0 0 1-2.49-2.06l-1.8.88-.44-.9 1.85-.9a3.5 3.5 0 0 1-.12-.92V8.9h-2v-1h2v-.4c0-.39.07-.76.2-1.1Z"/></symbol>
+</svg>
+
+<header class="page-head">
+  <h1>Assignments cards — design proposals</h1>
+  <p>Interactive demo. Toggle proposals to mix and match; hover cards for tooltips. Rows 1–3 mirror the current screenshot (names anonymized); row 4 adds synthesized edge cases.</p>
+</header>
+
+<section class="controls">
+  <div class="tabs" role="tablist" aria-label="View">
+    <button class="tab" role="tab" data-view="board">Board</button>
+    <button class="tab" role="tab" data-view="gallery" title="Every variant side by side on the same scenarios">Gallery</button>
+  </div>
+  <span class="group-label">Proposals</span>
+  <div class="toggles" id="toggles"></div>
+  <span class="group-label">Presets</span>
+  <div class="toggles">
+    <button class="tbtn preset" data-preset="">Current design</button>
+    <button class="tbtn preset" data-preset="1,2,3,4">Recommended (1+2+3+4)</button>
+    <button class="tbtn preset" data-preset="1,2,3,4,5">Recommended + compact</button>
+  </div>
+  <button class="tbtn" id="notes-toggle" aria-pressed="true" title="Show or hide the proposal notes">Notes</button>
+</section>
+
+<section class="rationale" id="rationale"></section>
+
+<main id="board-view">
+  <div class="toolbar">
+    <span class="title">&lt;/&gt; Development</span>
+    <span class="sprint-chip" title="Current sprint — shown once here instead of on every card (Proposal 1)">Sprint 15 · 11.02–11.20</span>
+    <span class="note" id="board-note"></span>
+  </div>
+  <div class="board-scroll"><div class="board" id="board"></div></div>
+</main>
+
+<main id="gallery-view" hidden>
+  <div class="gallery-scroll"><div class="gallery" id="gallery"></div></div>
+</main>
+
+<script>
+const CUR = 'Sprint 15 (11.02-11.20)';
+const STATUSES = ['Blocked', 'New', 'Active', 'Review', 'Done'];
+const REQUIRED_APPROVALS = 2;
+const DEFAULT_STATES = {
+  Blocked: ['On Hold', 'Inactive', 'Design', 'In Planning'],
+  New: ['New'],
+  Active: ['In Progress', 'Active', 'Committed'],
+  Review: ['In Code Review'],
+  Done: ['Done', 'Closed', 'Completed'],
+};
+const STATE_TONE = { 'Failed Testing': 'critical', 'Available for Testing': 'info' };
+
+const PEOPLE = {
+  avery: { name: 'Avery Chen', h: 230 },
+  blake: { name: 'Blake Patel', h: 40 },
+  casey: { name: 'Casey Morgan', h: 150 },
+  drew: { name: 'Drew Okafor', h: 300 },
+  jordan: { name: 'Jordan Kim', h: 10, qa: true },
+  quinn: { name: 'Quinn Rivera', h: 100, qa: true },
+};
+const ROWS = [
+  { pid: 'avery' },
+  { pid: 'blake' },
+  { pid: 'casey' },
+  { pid: 'drew', note: 'Synthesized edge cases (not in screenshot)' },
+];
+
+const ck = (req, names = [], optFail = []) => ({ req, names, optFail });
+const ITEMS = [
+  // Row 1 (screenshot)
+  { id: 1958238, type: 'pbi', dev: 'avery', status: 'New', state: 'Approved', title: 'Create dashboard component to show favorited work areas', effort: 32, sprint: CUR, idle: 5 },
+  { id: 2095537, type: 'bug', dev: 'avery', status: 'New', state: 'Approved', title: "Application crashes when trying to start 'Demo Mode' after getting 'Unable to load datasources.'", effort: 16, sprint: CUR, idle: 6 },
+  { id: 2169267, type: 'pbi', dev: 'avery', status: 'Active', state: 'In Progress', title: 'Investigate repeated workflow-state requests during folder navigation', effort: 8, sprint: CUR, idle: 0,
+    highlight: 'new', change: { kind: 'critical', text: 'Check failed', when: '3h' },
+    prs: [{ id: 688687, repo: 'pw-web', title: 'Reuse workflow states across folders in the same environment', review: 'partially-approved', approvals: 1, checks: ck('failing', ['Comment requirements']), age: '2d' }] },
+  { id: 2159454, type: 'bug', dev: 'avery', status: 'Review', state: 'In Code Review', title: 'Cancelling a Document Creation Wizard upload leaves placeholder documents in ProjectWise', effort: 24, sprint: CUR, rolled: 'Sprint 14', idle: 4,
+    prs: [{ id: 687596, repo: 'pw-web', title: 'Delete cancelled upload placeholder', review: 'partially-approved', approvals: 1, checks: ck('failing', ['Comment requirements']), age: '4d' }] },
+  // Row 2 (screenshot)
+  { id: 2169205, type: 'pbi', dev: 'blake', status: 'New', state: 'New', title: 'Develop user settings part 2', effort: 40, sprint: CUR, idle: 2 },
+  { id: 1786117, type: 'bug', dev: 'blake', status: 'Active', state: 'In Progress', title: "Please replace 'share' to 'shareable' in 'Get share link' context menu option.", effort: 4, sprint: CUR, idle: 5 },
+  { id: 2170336, type: 'bug', dev: 'blake', status: 'Review', state: 'In Code Review', title: 'Attaching a file to a placeholder allows a duplicate file name in the folder', effort: 8, sprint: CUR, idle: 1,
+    prs: [{ id: 688072, repo: 'pw-web', title: 'Resolve conflicting fileName while attaching a file', review: 'partially-approved', approvals: 1, checks: ck('pending', ['Build project']), age: '3d' }] },
+  { id: 2174788, type: 'pbi', dev: 'blake', status: 'Review', state: 'In Code Review', title: 'Show the ProjectWise loader during startup', effort: 8, sprint: CUR, idle: 0,
+    highlight: 'new', change: { kind: 'positive', text: '+1 approval', when: '1h' },
+    prs: [{ id: 688652, repo: 'pw-web', title: 'replace LoadingPage with ProjectWiseLoader during startup', review: 'partially-approved', approvals: 1, checks: ck('passing', [], ['Smoke tests']), age: '2d' }] },
+  { id: 2025132, type: 'pbi', dev: 'blake', status: 'Done', state: 'Done', title: 'Co-authoring e2e tests', effort: 8, sprint: CUR, rolled: 'Sprint 14', idle: 0,
+    highlight: 'new', change: { kind: 'positive', text: 'Moved to Done', when: 'today' } },
+  // Row 3 (screenshot)
+  { id: 2155650, type: 'pbi', dev: 'casey', status: 'Active', state: 'In Progress', title: 'Build basic UI for managing Users and Groups in nPWE', effort: 40, sprint: CUR, idle: 2,
+    prs: [{ id: 688642, repo: 'pw-web', title: 'Add placeholder User and group management tab to Admin Settings', review: null, approvals: 0, checks: ck('passing', [], ['Smoke tests']), age: '2d' }] },
+  { id: 2179775, type: 'pbi', dev: 'casey', status: 'Active', state: 'In Progress', title: 'Add Copilot skill and agent to diagnose and fix E2E test failures', effort: 40, sprint: CUR, idle: 1 },
+  { id: 2144479, type: 'bug', dev: 'casey', status: 'Review', state: 'In Code Review', title: 'Document Creation Wizard reports a folder name conflict when a document with the same name already exists', effort: 8, sprint: CUR, idle: 3,
+    prs: [{ id: 686908, repo: 'pw-web', title: 'Update document management to include the template conflict toast fix', review: 'fully-approved', approvals: 2, checks: ck('passing', [], ['Smoke tests']), age: '3d' }] },
+  { id: 2175663, type: 'bug', dev: 'casey', status: 'Done', state: 'Done', title: 'Expanding older versions shows an error in demo mode when no versions are configured', effort: 8, sprint: CUR, idle: 1 },
+  // Row 4 (synthesized edge cases)
+  { id: 2181010, type: 'pbi', dev: 'drew', status: 'Blocked', state: 'On Hold', title: 'Sync share permissions with iModel access rules', effort: 13, sprint: CUR, idle: 9, highlight: 'stale',
+    tags: ['blocked: waiting on IMS API'], blockedReason: 'Waiting on IMS API' },
+  { id: 2183377, type: 'pbi', dev: 'drew', status: 'New', state: 'New', title: 'Remember last-used view per work area', effort: 8, sprint: 'Sprint 16 (11.23-12.11)', idle: 3 },
+  { id: 2160042, type: 'bug', dev: 'drew', status: 'Active', state: 'Failed Testing', returnedBy: 'jordan', title: 'Folder breadcrumb overflows at 125% display scaling', effort: 5, sprint: CUR, rolled: 'Sprint 14', idle: 0,
+    highlight: 'new', change: { kind: 'critical', text: 'Failed testing', when: '2h' } },
+  { id: 2177120, type: 'pbi', dev: 'drew', status: 'Active', state: 'In Progress', title: 'Add retry with backoff to thumbnail generation requests', effort: 8, sprint: CUR, idle: 6,
+    prs: [{ id: 688390, repo: 'pw-web', title: 'Retry thumbnail requests with exponential backoff', review: 'waiting-for-author', approvals: 0, checks: ck('passing'), age: '6d' }] },
+  { id: 2171900, type: 'pbi', dev: 'drew', status: 'Review', state: 'In Code Review', title: 'Export the audit log to CSV', effort: 20, sprint: CUR, idle: 1,
+    prs: [
+      { id: 688801, repo: 'pw-api', title: 'Add audit log export endpoint', review: 'fully-approved', approvals: 2, checks: ck('passing'), age: '1d' },
+      { id: 688815, repo: 'pw-web', title: 'Audit log export button and dialog', review: null, approvals: 0, checks: ck('pending', ['Build project'], ['Smoke tests']), age: '1d' },
+    ] },
+  { id: 2166321, type: 'pbi', dev: 'drew', status: 'Review', state: 'Available for Testing', assignedTo: 'jordan', title: 'Bulk move documents between work areas', effort: 13, sprint: CUR, idle: 2 },
+  { id: 688900, kind: 'pr', dev: 'drew', status: 'Review', idle: 0, highlight: 'new', change: { kind: 'info', text: 'New PR', when: '3h' },
+    pr: { id: 688900, repo: 'pw-web', title: 'Bump @stratakit/mui to 1.2.1', review: null, approvals: 0, checks: ck('passing'), age: '3h' } },
+  { id: 2149930, type: 'bug', dev: 'drew', status: 'Done', state: 'Closed', assignedTo: 'quinn', title: 'Search results lose sort order after paging', effort: 3, sprint: CUR, idle: 9, highlight: 'stale' },
+];
+
+const GALLERY_ROWS = [
+  { id: 2169267, label: 'WI + PR, required check failing', note: 'Changed since last standup' },
+  { id: 2174788, label: 'WI + PR, required passing, optional failing', note: 'The most common Review card today' },
+  { id: 2144479, label: 'WI + PR, fully approved', note: 'Should read as "ready to complete"' },
+  { id: 2171900, label: 'WI + 2 PRs', note: 'One ready, one waiting on build' },
+  { id: 2177120, label: 'Reviewer waiting on author', note: '6 days with no activity' },
+  { id: 2166321, label: 'Handed to QA', note: 'Pinned to the developer, assigned to QA' },
+  { id: 2160042, label: 'Failed testing', note: 'Returned by QA; rolled over' },
+  { id: 2181010, label: 'Blocked', note: '9 days idle (dimmed today)' },
+  { id: 688900, label: 'PR-only card', note: 'No linked work item' },
+  { id: 1958238, label: 'New, approved', note: 'No PR' },
+  { id: 2149930, label: 'Done, stale', note: 'Closed by QA' },
+];
+
+const PROPOSALS = [
+  { key: 'q', num: 1, short: 'Quiet card',
+    title: 'Quiet card — show only what is different',
+    problem: 'Every card repeats the current sprint (16 of 18 cards), the word "Effort", and a state chip that restates its column (In Progress / ICR / Done). Column color is painted up to 5 times per card (border, ID, PR ID, effort, rollover icon), and red bug icons compete with red failing checks.',
+    changes: [
+      'Neutral card surface with a 3px column-colored leading edge (color = location, once).',
+      'Type icon and IDs in neutral ink: shape tells type, color is reserved for status.',
+      'Effort moves to a corner bubble (Kanban convention); the "Effort" label and footer divider go away.',
+      'State chip only when it differs from the column default (Approved, Available for Testing, Failed Testing).',
+      'Sprint only when it is not the current sprint; rollover becomes an icon with a tooltip.',
+      'Checks text only for failing or pending required checks; optional failures move to the tooltip.',
+      'PR title clamps to one line.',
+    ],
+    facts: { 'Data': 'No new data', 'StrataKit': 'Aligned (neutral elevation, semantic tokens, outlined Badge)', 'Effort': 'S' } },
+  { key: 'n', num: 2, short: 'Next step & owner',
+    title: 'Next step & owner — who has the ball?',
+    problem: 'Readers decode 3–4 signals (checks text, optional checks, approval icons, age) to work out what happens next. When a card is assigned to QA, it stays under the developer with no hint that someone else holds it.',
+    changes: [
+      'One derived line per PR (or per card) states the next action, in priority order: blocked → failing required check → rejected / waiting on author → checks pending → needs approvals → ready to complete.',
+      'Cards without a PR: "In testing" (assigned to QA), "Failed testing", "Blocked · reason" (from the blocked tag).',
+      'An owner chip appears only when the ball is not with the row\'s developer: Reviewers, Pipeline, or the QA person\'s avatar.',
+      'Color rule: colored only when the developer can act now (red = fix, amber = respond, green = complete). Waiting is neutral.',
+    ],
+    facts: { 'Data': 'Available today (checks, reviewState, approvalCount, assignedTo vs. row)', 'StrataKit': 'Aligned (text + icon + Chip/Avatar)', 'Effort': 'S–M' } },
+  { key: 's', num: 3, short: 'PR progress strip',
+    title: 'PR progress strip — scan the wall',
+    problem: 'PR status is written as prose, so comparing PRs across a row means reading every card. PR titles usually paraphrase the work item title and cost 1–2 lines.',
+    changes: [
+      'Each PR collapses to one row: PR ID, a 3-segment strip (Checks · Review · Complete), and approvals (1/2).',
+      'Segments: red = failing/rejected, striped amber = pending, amber = waiting on author, green = passing/approved, outlined green = ready to complete.',
+      'The PR title is hidden when a card has exactly one PR (tooltip); repo name replaces it when there are several.',
+      'A short line under the strip only when a required check fails or is pending.',
+    ],
+    facts: { 'Data': 'Repo name needs mapping (already in the PR response)', 'StrataKit': 'Custom element built from tokens — justified break (no stepper/meter fits)', 'Effort': 'M' } },
+  { key: 'a', num: 4, short: 'Meaningful aging',
+    title: 'Meaningful aging — stuck work gets louder, not quieter',
+    problem: 'Cards with no activity for 7+ days fade to 68% opacity. In Blocked, Active, and Review, that hides exactly what standup should discuss. The "new" glow tints the whole card but does not say what changed.',
+    changes: [
+      'Aging dots in Blocked/Active/Review: one dot per 2 idle days, up to 4 (amber at 3, red at 4). Tooltip: "No activity for 6 days".',
+      'Fading is kept only for stale cards in Done.',
+      'Changed since last standup: a small blue dot on the corner plus a reason chip ("Check failed · 3h", "+1 approval · 1h", "Moved to Done").',
+      'PR "2d old" text folds into the aging dots.',
+    ],
+    facts: { 'Data': 'Idle days available; change reason needs the event type kept from useAdoHistoryHighlights (already fetched)', 'StrataKit': 'Aligned (status dot + Badge)', 'Effort': 'M' } },
+  { key: 'c', num: 5, short: 'Compact + hover details',
+    title: 'Compact density + hover details — fit the team on one screen',
+    problem: 'Cards range from 2 to 8 lines, so a 6-person team needs a lot of scrolling. Today\'s hover only scales the same card by 1.05×.',
+    changes: [
+      'Optional density (in Development options): a 2-line card — title on line 1, glyph row on line 2 (PR status, approvals, handoff avatar, aging).',
+      'Hover or keyboard focus opens a popover with the full card, plus PR titles, optional checks, sprint, and assignee.',
+      'Replaces the 1.05× zoom.',
+    ],
+    facts: { 'Data': 'No new data', 'StrataKit': 'Aligned (Popover on hover/focus)', 'Effort': 'M' } },
+];
+
+// ---------- helpers ----------
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const icon = (name, cls = '') => `<svg class="sk-icon ${cls}" aria-hidden="true"><use href="#sk-${name}"/></svg>`;
+const typeIcon = (t) => `<svg class="type-ic ${t}" role="img" aria-label="${t === 'bug' ? 'Bug' : 'Product backlog item'}"><use href="#wit-${t}"/></svg>`;
+const prIcon = () => `<svg class="pr-ic" aria-hidden="true"><use href="#sk-git-branch"/></svg>`;
+const initials = (name) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+const shortName = (name) => { const [a, b] = name.split(' '); return b ? `${a} ${b[0]}.` : a; };
+const avatar = (pid, cls = '') => { const p = PEOPLE[pid]; return `<span class="avatar ${cls}" style="--h:${p.h}" title="${esc(p.name)}${p.qa ? ' (QA)' : ''}">${initials(p.name)}</span>`; };
+const abbr = (s) => { const w = s.trim().split(/\s+/); return w.length < 3 ? s : w.map((x) => x[0].toUpperCase()).join(''); };
+const shortSprint = (s) => s.replace(/\s*\(.*\)$/, '');
+const isDefaultState = (item, col) => !item.state || (DEFAULT_STATES[col] || []).includes(item.state);
+
+function prStep(pr) {
+  const c = pr.checks;
+  if (c.req === 'failing') return { tone: 'critical', icon: 'error', text: `Fix failing check: ${c.names.join(', ')}` };
+  if (pr.review === 'rejected') return { tone: 'critical', icon: 'status-rejected', text: 'Rejected — rework needed' };
+  if (pr.review === 'waiting-for-author') return { tone: 'attention', icon: 'user-edit', text: 'Respond to review feedback' };
+  if (c.req === 'pending') return { tone: 'neutral', icon: 'stopwatch', text: `Waiting on ${c.names.join(', ')}`, owner: { kind: 'pipeline' } };
+  const need = Math.max(0, REQUIRED_APPROVALS - pr.approvals);
+  if (need > 0) return { tone: 'neutral', icon: 'users', text: need === 1 ? 'Needs 1 more approval' : `Needs ${need} approvals`, owner: { kind: 'reviewers' } };
+  return { tone: 'positive', icon: 'git-merge', text: 'Ready to complete' };
+}
+
+function cardStep(item) {
+  if (item.status === 'Blocked') return { tone: 'critical', icon: 'lock', text: `Blocked · ${item.blockedReason || 'no reason given'}` };
+  if (item.state === 'Failed Testing') return { tone: 'critical', icon: 'status-rejected', text: 'Failed testing', coversState: true, owner: item.returnedBy ? { kind: 'from', pid: item.returnedBy } : null };
+  if (item.assignedTo && item.assignedTo !== item.dev && item.status === 'Review') return { tone: 'neutral', icon: 'inspection', text: 'In testing', coversState: true, owner: { kind: 'person', pid: item.assignedTo } };
+  return null;
+}
+
+function ownerChip(owner) {
+  if (!owner) return '';
+  if (owner.kind === 'reviewers') return `<span class="owner" title="Waiting on reviewers">Reviewers</span>`;
+  if (owner.kind === 'pipeline') return `<span class="owner" title="Waiting on the build pipeline">Pipeline</span>`;
+  const p = PEOPLE[owner.pid];
+  if (owner.kind === 'from') return `<span class="owner" title="Returned by ${esc(p.name)}">${avatar(owner.pid)}from ${esc(shortName(p.name))}</span>`;
+  return `<span class="owner person" title="Currently assigned to ${esc(p.name)}${p.qa ? ' (QA)' : ''}">${avatar(owner.pid)}${esc(shortName(p.name))}</span>`;
+}
+
+const stepLine = (s) => `<div class="step ${s.tone}">${icon(s.icon)}<span class="txt" title="${esc(s.text)}">${esc(s.text)}</span>${ownerChip(s.owner)}</div>`;
+
+function agingDots(item, col) {
+  if (!['Blocked', 'Active', 'Review'].includes(col)) return '';
+  const d = item.idle ?? 0;
+  const n = d >= 8 ? 4 : d >= 6 ? 3 : d >= 4 ? 2 : d >= 2 ? 1 : 0;
+  if (!n) return '';
+  const tone = n >= 4 ? 'critical' : n >= 3 ? 'attention' : '';
+  return `<span class="aging ${tone}" role="img" aria-label="No activity for ${d} days" title="No activity for ${d} days">${[0, 1, 2, 3].map((i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+}
+
+const changeChip = (item) => item.change ? `<span class="badge ${item.change.kind}" title="Changed since last standup">${esc(item.change.text)} · ${esc(item.change.when)}</span>` : '';
+
+function stateBadge(item, col, f = {}) {
+  if (item.kind === 'pr' || isDefaultState(item, col)) return '';
+  if (f.n && cardStep(item)?.coversState) return '';
+  return `<span class="badge ${STATE_TONE[item.state] || ''}" title="State: ${esc(item.state)}">${esc(item.state)}</span>`;
+}
+
+function rolloverIcon(item) {
+  return item.rolled ? `<span class="sprint" title="Rolled over from ${esc(item.rolled)}">${icon('reschedule')}</span>` : '';
+}
+
+function approvalIcons(pr) {
+  if (pr.review === 'rejected') return `<span class="appr-icons critical" title="Rejected">${icon('status-rejected')}</span>`;
+  if (pr.review === 'waiting-for-author') return `<span class="appr-icons attention" title="Waiting on author">${icon('status-pending')}</span>`;
+  if (pr.approvals >= 2) return `<span class="appr-icons positive" title="2+ approved">${icon('status-success')}${icon('status-success')}</span>`;
+  if (pr.approvals === 1) return `<span class="appr-icons positive" title="1 approved">${icon('status-success')}</span>`;
+  return '';
+}
+
+function approvalText(pr) {
+  if (pr.review === 'rejected') return `<span class="appr-txt critical" title="Rejected">Rejected</span>`;
+  if (pr.review === 'waiting-for-author') return `<span class="appr-txt attention" title="Reviewer is waiting on the author">Waiting</span>`;
+  const done = pr.approvals >= REQUIRED_APPROVALS;
+  return `<span class="appr-txt ${done ? 'positive' : ''}" title="${pr.approvals} of ${REQUIRED_APPROVALS} approvals">${icon('users')} ${Math.min(pr.approvals, 9)}/${REQUIRED_APPROVALS}</span>`;
+}
+
+function checksTone(pr) {
+  const r = pr.checks.req;
+  return r === 'failing' ? 'critical' : r === 'pending' ? 'attention' : r === 'passing' ? 'positive' : 'neutral';
+}
+
+function checksTip(pr) {
+  const c = pr.checks;
+  let t = c.req === 'failing' ? `Required checks failing: ${c.names.join(', ')}` : c.req === 'pending' ? `Required checks pending: ${c.names.join(', ')}` : c.req === 'passing' ? 'Required checks passing' : 'No applicable checks';
+  if (c.optFail.length) t += ` · Optional checks failing: ${c.optFail.join(', ')}`;
+  return t;
+}
+
+function seg(tone, fill, tip) { return `<span class="seg ${tone}" title="${esc(tip)}"><i style="width:${fill}%"></i></span>`; }
+
+function strip(pr) {
+  const c = pr.checks;
+  const cTone = c.req === 'failing' ? 'critical' : c.req === 'pending' ? 'pending' : c.req === 'passing' ? 'positive' : '';
+  let rTone = 'positive', rFill = Math.min(pr.approvals, REQUIRED_APPROVALS) / REQUIRED_APPROVALS * 100, rTip = `Review: ${pr.approvals} of ${REQUIRED_APPROVALS} approvals`;
+  if (pr.review === 'rejected') { rTone = 'critical'; rFill = 100; rTip = 'Review: rejected'; }
+  if (pr.review === 'waiting-for-author') { rTone = 'attention'; rFill = 100; rTip = 'Review: waiting on author'; }
+  const ready = c.req === 'passing' && pr.approvals >= REQUIRED_APPROVALS && !['rejected', 'waiting-for-author'].includes(pr.review);
+  const label = `PR ${pr.id}. ${checksTip(pr)}. ${rTip}. ${ready ? 'Ready to complete' : 'Not ready to complete'}.`;
+  return `<span class="strip" role="img" aria-label="${esc(label)}">${seg(cTone, cTone ? 100 : 0, 'Checks: ' + checksTip(pr))}${seg(rTone, rFill, rTip)}${seg(ready ? 'ready' : '', 0, ready ? 'Complete: ready' : 'Complete: not ready')}</span>`;
+}
+
+// ---------- PR blocks ----------
+function prBlock(pr, item, col, f, multi, o) {
+  const isPrOnly = item.kind === 'pr';
+  const tip = esc(`PR ${pr.id}: ${pr.title}`);
+  const ageTxt = !f.a ? `<span class="age">${esc(pr.age)}${f.q || f.s ? '' : ' old'}</span>` : '';
+
+  if (f.s) {
+    const head = isPrOnly ? '' : `<div class="pr-row" title="${tip}">${prIcon()}<a class="pr-id" href="#">${pr.id}</a>${multi ? `<span class="repo">${esc(pr.repo)}</span>` : ''}${strip(pr)}${approvalText(pr)}<span class="spacer"></span>${ageTxt}</div>`;
+    const prOnlyHead = isPrOnly ? `<div class="pr-row">${strip(pr)}${approvalText(pr)}<span class="spacer"></span>${ageTxt}</div>` : '';
+    let below = '';
+    if (f.n) below = stepLine(prStep(pr));
+    else if (pr.checks.req === 'failing' || pr.checks.req === 'pending') below = `<div class="detail ${checksTone(pr)}-t">${icon(pr.checks.req === 'failing' ? 'error' : 'stopwatch')}<span>${esc(pr.checks.names.join(', '))} ${pr.checks.req}</span></div>`;
+    const full = o.expanded && !isPrOnly ? `<div class="detail" style="color:var(--t-2)"><span style="white-space:normal">${esc(pr.title)}</span></div>` : '';
+    const opt = o.expanded && pr.checks.optFail.length ? `<div class="detail neutral-t">${icon('error')}<span>Optional failing: ${esc(pr.checks.optFail.join(', '))}</span></div>` : '';
+    return `<div>${head}${prOnlyHead}${full}${below}${opt}</div>`;
+  }
+
+  if (f.q) {
+    const tone = checksTone(pr);
+    const ckIcon = `<span class="${tone}-t" title="${esc(checksTip(pr))}" style="display:inline-flex">${icon(tone === 'critical' ? 'error' : tone === 'attention' ? 'stopwatch' : 'validate')}</span>`;
+    const head = isPrOnly ? '' : `<div class="qpr">${prIcon()}<a class="pr-id" href="#">${pr.id}</a><span class="qpr-title" title="${esc(pr.title)}" ${o.expanded ? 'style="white-space:normal"' : ''}>${esc(pr.title)}</span>${f.n ? '' : ckIcon + approvalText(pr)}${ageTxt}</div>`;
+    const prOnlyHead = isPrOnly && !f.n ? `<div class="qpr"><span class="spacer"></span>${ckIcon}${approvalText(pr)}${ageTxt}</div>` : (isPrOnly && !f.a ? `<div class="qpr"><span class="spacer"></span>${ageTxt}</div>` : '');
+    let below = '';
+    if (f.n) below = stepLine(prStep(pr));
+    else if (pr.checks.req === 'failing' || pr.checks.req === 'pending') below = `<div class="detail ${tone}-t">${icon(pr.checks.req === 'failing' ? 'error' : 'stopwatch')}<span>${esc(pr.checks.names.join(', '))} ${pr.checks.req}</span></div>`;
+    const opt = o.expanded && pr.checks.optFail.length ? `<div class="detail neutral-t">${icon('error')}<span>Optional failing: ${esc(pr.checks.optFail.join(', '))}</span></div>` : '';
+    return `<div>${head}${prOnlyHead}${below}${opt}</div>`;
+  }
+
+  // classic chrome
+  const line = isPrOnly ? '' : `<a class="pr-line" href="#">${f.n ? '' : approvalIcons(pr)}${prIcon()}<span class="pr-id">${pr.id}</span>${esc(pr.title)}</a>`;
+  if (f.n) {
+    const ageRow = !f.a ? `<div style="display:flex">${stepLine(prStep(pr)).replace('class="step', 'style="flex:1;min-width:0" class="step')}${ageTxt}</div>` : stepLine(prStep(pr));
+    return `<div>${line}${ageRow}</div>`;
+  }
+  const tone = checksTone(pr);
+  const c = pr.checks;
+  const main = c.req === 'passing'
+    ? `<div class="ck positive-t">${icon('validate')}Required checks passing</div>`
+    : `<div class="ck ${tone}-t">${icon(c.req === 'failing' ? 'error' : c.req === 'pending' ? 'stopwatch' : 'validate')}${c.req === 'failing' ? 'Required checks failing: ' : c.req === 'pending' ? 'Required checks pending: ' : 'No applicable checks'}${esc(c.names.join(', '))}</div>`;
+  const opts = c.optFail.map((n) => `<div class="ck opt">Optional checks failing: ${esc(n)}</div>`).join('');
+  return `<div>${line}<div class="checks-row"><div class="checks-l">${main}${opts}</div>${ageTxt}</div></div>`;
+}
+
+// ---------- Card ----------
+function renderCard(item, col, f, o = {}) {
+  const isPrOnly = item.kind === 'pr';
+  const prs = isPrOnly ? [item.pr] : (item.prs || []);
+  const compact = f.c && !o.expanded;
+  const cls = ['card', `col-${col}`, f.q ? 'quiet' : 'classic'];
+  if (compact) cls.push('compact');
+  if (o.expanded) cls.push('expanded');
+  if (isPrOnly) cls.push('pr-only');
+  if (!o.expanded && item.highlight === 'new') cls.push(f.a ? 'changed' : 'glow');
+  if (!o.expanded && item.highlight === 'stale' && (!f.a || col === 'Done')) cls.push('stale');
+  if (o.flip) cls.push('flip');
+
+  // Corner element + title line
+  let corner = '';
+  if (!f.q) {
+    if (item.state && !isPrOnly && !(f.n && cardStep(item)?.coversState)) corner = `<span class="state-chip" title="${esc(item.state)}">${esc(abbr(item.state))}</span>`;
+    else if (isPrOnly && !compact && !f.s && !f.n) corner = approvalIcons(item.pr);
+  } else if (typeof item.effort === 'number' && !isPrOnly) {
+    corner = `<span class="effort-bubble" title="Effort ${item.effort}">${item.effort}</span>`;
+  }
+  const title = isPrOnly
+    ? `<a class="title pr-line" href="#">${corner}${prIcon()}<span class="pr-id">${item.pr.id}</span>${esc(item.pr.title)}</a>`
+    : `<a class="title" href="#">${corner}${typeIcon(item.type)}<span class="wi-id">${item.id}</span>${esc(item.title)}</a>`;
+
+  let body = title;
+
+  if (compact) {
+    body += compactGlyphs(item, col, f, prs);
+    body += `<div class="hovercard" role="dialog" aria-label="Details for ${isPrOnly ? 'PR' : ''} ${item.id}">${renderCard(item, col, { ...f, c: false }, { expanded: true })}</div>`;
+    return `<div class="${cls.join(' ')}" tabindex="0">${body}</div>`;
+  }
+
+  // Tags
+  const tags = (item.tags || []).filter((t) => !(f.n && /^blocked/i.test(t)));
+  if (tags.length) body += `<div class="tags">${tags.map((t) => `<span class="tagpill">${esc(t)}</span>`).join('')}</div>`;
+
+  // PR section(s)
+  if (isPrOnly) {
+    body += `<div style="margin-top:3px">${prBlock(item.pr, item, col, f, false, o)}</div>`;
+  } else if (prs.length) {
+    body += `<div class="sec">${prs.map((pr) => prBlock(pr, item, col, f, prs.length > 1, o)).join('')}</div>`;
+  }
+
+  // Card-level next step
+  if (f.n) { const cs = cardStep(item); if (cs) body += stepLine(cs); }
+
+  // Footer / meta
+  body += f.q ? quietMeta(item, col, f, o) : classicFooter(item, col, f, o);
+
+  if (o.expanded) body += hoverExtras(item, col);
+  return `<div class="${cls.join(' ')}" tabindex="0">${body}</div>`;
+}
+
+function classicFooter(item, col, f) {
+  const isPrOnly = item.kind === 'pr';
+  const effort = typeof item.effort === 'number' && !isPrOnly ? `<span class="ef-l">Effort</span><span class="ef-v">${item.effort}</span>` : '';
+  const change = f.a ? changeChip(item) : '';
+  const aging = f.a ? agingDots(item, col) : '';
+  const sprint = item.sprint ? `<span class="sprint">${item.rolled ? `<span title="Rolled over from ${esc(item.rolled)}" style="display:inline-flex">${icon('reschedule')}</span>` : ''}${esc(item.sprint)}</span>` : '';
+  if (!effort && !change && !aging && !sprint) return '';
+  if (isPrOnly) return `<div class="meta">${change}<span class="spacer"></span>${aging}</div>`;
+  return `${change ? `<div class="meta">${change}</div>` : ''}<div class="footer">${effort}<span class="spacer"></span>${aging}${sprint}</div>`;
+}
+
+function quietMeta(item, col, f, o) {
+  const parts = [stateBadge(item, col, f), f.a ? changeChip(item) : ''].filter(Boolean);
+  const right = [];
+  if (item.rolled) right.push(rolloverIcon(item));
+  if (item.sprint && (item.sprint !== CUR || o.expanded)) right.push(`<span class="sprint" title="${esc(item.sprint)}">${esc(o.expanded ? item.sprint : shortSprint(item.sprint))}</span>`);
+  if (f.a) { const a = agingDots(item, col); if (a) right.push(a); }
+  if (!parts.length && !right.length) return '';
+  return `<div class="meta">${parts.join('')}<span class="spacer"></span>${right.join('')}</div>`;
+}
+
+function compactGlyphs(item, col, f, prs) {
+  const left = [];
+  if (f.q) { const b = stateBadge(item, col, f); if (b) left.push(b); }
+  for (const pr of prs) {
+    const s = prStep(pr);
+    if (f.s) left.push(`<span class="glyph" title="PR ${pr.id}: ${esc(s.text)}">${icon('git-branch')}${strip(pr)}</span>`);
+    else {
+      const tone = f.n ? s.tone : checksTone(pr);
+      left.push(`<span class="glyph ${tone}" title="PR ${pr.id}: ${esc(f.n ? s.text : checksTip(pr))}">${icon('git-branch')}${pr.approvals}/${REQUIRED_APPROVALS}</span>`);
+    }
+  }
+  if (f.n) {
+    const cs = cardStep(item);
+    if (cs) left.push(`<span class="glyph ${cs.tone}" title="${esc(cs.text)}">${icon(cs.icon)}</span>`);
+    if (cs && cs.owner && cs.owner.kind === 'person') left.push(`<span class="glyph" title="Assigned to ${esc(PEOPLE[cs.owner.pid].name)}">${avatar(cs.owner.pid)}</span>`);
+  }
+  if (f.a) { const c = item.change ? `<span class="glyph ${item.change.kind === 'info' ? 'neutral' : item.change.kind}" title="Changed since last standup: ${esc(item.change.text)} · ${esc(item.change.when)}">${esc(item.change.text)}</span>` : ''; if (c) left.push(c); }
+  const right = [];
+  if (f.a) { const a = agingDots(item, col); if (a) right.push(a); }
+  if (item.rolled) right.push(rolloverIcon(item));
+  if (!f.q && typeof item.effort === 'number' && item.kind !== 'pr') right.push(`<span class="glyph" title="Effort ${item.effort}">${item.effort}</span>`);
+  if (!left.length && !right.length) return '';
+  return `<div class="glyphs">${left.join('')}<span class="spacer"></span>${right.join('')}</div>`;
+}
+
+function hoverExtras(item) {
+  const rows = [];
+  if (item.state) rows.push(['State', esc(item.state)]);
+  if (item.sprint) rows.push(['Sprint', `${esc(item.sprint)}${item.rolled ? ` <span class="neutral-t">(rolled over from ${esc(item.rolled)})</span>` : ''}`]);
+  const assignee = item.assignedTo || item.dev;
+  rows.push(['Assigned to', `${avatar(assignee)} ${esc(PEOPLE[assignee].name)}${PEOPLE[assignee].qa ? ' (QA)' : ''}`]);
+  if (item.returnedBy) rows.push(['Returned by', `${avatar(item.returnedBy)} ${esc(PEOPLE[item.returnedBy].name)}`]);
+  rows.push(['Last activity', item.idle ? `${item.idle} days ago` : 'Today']);
+  if (item.change) rows.push(['Since standup', esc(`${item.change.text} · ${item.change.when}`)]);
+  return `<dl class="hc-extra">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
+}
+
+// ---------- Board ----------
+function renderBoard(f) {
+  const board = document.getElementById('board');
+  const counts = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+  const effort = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+  for (const it of ITEMS) { counts[it.status]++; if (it.sprint === CUR && typeof it.effort === 'number') effort[it.status] += it.effort; }
+  let html = `<div class="hcell member">Team member</div>`;
+  for (const s of STATUSES) {
+    html += `<div class="hcell tint-${s}"><span class="bar" style="background:var(--c-${s})"></span><div><div class="h-name">${s}</div><div class="h-sub">Current sprint effort: ${effort[s]}</div></div><span class="h-count" style="color:var(--c-${s})">${counts[s]}</span></div>`;
+  }
+  for (const row of ROWS) {
+    const p = PEOPLE[row.pid];
+    html += `<div class="rowhead">${avatar(row.pid, 'lg')}<div><b style="font-weight:500">${esc(p.name)}</b>${row.note ? `<span class="note">${esc(row.note)}</span>` : ''}</div></div>`;
+    for (const s of STATUSES) {
+      const cards = ITEMS.filter((it) => it.dev === row.pid && it.status === s);
+      const flip = s === 'Review' || s === 'Done';
+      html += `<div class="cell tint-${s}">${cards.map((it) => renderCard(it, s, f, { flip })).join('')}</div>`;
+    }
+  }
+  board.innerHTML = html;
+}
+
+// ---------- Gallery ----------
+const VARIANTS = [
+  { label: 'Current', sub: 'Baseline replica', f: {} },
+  { label: '1 · Quiet card', sub: 'Exception-only metadata', f: { q: 1 } },
+  { label: '2 · Next step & owner', sub: 'On current chrome', f: { n: 1 } },
+  { label: '3 · PR progress strip', sub: 'On current chrome', f: { s: 1 } },
+  { label: '4 · Meaningful aging', sub: 'On current chrome', f: { a: 1 } },
+  { label: '5 · Compact + hover', sub: 'Hover a card for details', f: { c: 1 } },
+  { label: 'Recommended', sub: '1 + 2 + 3 + 4', f: { q: 1, n: 1, s: 1, a: 1 } },
+  { label: 'Recommended + compact', sub: '1 + 2 + 3 + 4 + 5', f: { q: 1, n: 1, s: 1, a: 1, c: 1 } },
+];
+
+function renderGallery() {
+  const g = document.getElementById('gallery');
+  g.style.setProperty('--cols', VARIANTS.length);
+  let html = `<div class="g-colhead">Scenario</div>`;
+  for (const v of VARIANTS) html += `<div class="g-colhead">${esc(v.label)}<small>${esc(v.sub)}</small></div>`;
+  for (const r of GALLERY_ROWS) {
+    const item = ITEMS.find((it) => it.id === r.id);
+    html += `<div class="g-rowhead">${esc(r.label)}<small>${esc(item.status)} column · ${esc(r.note)}</small></div>`;
+    VARIANTS.forEach((v, i) => {
+      html += `<div class="g-cell tint-${item.status}">${renderCard(item, item.status, v.f, { flip: i >= VARIANTS.length - 3 })}</div>`;
+    });
+  }
+  g.innerHTML = html;
+}
+
+// ---------- Rationale ----------
+function renderRationale(f) {
+  const el = document.getElementById('rationale');
+  const active = PROPOSALS.filter((p) => f[p.key]);
+  if (!active.length) {
+    el.innerHTML = `<div class="rcard"><h3>Current design (baseline)</h3>A replica of today's card, built from the same data, for side-by-side comparison. Turn on proposals above, or switch to <b>Gallery</b> to compare every variant on the same scenarios.<div class="legend"><span>Anatomy today: type icon · ID · title · state chip · PR ID + title · approvals · required/optional checks · age · Effort · sprint · rollover · glow (new) · dimming (stale)</span></div></div>`;
+    return;
+  }
+  el.innerHTML = active.map((p) => `
+    <div class="rcard">
+      <h3><span class="num">${p.num}</span>${esc(p.title)}</h3>
+      <div><span class="tag">Problem.</span> ${esc(p.problem)}</div>
+      <ul>${p.changes.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
+      ${p.key === 's' ? `<div class="legend"><span>${seg('positive', 100, '')}${seg('positive', 50, '')}${seg('', 0, '')} checks · review · complete</span><span>${seg('critical', 100, '')} failing / rejected</span><span>${seg('pending', 100, '')} pending</span><span>${seg('attention', 100, '')} waiting on author</span><span>${seg('ready', 0, '')} ready to complete</span></div>` : ''}
+      ${p.key === 'a' ? `<div class="legend"><span><span class="aging"><i class="on"></i><i></i><i></i><i></i></span> 2–3 days</span><span><span class="aging attention"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span> 6–7 days</span><span><span class="aging critical"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span> 8+ days</span><span><span style="width:9px;height:9px;border-radius:50%;background:var(--stratakit-color-bg-info-base);display:inline-block"></span> changed since last standup</span></div>` : ''}
+      <div class="facts">${Object.entries(p.facts).map(([k, v]) => `<span><b>${esc(k)}:</b> ${esc(v)}</span>`).join('')}</div>
+    </div>`).join('');
+}
+
+// ---------- State ----------
+const state = { view: 'board', f: {} };
+
+function readHash() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  state.view = params.get('view') === 'gallery' ? 'gallery' : 'board';
+  const p = (params.get('p') || '').split(',').filter(Boolean);
+  state.f = {};
+  for (const num of p) { const prop = PROPOSALS.find((x) => String(x.num) === num); if (prop) state.f[prop.key] = 1; }
+}
+
+function writeHash() {
+  const nums = PROPOSALS.filter((p) => state.f[p.key]).map((p) => p.num).join(',');
+  history.replaceState(null, '', `#view=${state.view}${nums ? `&p=${nums}` : ''}`);
+}
+
+function render() {
+  document.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.view === state.view)));
+  document.getElementById('board-view').hidden = state.view !== 'board';
+  document.getElementById('gallery-view').hidden = state.view !== 'gallery';
+  document.getElementById('toggles').innerHTML = PROPOSALS.map((p) => `<button class="tbtn" data-key="${p.key}" aria-pressed="${Boolean(state.f[p.key])}" ${state.view === 'gallery' ? 'disabled title="The gallery shows every variant"' : ''}><span class="num">${p.num}</span>${esc(p.short)}</button>`).join('');
+  document.querySelectorAll('[data-preset]').forEach((b) => {
+    const nums = PROPOSALS.filter((p) => state.f[p.key]).map((p) => p.num).join(',');
+    b.setAttribute('aria-pressed', String(state.view === 'board' && b.dataset.preset === nums));
+    b.disabled = state.view === 'gallery';
+  });
+  renderRationale(state.view === 'gallery' ? { q: 1, n: 1, s: 1, a: 1, c: 1 } : state.f);
+  if (state.view === 'board') renderBoard(state.f); else renderGallery();
+  writeHash();
+}
+
+document.addEventListener('click', (e) => {
+  const notes = e.target.closest('#notes-toggle');
+  if (notes) { const on = notes.getAttribute('aria-pressed') !== 'true'; notes.setAttribute('aria-pressed', String(on)); document.getElementById('rationale').hidden = !on; return; }
+  const tab = e.target.closest('.tab');
+  if (tab) { state.view = tab.dataset.view; render(); return; }
+  const t = e.target.closest('[data-key]');
+  if (t && !t.disabled) { const k = t.dataset.key; state.f[k] = state.f[k] ? 0 : 1; if (!state.f[k]) delete state.f[k]; render(); return; }
+  const pr = e.target.closest('[data-preset]');
+  if (pr && !pr.disabled) { state.f = {}; pr.dataset.preset.split(',').filter(Boolean).forEach((n) => { const p = PROPOSALS.find((x) => String(x.num) === n); state.f[p.key] = 1; }); render(); return; }
+  if (e.target.closest('a[href="#"]')) e.preventDefault();
+});
+window.addEventListener('hashchange', () => { readHash(); render(); });
+readHash();
+render();
+</script>
+</body>
+</html>
