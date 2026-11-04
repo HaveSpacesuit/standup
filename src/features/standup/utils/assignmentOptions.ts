@@ -12,6 +12,8 @@ export type AssignmentOptions = {
   sprintFilter: AssignmentSprintFilter
   /** Show Development cards as a title and one status line, with full details on hover or focus. */
   compactCards: boolean
+  /** Add QA tester lanes after developer lanes during a People-view standup. */
+  includeQaTestersInStandup: boolean
 }
 
 export const ASSIGNMENT_OPTIONS_STORAGE_KEY_PREFIX = 'standup:assignment-options'
@@ -55,6 +57,7 @@ export function parseStoredAssignmentOptions(value: string | null): AssignmentOp
     includeWorkItemTypes: [],
     sprintFilter: { ...DEFAULT_ASSIGNMENT_SPRINT_FILTER },
     compactCards: false,
+    includeQaTestersInStandup: false,
   }
   if (!value) {
     return empty
@@ -72,6 +75,7 @@ export function parseStoredAssignmentOptions(value: string | null): AssignmentOp
       includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
       sprintFilter: parseSprintFilter(parsed.sprintFilter),
       compactCards: parsed.compactCards === true,
+      includeQaTestersInStandup: parsed.includeQaTestersInStandup === true,
     }
   } catch {
     return empty

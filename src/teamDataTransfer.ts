@@ -202,6 +202,7 @@ function parseAssignmentOptions(value: unknown): AssignmentOptions {
       'Imported assignment options sprintFilter is invalid.',
     ),
     compactCards: value.compactCards === true,
+    includeQaTestersInStandup: value.includeQaTestersInStandup === true,
   }
 }
 

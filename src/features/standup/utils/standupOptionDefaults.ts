@@ -22,5 +22,6 @@ export function createDefaultAssignmentOptions(): AssignmentOptions {
     includeWorkItemTypes: [],
     sprintFilter: { ...DEFAULT_ASSIGNMENT_SPRINT_FILTER },
     compactCards: false,
+    includeQaTestersInStandup: false,
   }
 }

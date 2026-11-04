@@ -145,6 +145,7 @@ test('Assignments member option defaults off and reports both toggle values', ()
     open: true, tagRules: [], onChange: () => {}, onClose: () => {},
     cardHighlightOptions: { freshDays: 1, staleDays: 7 }, onCardHighlightOptionsChange: () => {},
     onHideUsersWithNoActivityChange: (next: boolean) => { changes.push(next) },
+    onIncludeQaTestersInStandupChange: (next: boolean) => { changes.push(next) },
   }
   hooks.beginRender()
   const initial = HiddenTagsDialog(props)
@@ -163,7 +164,18 @@ test('Assignments member option defaults off and reports both toggle values', ()
   checkbox = label.props.control as Element
   assert.equal(checkbox.props.checked, true)
   ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, false)
-  assert.deepEqual(changes, [true, false])
+  label = find(tree, (node) => node.props.label === 'Include QA testers in standup')!
+  assert.ok(label)
+  checkbox = label.props.control as Element
+  assert.equal(checkbox.props.checked, false)
+  ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
+  hooks.beginRender()
+  tree = HiddenTagsDialog({ ...props, includeQaTestersInStandup: true })
+  label = find(tree, (node) => node.props.label === 'Include QA testers in standup')!
+  checkbox = label.props.control as Element
+  assert.equal(checkbox.props.checked, true)
+  ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, false)
+  assert.deepEqual(changes, [true, false, true, false])
 })
 
 test('Assignments inactive member setting defaults false for missing and older settings', () => {
@@ -175,6 +187,28 @@ test('Assignments inactive member setting defaults false for missing and older s
     const options = { ...createDefaultAssignmentOptions(), hideUsersWithNoActivity, includeWorkItemTypes: ['Bug'] }
     assert.deepEqual(parseStoredAssignmentOptions(serializeAssignmentOptions(options)), options)
   }
+})
+
+test('QA standup option persists, imports, and defaults off for existing teams', () => {
+  const defaultOptions = createDefaultAssignmentOptions()
+  assert.equal(defaultOptions.includeQaTestersInStandup, false)
+  assert.equal(parseStoredAssignmentOptions('{}').includeQaTestersInStandup, false)
+  const options = { ...defaultOptions, includeQaTestersInStandup: true }
+  assert.deepEqual(parseStoredAssignmentOptions(serializeAssignmentOptions(options)), options)
+
+  const data = buildTeamDataExport({
+    teamProfile: {
+      id: 'team', orgName: 'org', projectName: 'project', displayName: 'Team',
+      areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+    },
+    assignmentOptions: options,
+    assignmentTagRules: [],
+    qaOptions: createDefaultQaOptions(),
+  })
+  assert.equal(parseImportedTeamData(serializeTeamDataExport(data)).assignmentOptions.includeQaTestersInStandup, true)
+  const legacy = JSON.parse(serializeTeamDataExport(data))
+  delete legacy.assignmentOptions.includeQaTestersInStandup
+  assert.equal(parseImportedTeamData(JSON.stringify(legacy)).assignmentOptions.includeQaTestersInStandup, false)
 })
 
 test('Assignments inactive member setting is persisted per team and restored after reload', (t) => {

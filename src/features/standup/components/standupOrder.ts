@@ -50,7 +50,12 @@ export function getStandupAttentionScore(
 }
 
 function compareLabels(a: BoardRowData, b: BoardRowData): number {
-  return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+  return Number(Boolean(a.isQaTester)) - Number(Boolean(b.isQaTester))
+    || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+}
+
+function compareSpeakerGroups(a: BoardRowData, b: BoardRowData): number {
+  return Number(Boolean(a.isQaTester)) - Number(Boolean(b.isQaTester))
 }
 
 /** Row keys of everyone who takes a turn, in speaking order. */
@@ -67,7 +72,9 @@ export function getStandupOrder(
 
   const scores = new Map(speakers.map((row) => [row.key, getStandupAttentionScore(row.key, cardsByCell, signalsByItemId)]))
   return speakers
-    .sort((a, b) => (scores.get(b.key) ?? 0) - (scores.get(a.key) ?? 0) || compareLabels(a, b))
+    .sort((a, b) => compareSpeakerGroups(a, b)
+      || (scores.get(b.key) ?? 0) - (scores.get(a.key) ?? 0)
+      || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
     .map((row) => row.key)
 }
 

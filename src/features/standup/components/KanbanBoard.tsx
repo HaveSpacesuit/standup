@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material'
 import { memo, useMemo, useState, type ReactNode } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
+import { toIdentityKeys } from '../../../ado/identity'
 import type {
   IterationWindowInfo,
   ResolvedWorkItemAssignee,
@@ -32,6 +33,7 @@ import {
 import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import { getReplayFlowPoints, getSprintReplayBoard } from '../utils/sprintReplay'
 import type { SprintScopeState } from '../hooks/useSprintScopeChanges'
+import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { AttentionBar } from './AttentionBar'
 import {
   getBoardAttention,
@@ -87,6 +89,9 @@ type KanbanBoardProps = {
    * stood then. Null or unset shows today.
    */
   replayAt?: number | null
+  includeQaTestersInStandup?: boolean
+  qaBuckets?: QualityAssuranceBucket[]
+  qaTesters?: string[]
 }
 
 export const KanbanBoard = memo(function KanbanBoard({
@@ -116,6 +121,9 @@ export const KanbanBoard = memo(function KanbanBoard({
   teamIterations,
   effortFlowPoints,
   replayAt = null,
+  includeQaTestersInStandup = false,
+  qaBuckets = [],
+  qaTesters = [],
 }: KanbanBoardProps) {
   const isSprintLens = lens === 'sprint'
   const replayingAt = isSprintLens ? replayAt : null
@@ -127,6 +135,45 @@ export const KanbanBoard = memo(function KanbanBoard({
   const [standupOrderKeys, setStandupOrderKeys] = useState<readonly string[] | null>(null)
   const [standupIndex, setStandupIndex] = useState(0)
   const [spokenKeys, setSpokenKeys] = useState<ReadonlySet<string>>(() => new Set())
+  const qaStandupData = useMemo(() => {
+    if (!standupActive || !includeQaTestersInStandup || isSprintLens) {
+      return { rows: [] as BoardRowData[], itemsByRow: new Map<string, WorkItemSummary[]>() }
+    }
+
+    const selectedTesters = new Set(qaTesters.map((name) => name.trim().toLocaleLowerCase()))
+    const testersByIdentity = new Map<string, TeamMember>()
+    for (const member of members) {
+      if (selectedTesters.size > 0 && !selectedTesters.has(member.displayName.trim().toLocaleLowerCase())) {
+        continue
+      }
+      for (const key of toIdentityKeys(member)) testersByIdentity.set(key, member)
+    }
+
+    const itemsByRow = new Map<string, WorkItemSummary[]>()
+    const membersByRow = new Map<string, TeamMember>()
+    for (const item of qaBuckets.flatMap((bucket) => bucket.items)) {
+      const member = toIdentityKeys(item.assignedTo)
+        .map((key) => testersByIdentity.get(key))
+        .find((candidate): candidate is TeamMember => candidate !== undefined)
+      if (!member) continue
+
+      const rowKey = `__qa_tester__:${toIdentityKeys(member)[0] ?? member.displayName.toLocaleLowerCase()}`
+      membersByRow.set(rowKey, member)
+      const items = itemsByRow.get(rowKey) ?? []
+      items.push(item)
+      itemsByRow.set(rowKey, items)
+    }
+
+    const rows = [...membersByRow].map(([key, member]): BoardRowData => ({
+      key,
+      label: `${member.displayName} · QA`,
+      avatarUrl: member.imageUrl,
+      avatarDescriptor: member.descriptor,
+      memberIdentity: { displayName: member.displayName, uniqueName: member.uniqueName, imageUrl: member.imageUrl },
+      isQaTester: true,
+    }))
+    return { rows, itemsByRow }
+  }, [includeQaTestersInStandup, isSprintLens, members, qaBuckets, qaTesters, standupActive])
 
   const boardItems = useMemo(
     () => (isSprintLens ? workItems.filter(isSprintLensItem) : workItems),
@@ -183,8 +230,9 @@ export const KanbanBoard = memo(function KanbanBoard({
             label: 'Assignee unavailable',
           }]
         : []),
+      ...qaStandupData.rows,
     ]
-  }, [boardItems, currentIterationName, isSprintLens, iterationWindow, members, rolledOverItemIds, selectedMemberFilter, shownItems, shownScope, teamIterations, workItemAssignees])
+  }, [boardItems, currentIterationName, isSprintLens, iterationWindow, members, qaStandupData.rows, rolledOverItemIds, selectedMemberFilter, shownItems, shownScope, teamIterations, workItemAssignees])
 
   const rowLookup = useMemo(() => {
     return rows.reduce<Record<string, BoardRowData>>((acc, row) => {
@@ -292,6 +340,14 @@ export const KanbanBoard = memo(function KanbanBoard({
       initial[cellKey].push(item)
     }
 
+    for (const [rowKey, items] of qaStandupData.itemsByRow) {
+      for (const item of items) {
+        const cellKey = `${rowKey}:${item.status}`
+        initial[cellKey] ??= []
+        initial[cellKey].push(item)
+      }
+    }
+
     if (shownScope) {
       for (const item of shownScope.removedItems) {
         const status = getRemovedCardStatus(item, departuresByItemId?.[item.id])
@@ -310,7 +366,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     }
 
     return initial
-  }, [currentIterationName, departuresByItemId, isSprintLens, layout.blockedRail, rows, rowLookup, shownItems, shownScope, workItemAssignees])
+  }, [currentIterationName, departuresByItemId, isSprintLens, layout.blockedRail, qaStandupData.itemsByRow, rows, rowLookup, shownItems, shownScope, workItemAssignees])
 
   const visibleRows = useMemo(
     // Members options hide people, so they leave sprint lanes alone.
@@ -322,7 +378,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   )
 
   // Removed cards no longer count toward the sprint, so they raise no attention.
-  const liveRows = useMemo(() => visibleRows.filter((row) => !row.ghost), [visibleRows])
+  const liveRows = useMemo(() => visibleRows.filter((row) => !row.ghost && !row.isQaTester), [visibleRows])
 
   const attention = useMemo(
     () => getBoardAttention(
@@ -440,7 +496,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     content = <AdoErrorNotice title="Unable to load work items" message={workItemsError} />
   } else if (assigneesError && !isSprintLens) {
     content = <AdoErrorNotice title="Unable to resolve work item assignees" message={assigneesError} />
-  } else if (boardItems.length === 0) {
+  } else if (boardItems.length === 0 && qaStandupData.itemsByRow.size === 0) {
     content = (
       <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
         No cards match the current filters. Try adjusting the quick filter or member selection.
