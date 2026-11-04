@@ -12,6 +12,36 @@ after(() => server.close())
 const { bucketQualityAssuranceItems, classifyQualityAssuranceItem, resolveQualityAssuranceProjectConfig } =
   await server.ssrLoadModule('/src/features/standup/utils/qualityAssuranceBuckets.ts')
 
+test('Failed Testing defaults to Back in development', (t) => {
+  t.mock.method(Date, 'now', () => now)
+  const config = resolveQualityAssuranceProjectConfig({ id: 'team', projectName: 'project' })
+  const item: WorkItemSummary = {
+    id: 2,
+    title: 'Failed QA work',
+    state: 'Failed Testing',
+    status: 'Active',
+    createdAt: daysAgo(10),
+    recentActivityAt: daysAgo(0.5),
+  }
+  const updates: WorkItemUpdate[] = [
+    {
+      revisedDate: daysAgo(1),
+      fields: { 'System.State': { oldValue: 'Active', newValue: 'Available for Testing' } },
+    },
+    {
+      revisedDate: daysAgo(0.5),
+      fields: { 'System.State': { oldValue: 'Available for Testing', newValue: 'Failed Testing' } },
+    },
+  ]
+
+  assert.equal(classifyQualityAssuranceItem(item, updates, config), 'needs-development')
+  assert.deepEqual(
+    bucketQualityAssuranceItems([item], { [item.id]: updates }, config)
+      .find((bucket) => bucket.id === 'needs-development')?.items.map((entry) => entry.id),
+    [item.id],
+  )
+})
+
 const now = Date.parse('2026-10-19T12:00:00Z')
 const daysAgo = (days: number) => new Date(now - days * 24 * 60 * 60 * 1000).toISOString()
 const reassignment: WorkItemUpdate[] = [{

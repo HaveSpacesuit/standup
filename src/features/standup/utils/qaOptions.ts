@@ -22,7 +22,7 @@ export type QaStateGroupOverrides = {
   testing: string[]
   /** States/tags that mean "done/completed" (maps to Recently completed column) */
   done: string[]
-  /** States/tags that mean "back in development" (maps to Needs follow-up column) */
+  /** States/tags that mean "back in development" (maps to Back in development column) */
   development: string[]
   /** States/tags that mean "newly added / triage" (maps to Newly added column) */
   new: string[]
@@ -38,7 +38,7 @@ export type QaTagGroups = {
   testing: string[]
   /** Tags that route an item to the Recently completed column. */
   done: string[]
-  /** Tags that route an item to the Needs follow-up column. */
+  /** Tags that route an item to the Back in development column. */
   development: string[]
   /** Tags that route an item to the Newly added column. */
   new: string[]
@@ -87,6 +87,8 @@ export type QaOptions = {
   generalFilters: QaTagFilterRule[]
   /** Allow-list of work item types to display. Empty = show all types. */
   includeWorkItemTypes: string[]
+  /** Team member display names who can be assigned as QA testers. Empty uses all team members. */
+  testers: string[]
   /** How many days of recent activity to include in QA freshness and query windows. */
   lookbackDays: number
   /** Sprint filter. When no relative flags and no explicit paths, all sprints are shown. */
@@ -205,6 +207,7 @@ export function parseStoredQaOptionsWithRecovery(value: string | null): { option
   const empty: QaOptions = {
     generalFilters: [],
     includeWorkItemTypes: [],
+    testers: [],
     lookbackDays: DEFAULT_QA_LOOKBACK_DAYS,
     sprintFilter: { ...EMPTY_SPRINT_FILTER },
     stateGroups: null,
@@ -234,6 +237,7 @@ export function parseStoredQaOptionsWithRecovery(value: string | null): { option
       options: {
         generalFilters,
         includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
+        testers: parseStringArray(parsed.testers),
         lookbackDays: parseLookbackDays(parsed.lookbackDays),
         sprintFilter: parseSprintFilter(parsed.sprintFilter),
         stateGroups: parseStateGroups(parsed.stateGroups),

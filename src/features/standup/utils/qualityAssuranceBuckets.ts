@@ -1,4 +1,5 @@
 import type { TeamProfile } from '../../../appSettings'
+import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { QaStateGroupOverrides, QaTagGroups } from './qaOptions'
 import { sortWorkItemsBySprintAndId } from './workItemSorting'
@@ -39,6 +40,7 @@ type WorkItemFieldUpdate = {
 
 export type WorkItemUpdate = {
   revisedDate?: string
+  revisedBy?: IdentityRef
   fields?: Record<string, WorkItemFieldUpdate>
 }
 
@@ -50,7 +52,7 @@ const DEFAULT_CONFIG: QualityAssuranceProjectConfig = {
   lookbackDays: DEFAULT_QA_LOOKBACK_DAYS,
   stateGroups: {
     testing: ['available for testing', 'ready for testing', 'aft'],
-    development: ['committed', 'active', 'in progress'],
+    development: ['committed', 'active', 'failed testing', 'in progress'],
     done: ['done', 'closed', 'completed'],
     new: ['new', 'proposed'],
   },
@@ -400,8 +402,8 @@ export function bucketQualityAssuranceItems(
 
   const result: QualityAssuranceBucket[] = [
     { id: 'new', title: 'Newly added', items: buckets.new },
-    { id: 'needs-development', title: 'Needs follow-up', items: buckets['needs-development'] },
     { id: 'needs-testing', title: 'Ready for QA', items: buckets['needs-testing'] },
+    { id: 'needs-development', title: 'Back in development', items: buckets['needs-development'] },
     { id: 'done', title: 'Recently completed', items: buckets.done },
   ]
 

@@ -64,6 +64,7 @@ type UseBoardViewModelResult = {
   retryAssigneeHistory: () => void
   members: TeamMember[]
   visibleBoardItems: WorkItemSummary[]
+  boardItems: WorkItemSummary[]
   currentIterationName: string | null
   iterationWindow: IterationWindowInfo
   iterationLoading: boolean
@@ -82,6 +83,7 @@ type UseBoardViewModelResult = {
   qaBucketsLoading: boolean
   qaBucketsError: string | null
   qaHistoryWarning: string | null
+  qaUpdatesByItemId: Record<number, import('../../../ado/types').WorkItemUpdate[]>
   backlogBugs: RankedBacklogBug[]
   backlogBugsLoading: boolean
   backlogBugsError: string | null
@@ -249,7 +251,7 @@ export function useBoardViewModel({
     [sprintFilter, teamIterations],
   )
 
-  const { qaBuckets, qaBucketsLoading, qaBucketsError, qaHistoryWarning } = useQualityAssuranceBuckets({
+  const { qaBuckets, qaBucketsLoading, qaBucketsError, qaHistoryWarning, qaUpdatesByItemId } = useQualityAssuranceBuckets({
     adoQueryEngine: scopedQueryEngine,
     selectedTeam: effectiveTeam,
     reloadNonce: qaReloadNonce,
@@ -413,6 +415,7 @@ export function useBoardViewModel({
     retryAssigneeHistory,
     members,
     visibleBoardItems,
+    boardItems,
     currentIterationName: currentIteration?.name ?? null,
     iterationWindow,
     iterationLoading,
@@ -430,6 +433,7 @@ export function useBoardViewModel({
     qaBucketsLoading,
     qaBucketsError,
     qaHistoryWarning,
+    qaUpdatesByItemId,
     backlogBugs,
     backlogBugsLoading,
     backlogBugsError,

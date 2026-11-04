@@ -52,12 +52,28 @@ type DevelopmentCardProps = {
   removal?: SprintRemoval
   /** Shows the card as it stood at this moment, while the sprint is replayed. */
   asOf?: number
+  /** Override the status-derived edge color when a board column represents a different workflow. */
+  columnColor?: string
+  /** States already implied by the surrounding QA column. */
+  expectedStateNames?: readonly string[]
+  /** Role shown by the card's owner avatar, e.g. "Tester" or "Filed by". */
+  ownerLabel?: string
+  /** A concise workflow caption for boards that derive progress outside the sprint journey model. */
+  caption?: string
+  /** Shows an unassigned sprint as an explicit, dashed badge. */
+  showNoSprintBadge?: boolean
+  /** Neutral treatment for work that was removed rather than completed. */
+  cancelled?: boolean
 }
 
 type CardPartProps = {
   item: WorkItemSummary
   model: DevelopmentCardModel
   accent: string
+  ownerLabel: string
+  caption?: string
+  showNoSprintBadge: boolean
+  cancelled: boolean
 }
 
 const HOVER_CARD_WIDTH = 300
@@ -92,13 +108,15 @@ type CardTitleProps = {
   showTitleTooltip?: boolean
   /** Strike through the effort, for cards whose effort no longer counts toward the sprint. */
   struckEffort?: boolean
+  ownerLabel: string
+  cancelled?: boolean
 }
 
-function OwnerAvatar({ owner }: { owner: IdentityRef }) {
+function OwnerAvatar({ owner, label }: { owner: IdentityRef; label: string }) {
   const name = owner.displayName ?? owner.uniqueName ?? 'Unknown'
   return (
     <AppTooltip title={name}>
-      <Box component="span" role="img" aria-label={`Owner: ${name}`} data-card-owner="" sx={{ display: 'inline-flex', flex: '0 0 auto' }}>
+      <Box component="span" role="img" aria-label={`${label}: ${name}`} data-card-owner="" sx={{ display: 'inline-flex', flex: '0 0 auto' }}>
         <AdoAvatar alt="" src={owner.imageUrl} sx={{ width: EFFORT_BADGE_HEIGHT, height: EFFORT_BADGE_HEIGHT, fontSize: 9 }}>
           {name.trim().charAt(0).toUpperCase()}
         </AdoAvatar>
@@ -107,7 +125,7 @@ function OwnerAvatar({ owner }: { owner: IdentityRef }) {
   )
 }
 
-function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false, struckEffort = false }: CardTitleProps) {
+function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false, struckEffort = false, ownerLabel, cancelled = false }: CardTitleProps) {
   const hasAside = model.showEffort || Boolean(owner)
 
   return (
@@ -150,7 +168,7 @@ function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false,
               {item.effort}
             </Box>
           ) : null}
-          {owner ? <OwnerAvatar owner={owner} /> : null}
+          {owner ? <OwnerAvatar owner={owner} label={ownerLabel} /> : null}
         </Box>
       ) : null}
       <AppTooltip title={showTitleTooltip ? model.titleText : undefined}>
@@ -160,8 +178,8 @@ function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false,
           target="_blank"
           rel="noreferrer noopener"
           sx={{
-            color: 'text.primary',
-            textDecoration: 'none',
+            color: cancelled ? 'text.secondary' : 'text.primary',
+            textDecoration: cancelled ? 'line-through' : 'none',
             '&:hover': { textDecoration: 'underline' },
           }}
         >
@@ -205,13 +223,15 @@ function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false,
 }
 
 /** Tags, PRs, next step, and the meta row of the regular card. */
-function CardSections({ item, model, accent }: CardPartProps) {
+function CardSections({ item, model, accent, caption, showNoSprintBadge }: Pick<CardPartProps, 'item' | 'model' | 'accent' | 'caption' | 'showNoSprintBadge'>) {
   const showMeta = model.showStateBadge
     || model.showSprint
     || model.showRollover
     || Boolean(model.changeBadgeText)
     || Boolean(model.agingDots)
     || Boolean(model.journeyCaption)
+    || Boolean(caption)
+    || (showNoSprintBadge && !item.sprintName)
 
   return (
     <>
@@ -253,6 +273,29 @@ function CardSections({ item, model, accent }: CardPartProps) {
           {model.agingDots ? <AgingDots dots={model.agingDots} /> : null}
           {model.journeyCaption ? <JourneyCaptionLabel caption={model.journeyCaption} /> : null}
           {model.showRollover ? <RolloverSprintIndicator color={accent} /> : null}
+          {caption ? (
+            <Typography component="span" variant="body-sm" sx={{ fontSize: 10, lineHeight: 1.1, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+              {caption}
+            </Typography>
+          ) : null}
+          {showNoSprintBadge && !item.sprintName ? (
+            <Box
+              component="span"
+              data-no-sprint=""
+              sx={{
+                px: 0.6,
+                py: 0.125,
+                border: '1px dashed var(--stratakit-color-border-neutral-muted)',
+                borderRadius: 999,
+                color: 'text.secondary',
+                fontSize: 10,
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              No sprint
+            </Box>
+          ) : null}
           {model.showSprint ? (
             <AppTooltip title={item.sprintName}>
               <Typography
@@ -305,6 +348,10 @@ function DevelopmentCardHoverCard({
   accent,
   changeDetail,
   owner,
+  ownerLabel,
+  caption,
+  showNoSprintBadge,
+  cancelled,
 }: CardPartProps & { changeDetail?: CardChangeDetail; owner: IdentityRef | null }) {
   return (
     <Box
@@ -328,8 +375,8 @@ function DevelopmentCardHoverCard({
         overflowWrap: 'normal',
       }}
     >
-      <CardTitle item={item} model={model} owner={owner} />
-      <CardSections item={item} model={model} accent={accent} />
+      <CardTitle item={item} model={model} owner={owner} ownerLabel={ownerLabel} cancelled={cancelled} />
+      <CardSections item={item} model={model} accent={accent} caption={caption} showNoSprintBadge={showNoSprintBadge} />
       <DevelopmentCardDetails item={item} model={model} changeDetail={changeDetail} />
     </Box>
   )
@@ -352,10 +399,18 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   owner = null,
   removal,
   asOf,
+  columnColor,
+  expectedStateNames,
+  ownerLabel = 'Owner',
+  caption,
+  showNoSprintBadge = false,
+  cancelled = false,
 }: DevelopmentCardProps) {
   const theme = useTheme()
-  const accent = theme.palette[getStatusPaletteKey(item.status)].main
-  const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator, journey, asOf })
+  const accent = cancelled
+    ? 'var(--stratakit-color-icon-neutral-secondary)'
+    : columnColor ?? theme.palette[getStatusPaletteKey(item.status)].main
+  const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator, expectedStateNames, journey, asOf })
   const trail = journey && model.journeyCaption ? getJourneyTrail(journey, asOf ?? Date.now()) : null
   // A past day's card has nothing more to show on hover.
   const hoverCard = compact && asOf === undefined
@@ -404,7 +459,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         '&:hover, &:focus-within': { opacity: 1, filter: 'none' },
       }}
     >
-      <CardTitle item={item} model={model} owner={owner} lines={compact ? 1 : 2} showTitleTooltip struckEffort />
+      <CardTitle item={item} model={model} owner={owner} ownerLabel={ownerLabel} cancelled lines={compact ? 1 : 2} showTitleTooltip struckEffort />
       <RemovalLine removal={removal} />
     </Card>
   ) : (
@@ -416,6 +471,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
       data-emphasis={emphasis}
       data-as-of={asOf === undefined ? undefined : ''}
       data-journey-id={journey && !model.pullRequestOnly ? item.id : undefined}
+      style={cancelled ? { borderStyle: 'dashed', borderColor: 'var(--stratakit-color-border-neutral-muted)' } : undefined}
       sx={{
         containerType: 'inline-size',
         position: 'relative',
@@ -427,9 +483,9 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         pr: 1.75,
         pl: 2.5,
         border: '1px solid',
-        borderColor: 'divider',
+        borderColor: cancelled ? 'var(--stratakit-color-border-neutral-muted)' : 'divider',
         borderRadius: 1,
-        bgcolor: 'background.paper',
+        bgcolor: cancelled ? 'background.default' : 'background.paper',
         overflow: 'visible',
         zIndex: 0,
         boxShadow: restingShadow,
@@ -460,10 +516,10 @@ export const DevelopmentCard = memo(function DevelopmentCard({
             {model.changeBadgeText ? null : <Box component="span" sx={visuallyHiddenSx}>Recently changed</Box>}
           </Box>
         ) : null}
-        <CardTitle item={item} model={model} owner={owner} lines={compact ? 1 : 2} showTitleTooltip={!hoverCard} />
+        <CardTitle item={item} model={model} owner={owner} ownerLabel={ownerLabel} cancelled={cancelled} lines={compact ? 1 : 2} showTitleTooltip={!hoverCard} />
         {compact
           ? <DevelopmentCardCompactLine item={item} model={model} accent={accent} />
-          : <CardSections item={item} model={model} accent={accent} />}
+          : <CardSections item={item} model={model} accent={accent} caption={caption} showNoSprintBadge={showNoSprintBadge} />}
         {trail ? <JourneyTrailBar trail={trail} /> : null}
         {emphasis === 'match' ? <Box component="span" sx={visuallyHiddenSx}>Highlighted</Box> : null}
       </SuppressTooltips>
@@ -477,7 +533,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
 
   return (
     <Tooltip
-      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} changeDetail={changeDetail} owner={owner} />}
+      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} changeDetail={changeDetail} owner={owner} ownerLabel={ownerLabel} caption={caption} showNoSprintBadge={showNoSprintBadge} cancelled={cancelled} />}
       placement="right-start"
       enterDelay={400}
       enterNextDelay={150}

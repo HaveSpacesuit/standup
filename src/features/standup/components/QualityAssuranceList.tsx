@@ -1,35 +1,51 @@
-import { Alert, Box, Button, Card, CardContent, Typography } from '@mui/material'
-import { useState } from 'react'
-import { useTheme } from '@mui/material/styles'
-import { QualityAssuranceLoadingState } from './QualityAssuranceLoadingState'
-import { WorkItemCard } from './WorkItemCard'
+import { Alert, Box } from '@mui/material'
+import type { TeamIterationOption, TeamMember, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import { AdoErrorNotice } from './AdoErrorNotice'
-import { getHighlightState } from '../hooks/useAdoHistoryHighlights'
+import { QualityAssuranceLoadingState } from './QualityAssuranceLoadingState'
+import { QaFlowBoard } from './QaFlowBoard'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
-import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
-import {
-  getQaBucketAccentColor,
-  getQaColumnBackground,
-  getQaColumnBorderColor,
-  getQaHeaderBackground,
-} from '../utils/qualityAssuranceColumnStyles'
-
-const COLLAPSED_ITEM_LIMIT = 8
+import type { QaOptions } from '../utils/qaOptions'
 
 type QualityAssuranceListProps = {
   isLoading: boolean
   error: string | null
   historyWarning: string | null
   buckets: QualityAssuranceBucket[]
+  updatesByItemId: Record<number, WorkItemUpdate[]>
+  boardItems: WorkItemSummary[]
+  currentIterationName: string | null
+  teamIterations: TeamIterationOption[]
+  teamMembers: TeamMember[]
+  options: QaOptions
+  lookbackDays: number
+  compactCards: boolean
   colorScheme: 'light' | 'dark'
-  cardHighlightOptions?: CardHighlightOptions
+  cardHighlightOptions: CardHighlightOptions
+  view: 'flow' | 'testers'
+  standupActive: boolean
+  onStandupEnd: () => void
 }
 
-export function QualityAssuranceList({ isLoading, error, historyWarning, buckets, colorScheme, cardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS }: QualityAssuranceListProps) {
-  const theme = useTheme()
-  const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({})
-
+export function QualityAssuranceList({
+  isLoading,
+  error,
+  historyWarning,
+  buckets,
+  updatesByItemId,
+  boardItems,
+  currentIterationName,
+  teamIterations,
+  teamMembers,
+  options,
+  lookbackDays,
+  compactCards,
+  colorScheme,
+  cardHighlightOptions,
+  view,
+  standupActive,
+  onStandupEnd,
+}: QualityAssuranceListProps) {
   if (isLoading) {
     return <QualityAssuranceLoadingState colorScheme={colorScheme} />
   }
@@ -42,191 +58,24 @@ export function QualityAssuranceList({ isLoading, error, historyWarning, buckets
     )
   }
 
-  const totalItems = buckets.reduce((count, bucket) => count + bucket.items.length, 0)
-
-  if (totalItems === 0) {
-    return (
-      <Box
-        component="main"
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 3,
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Card sx={{ width: '100%', maxWidth: 560 }}>
-          <CardContent sx={{ p: 3 }}>
-            {historyWarning ? (
-              <Alert severity="warning" role="alert" sx={{ mb: 1.5 }}>
-                {historyWarning}
-              </Alert>
-            ) : null}
-            <Typography variant="headline-sm" render={<h2 />} sx={{ fontWeight: 700, mb: 1 }}>
-              No QA items
-            </Typography>
-            <Typography variant="body-sm" color="text.secondary">
-              No recently discovered items matched the QA buckets for this team.
-            </Typography>
-          </CardContent>
-        </Card>
-      </Box>
-    )
-  }
-
   return (
-    <Box
-      component="main"
-      sx={{
-        flex: 1,
-        minHeight: 0,
-        overflowY: 'auto',
-        py: 2,
-        // Reserve half the card's 5% hover growth at the page edges.
-        px: `max(${theme.spacing(2)}, 2.5%)`,
-        bgcolor: 'background.default',
-      }}
-    >
-      {historyWarning ? (
-        <Alert severity="warning" role="alert" sx={{ maxWidth: 1600, mx: 'auto', mb: 1.5 }}>
-          {historyWarning}
-        </Alert>
-      ) : null}
-      <Box
-        sx={{
-          maxWidth: 1600,
-          mx: 'auto',
-          display: 'grid',
-          gap: 1.5,
-          alignContent: 'start',
-          gridTemplateColumns: {
-            xs: '1fr',
-            md: 'repeat(2, minmax(0, 1fr))',
-            xl: 'repeat(4, minmax(0, 1fr))',
-          },
-        }}
-      >
-        {buckets.map((bucket) => {
-          const accentColor = getQaBucketAccentColor(bucket.id, theme.palette)
-          const isExpanded = expandedColumns[bucket.id] === true
-          const visibleItems = isExpanded ? bucket.items : bucket.items.slice(0, COLLAPSED_ITEM_LIMIT)
-          const hiddenCount = Math.max(bucket.items.length - visibleItems.length, 0)
-
-          return (
-            <Card
-              component="article"
-              key={bucket.id}
-              aria-labelledby={`qa-column-${bucket.id}`}
-              sx={{
-                minWidth: 0,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'visible',
-                border: '1px solid',
-                borderColor: getQaColumnBorderColor(accentColor, colorScheme),
-              }}
-            >
-              <CardContent
-                sx={{
-                  p: 1.5,
-                  pb: 1.25,
-                  flex: '0 0 auto',
-                  borderTopLeftRadius: 'inherit',
-                  borderTopRightRadius: 'inherit',
-                  borderBottom: '1px solid',
-                  borderColor: getQaColumnBorderColor(accentColor, colorScheme),
-                  bgcolor: getQaHeaderBackground(accentColor, colorScheme),
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box
-                    sx={{
-                      width: 4,
-                      alignSelf: 'stretch',
-                      minHeight: 18,
-                      borderRadius: 999,
-                      bgcolor: accentColor,
-                      flex: '0 0 auto',
-                    }}
-                  />
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, flex: 1, minWidth: 0 }}>
-                    <Typography
-                      id={`qa-column-${bucket.id}`}
-                      render={<h2 />}
-                      variant="body-md"
-                      sx={{ fontWeight: 700 }}
-                    >
-                      {bucket.title}
-                    </Typography>
-                    <Typography variant="body-sm" sx={{ fontWeight: 700, color: accentColor, flex: '0 0 auto' }}>
-                      {bucket.items.length}
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-
-              <Box
-                sx={{
-                  flex: 1,
-                  minHeight: 0,
-                  p: 1.25,
-                  borderBottomLeftRadius: 'inherit',
-                  borderBottomRightRadius: 'inherit',
-                  display: 'grid',
-                  gap: 1,
-                  alignContent: 'start',
-                  bgcolor: getQaColumnBackground(accentColor, colorScheme),
-                }}
-              >
-                {visibleItems.map((item) => {
-                  const footerPerson = bucket.id === 'new'
-                    ? (item.createdBy ? { label: 'Created by', identity: item.createdBy } : null)
-                    : (item.assignedTo ? { label: 'Assigned to', identity: item.assignedTo } : null)
-                  const highlightState = getHighlightState(item.recentActivityAt, item.createdAt, Date.now(), cardHighlightOptions)
-                  return (
-                    <Box key={item.id}>
-                      <WorkItemCard
-                        item={item}
-                        accentColor={accentColor}
-                        showState
-                        hideEffort
-                        footerPerson={footerPerson}
-                        highlightState={highlightState}
-                      />
-                    </Box>
-                  )
-                })}
-
-                {hiddenCount > 0 ? (
-                  <Button
-                    size="small"
-                    variant="text"
-                    sx={{ justifySelf: 'start', px: 0.5, minWidth: 0 }}
-                    onClick={() => setExpandedColumns((current) => ({ ...current, [bucket.id]: true }))}
-                  >
-                    Show {hiddenCount} more
-                  </Button>
-                ) : null}
-
-                {isExpanded && bucket.items.length > COLLAPSED_ITEM_LIMIT ? (
-                  <Button
-                    size="small"
-                    variant="text"
-                    sx={{ justifySelf: 'start', px: 0.5, minWidth: 0 }}
-                    onClick={() => setExpandedColumns((current) => ({ ...current, [bucket.id]: false }))}
-                  >
-                    Show less
-                  </Button>
-                ) : null}
-              </Box>
-            </Card>
-          )
-        })}
-      </Box>
+    <Box component="main" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {historyWarning ? <Alert severity="warning" role="alert" sx={{ flex: '0 0 auto' }}>{historyWarning}</Alert> : null}
+      <QaFlowBoard
+        buckets={buckets}
+        updatesByItemId={updatesByItemId}
+        boardItems={boardItems}
+        currentIterationName={currentIterationName}
+        teamIterations={teamIterations}
+        teamMembers={teamMembers}
+        options={options}
+        lookbackDays={lookbackDays}
+        compactCards={compactCards}
+        cardHighlightOptions={cardHighlightOptions}
+        view={view}
+        standupActive={standupActive}
+        onStandupEnd={onStandupEnd}
+      />
     </Box>
   )
 }

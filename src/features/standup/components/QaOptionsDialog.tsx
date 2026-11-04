@@ -25,7 +25,7 @@ import type { QaOptions, QaSprintFilter, QaStateGroupOverrides, QaTagGroups } fr
 import { createTagFilterRule, DEFAULT_QA_LOOKBACK_DAYS, DEFAULT_QA_TAG_GROUPS, normalizeQaLookbackDays, serializeQaOptions } from '../utils/qaOptions'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { normalizeCardHighlightOptions } from '../utils/cardHighlightOptions'
-import type { ProjectWorkItemState, TeamIterationOption } from '../../../ado/queryEngine'
+import type { ProjectWorkItemState, TeamIterationOption, TeamMember } from '../../../ado/queryEngine'
 import { readStringArraySelectValue } from '../utils/selectValues'
 
 type QaOptionsDialogProps = {
@@ -43,6 +43,7 @@ type QaOptionsDialogProps = {
   retryProjectWorkItemStates?: () => void
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
+  teamMembers: TeamMember[]
 }
 
 type StateGroupKey = keyof QaStateGroupOverrides
@@ -50,7 +51,7 @@ type StateGroupKey = keyof QaStateGroupOverrides
 const STATE_GROUP_SECTIONS: Array<{ key: StateGroupKey; label: string; description: string }> = [
   { key: 'testing', label: 'Ready for QA', description: 'Items in these states will appear in the Ready for QA column.' },
   { key: 'done', label: 'Recently completed', description: 'Items that entered these states after being in Ready for QA will appear in the Recently completed column.' },
-  { key: 'development', label: 'Needs follow-up', description: 'Items that returned to these states after being in Ready for QA will appear in the Needs follow-up column.' },
+  { key: 'development', label: 'Back in development', description: 'Items that returned to these states after being in Ready for QA will appear in the Back in development column.' },
   { key: 'new', label: 'Newly added', description: 'Items in these states that were created recently will always appear in the Newly added column.' },
 ]
 
@@ -96,6 +97,7 @@ export function QaOptionsDialog({
   retryProjectWorkItemStates,
   teamIterations,
   teamIterationsLoading,
+  teamMembers,
 }: QaOptionsDialogProps) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
   // Edit against a local draft so expensive query-affecting changes (the work item type
@@ -310,6 +312,7 @@ export function QaOptionsDialog({
           <Tab label="Tag filters" />
           <Tab label="Column classification" />
           <Tab label="Freshness" />
+          <Tab label="Testers" />
         </Tabs>
 
         <Box sx={{ flex: 1, minWidth: 0, maxHeight: 480, overflowY: 'auto', pr: 0.5 }}>
@@ -749,6 +752,46 @@ export function QaOptionsDialog({
               }}
               sx={{ maxWidth: 220 }}
             />
+          </Box>
+        )}
+
+        {activeTab === 6 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Typography variant="body-md" sx={{ fontWeight: 700 }}>
+              QA testers
+            </Typography>
+            <Typography variant="body-sm" color="text.secondary">
+              Choose who can own testing work. When no testers are selected, all team members are considered testers.
+            </Typography>
+            {teamMembers.length === 0 ? (
+              <Typography variant="body-sm" color="text.secondary">No team members are available.</Typography>
+            ) : (
+              <Select
+                multiple
+                aria-label="QA testers"
+                size="small"
+                fullWidth
+                displayEmpty
+                value={draft.testers}
+                input={<OutlinedInput />}
+                onChange={(event) => {
+                  const testers = readStringArraySelectValue(event.target.value)
+                  setDraft((current) => ({ ...current, testers }))
+                }}
+                renderValue={(values) => {
+                  const selected = readStringArraySelectValue(values)
+                  return selected.length === 0 ? <span style={{ opacity: 0.5 }}>All team members</span> : selected.join(', ')
+                }}
+                MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
+              >
+                {teamMembers.map((member) => (
+                  <MenuItem key={member.uniqueName ?? member.displayName} value={member.displayName} dense>
+                    <Checkbox checked={draft.testers.includes(member.displayName)} />
+                    <ListItemText primary={member.displayName} secondary={member.uniqueName} />
+                  </MenuItem>
+                ))}
+              </Select>
+            )}
           </Box>
         )}
 

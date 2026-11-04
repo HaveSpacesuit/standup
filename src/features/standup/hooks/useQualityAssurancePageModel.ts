@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { matchesQuickFilter, normalizeQuickFilterText } from '../utils/boardFilters'
+import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { QualityAssuranceBucket, QualityAssuranceBucketId } from '../utils/qualityAssuranceBuckets'
 import { applyQaGeneralFilters, type QaOptions } from '../utils/qaOptions'
 
 type UseQualityAssurancePageModelArgs = {
   buckets: QualityAssuranceBucket[]
+  boardItems: WorkItemSummary[]
   qaOptions: QaOptions
 }
 
@@ -13,15 +15,16 @@ type UseQualityAssurancePageModelResult = {
   onQuickFilterInputChange: (value: string) => void
   onQuickFilterClear: () => void
   filteredBuckets: QualityAssuranceBucket[]
+  filteredBoardItems: WorkItemSummary[]
 }
 
 function sortBucketsByPriority(bucketId: QualityAssuranceBucketId): number {
   switch (bucketId) {
     case 'new':
       return 0
-    case 'needs-development':
-      return 1
     case 'needs-testing':
+      return 1
+    case 'needs-development':
       return 2
     case 'done':
       return 3
@@ -30,7 +33,7 @@ function sortBucketsByPriority(bucketId: QualityAssuranceBucketId): number {
   }
 }
 
-export function useQualityAssurancePageModel({ buckets, qaOptions }: UseQualityAssurancePageModelArgs): UseQualityAssurancePageModelResult {
+export function useQualityAssurancePageModel({ buckets, boardItems, qaOptions }: UseQualityAssurancePageModelArgs): UseQualityAssurancePageModelResult {
   const [quickFilterInput, setQuickFilterInput] = useState('')
 
   const normalizedQuickFilterText = useMemo(
@@ -56,11 +59,22 @@ export function useQualityAssurancePageModel({ buckets, qaOptions }: UseQualityA
       .sort((left, right) => sortBucketsByPriority(left.id) - sortBucketsByPriority(right.id)),
     [buckets, normalizedQuickFilterText, qaOptions],
   )
+  const filteredBoardItems = useMemo(
+    () => boardItems.filter((item) => matchesQuickFilter(
+      item,
+      normalizedQuickFilterText,
+      item.assignedTo?.displayName
+        ? { kind: 'team-member' as const, label: item.assignedTo.displayName }
+        : undefined,
+    )),
+    [boardItems, normalizedQuickFilterText],
+  )
 
   return {
     quickFilterInput,
     onQuickFilterInputChange: setQuickFilterInput,
     onQuickFilterClear: () => setQuickFilterInput(''),
     filteredBuckets,
+    filteredBoardItems,
   }
 }

@@ -81,10 +81,12 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     departuresByItemId,
     rolledOverItemIds,
     workItemAssignees,
+    boardItems,
     qaBuckets,
     qaBucketsLoading,
     qaBucketsError,
     qaHistoryWarning,
+    qaUpdatesByItemId,
     backlogBugs,
     backlogBugsLoading,
     backlogBugsError,
@@ -143,7 +145,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     onQuickFilterInputChange: onQualityAssuranceQuickFilterInputChange,
     onQuickFilterClear: onQualityAssuranceQuickFilterClear,
     filteredBuckets: filteredQaBuckets,
-  } = useQualityAssurancePageModel({ buckets: qaBuckets, qaOptions })
+    filteredBoardItems: filteredQaBoardItems,
+  } = useQualityAssurancePageModel({ buckets: qaBuckets, boardItems, qaOptions })
 
   const {
     quickFilterInput: backlogQuickFilterInput,
@@ -264,6 +267,12 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onQuickFilterClear: onQualityAssuranceQuickFilterClear,
           quickFilterInputRef: qualityAssuranceQuickFilterInputRef,
           buckets: filteredQaBuckets,
+          updatesByItemId: qaUpdatesByItemId,
+          boardItems: filteredQaBoardItems,
+          currentIterationName,
+          teamMembers: members,
+          compactCards: assignmentOptions.compactCards,
+          lookbackDays: qaOptions.lookbackDays,
           onRefresh,
           isLoading: qaBucketsLoading,
           newItemsError: qaBucketsError,

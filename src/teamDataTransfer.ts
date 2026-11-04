@@ -221,6 +221,10 @@ function parseQaOptions(value: unknown): QaOptions {
       value.includeWorkItemTypes ?? [],
       'Imported QA options includeWorkItemTypes must be a string array.',
     ),
+    testers: parseStringArray(
+      value.testers ?? [],
+      'Imported QA options testers must be a string array.',
+    ),
     lookbackDays: normalizeQaLookbackDays(value.lookbackDays ?? DEFAULT_QA_LOOKBACK_DAYS),
     sprintFilter: parseSprintFilter(
       value.sprintFilter ?? EMPTY_SPRINT_FILTER,

@@ -24,6 +24,7 @@ type UseQualityAssuranceBucketsResult = {
   qaBucketsLoading: boolean
   qaBucketsError: string | null
   qaHistoryWarning: string | null
+  qaUpdatesByItemId: Record<number, import('../../../ado/types').WorkItemUpdate[]>
 }
 
 export function useQualityAssuranceBuckets({
@@ -129,5 +130,6 @@ export function useQualityAssuranceBuckets({
     qaBucketsLoading,
     qaBucketsError,
     qaHistoryWarning,
+    qaUpdatesByItemId: rawData?.updatesByItemId ?? {},
   }
 }
