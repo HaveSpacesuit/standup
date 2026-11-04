@@ -255,7 +255,8 @@ export function useBoardViewModel({
     adoQueryEngine: scopedQueryEngine,
     selectedTeam: effectiveTeam,
     reloadNonce: qaReloadNonce,
-    enabled: activeView === 'qa-activity',
+    enabled: activeView === 'qa-activity'
+      || (activeView === 'development' && assignmentOptionsByTeam?.[effectiveTeam.id]?.includeQaTestersInStandup === true),
     includeWorkItemTypes: qaOptionsByTeam?.[effectiveTeam.id]?.includeWorkItemTypes,
     includeIterationPaths: selectedIterationPaths,
     lookbackDays: qaOptionsByTeam?.[effectiveTeam.id]?.lookbackDays,
@@ -364,6 +365,12 @@ export function useBoardViewModel({
       adoQueryEngine.clearBacklogDataCache(selectedTeam.id)
       setBacklogReloadNonce((current) => current + 1)
       return
+    }
+
+    if (assignmentOptionsByTeam?.[selectedTeam.id]?.includeQaTestersInStandup) {
+      adoQueryEngine.clearQualityAssuranceDataCache(selectedTeam.id)
+      adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, qaBuckets.flatMap((bucket) => bucket.items.map((item) => item.id)))
+      setQaReloadNonce((current) => current + 1)
     }
 
     adoQueryEngine.clearDevelopmentDataCache(selectedTeam.id)

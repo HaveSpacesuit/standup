@@ -55,6 +55,8 @@ type HiddenTagsDialogProps = {
   onHideUsersWithOnlyStaleDoneWorkChange?: (next: boolean) => void
   compactCards?: boolean
   onCompactCardsChange?: (next: boolean) => void
+  includeQaTestersInStandup?: boolean
+  onIncludeQaTestersInStandupChange?: (next: boolean) => void
   teamIterations?: TeamIterationOption[]
   teamIterationsLoading?: boolean
   title?: string
@@ -114,6 +116,8 @@ export function HiddenTagsDialog({
   onHideUsersWithOnlyStaleDoneWorkChange,
   compactCards = false,
   onCompactCardsChange,
+  includeQaTestersInStandup = false,
+  onIncludeQaTestersInStandupChange,
   teamIterations = [],
   teamIterationsLoading = false,
   title = 'Development options',
@@ -253,6 +257,18 @@ export function HiddenTagsDialog({
                       checked={hideUsersWithOnlyStaleDoneWork}
                       onChange={(_, checked) => onHideUsersWithOnlyStaleDoneWorkChange?.(checked)}
                       slotProps={{ input: { 'aria-describedby': STALE_DONE_HELP_ID } }}
+                    />
+                  )}
+                />
+                <Typography variant="body-sm" color="text.secondary" sx={{ mt: 2, mb: 0.5 }}>
+                  Extend the People-view standup after developer turns with QA tester lanes.
+                </Typography>
+                <FormControlLabel
+                  label="Include QA testers in standup"
+                  control={(
+                    <Checkbox
+                      checked={includeQaTestersInStandup}
+                      onChange={(_, checked) => onIncludeQaTestersInStandupChange?.(checked)}
                     />
                   )}
                 />

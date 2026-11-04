@@ -51,6 +51,8 @@ export type BoardRowData = {
   avatarUrl?: string
   /** Set on team member rows; absent on the Unassigned and Assignee unavailable rows. */
   memberIdentity?: IdentityRef
+  /** QA tester rows follow developer rows in an opt-in Development standup. */
+  isQaTester?: boolean
   isUnassigned?: boolean
   /** A StrataKit icon shown in place of the avatar, for lanes that are not people. */
   iconHref?: string

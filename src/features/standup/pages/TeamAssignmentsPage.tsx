@@ -25,6 +25,7 @@ import { useSprintReplay } from '../hooks/useSprintReplay'
 import type { SprintScopeState } from '../hooks/useSprintScopeChanges'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
+import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import type { SprintForecast } from '../utils/sprintForecast'
 import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
@@ -82,6 +83,12 @@ type TeamAssignmentsPageProps = {
   onHideUsersWithOnlyStaleDoneWorkChange: (next: boolean) => void
   compactCards?: boolean
   onCompactCardsChange?: (next: boolean) => void
+  includeQaTestersInStandup: boolean
+  onIncludeQaTestersInStandupChange: (next: boolean) => void
+  qaBuckets: QualityAssuranceBucket[]
+  qaTesters: string[]
+  qaBucketsLoading: boolean
+  qaBucketsError: string | null
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
   teamIterationsError: string | null
@@ -144,6 +151,12 @@ export function TeamAssignmentsPage({
   onHideUsersWithOnlyStaleDoneWorkChange,
   compactCards = false,
   onCompactCardsChange,
+  includeQaTestersInStandup,
+  onIncludeQaTestersInStandupChange,
+  qaBuckets,
+  qaTesters,
+  qaBucketsLoading,
+  qaBucketsError,
   teamIterations,
   teamIterationsLoading,
   teamIterationsError,
@@ -276,6 +289,16 @@ export function TeamAssignmentsPage({
               {assigneesHistoryWarning}
             </Alert>
           ) : null}
+          {standupLive && includeQaTestersInStandup && qaBucketsLoading ? (
+            <Alert severity="info" role="status" sx={{ m: 1, mb: 0 }}>
+              Loading QA tester lanes for standup…
+            </Alert>
+          ) : null}
+          {standupLive && includeQaTestersInStandup && qaBucketsError ? (
+            <Alert severity="warning" role="alert" sx={{ m: 1, mb: 0 }}>
+              QA tester lanes could not be loaded: {qaBucketsError}
+            </Alert>
+          ) : null}
           {patConfigured && !teamIterationsError && !isTeamDataLoading && !membersError && !workItemsError && !assigneesError && workItems.length === 0 ? (
             <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
               {quickFilterInput.trim() || selectedMemberFilter
@@ -317,6 +340,9 @@ export function TeamAssignmentsPage({
                 rolledOverItemIds={rolledOverItemIds}
                 workItemAssignees={workItemAssignees}
                 standupActive={standupLive}
+                includeQaTestersInStandup={includeQaTestersInStandup}
+                qaBuckets={qaBuckets}
+                qaTesters={qaTesters}
                 onStandupEnd={endStandup}
                 journeysByItemId={journeysByItemId}
                 sprintScope={sprintScope}
@@ -350,6 +376,8 @@ export function TeamAssignmentsPage({
             onHideUsersWithOnlyStaleDoneWorkChange={onHideUsersWithOnlyStaleDoneWorkChange}
             compactCards={compactCards}
             onCompactCardsChange={onCompactCardsChange}
+            includeQaTestersInStandup={includeQaTestersInStandup}
+            onIncludeQaTestersInStandupChange={onIncludeQaTestersInStandupChange}
             teamIterations={teamIterations}
             teamIterationsLoading={teamIterationsLoading}
           />
