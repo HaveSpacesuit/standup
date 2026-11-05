@@ -168,6 +168,16 @@ Prepare data that exercises both populated and empty states:
       legible in both themes.
 - [ ] Reload and verify the selected appearance persists.
 - [ ] Verify the display preference is not included as Azure DevOps data or PAT data.
+- [ ] Verify Settings > Display shows "Remember last view" off by default, with help text naming
+      Developers and Testers as the default views.
+- [ ] With it off, switch Development to Sprint and Quality Assurance to Flow, reload, and verify
+      they open on Developers and Testers.
+- [ ] Turn it on, reload, and verify Development opens on Sprint and Quality Assurance on Flow
+      (the views used last, even though they were chosen while the setting was off). Switch back,
+      reload, and verify the new choices are remembered and the setting itself persists.
+- [ ] With it on and Sprint remembered, start a standup and verify Development switches to the
+      Developers board, then reopens on Developers after a reload.
+- [ ] Verify team export does not include the setting or the remembered views.
 
 ## 4. Navigation and page lifecycle
 
@@ -384,7 +394,8 @@ Prepare data that exercises both populated and empty states:
 ### Page and board
 
 - [ ] Open Quality Assurance and verify the QA toolbar and selected team, and that the page opens on
-      the Testers view, with the View toggle listing Testers and then Flow.
+      the Testers view (or the view used last, when Settings > Display > "Remember last view" is
+      on), with the View toggle listing Testers and then Flow.
 - [ ] Verify the loading skeleton mirrors the current view (tester lanes or flow columns, under the
       ribbon and Needs attention bar), then verify the populated board, no-results state, and
       API-error state.

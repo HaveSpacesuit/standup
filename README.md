@@ -107,6 +107,10 @@ same testers as the QA page), holding the QA page's items assigned to them. Thes
 during standup, load QA data only while the option is on, and don't count toward the Needs
 attention bar. The setting is saved per team and included in team exports.
 
+Development opens on the Developers board, and Quality Assurance on Testers. Turn on Settings > Display
+> "Remember last view" to reopen each page on the view you used last instead, such as Sprint or Flow.
+The setting and each page's last view are saved in this browser, not in team exports.
+
 The toolbar's View toggle switches between the Developers board and the Sprint view. The Sprint view is
 the same board with one lane per sprint instead of per person: the current sprint first and open,
 other sprints collapsed beneath it (with their dates), and items without a sprint last. It uses the
@@ -418,6 +422,7 @@ Unreadable saved team profiles or QA options produce a recovery warning. Only re
 - the board header and content share one scroll container for alignment
 - dense columns can collapse and expand groups for easier sprint review
 - light/dark visual mode is supported
+- optionally reopens Development and Quality Assurance on the view used last (Settings > Display)
 
 ## Development commands
 
