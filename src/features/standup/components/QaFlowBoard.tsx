@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Button, ButtonBase, Chip, Divider, IconButton, Typography, useTheme } from '@mui/material'
+import { Box, Button, ButtonBase, Chip, Divider, IconButton, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgFlag from '@stratakit/icons/flag.svg'
 import svgInfo from '@stratakit/icons/info.svg'
@@ -11,23 +11,28 @@ import { AdoAvatar } from './AdoAvatar'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
+import { BOARD_COLUMN_DIVIDER, BOARD_HEADER_HEIGHT } from '../utils/boardLayout'
 import { formatSprintDate, getSprintProgress } from '../utils/sprintDates'
-import { getStatusColumnColor } from '../utils/statusColumnStyles'
 import type { AttentionTone } from './boardAttention'
 import type { BoardRowData } from './KanbanBoardGrid'
 import type { StandupOrderMode } from './standupOrder'
+import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { QaCard } from './QaCard'
+import { QaColumnHeader } from './QaColumnHeader'
 import {
   COLUMN_META,
   getColumnItems,
   getItemForLane,
   getItemHistory,
+  getQaBoardLayout,
+  getQaColumnStates,
   getSignalSet,
   matchesTester,
   normalizeState,
   QA_ATTENTION_FACETS,
   type ItemHistory,
   type QaColumnId,
+  type QaColumnState,
   type QaFacet,
   type QaView,
 } from './qaBoardModel'
@@ -187,9 +192,12 @@ function QaAttentionBar({ counts, selected, onSelect }: {
   )
 }
 
-function FlowColumn({ id, items, historyById, currentIterationName, compact, highlightOptions, testers, selectedFacet, signalsById, comingOpen, onComingToggle, emptyOpen, onEmptyToggle }: {
-  id: QaColumnId
+function FlowColumn({ column, index, items, matchCount, onToggle, historyById, currentIterationName, compact, highlightOptions, testers, selectedFacet, signalsById }: {
+  column: QaColumnState
+  index: number
   items: WorkItemSummary[]
+  matchCount: number | null
+  onToggle: () => void
   historyById: Map<number, ItemHistory>
   currentIterationName: string | null
   compact: boolean
@@ -197,16 +205,8 @@ function FlowColumn({ id, items, historyById, currentIterationName, compact, hig
   testers: TeamMember[]
   selectedFacet: QaFacet | null
   signalsById: Map<number, Set<QaFacet>>
-  comingOpen: boolean
-  onComingToggle: () => void
-  emptyOpen: boolean
-  onEmptyToggle: () => void
 }) {
-  const theme = useTheme()
-  const meta = COLUMN_META[id]
-  const color = getStatusColumnColor(meta.status, theme.palette)
-  const isCollapsed = id === 'coming' && !comingOpen
-  const rail = items.length === 0 && !emptyOpen
+  const { id, rail, collapsible } = column
   const readyUnassigned = id === 'needs-testing'
     ? items.filter((item) => !matchesTester(item.assignedTo, testers))
     : []
@@ -239,61 +239,56 @@ function FlowColumn({ id, items, historyById, currentIterationName, compact, hig
       aria-labelledby={`qa-column-${id}`}
       data-qa-column={id}
       sx={{
-        minWidth: rail || isCollapsed ? 44 : 0,
-        width: '100%',
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
-        borderRight: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.default',
+        boxShadow: index > 0 ? BOARD_COLUMN_DIVIDER : undefined,
       }}
     >
-      <Box
-        sx={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 1,
-          minHeight: 52,
-          px: rail || isCollapsed ? 0.5 : 1.25,
-          py: 0.75,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.75,
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        {rail ? (
-          <ButtonBase
-            aria-label={`Expand empty ${meta.title} column`}
-            onClick={onEmptyToggle}
-            sx={{ width: '100%', minHeight: 40, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 0.5, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+      <QaColumnHeader
+        id={id}
+        count={items.length}
+        matchCount={matchCount}
+        rail={rail}
+        onToggle={rail || collapsible ? onToggle : undefined}
+        divider={index > 0}
+        sx={{ position: 'sticky', top: 0, zIndex: 3, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}
+      />
+      {rail ? (
+        <Box
+          data-qa-column-body=""
+          // The header's Expand button is the keyboard path; a click anywhere on the rail is a mouse shortcut.
+          onClick={onToggle}
+          sx={{
+            flex: '1 1 auto',
+            display: 'flex',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            '&:hover': { bgcolor: 'action.hover' },
+          }}
+        >
+          <Box
+            component="span"
+            aria-hidden="true"
+            sx={{
+              position: 'sticky',
+              top: BOARD_HEADER_HEIGHT + 12,
+              alignSelf: 'flex-start',
+              mt: 1.5,
+              writingMode: 'vertical-rl',
+              transform: 'rotate(180deg)',
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              color: TERTIARY_TEXT_COLOR,
+              whiteSpace: 'nowrap',
+            }}
           >
-            <Box sx={{ width: 22, height: 4, borderRadius: 999, bgcolor: color }} />
-            <Typography component="h2" id={`qa-column-${id}`} variant="body-sm">{meta.title} · 0</Typography>
-          </ButtonBase>
-        ) : isCollapsed ? (
-          <ButtonBase
-            aria-label="Expand Coming up"
-            onClick={onComingToggle}
-            sx={{ width: '100%', minHeight: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-          >
-            <Box sx={{ width: 22, height: 4, borderRadius: 999, bgcolor: color }} />
-            <Typography component="h2" id={`qa-column-${id}`} variant="body-sm">{meta.title} · {items.length}</Typography>
-          </ButtonBase>
-        ) : (
-          <>
-            <Box sx={{ width: 4, height: 22, borderRadius: 999, flex: '0 0 auto', bgcolor: color }} />
-            <Typography component="h2" id={`qa-column-${id}`} variant="body-sm" sx={{ minWidth: 0, flex: 1, fontWeight: 700 }}>{meta.title}</Typography>
-            <Typography variant="body-sm" sx={{ fontWeight: 700, color }}>{items.length}</Typography>
-            {id === 'coming' ? <Button size="small" onClick={onComingToggle}>Collapse</Button>
-              : emptyOpen ? <Button size="small" onClick={onEmptyToggle}>Collapse</Button> : null}
-          </>
-        )}
-      </Box>
-      {!rail && !isCollapsed ? (
-        <Box sx={{ display: 'grid', alignContent: 'start', gap: 1, p: compact ? 0.75 : 1, minHeight: 0 }}>
+            {COLUMN_META[id].title} · {items.length > 0 ? items.length : 'none'}
+          </Box>
+        </Box>
+      ) : (
+        <Box data-qa-column-body="" sx={{ flex: '1 1 auto', display: 'grid', alignContent: 'start', gap: 1, p: compact ? 0.75 : 1 }}>
           {items.length === 0 ? (
             <Typography variant="body-sm" color="text.secondary">No items in this column.</Typography>
           ) : id === 'needs-testing' ? (
@@ -306,7 +301,7 @@ function FlowColumn({ id, items, historyById, currentIterationName, compact, hig
             </>
           ) : items.map(renderCard)}
         </Box>
-      ) : null}
+      )}
     </Box>
   )
 }
@@ -404,8 +399,7 @@ export function QaFlowBoard({
   onStandupEnd,
 }: QaFlowBoardProps) {
   const [selectedFacet, setSelectedFacet] = useState<QaFacet | null>(null)
-  const [comingOpen, setComingOpen] = useState(true)
-  const [expandedEmpty, setExpandedEmpty] = useState<Partial<Record<QaColumnId, boolean>>>({})
+  const [columnOpen, setColumnOpen] = useState<Partial<Record<QaColumnId, boolean>>>({})
   const [collapsedLanes, setCollapsedLanes] = useState<Set<string>>(() => new Set(['other']))
   const [standupIndex, setStandupIndex] = useState(0)
   const [standupOrderMode, setStandupOrderMode] = useState<StandupOrderMode>('alphabetical')
@@ -463,14 +457,16 @@ export function QaFlowBoard({
     'history-unavailable': getColumnItems(buckets, 'history-unavailable'),
   }), [buckets, comingItems])
   const allColumnItems = columnIds.flatMap((id) => itemsByColumn[id] ?? [])
-  const flowGridTemplate = columnIds.map((id) => {
-    const collapsed = ((itemsByColumn[id] ?? []).length === 0 && expandedEmpty[id] !== true)
-      || (id === 'coming' && !comingOpen)
-    if (collapsed) return '44px'
-    if (id === 'needs-testing') return 'minmax(320px, 1.45fr)'
-    if (id === 'done') return 'minmax(200px, 0.9fr)'
-    return 'minmax(220px, 1fr)'
-  }).join(' ')
+  const columns = getQaColumnStates(
+    columnIds,
+    Object.fromEntries(columnIds.map((id) => [id, (itemsByColumn[id] ?? []).length])),
+    columnOpen,
+  )
+  const flowLayout = getQaBoardLayout(columns)
+  const toggleColumn = ({ id, rail }: QaColumnState) => setColumnOpen((current) => ({ ...current, [id]: rail }))
+  const columnMatchCount = (id: QaColumnId) => selectedFacet
+    ? (itemsByColumn[id] ?? []).filter((item) => signalsById.get(item.id)?.has(selectedFacet)).length
+    : null
   const visibleCount = selectedFacet
     ? allColumnItems.filter((item) => signalsById.get(item.id)?.has(selectedFacet)).length
     : allColumnItems.length
@@ -549,16 +545,18 @@ export function QaFlowBoard({
         {view === 'flow' ? (
           <Box sx={{
             display: 'grid',
-            gridTemplateColumns: flowGridTemplate,
-            alignItems: 'start',
+            gridTemplateColumns: flowLayout.gridTemplate,
             minHeight: '100%',
-            minWidth: 'max-content',
+            minWidth: flowLayout.minWidth,
           }}>
-            {columnIds.map((id) => (
+            {columns.map((column, index) => (
               <FlowColumn
-                key={id}
-                id={id}
-                items={itemsByColumn[id] ?? []}
+                key={column.id}
+                column={column}
+                index={index}
+                items={itemsByColumn[column.id] ?? []}
+                matchCount={columnMatchCount(column.id)}
+                onToggle={() => toggleColumn(column)}
                 historyById={historyById}
                 currentIterationName={currentIterationName}
                 compact={compactCards}
@@ -566,10 +564,6 @@ export function QaFlowBoard({
                 testers={testers}
                 selectedFacet={selectedFacet}
                 signalsById={signalsById}
-                comingOpen={comingOpen}
-                onComingToggle={() => setComingOpen((open) => !open)}
-                emptyOpen={expandedEmpty[id] === true}
-                onEmptyToggle={() => setExpandedEmpty((current) => ({ ...current, [id]: current[id] !== true }))}
               />
             ))}
           </Box>
