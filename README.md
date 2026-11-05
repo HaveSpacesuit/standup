@@ -98,15 +98,15 @@ first, which ranks people by their cards' signals (blocked counts most, then fai
 Changing the order starts again from the top. Only team members take a turn, not the Unassigned or
 Assignee unavailable lanes. The order is fixed when standup starts: people who appear on the board
 later join the end of the line, and people who drop off are skipped. Starting clears the member
-filter and switches to the people view; the member filter stays locked while standup runs, and
+filter and switches to the Developers view; the member filter stays locked while standup runs, and
 switching to the sprint view or changing team ends it.
 
-The toolbar's View toggle switches between the People board and the Sprint view. The Sprint view is
+The toolbar's View toggle switches between the Developers board and the Sprint view. The Sprint view is
 the same board with one lane per sprint instead of per person: the current sprint first and open,
 other sprints collapsed beneath it (with their dates), and items without a sprint last. It uses the
 same cards, density, lane heads, and Needs attention bar, leaves out pull requests that have no work
 item, and ignores the Members options. Each card shows its owner (the developer whose lane it sits
-in on the People board) as an avatar, and a caption telling its journey this sprint: "Done Nov 2",
+in on the Developers board) as an avatar, and a caption telling its journey this sprint: "Done Nov 2",
 "Back from Review · 2d", "Added today", "Into Active today", "Active at start", or "4d in Active"
 (amber from five days, except in New). Longer waits read in weeks, months, or years, such as
 "3w in Active" or "1y in New", and the same units apply to the flow lines' "oldest" and to pull
@@ -155,7 +155,7 @@ title on one line and a single status line: the state when the column does not i
 progress, the next step and who it is waiting on, what recently changed, and aging dots and the
 sprint on the right. Hover over or focus a card to see the full card along with its state, sprint,
 owner, last change, and each PR's title, repository, and checks. The setting is saved per team in
-browser local storage, is included in team exports, applies to both the People board and the Sprint
+browser local storage, is included in team exports, applies to both the Developers board and the Sprint
 view, and does not change the QA board.
 
 A sprint ribbon above the board, in both views, keeps sprint context on one line: the current

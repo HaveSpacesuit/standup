@@ -90,7 +90,7 @@ export function QualityAssurancePage({
 }: QualityAssurancePageProps) {
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [optionsInitialTab, setOptionsInitialTab] = useState<'testers' | undefined>(undefined)
-  const [view, setView] = useState<'flow' | 'testers'>('flow')
+  const [view, setView] = useState<'flow' | 'testers'>('testers')
   const [standupActive, setStandupActive] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
   const handleTeamChange = (teamId: string) => {

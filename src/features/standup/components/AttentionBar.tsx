@@ -16,7 +16,7 @@ type AttentionBarProps = {
   activeFacet: AttentionFacetKey | null
   highlightedCount: number
   onChange: (facet: AttentionFacetKey | null) => void
-  /** The facets this board offers, in bar order; defaults to the People board's, which leave out journey-only facets. */
+  /** The facets this board offers, in bar order; defaults to the Developers board's, which leave out journey-only facets. */
   facets?: readonly AttentionFacet[]
 }
 

@@ -6,8 +6,8 @@ import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgPlay from '@stratakit/icons/play.svg'
-import svgTimeline from '@stratakit/icons/timeline.svg'
 import svgUsers from '@stratakit/icons/users.svg'
+import svgWorkflow from '@stratakit/icons/workflow.svg'
 import { PageToolbar } from './PageToolbar'
 import { QuickFilterField } from './QuickFilterField'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
@@ -97,11 +97,11 @@ export function QualityAssuranceToolbar({
               }}
               aria-label="QA board view"
             >
-              <ToggleButton value="flow" render={<Button size="small" startIcon={<Icon href={svgTimeline} />} />}>
-                Flow
-              </ToggleButton>
               <ToggleButton value="testers" render={<Button size="small" startIcon={<Icon href={svgUsers} />} />}>
                 Testers
+              </ToggleButton>
+              <ToggleButton value="flow" render={<Button size="small" startIcon={<Icon href={svgWorkflow} />} />}>
+                Flow
               </ToggleButton>
             </ToggleButtonGroup>
           </>

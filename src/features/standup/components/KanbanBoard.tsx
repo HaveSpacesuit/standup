@@ -51,7 +51,7 @@ const NO_HIGHLIGHTS: Record<number, ChangeHighlightState> = {}
 const NO_QA_BUCKETS: QualityAssuranceBucket[] = []
 const NO_QA_TESTERS: TeamMember[] = []
 
-/** People lays the board out by developer; Sprint lays the same cards out by sprint. */
+/** Developers lays the board out by developer; Sprint lays the same cards out by sprint. */
 export type BoardLens = 'people' | 'sprint'
 
 type KanbanBoardProps = {

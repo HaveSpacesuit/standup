@@ -185,7 +185,7 @@ export function TeamAssignmentsPage({
   const replay = useSprintReplay(replayReady ? replayTimeline : null, captureCards)
   const resetReplay = replay.reset
 
-  // Standup walks every lane, so it starts from the whole team in the People view.
+  // Standup walks every lane, so it starts from the whole team in the Developers view.
   const startStandup = () => {
     onMemberFilterChange('')
     resetReplay()

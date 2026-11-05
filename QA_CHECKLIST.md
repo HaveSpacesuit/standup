@@ -195,9 +195,9 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify rollover sprint indicators appear only when the underlying data warrants them.
 - [ ] Verify refresh disables itself during loading and re-enables afterward.
 
-### Assignment view
+### Developers view
 
-- [ ] Select Assignment view and verify work items are grouped by assignee.
+- [ ] Select the Developers view and verify work items are grouped by assignee.
 - [ ] Verify every configured member is represented appropriately, including members with no items.
 - [ ] Verify unassigned items appear in the intended unassigned group.
 - [ ] Verify work items appear in the correct state/status group and preserve expected order.
@@ -234,11 +234,11 @@ Prepare data that exercises both populated and empty states:
 
 - [ ] Select Sprint view and verify the board shows one lane per sprint: the current sprint first and
       expanded, other sprints collapsed beneath it with their dates, and No sprint last.
-- [ ] Verify Sprint view cards match the People board's cards (density, leading edge, PR rows, attention
+- [ ] Verify Sprint view cards match the Developers board's cards (density, leading edge, PR rows, attention
       bar, lane heads), pull requests without a work item are left out, and the Members options have
       no effect.
-- [ ] Verify each card's owner avatar names the developer whose People lane it sits in, and that With
-      QA counts a Review card assigned to someone other than that owner.
+- [ ] Verify each card's owner avatar names the developer whose lane it sits in on the Developers
+      board, and that With QA counts a Review card assigned to someone other than that owner.
 - [ ] Verify journey captions (Done at start or on a date, Back from a column, Added today, Into a
       column today, at start, and days in a column, amber from five days outside New) match each
       card's history this sprint.
@@ -270,12 +270,12 @@ Prepare data that exercises both populated and empty states:
         and green when Blocked shrinks;
       - for Active and Review, "oldest Nd", amber from five days.
       Check it in light and dark modes, that hovering or focusing it shows a tooltip, and that the
-      People board's headers stay single-line.
+      Developers board's headers stay single-line.
 - [ ] Scroll a tall Sprint view lane and verify its sticky summary stays below the taller column
       headers.
 - [ ] Verify the Sprint view shows a replay strip under the ribbon: a stacked effort chart of the days
       so far with the remaining days hatched, and "Day N of M · today" beside it. Verify it reads
-      "Loading sprint history…" while history loads, and that the People board has no strip.
+      "Loading sprint history…" while history loads, and that the Developers board has no strip.
 - [ ] Verify the Sprint view toolbar shows **Replay sprint** instead of Start standup, disabled with a
       tooltip until the sprint's history loads, and that it plays from Day 1 to today, one day a
       second, then stops on today.
@@ -290,9 +290,9 @@ Prepare data that exercises both populated and empty states:
       - the Needs attention bar, recent-change highlights, pull requests, next steps, tags, state, and
         sprint are hidden, and column counts and flow lines match the day shown;
       - compact cards show their full content without a hover card.
-- [ ] Verify switching to People, changing team, or starting standup returns the replay to today.
+- [ ] Verify switching to Developers, changing team, or starting standup returns the replay to today.
 - [ ] Check the replay strip, banner, and replayed cards in light and dark modes.
-- [ ] Verify switching between People and Sprint views preserves the selected team and filters.
+- [ ] Verify switching between the Developers and Sprint views preserves the selected team and filters.
 - [ ] Verify changing the sprint scope updates cards and summary counts without stale cards.
 - [ ] Verify the ribbon's effort flow chart shades the remaining days and marks today in light and dark
       modes, and that the detailed chart, legend, values, empty state, and tooltip still work.
@@ -343,7 +343,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify both Members options persist per team across a reload and do not affect Sprint view.
 - [ ] In Development options > Display, verify "Compact cards" is off by default and, when checked,
       each Development card shows a one-line title and one status line (state, PR progress, next step,
-      owner, recent change, aging dots, and sprint) on both the People board and the Sprint view,
+      owner, recent change, aging dots, and sprint) on both the Developers board and the Sprint view,
       while the QA board is unchanged.
 - [ ] With compact cards on, hover over and keyboard-focus a card and verify its details open beside
       it (flipping near the window edge) with the full title, tags, PRs, next step, state, sprint,
