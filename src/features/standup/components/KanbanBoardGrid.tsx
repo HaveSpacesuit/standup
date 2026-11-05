@@ -181,6 +181,8 @@ export function KanbanBoardGrid({
           sx={{
             minWidth,
             minHeight: '100%',
+            // The scroller is a flex column; shrinking to its height would cut the column backgrounds off at the first screen.
+            flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
           }}
@@ -353,8 +355,7 @@ export function KanbanBoardGrid({
             ref={cardsAreaRef}
             sx={{
               position: 'relative',
-              flex: '1 1 auto',
-              minHeight: 0,
+              flex: '1 0 auto',
               minWidth,
               bgcolor: 'background.default',
             }}
