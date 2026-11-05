@@ -5,6 +5,7 @@ import svgChevronLeftDouble from '@stratakit/icons/chevron-left-double.svg'
 import { BOARD_COLUMN_DIVIDER, BOARD_HEADER_HEIGHT } from '../utils/boardLayout'
 import { getStatusColumnColor } from '../utils/statusColumnStyles'
 import { AppTooltip } from './AppTooltip'
+import { ColumnRailMark } from './ColumnRailMark'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import { COLUMN_META, type QaColumnId } from './qaBoardModel'
 
@@ -90,16 +91,13 @@ export function QaColumnHeader({ id, count, matchCount = null, rail, onToggle, d
             disabled={!onToggle}
             onClick={onToggle}
             sx={{
-              height: 28,
-              px: 0.25,
-              gap: 0.5,
+              p: 0.5,
               borderRadius: 1,
               '&:hover': { bgcolor: 'action.hover' },
               '&:focus-visible': { outline: '2px solid var(--stratakit-color-border-accent-base)', outlineOffset: -2 },
             }}
           >
-            <Box aria-hidden="true" sx={{ width: 4, height: 16, borderRadius: 999, bgcolor: color, flex: '0 0 auto' }} />
-            <CountPill count={count} matchCount={null} />
+            <ColumnRailMark color={color} count={count} />
           </ButtonBase>
         </AppTooltip>
       </Box>
