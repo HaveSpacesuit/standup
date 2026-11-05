@@ -30,6 +30,8 @@ after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { QaFlowBoard } = await server.ssrLoadModule('/src/features/standup/components/QaFlowBoard.tsx')
 const { QualityAssuranceLoadingState } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceLoadingState.tsx')
+const { QaColumnHeader } = await server.ssrLoadModule('/src/features/standup/components/QaColumnHeader.tsx')
+const { default: checkmarkIcon } = await server.ssrLoadModule('@stratakit/icons/checkmark.svg')
 const { getQaLaneFlags, getQaStandupOrder } = await server.ssrLoadModule('/src/features/standup/components/qaBoardModel.ts')
 
 const ago = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
@@ -177,6 +179,39 @@ test('QA flow shrinks empty columns to rails that can be expanded, and Coming up
   assert.doesNotMatch(html, /aria-label="Expand Newly added/)
   assert.match(html, /aria-label="Collapse Coming up"/)
   assert.doesNotMatch(html, /aria-label="Collapse Newly added"/)
+})
+
+test('QA rails share the Development rail mark: a color bar over the count, checked only when empty', () => {
+  const rail = (count: number) => {
+    const html = renderToStaticMarkup(createElement(Root, null, createElement(QaColumnHeader, { id: 'coming', count, rail: true, onToggle: () => {} })))
+    const dom = new JSDOM(html)
+    try {
+      const button = dom.window.document.querySelector('[data-qa-column-rail] button')!
+      const mark = button.querySelector('[data-column-rail-mark]')
+      mark?.querySelectorAll('style').forEach((style) => style.remove())
+      return {
+        mark,
+        checked: [...button.querySelectorAll('use')].some((use) => use.getAttribute('href') === `${checkmarkIcon}#icon`),
+        text: mark?.textContent,
+        label: button.getAttribute('aria-label'),
+      }
+    } finally {
+      dom.window.close()
+    }
+  }
+
+  const empty = rail(0)
+  assert.ok(empty.mark)
+  assert.equal(empty.checked, true)
+  assert.equal(empty.text, '0')
+  assert.equal(empty.label, 'Expand Coming up, no cards')
+
+  // A collapsed Coming up that still holds cards must not read as all clear.
+  const holding = rail(3)
+  assert.ok(holding.mark)
+  assert.equal(holding.checked, false)
+  assert.equal(holding.text, '3')
+  assert.equal(holding.label, 'Expand Coming up, 3 cards')
 })
 
 test('QA testers view gives each tester a lane, followed by work without a tester', () => {

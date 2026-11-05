@@ -424,8 +424,10 @@ Prepare data that exercises both populated and empty states:
       "Failed testing · Nd" or "Sent back · Nd", "Verified <date>", or "Likely today" for a Coming
       up card whose PR has two approvals and passing required checks.
 - [ ] Verify Ready for QA is the widest column and Recently completed the narrowest, and that an
-      empty column is a narrow rail running the board's full height with no horizontal color bar;
-      verify selecting a rail expands it and Coming up can always be collapsed.
+      empty column is a narrow rail running the board's full height, headed like Development's
+      empty Blocked rail: a short color bar over a green check and 0. Collapse Coming up while it
+      has cards and verify its rail shows the count without the check. Verify selecting a rail
+      expands it and Coming up can always be collapsed.
 - [ ] Verify the ribbon shows the current sprint with its day and days left, a QA flow bar by column,
       the lookback window, and the next sprint.
 - [ ] Verify each Needs attention facet (Failed testing, Bounced 2+ times, Needs a tester, Waiting 3+

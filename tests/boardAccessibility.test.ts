@@ -470,6 +470,7 @@ test('the Team member header counts the people with lanes, not the Unassigned or
 test('an empty Blocked column collapses to a rail that keeps its heading', () => {
   const rail = renderBoardGrid()
   assert.match(rail, /data-blocked-rail=""/)
+  assert.match(rail, /data-column-rail-mark=""/)
   assert.match(rail, /<h2[^>]*>Blocked<\/h2>/)
   assert.match(rail, /Blocked · none/)
 

@@ -1,7 +1,6 @@
 import { Box, Button, IconButton, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
-import svgCheckmark from '@stratakit/icons/checkmark.svg'
 import svgCollapseRowsAll from '@stratakit/icons/collapse-rows-all.svg'
 import svgExpandRowsAll from '@stratakit/icons/expand-rows-all.svg'
 import { useEffect, useMemo, useRef } from 'react'
@@ -25,6 +24,7 @@ import { JourneyGhostLayer } from './JourneyGhostLayer'
 import type { WorkItemCardHighlightState } from './WorkItemCard'
 import type { SprintJourney } from '../utils/sprintJourney'
 import { AppTooltip } from './AppTooltip'
+import { ColumnRailMark } from './ColumnRailMark'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import { partitionHighlighted, type AttentionFacetKey, type AttentionTone } from './boardAttention'
 import { BoardLaneHead, CollapsedLaneSummary } from './BoardLane'
@@ -251,32 +251,17 @@ export function KanbanBoardGrid({
                       position: 'relative',
                       height: headerHeight,
                       display: 'flex',
-                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: 0.5,
                       boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined,
                     }}
                   >
-                    <Box sx={{ width: 22, height: 4, borderRadius: 999, bgcolor: getStatusColumnColor(status, theme.palette) }} />
                     <Typography render={<h2 />} variant="body-sm" sx={visuallyHiddenSx}>
                       {status}
                     </Typography>
-                    <Box
-                      component="span"
-                      sx={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        color: 'var(--stratakit-color-text-positive-base)',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        '& svg': { color: 'var(--stratakit-color-icon-positive-base)' },
-                      }}
-                    >
-                      <Icon href={svgCheckmark} />
-                      {statusItemCounts[status]}
+                    <ColumnRailMark color={getStatusColumnColor(status, theme.palette)} count={statusItemCounts[status]}>
                       <Box component="span" sx={visuallyHiddenSx}> cards, none blocked</Box>
-                    </Box>
+                    </ColumnRailMark>
                   </Box>
                 </AppTooltip>
               ) : (

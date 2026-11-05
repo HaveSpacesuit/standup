@@ -217,8 +217,9 @@ Five columns follow work through QA: **Newly added** (recently filed New or Prop
 Progress, or Failed Testing after Ready for QA), and **Recently completed** (Done, Closed, or
 Completed after Ready for QA). Items whose history could not load go to History unavailable. Ready
 for QA gets the widest column and Recently completed the narrowest. Empty columns shrink to a narrow
-rail that runs the board's full height; select a rail to expand it. Coming up can always be
-collapsed. Column and lane toggles are not saved.
+rail that runs the board's full height, headed like the Development board's empty Blocked rail by
+its color over a checked 0; select a rail to expand it. Coming up can always be collapsed, and its
+rail then shows its count without the check. Column and lane toggles are not saved.
 
 Each card shows the person its column follows: who filed it, its owner (Coming up), its tester, who
 sent it back, or who verified it. A caption says where it stands: "Filed 3d ago", "2d in AFT",
