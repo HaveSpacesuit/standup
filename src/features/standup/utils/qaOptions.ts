@@ -87,7 +87,7 @@ export type QaOptions = {
   generalFilters: QaTagFilterRule[]
   /** Allow-list of work item types to display. Empty = show all types. */
   includeWorkItemTypes: string[]
-  /** Team member display names who can be assigned as QA testers. Empty uses all team members. */
+  /** Team member display names who own QA testing work. Empty infers testers from recent QA activity. */
   testers: string[]
   /** How many days of recent activity to include in QA freshness and query windows. */
   lookbackDays: number

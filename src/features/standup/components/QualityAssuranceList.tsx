@@ -5,7 +5,6 @@ import { QualityAssuranceLoadingState } from './QualityAssuranceLoadingState'
 import { QaFlowBoard } from './QaFlowBoard'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
-import type { QaOptions } from '../utils/qaOptions'
 
 type QualityAssuranceListProps = {
   isLoading: boolean
@@ -16,8 +15,9 @@ type QualityAssuranceListProps = {
   boardItems: WorkItemSummary[]
   currentIterationName: string | null
   teamIterations: TeamIterationOption[]
-  teamMembers: TeamMember[]
-  options: QaOptions
+  testers: TeamMember[]
+  testersInferred: boolean
+  onChooseTesters?: () => void
   lookbackDays: number
   compactCards: boolean
   colorScheme: 'light' | 'dark'
@@ -36,8 +36,9 @@ export function QualityAssuranceList({
   boardItems,
   currentIterationName,
   teamIterations,
-  teamMembers,
-  options,
+  testers,
+  testersInferred,
+  onChooseTesters,
   lookbackDays,
   compactCards,
   colorScheme,
@@ -67,8 +68,9 @@ export function QualityAssuranceList({
         boardItems={boardItems}
         currentIterationName={currentIterationName}
         teamIterations={teamIterations}
-        teamMembers={teamMembers}
-        options={options}
+        testers={testers}
+        testersInferred={testersInferred}
+        onChooseTesters={onChooseTesters}
         lookbackDays={lookbackDays}
         compactCards={compactCards}
         cardHighlightOptions={cardHighlightOptions}

@@ -296,7 +296,7 @@ test('Development standup optionally adds QA lanes after developers', () => {
     workItemAssignees: { 1: { label: 'Alex Example', kind: 'team-member' } },
     standupActive: true,
     includeQaTestersInStandup: true,
-    qaTesters: ['Taylor Reed'],
+    qaTesters: [qa],
     qaBuckets: [{
       id: 'needs-testing',
       title: 'Ready for QA',
@@ -316,6 +316,37 @@ test('Development standup optionally adds QA lanes after developers', () => {
       'Taylor Reed · QA',
     ])
     assert.match(text(document.body) ?? '', /Review: 1 card/)
+  })
+})
+
+test('Development standup adds no QA lanes when the team has no QA testers', () => {
+  const dev = { id: 'dev', displayName: 'Alex Example', uniqueName: 'alex@example.test' }
+  const html = render(createElement(KanbanBoard, {
+    patConfigured: true,
+    isLoading: false,
+    membersError: null,
+    workItemsError: null,
+    assigneesError: null,
+    members: [dev],
+    selectedMemberFilter: '',
+    workItems: [card(1, 'Active')],
+    currentIterationName: null,
+    changeHighlightsByItemId: {},
+    rolledOverItemIds: {},
+    workItemAssignees: { 1: { label: 'Alex Example', kind: 'team-member' } },
+    standupActive: true,
+    includeQaTestersInStandup: true,
+    qaTesters: [],
+    qaBuckets: [{
+      id: 'needs-testing',
+      title: 'Ready for QA',
+      items: [{ ...card(2, 'Review'), assignedTo: { displayName: 'Alex Example', uniqueName: 'alex@example.test' } }],
+    }],
+  }))
+
+  withDocument(html, (document) => {
+    const queue = [...document.querySelectorAll('ol[aria-label="Speaking order"] button')]
+    assert.deepEqual(queue.map((button) => button.getAttribute('aria-label')), ['Alex Example'])
   })
 })
 

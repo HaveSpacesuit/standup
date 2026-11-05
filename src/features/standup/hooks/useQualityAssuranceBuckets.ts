@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
+import type { WorkItemUpdate } from '../../../ado/types'
 import type { TeamProfile } from '../../../appSettings'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../utils/qualityAssuranceBuckets'
@@ -24,8 +25,10 @@ type UseQualityAssuranceBucketsResult = {
   qaBucketsLoading: boolean
   qaBucketsError: string | null
   qaHistoryWarning: string | null
-  qaUpdatesByItemId: Record<number, import('../../../ado/types').WorkItemUpdate[]>
+  qaUpdatesByItemId: Record<number, WorkItemUpdate[]>
 }
+
+const EMPTY_UPDATES: Record<number, WorkItemUpdate[]> = {}
 
 export function useQualityAssuranceBuckets({
   adoQueryEngine,
@@ -130,6 +133,6 @@ export function useQualityAssuranceBuckets({
     qaBucketsLoading,
     qaBucketsError,
     qaHistoryWarning,
-    qaUpdatesByItemId: rawData?.updatesByItemId ?? {},
+    qaUpdatesByItemId: rawData?.updatesByItemId ?? EMPTY_UPDATES,
   }
 }

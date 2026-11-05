@@ -111,8 +111,7 @@ const updates: Record<number, WorkItemUpdate[]> = {
   }],
 }
 
-function render(view: 'flow' | 'testers' = 'flow', standupActive = false) {
-  const options = { ...parseStoredQaOptions(null), testers: [tester.displayName] }
+function render(view: 'flow' | 'testers' = 'flow', standupActive = false, overrides: Record<string, unknown> = {}) {
   const buckets = [
     { id: 'new', title: 'Newly added', items: [filed] },
     { id: 'needs-testing', title: 'Ready for QA', items: [ready] },
@@ -128,14 +127,15 @@ function render(view: 'flow' | 'testers' = 'flow', standupActive = false) {
       { name: 'Sprint 15', path: 'Project\\Sprint 15', timeFrame: 'current' as const, startDate: ago(6).slice(0, 10), finishDate: ago(-4).slice(0, 10) },
       { name: 'Sprint 16', path: 'Project\\Sprint 16', timeFrame: 'future' as const },
     ],
-    teamMembers: [tester],
-    options,
+    testers: [tester],
+    testersInferred: false,
     lookbackDays: 21,
     compactCards: false,
     cardHighlightOptions: DEFAULT_CARD_HIGHLIGHT_OPTIONS,
     view,
     standupActive,
     onStandupEnd: () => {},
+    ...overrides,
   }
   return renderToStaticMarkup(createElement(Root, null, createElement(QaFlowBoard, props)))
 }
@@ -165,7 +165,21 @@ test('QA testers view provides lanes and reuses the standup presenter', () => {
   assert.match(html, /Now speaking/)
 })
 
-test('stored QA options retain the tester selection and older options default to all team members', () => {
+test('QA testers view explains how to choose testers when none are found', () => {
+  const html = render('testers', false, { testers: [], testersInferred: true, onChooseTesters: () => {} })
+  assert.match(html, /Testers · 0/)
+  assert.match(html, /No QA testers found in recent QA activity\./)
+  assert.match(html, /Choose testers/)
+  assert.doesNotMatch(html, /Taylor Reed/)
+})
+
+test('QA testers view marks inferred testers', () => {
+  const inferred = render('testers', false, { testersInferred: true, onChooseTesters: () => {} })
+  assert.match(inferred, /aria-label="Testers are inferred from recent QA activity\. Choose testers"/)
+  assert.doesNotMatch(render('testers'), /inferred from recent QA activity/)
+})
+
+test('stored QA options retain the tester selection and older options infer testers', () => {
   assert.deepEqual(parseStoredQaOptions(JSON.stringify({ testers: ['Taylor Reed'] })).testers, ['Taylor Reed'])
   assert.deepEqual(parseStoredQaOptions(null).testers, [])
 })

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Button, ButtonBase, Chip, Divider, Typography, useTheme } from '@mui/material'
+import { Box, Button, ButtonBase, Chip, Divider, IconButton, Typography, useTheme } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgFlag from '@stratakit/icons/flag.svg'
+import svgInfo from '@stratakit/icons/info.svg'
 import svgUserAdd from '@stratakit/icons/user-add.svg'
 import type { TeamIterationOption, TeamMember, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import { toIdentityKeys } from '../../../ado/identity'
@@ -15,7 +16,6 @@ import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { countWorkingDays, formatDayCount, formatSprintDate, getSprintProgress } from '../utils/sprintDates'
 import { getStatusColumnColor } from '../utils/statusColumnStyles'
-import { parseStoredQaOptions, type QaOptions } from '../utils/qaOptions'
 import type { AttentionTone } from './boardAttention'
 import type { BoardRowData } from './KanbanBoardGrid'
 import type { StandupOrderMode } from './standupOrder'
@@ -30,8 +30,12 @@ type QaFlowBoardProps = {
   boardItems: WorkItemSummary[]
   currentIterationName: string | null
   teamIterations: TeamIterationOption[]
-  teamMembers: TeamMember[]
-  options: QaOptions
+  /** The team's QA testers, whose lanes make up the Testers view and the QA standup. */
+  testers: TeamMember[]
+  /** No testers are chosen in QA options, so these were inferred from QA activity. */
+  testersInferred: boolean
+  /** Opens QA options on its Testers tab. */
+  onChooseTesters?: () => void
   lookbackDays: number
   compactCards: boolean
   cardHighlightOptions: CardHighlightOptions
@@ -57,9 +61,8 @@ const DONE_STATES = new Set(['done', 'closed', 'completed', 'removed'])
 const EMPTY_BUCKETS: QualityAssuranceBucket[] = []
 const EMPTY_ITEMS: WorkItemSummary[] = []
 const EMPTY_UPDATES: Record<number, WorkItemUpdate[]> = {}
-const EMPTY_TEAM_MEMBERS: TeamMember[] = []
+const EMPTY_TESTERS: TeamMember[] = []
 const EMPTY_TEAM_ITERATIONS: TeamIterationOption[] = []
-const DEFAULT_QA_OPTIONS = parseStoredQaOptions(null)
 
 const COLUMN_META: Record<QaColumnId, { title: string; expectedStates: readonly string[]; status: WorkItemSummary['status'] }> = {
   new: { title: 'Newly added', expectedStates: ['New', 'Proposed'], status: 'New' },
@@ -618,8 +621,9 @@ export function QaFlowBoard({
   boardItems = EMPTY_ITEMS,
   currentIterationName,
   teamIterations = EMPTY_TEAM_ITERATIONS,
-  teamMembers = EMPTY_TEAM_MEMBERS,
-  options = DEFAULT_QA_OPTIONS,
+  testers = EMPTY_TESTERS,
+  testersInferred = false,
+  onChooseTesters,
   lookbackDays = 21,
   compactCards = false,
   cardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS,
@@ -638,11 +642,6 @@ export function QaFlowBoard({
     if (standupActive) setStandupIndex(0)
   }, [standupActive])
   const currentIteration = teamIterations.find((iteration) => iteration.timeFrame === 'current' || iteration.name === currentIterationName)
-  const effectiveTesters = useMemo(() => {
-    if (options.testers.length === 0) return teamMembers
-    const selected = new Set(options.testers.map((name) => name.toLowerCase()))
-    return teamMembers.filter((member) => selected.has(member.displayName.toLowerCase()))
-  }, [options.testers, teamMembers])
   const allItems = useMemo(() => buckets.flatMap((bucket) => bucket.items), [buckets])
   const qaItemIds = useMemo(() => new Set(allItems.map((item) => item.id)), [allItems])
   const comingItems = useMemo(
@@ -662,7 +661,7 @@ export function QaFlowBoard({
           item,
           bucket.id,
           historyById.get(item.id) ?? { bounceCount: 0 },
-          effectiveTesters,
+          testers,
           teamIterations,
           cardHighlightOptions.freshDays,
           now,
@@ -671,7 +670,7 @@ export function QaFlowBoard({
     }
     for (const item of comingItems) values.set(item.id, new Set())
     return values
-  }, [buckets, cardHighlightOptions.freshDays, comingItems, effectiveTesters, historyById, now, teamIterations])
+  }, [buckets, cardHighlightOptions.freshDays, comingItems, testers, historyById, now, teamIterations])
   const facetCounts = useMemo(() => {
     const counts = Object.fromEntries(ATTENTION_FACETS.map((facet) => [facet.key, 0])) as Record<QaFacet, number>
     for (const values of signalsById.values()) for (const key of values) counts[key]++
@@ -705,33 +704,33 @@ export function QaFlowBoard({
     : allColumnItems.length
 
   const laneKeys = useMemo(
-    () => ['none', ...effectiveTesters.map(identityName), 'other'],
-    [effectiveTesters],
+    () => ['none', ...testers.map(identityName), 'other'],
+    [testers],
   )
   const itemsByLane = useMemo(() => {
     const lanes = new Map<string, Partial<Record<QaColumnId, WorkItemSummary[]>>>()
     for (const key of laneKeys) lanes.set(key, {})
     for (const id of columnIds) {
       for (const item of itemsByColumn[id] ?? []) {
-        const ownerKey = getItemForLane(item, id, historyById.get(item.id) ?? { bounceCount: 0 }, effectiveTesters)
+        const ownerKey = getItemForLane(item, id, historyById.get(item.id) ?? { bounceCount: 0 }, testers)
         const lane = lanes.get(ownerKey) ?? lanes.get('other')!
         lane[id] ??= []
         lane[id]!.push(item)
       }
     }
     return lanes
-  }, [columnIds, effectiveTesters, historyById, itemsByColumn, laneKeys])
+  }, [columnIds, testers, historyById, itemsByColumn, laneKeys])
 
   const speakerRows = useMemo<BoardRowData[]>(() => [
     { key: 'none', label: 'Needs a tester', isUnassigned: true, iconHref: svgUserAdd },
-    ...effectiveTesters.map((member) => ({
+    ...testers.map((member) => ({
       key: member.displayName,
       label: member.displayName,
       avatarUrl: member.imageUrl,
       avatarDescriptor: member.descriptor,
       memberIdentity: { displayName: member.displayName, uniqueName: member.uniqueName, imageUrl: member.imageUrl },
     })),
-  ], [effectiveTesters])
+  ], [testers])
   const orderedSpeakers = useMemo(() => {
     if (standupOrderMode === 'alphabetical') return speakerRows
     return [...speakerRows].sort((a, b) => {
@@ -792,7 +791,7 @@ export function QaFlowBoard({
                 currentIterationName={currentIterationName}
                 compact={compactCards}
                 highlightOptions={cardHighlightOptions}
-                testers={effectiveTesters}
+                testers={testers}
                 selectedFacet={selectedFacet}
                 signalsById={signalsById}
                 comingOpen={comingOpen}
@@ -805,25 +804,40 @@ export function QaFlowBoard({
         ) : (
           <Box sx={{ minWidth: 'max-content' }}>
             <Box sx={{ display: 'grid', gridTemplateColumns: `minmax(150px, 0.7fr) repeat(${columnIds.length}, minmax(210px, 1fr))`, minWidth: 1200, position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="body-sm" sx={{ p: 1, fontWeight: 700 }}>Testers</Typography>
+              <Box sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="body-sm" sx={{ fontWeight: 700 }}>Testers · {testers.length}</Typography>
+                {testersInferred && testers.length > 0 && onChooseTesters ? (
+                  <IconButton size="small" label="Testers are inferred from recent QA activity. Choose testers" onClick={onChooseTesters}>
+                    <Icon href={svgInfo} />
+                  </IconButton>
+                ) : null}
+              </Box>
               {columnIds.map((id) => (
                 <Typography key={id} variant="body-sm" sx={{ p: 1, fontWeight: 700, borderLeft: '1px solid', borderColor: 'divider' }}>
                   {COLUMN_META[id].title} · {(itemsByColumn[id] ?? []).length}
                 </Typography>
               ))}
             </Box>
-            {['none', ...effectiveTesters.map(identityName), 'other'].map((key) => (
+            {testers.length === 0 ? (
+              <Box sx={{ position: 'sticky', left: 0, width: 'max-content', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1 }}>
+                <Typography variant="body-sm" color="text.secondary">
+                  {testersInferred ? 'No QA testers found in recent QA activity.' : 'None of the chosen QA testers are on this team.'}
+                </Typography>
+                {onChooseTesters ? <Button size="small" onClick={onChooseTesters}>Choose testers</Button> : null}
+              </Box>
+            ) : null}
+            {['none', ...testers.map(identityName), 'other'].map((key) => (
               <LaneRow
                 key={key}
                 laneKey={key}
-                member={effectiveTesters.find((member) => member.displayName === key)}
+                member={testers.find((member) => member.displayName === key)}
                 itemsByLane={itemsByLane}
                 columnIds={columnIds}
                 historyById={historyById}
                 currentIterationName={currentIterationName}
                 compact={compactCards}
                 highlightOptions={cardHighlightOptions}
-                testers={effectiveTesters}
+                testers={testers}
                 selectedFacet={selectedFacet}
                 signalsById={signalsById}
                 maxLoad={maxLaneLoad}

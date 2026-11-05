@@ -86,7 +86,7 @@ type TeamAssignmentsPageProps = {
   includeQaTestersInStandup: boolean
   onIncludeQaTestersInStandupChange: (next: boolean) => void
   qaBuckets: QualityAssuranceBucket[]
-  qaTesters: string[]
+  qaTesters: TeamMember[]
   qaBucketsLoading: boolean
   qaBucketsError: string | null
   teamIterations: TeamIterationOption[]

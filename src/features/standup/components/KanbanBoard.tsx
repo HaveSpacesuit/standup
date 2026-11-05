@@ -48,6 +48,8 @@ import { getStandupOrder, isStandupSpeakerRow, resolveStandupSpeakers, type Stan
 const LOADING_LAYOUT = getBoardLayout(true)
 const NO_JOURNEYS: Record<number, SprintJourney> = {}
 const NO_HIGHLIGHTS: Record<number, ChangeHighlightState> = {}
+const NO_QA_BUCKETS: QualityAssuranceBucket[] = []
+const NO_QA_TESTERS: TeamMember[] = []
 
 /** People lays the board out by developer; Sprint lays the same cards out by sprint. */
 export type BoardLens = 'people' | 'sprint'
@@ -91,7 +93,8 @@ type KanbanBoardProps = {
   replayAt?: number | null
   includeQaTestersInStandup?: boolean
   qaBuckets?: QualityAssuranceBucket[]
-  qaTesters?: string[]
+  /** The team's QA testers, resolved from QA options or inferred from QA activity. */
+  qaTesters?: TeamMember[]
 }
 
 export const KanbanBoard = memo(function KanbanBoard({
@@ -122,8 +125,8 @@ export const KanbanBoard = memo(function KanbanBoard({
   effortFlowPoints,
   replayAt = null,
   includeQaTestersInStandup = false,
-  qaBuckets = [],
-  qaTesters = [],
+  qaBuckets = NO_QA_BUCKETS,
+  qaTesters = NO_QA_TESTERS,
 }: KanbanBoardProps) {
   const isSprintLens = lens === 'sprint'
   const replayingAt = isSprintLens ? replayAt : null
@@ -140,12 +143,8 @@ export const KanbanBoard = memo(function KanbanBoard({
       return { rows: [] as BoardRowData[], itemsByRow: new Map<string, WorkItemSummary[]>() }
     }
 
-    const selectedTesters = new Set(qaTesters.map((name) => name.trim().toLocaleLowerCase()))
     const testersByIdentity = new Map<string, TeamMember>()
-    for (const member of members) {
-      if (selectedTesters.size > 0 && !selectedTesters.has(member.displayName.trim().toLocaleLowerCase())) {
-        continue
-      }
+    for (const member of qaTesters) {
       for (const key of toIdentityKeys(member)) testersByIdentity.set(key, member)
     }
 
@@ -173,7 +172,7 @@ export const KanbanBoard = memo(function KanbanBoard({
       isQaTester: true,
     }))
     return { rows, itemsByRow }
-  }, [includeQaTestersInStandup, isSprintLens, members, qaBuckets, qaTesters, standupActive])
+  }, [includeQaTestersInStandup, isSprintLens, qaBuckets, qaTesters, standupActive])
 
   const boardItems = useMemo(
     () => (isSprintLens ? workItems.filter(isSprintLensItem) : workItems),
