@@ -21,6 +21,7 @@ import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmpt
 import type { CardChangeDetail, ChangeHighlightState } from '../hooks/useAdoHistoryHighlights'
 import { useCardFlip } from '../hooks/useCardFlip'
 import type { EffortFlowPoint } from '../hooks/useEffortFlowHistory'
+import { useRememberedView } from '../hooks/useRememberedView'
 import { useSprintReplay } from '../hooks/useSprintReplay'
 import type { SprintScopeState } from '../hooks/useSprintScopeChanges'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
@@ -30,6 +31,8 @@ import type { SprintForecast } from '../utils/sprintForecast'
 import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
 import { formatReplayDate, getSprintReplayTimeline } from '../utils/sprintReplay'
+
+const DEVELOPMENT_VIEWS = ['people', 'sprint'] as const
 
 type TeamAssignmentsPageProps = {
   patConfigured: boolean
@@ -97,6 +100,8 @@ type TeamAssignmentsPageProps = {
   sprintScope?: SprintScopeState
   departuresByItemId?: Record<number, SprintDeparture>
   rolledOverItemIds: Record<number, boolean>
+  /** Open on the view used last (Developers or Sprint) instead of Developers. */
+  rememberLastView?: boolean
 }
 
 export function TeamAssignmentsPage({
@@ -164,9 +169,11 @@ export function TeamAssignmentsPage({
   sprintScope,
   departuresByItemId,
   rolledOverItemIds,
+  rememberLastView = false,
 }: TeamAssignmentsPageProps) {
   const [tagRulesDialogOpen, setTagRulesDialogOpen] = useState(false)
-  const [isSprintView, setIsSprintView] = useState(false)
+  const [lens, setLens] = useRememberedView('development', DEVELOPMENT_VIEWS, rememberLastView)
+  const isSprintView = lens === 'sprint'
   const [standupActive, setStandupActive] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
   const standupLive = standupActive && !isSprintView && !teamIterationsError
@@ -189,7 +196,7 @@ export function TeamAssignmentsPage({
   const startStandup = () => {
     onMemberFilterChange('')
     resetReplay()
-    setIsSprintView(false)
+    setLens('people')
     setStandupActive(true)
   }
   const endStandup = useCallback(() => setStandupActive(false), [])
@@ -198,7 +205,7 @@ export function TeamAssignmentsPage({
       setStandupActive(false)
     }
     resetReplay()
-    setIsSprintView(nextIsSprintView)
+    setLens(nextIsSprintView ? 'sprint' : 'people')
   }
   const handleTeamChange = (value: string) => {
     setStandupActive(false)
@@ -321,8 +328,8 @@ export function TeamAssignmentsPage({
             {teamIterationsError ? null : (
               <KanbanBoard
                 // Each lens keeps its own collapse and expansion state.
-                key={isSprintView ? 'sprint' : 'people'}
-                lens={isSprintView ? 'sprint' : 'people'}
+                key={lens}
+                lens={lens}
                 patConfigured={patConfigured}
                 isLoading={isTeamDataLoading}
                 membersError={membersError}
