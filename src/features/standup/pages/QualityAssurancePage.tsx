@@ -27,6 +27,10 @@ type QualityAssurancePageProps = {
   boardItems: WorkItemSummary[]
   currentIterationName: string | null
   teamMembers: TeamMember[]
+  /** The team's QA testers, chosen in QA options or inferred from QA activity. */
+  testers: TeamMember[]
+  /** No testers are chosen in QA options, so testers were inferred. */
+  testersInferred: boolean
   compactCards: boolean
   lookbackDays: number
   onRefresh: () => void
@@ -64,6 +68,8 @@ export function QualityAssurancePage({
   boardItems,
   currentIterationName,
   teamMembers,
+  testers,
+  testersInferred,
   compactCards,
   lookbackDays,
   onRefresh,
@@ -85,6 +91,7 @@ export function QualityAssurancePage({
   teamIterationsError,
 }: QualityAssurancePageProps) {
   const [optionsOpen, setOptionsOpen] = useState(false)
+  const [optionsInitialTab, setOptionsInitialTab] = useState<'testers' | undefined>(undefined)
   const [view, setView] = useState<'flow' | 'testers'>('flow')
   const [standupActive, setStandupActive] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
@@ -118,7 +125,10 @@ export function QualityAssurancePage({
         onQuickFilterClear={onQuickFilterClear}
         quickFilterInputRef={quickFilterInputRef}
         onRefresh={onRefresh}
-        onOpenOptions={() => setOptionsOpen(true)}
+        onOpenOptions={() => {
+          setOptionsInitialTab(undefined)
+          setOptionsOpen(true)
+        }}
         isLoading={isLoading}
         view={view}
         onViewChange={handleViewChange}
@@ -149,10 +159,14 @@ export function QualityAssurancePage({
           updatesByItemId={updatesByItemId}
           boardItems={boardItems}
           currentIterationName={currentIterationName}
-          teamMembers={teamMembers}
+          testers={testers}
+          testersInferred={testersInferred}
+          onChooseTesters={() => {
+            setOptionsInitialTab('testers')
+            setOptionsOpen(true)
+          }}
           compactCards={compactCards}
           lookbackDays={lookbackDays}
-          options={qaOptions}
           teamIterations={teamIterations}
           colorScheme={colorScheme}
           cardHighlightOptions={cardHighlightOptions}
@@ -179,6 +193,7 @@ export function QualityAssurancePage({
           teamIterations={teamIterations}
           teamIterationsLoading={teamIterationsLoading}
           teamMembers={teamMembers}
+          initialTab={optionsInitialTab}
         />
       ) : null}
     </>

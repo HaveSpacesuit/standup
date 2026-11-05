@@ -24,6 +24,8 @@ import { applyTagRulesToItem } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { QaOptions } from '../utils/qaOptions'
 import { resolveSelectedIterationPaths } from '../utils/qaOptions'
+import { resolveQualityAssuranceProjectConfig } from '../utils/qualityAssuranceBuckets'
+import { resolveQaTesters } from '../utils/qaTesters'
 import type { RankedBacklogBug } from '../utils/backlogValue'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState } from '../../../ado/queryEngine'
@@ -84,6 +86,10 @@ type UseBoardViewModelResult = {
   qaBucketsError: string | null
   qaHistoryWarning: string | null
   qaUpdatesByItemId: Record<number, import('../../../ado/types').WorkItemUpdate[]>
+  /** The team's QA testers, chosen in QA options or inferred from QA activity. */
+  qaTesters: TeamMember[]
+  /** No testers are chosen in QA options, so qaTesters were inferred. */
+  qaTestersInferred: boolean
   backlogBugs: RankedBacklogBug[]
   backlogBugsLoading: boolean
   backlogBugsError: string | null
@@ -264,6 +270,18 @@ export function useBoardViewModel({
     tagGroups: qaOptionsByTeam?.[effectiveTeam.id]?.tagGroups,
   })
 
+  const qaTesterNames = qaOptionsByTeam?.[effectiveTeam.id]?.testers
+  const qaStateGroupOverrides = qaOptionsByTeam?.[effectiveTeam.id]?.stateGroups
+  const { testers: qaTesters, inferred: qaTestersInferred } = useMemo(
+    () => resolveQaTesters({
+      configuredNames: qaTesterNames ?? [],
+      teamMembers: members,
+      updatesByItemId: qaUpdatesByItemId,
+      stateGroups: resolveQualityAssuranceProjectConfig(effectiveTeam, qaStateGroupOverrides).stateGroups,
+    }),
+    [effectiveTeam, members, qaStateGroupOverrides, qaTesterNames, qaUpdatesByItemId],
+  )
+
   // The backlog ignores sprints, so it only needs a configured team, not resolved iterations.
   const { backlogBugs, backlogBugsLoading, backlogBugsError } = useBacklogBugs({
     adoQueryEngine: dataQueryEngine,
@@ -441,6 +459,8 @@ export function useBoardViewModel({
     qaBucketsError,
     qaHistoryWarning,
     qaUpdatesByItemId,
+    qaTesters,
+    qaTestersInferred,
     backlogBugs,
     backlogBugsLoading,
     backlogBugsError,

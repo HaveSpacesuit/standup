@@ -44,6 +44,8 @@ type QaOptionsDialogProps = {
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
   teamMembers: TeamMember[]
+  /** Opens on this tab rather than the first. */
+  initialTab?: 'testers'
 }
 
 type StateGroupKey = keyof QaStateGroupOverrides
@@ -56,6 +58,9 @@ const STATE_GROUP_SECTIONS: Array<{ key: StateGroupKey; label: string; descripti
 ]
 
 type RelativeSprintKey = 'current' | 'next' | 'nextNext'
+
+// The Testers tab is the last of the dialog's tabs.
+const TESTERS_TAB = 6
 
 /** Resolves the sprint name for a relative offset from the current iteration, for label display. */
 function resolveRelativeSprintName(iterations: TeamIterationOption[], offset: number): string | null {
@@ -98,6 +103,7 @@ export function QaOptionsDialog({
   teamIterations,
   teamIterationsLoading,
   teamMembers,
+  initialTab,
 }: QaOptionsDialogProps) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
   // Edit against a local draft so expensive query-affecting changes (the work item type
@@ -130,7 +136,7 @@ export function QaOptionsDialog({
       setNewTagInput('')
       setNewIterationPathInput('')
       setTagGroupInputs({ testing: '', done: '', development: '', new: '' })
-      setActiveTab(0)
+      setActiveTab(initialTab === 'testers' ? TESTERS_TAB : 0)
     }
     // Only re-sync the draft when the dialog is (re)opened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -755,13 +761,13 @@ export function QaOptionsDialog({
           </Box>
         )}
 
-        {activeTab === 6 && (
+        {activeTab === TESTERS_TAB && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Typography variant="body-md" sx={{ fontWeight: 700 }}>
               QA testers
             </Typography>
             <Typography variant="body-sm" color="text.secondary">
-              Choose who can own testing work. When no testers are selected, all team members are considered testers.
+              Choose who owns testing work. Their lanes make up the Testers view and the QA standup. When no testers are selected, they are inferred from recent QA activity: people who pick up, verify, or send back work that others moved to testing.
             </Typography>
             {teamMembers.length === 0 ? (
               <Typography variant="body-sm" color="text.secondary">No team members are available.</Typography>
@@ -780,7 +786,7 @@ export function QaOptionsDialog({
                 }}
                 renderValue={(values) => {
                   const selected = readStringArraySelectValue(values)
-                  return selected.length === 0 ? <span style={{ opacity: 0.5 }}>All team members</span> : selected.join(', ')
+                  return selected.length === 0 ? <span style={{ opacity: 0.5 }}>Inferred from QA activity</span> : selected.join(', ')
                 }}
                 MenuProps={{ slotProps: { paper: { style: { maxHeight: 300 } } } }}
               >
