@@ -50,6 +50,8 @@ only stale Done cards fade.
 
 On both Development and QA cards, assignment changes read "Assigned" when an unassigned item gains
 an assignee, "Reassigned" when it moves between people, and "Unassigned" when its assignee is cleared.
+A Development card marked In testing stays in its developer's row, so its assignment changes read
+"Tester assigned" instead.
 
 Development options > Members includes "Hide users with no activity" (off by default).
 When enabled, member rows without cards matching the current filters are hidden.

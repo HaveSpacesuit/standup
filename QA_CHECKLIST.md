@@ -242,6 +242,8 @@ Prepare data that exercises both populated and empty states:
 - [ ] On Development and QA cards, verify an unassigned-to-person change says "Assigned", a change
       between people says "Reassigned", and clearing the assignee says "Unassigned". Check the badge
       and tooltip, and verify a state change in the same update still takes priority.
+- [ ] Assign a tester to a Development card in a testing state and verify the card, its compact line,
+      and its hover card's Last change say "Tester assigned", never "Reassigned".
 - [ ] Verify Blocked, Active, and Review cards gain an aging dot for each quarter of the Stale
       threshold without a tracked change (amber at three, red at four), New and Done cards show none,
       and only stale Done cards fade.
