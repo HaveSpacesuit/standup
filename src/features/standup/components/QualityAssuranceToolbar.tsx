@@ -64,6 +64,20 @@ export function QualityAssuranceToolbar({
         />
       </Box>
 
+      {!standupActive ? (
+        <Button
+          size="small"
+          variant="contained"
+          color="primary"
+          startIcon={<Icon href={svgPlay} />}
+          onClick={onStartStandup}
+          disabled={!patConfigured || !hasConfiguredTeams || isLoading}
+          sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+        >
+          Start QA standup
+        </Button>
+      ) : null}
+
       <TeamToolbarControls
         teamOptions={teamOptions}
         selectedTeamId={selectedTeamId}
@@ -71,18 +85,6 @@ export function QualityAssuranceToolbar({
         teamManagementUrl={teamManagementUrl}
         beforeChildren={
           <>
-            {!standupActive ? (
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<Icon href={svgPlay} />}
-                onClick={onStartStandup}
-                disabled={!patConfigured || !hasConfiguredTeams || isLoading}
-                sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-              >
-                Start QA standup
-              </Button>
-            ) : null}
             <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap', '@container (max-width: 960px)': { display: 'none' } }}>
               View
             </Typography>

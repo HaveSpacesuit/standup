@@ -181,6 +181,33 @@ function renderDevelopmentToolbar(overrides: Record<string, unknown> = {}) {
   return dom
 }
 
+function renderQaToolbar(overrides: Record<string, unknown> = {}) {
+  const dom = new JSDOM(render(createElement(QualityAssuranceToolbar, {
+    patConfigured: true,
+    teamOptions: [{
+      id: 'team', displayName: 'Team', orgName: 'example-org', projectName: 'example-project',
+      areaPath: '', iterationPath: '', teamName: 'Team', repoName: '',
+    }],
+    selectedTeamId: 'team',
+    onTeamChange: () => {},
+    teamManagementUrl: '',
+    quickFilterInput: '',
+    onQuickFilterInputChange: () => {},
+    onQuickFilterClear: () => {},
+    quickFilterInputRef: { current: null },
+    onRefresh: () => {},
+    onOpenOptions: () => {},
+    isLoading: false,
+    view: 'flow',
+    onViewChange: () => {},
+    onStartStandup: () => {},
+    standupActive: false,
+    ...overrides,
+  })))
+  dom.window.document.querySelectorAll('style').forEach((style) => style.remove())
+  return dom
+}
+
 test('the Development view toggle names People and Sprint in visible text', () => {
   const dom = renderDevelopmentToolbar()
   try {
@@ -209,6 +236,27 @@ test('the Sprint view swaps Start standup for Replay sprint, which waits for the
     assert.equal(named(ready, 'Replay sprint')?.hasAttribute('disabled'), false)
   } finally {
     for (const dom of [people, loading, ready]) dom.window.close()
+  }
+})
+
+test('Start QA standup looks like Start standup and sits in the same place', () => {
+  const named = (dom: JSDOM, name: string) => [...dom.window.document.querySelectorAll('button')].find((button) => button.textContent === name)
+  const development = renderDevelopmentToolbar({ onStartStandup: () => {} })
+  const qa = renderQaToolbar()
+  try {
+    const developmentStart = named(development, 'Start standup')
+    const qaStart = named(qa, 'Start QA standup')
+    assert.ok(developmentStart && qaStart)
+    assert.equal(qaStart.className, developmentStart.className)
+    for (const [dom, start] of [[development, developmentStart], [qa, qaStart]] as const) {
+      // On the left with the filters, ahead of the right-aligned View toggle and team controls.
+      assert.ok(start.parentElement?.classList.contains('MuiToolbar-root'))
+      const team = dom.window.document.querySelector('[aria-label="Team"]')
+      assert.ok(team && start.compareDocumentPosition(team) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING)
+    }
+  } finally {
+    development.window.close()
+    qa.window.close()
   }
 })
 
