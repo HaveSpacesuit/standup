@@ -335,6 +335,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onCompactRowsChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, compactCards: next }),
           backlogOptions,
           onBacklogOptionsChange: (next) => setBacklogOptionsForTeam(selectedTeamId, next),
+          rememberLastView,
         }}
       />
     </Box>

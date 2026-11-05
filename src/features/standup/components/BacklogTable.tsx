@@ -1,4 +1,4 @@
-import { Fragment, memo, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, memo, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { Badge, Box, Button, Checkbox, IconButton, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
@@ -18,7 +18,7 @@ import { UNASSIGNED_LABEL } from '../utils/backlogFilter'
 import type { BacklogTierThresholds } from '../utils/backlogOptions'
 import type { BacklogPlan, BacklogPlanPicks } from '../utils/backlogPlan'
 import type { BacklogSprint } from '../utils/backlogSprint'
-import { BACKLOG_TIER_COLORS, groupBacklogBugsByTier, type BacklogTierGroup, type BacklogTierKey } from '../utils/backlogTiers'
+import { getBacklogTierStyle, groupBacklogBugsByTier, type BacklogTierGroup, type BacklogTierKey } from '../utils/backlogTiers'
 import {
   describeBacklogValue,
   formatAssignee,
@@ -243,7 +243,7 @@ function ValueTip({ bug }: { bug: RankedBacklogBug }) {
 }
 
 /** The Value, with a meter for its size at a glance and its sum in the tooltip. */
-function BugValue({ bug }: { bug: RankedBacklogBug }) {
+export function BugValue({ bug }: { bug: RankedBacklogBug }) {
   return (
     <Tooltip title={<ValueTip bug={bug} />} describeChild>
       <Box component="span" sx={valueSx}>
@@ -370,7 +370,7 @@ const severityUnsetSx: SxProps<Theme> = {
 }
 
 /** "S1 · Critical" in a chip whose dot and color climb with the severity; a dashed chip when it is not set. */
-function BugSeverity({ severity }: { severity: string | undefined }) {
+export function BugSeverity({ severity }: { severity: string | undefined }) {
   const display = getSeverityDisplay(severity)
   if (!display) {
     return (
@@ -452,7 +452,7 @@ const raisedEffortSx: SxProps<Theme> = {
 }
 
 /** The Effort as entered; one under the minimum is underlined, with a tooltip saying the Value counts the minimum. */
-function BugEffort({ effort }: { effort: number | undefined }) {
+export function BugEffort({ effort }: { effort: number | undefined }) {
   if (effort === undefined) {
     return <AssumedDefault tip={EFFORT_ASSUMED_TIP} />
   }
@@ -531,7 +531,7 @@ const SPRINT_ICONS: Partial<Record<BacklogSprint['kind'], { href: string; color:
 }
 
 /** "This sprint", "Next sprint", "Sprint 12 · ended", or "Backlog", with the sprint's dates or the path in a tooltip. */
-function BugSprint({ sprint, iterationPath }: { sprint: BacklogSprint; iterationPath: string | undefined }) {
+export function BugSprint({ sprint, iterationPath }: { sprint: BacklogSprint; iterationPath: string | undefined }) {
   const { iteration } = sprint
   const tip = iteration
     ? `${iteration.name}: ${formatSprintDateRange(iteration.startDate, iteration.finishDate)}`
@@ -881,15 +881,6 @@ const tableSx: SxProps<Theme> = {
   '& .backlog-skip-reason': { color: TERTIARY_TEXT_COLOR, fontSize: 11 },
 }
 
-function tierBodyStyle(key: BacklogTierKey): CSSProperties {
-  const color = BACKLOG_TIER_COLORS[key]
-  return {
-    '--backlog-tier': color,
-    // The Low tier's own color is too faint for a meter, so its meters take the neutral fill instead of the accent.
-    ...(key === 'low' ? { '--backlog-tier-meter': 'var(--stratakit-color-bg-mono-base)' } : {}),
-  } as CSSProperties
-}
-
 export const BacklogTable = memo(function BacklogTable({
   bugs,
   compact = false,
@@ -951,7 +942,7 @@ export const BacklogTable = memo(function BacklogTable({
             const matchCount = highlightedBugIds ? group.bugs.filter((bug) => highlightedBugIds.has(bug.id)).length : undefined
             const pickedCount = plan ? group.bugs.filter((bug) => plan.plan.pickedIds.has(bug.id)).length : undefined
             return (
-              <TableBody key={group.key} data-tier={group.key} style={tierBodyStyle(group.key)}>
+              <TableBody key={group.key} data-tier={group.key} style={getBacklogTierStyle(group.key)}>
                 <TierHeader
                   group={group}
                   collapsed={collapsed}

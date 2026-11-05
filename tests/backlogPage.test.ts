@@ -39,7 +39,7 @@ const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { BacklogPage } = await server.ssrLoadModule('/src/features/standup/pages/BacklogPage.tsx')
 const { useBacklogPageModel } = await server.ssrLoadModule('/src/features/standup/hooks/useBacklogPageModel.ts')
 const { filterBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogFilter.ts')
-const { formatCreatedDate, getBacklogAgeDays, rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
+const { formatBacklogValue, formatCreatedDate, getBacklogAgeDays, rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
 const { formatDayCount } = await server.ssrLoadModule('/src/features/standup/utils/sprintDates.ts')
 const { createDefaultBacklogOptions } = await server.ssrLoadModule('/src/features/standup/utils/backlogOptions.ts')
 const { BACKLOG_TIER_COLORS } = await server.ssrLoadModule('/src/features/standup/utils/backlogTiers.ts')
@@ -1384,4 +1384,238 @@ test('Plan a sprint waits for bugs, and its picks outlast a refresh but not a ch
 
   await renderPage({ selectedTeamId: otherTeam.id })
   assert.deepEqual(pickedIds(host), [201, 202], 'another team starts its plan over')
+})
+
+// Two bugs with the same inputs share a bubble; the one without a severity is placed by an assumed default.
+const mapBugs: PageProps['bugs'] = rankBacklogBugs([
+  {
+    id: 301, title: 'Crash on open', state: 'Active', createdAt: '2026-02-01T10:00:00Z', iterationPath: 'Project',
+    severity: '1 - Critical', priority: 1, effort: 4, workItemUrl: workItemUrl(301),
+  },
+  {
+    id: 302, title: 'Crash on close', state: 'New', createdAt: '2026-03-01T10:00:00Z', iterationPath: 'Project',
+    severity: '1 - Critical', priority: 1, effort: 4, workItemUrl: workItemUrl(302),
+  },
+  {
+    id: 303, title: 'Slow search', state: 'Active', createdAt: '2026-01-15T10:00:00Z', iterationPath: 'Project\\Team\\2026\\Sprint 5',
+    severity: '3 - Medium', priority: 2, effort: 8, workItemUrl: workItemUrl(303),
+  },
+  {
+    id: 304, title: 'Odd spacing', state: 'New', createdAt: '2026-01-20T10:00:00Z', iterationPath: 'Project',
+    priority: 3, effort: 2, workItemUrl: workItemUrl(304),
+  },
+], iterations)
+const valueOf = (id: number) => mapBugs.find((bug) => bug.id === id)!.value
+
+const viewToggle = (host: Element, name: string) =>
+  [...host.querySelectorAll<HTMLButtonElement>('[aria-label="Backlog view"] button')].find((candidate) => candidate.textContent === name)!
+const valueMap = (host: Element) => host.querySelector('svg[role="group"]')
+const mapPanel = (host: Element) => host.querySelector('aside[aria-label="Bugs on the map"]')!
+const panelIds = (host: Element) => [...mapPanel(host).querySelectorAll('li[data-bug-id]')].map((row) => Number(row.getAttribute('data-bug-id')))
+const panelHeading = (host: Element) => mapPanel(host).querySelector('h2')!.textContent
+const bubbles = (host: Element) => [...host.querySelectorAll<SVGGElement>('.backlog-bubble')]
+const bubbleLabels = (host: Element) => bubbles(host).map((bubble) => bubble.getAttribute('aria-label')).sort()
+// Bubbles are named by their bug count and Value, which no two bubbles in these fixtures share.
+const bubbleWithValue = (host: Element, value: number) =>
+  bubbles(host).find((bubble) => bubble.getAttribute('aria-label')!.split(', ')[1] === `Value ${formatBacklogValue(value)}`)!
+const keyDown = (target: Element, key: string) =>
+  act(async () => { target.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })) })
+
+async function openMap(host: Element) {
+  await act(async () => viewToggle(host, 'Map').click())
+}
+
+test('the View toggle switches the list for the Value map, which groups bugs with the same inputs into a bubble', async (t) => {
+  const host = await render(t, { bugs: mapBugs, teamIterations: iterations })
+  assert.deepEqual(['List', 'Map'].map((name) => viewToggle(host, name).getAttribute('aria-pressed')), ['true', 'false'])
+  assert.ok(host.querySelector('table'))
+  assert.equal(valueMap(host), null)
+
+  await openMap(host)
+  assert.deepEqual(['List', 'Map'].map((name) => viewToggle(host, name).getAttribute('aria-pressed')), ['false', 'true'])
+  assert.equal(host.querySelector('table'), null)
+  assert.ok(ribbon(host), 'the summary and Needs attention stay above the map')
+  assert.ok(facetToggle(host, 'severe'))
+
+  const map = valueMap(host)!
+  assert.equal(map.getAttribute('aria-label'), 'Value map: effort against severity and impact')
+  assert.match(document.getElementById(map.getAttribute('aria-describedby')!)!.textContent!, /Arrow keys move between them by Value/)
+  assert.deepEqual(bubbleLabels(host), [
+    `1 bug, Value ${formatBacklogValue(valueOf(303))}`,
+    `1 bug, Value ${formatBacklogValue(valueOf(304))}`,
+    `2 bugs, Value ${formatBacklogValue(valueOf(301))}`,
+  ].sort())
+  const shared = bubbleWithValue(host, valueOf(301))
+  assert.equal(shared.querySelector('text')!.textContent, '2', 'a bubble of several bugs shows how many')
+  assert.equal(shared.getAttribute('data-tier'), 'top')
+  assert.equal(bubbleWithValue(host, valueOf(304)).hasAttribute('data-assumed'), true, 'a guessed severity is marked')
+  assert.equal(bubbleWithValue(host, valueOf(303)).hasAttribute('data-assumed'), false)
+  assert.deepEqual(
+    [...map.querySelectorAll('[data-effort-tick]')].map((tick) => tick.textContent),
+    ['≤4', '8'],
+    'the effort labels are the team\'s own efforts, with 2 counted as 4',
+  )
+
+  assert.equal(panelHeading(host), 'Reading the map')
+  assert.deepEqual([...mapPanel(host).querySelectorAll('ul[aria-label="Key"] li')].map((item) => item.textContent), [
+    'Top · Value 80+', 'High · Value 30–80', 'Medium · Value 12–30', 'Low · Value under 12', 'Uses an assumed default',
+  ])
+  assert.equal(mapPanel(host).querySelector('h3')!.textContent, 'Top 4 by Value')
+  assert.deepEqual(panelIds(host), mapBugs.map((bug) => bug.id))
+  assert.match(visibleText(mapPanel(host).querySelector('li[data-bug-id="303"]')!), /^303 Slow search.*8 pts.*This sprint$/)
+
+  await act(async () => viewToggle(host, 'List').click())
+  assert.ok(host.querySelector('table'))
+  assert.equal(valueMap(host), null)
+})
+
+test('selecting a bubble lists its bugs, and Back, Escape, or selecting it again returns to the reading guide', async (t) => {
+  const host = await render(t, { bugs: mapBugs, teamIterations: iterations })
+  await openMap(host)
+  const shared = bubbleWithValue(host, valueOf(301))
+
+  await act(async () => shared.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  assert.equal(shared.getAttribute('aria-pressed'), 'true')
+  assert.equal(shared.hasAttribute('data-selected'), true)
+  assert.equal(panelHeading(host), `2 bugs · Value ${formatBacklogValue(valueOf(301))}`)
+  assert.match(mapPanel(host).textContent!, /Effort 4 pts or less · Severity × Impact/)
+  assert.deepEqual(panelIds(host), mapBugs.filter((bug) => bug.id === 301 || bug.id === 302).map((bug) => bug.id))
+  assert.ok(mapPanel(host).querySelector('ul[aria-label="Bugs in the selected bubble"]'))
+
+  const back = [...mapPanel(host).querySelectorAll('button')].find((candidate) => candidate.textContent === 'Back to the reading guide')!
+  await act(async () => back.click())
+  assert.equal(panelHeading(host), 'Reading the map')
+  assert.equal(shared.getAttribute('aria-pressed'), 'false')
+  assert.equal(document.activeElement, shared, 'focus goes back to the bubble')
+
+  const assumed = bubbleWithValue(host, valueOf(304))
+  await act(async () => assumed.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  assert.match(mapPanel(host).textContent!, /Uses an assumed default, so the position is a guess\./)
+  await act(async () => assumed.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  assert.equal(panelHeading(host), 'Reading the map', 'selecting the selected bubble lets it go')
+
+  await act(async () => assumed.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  await keyDown(assumed, 'Escape')
+  assert.equal(panelHeading(host), 'Reading the map')
+})
+
+test('the map is one tab stop; arrow keys move between bubbles by Value and Enter selects', async (t) => {
+  const host = await render(t, { bugs: mapBugs, teamIterations: iterations })
+  await openMap(host)
+  const byValue = [301, 303, 304].sort((a, b) => valueOf(b) - valueOf(a)).map((id) => bubbleWithValue(host, valueOf(id)))
+  const tabStops = () => bubbles(host).filter((bubble) => bubble.getAttribute('tabindex') === '0')
+
+  assert.deepEqual(tabStops(), [byValue[0]], 'the highest Value bubble takes the tab stop')
+  await act(async () => byValue[0].focus())
+  await keyDown(byValue[0], 'ArrowRight')
+  assert.equal(document.activeElement, byValue[1])
+  assert.deepEqual(tabStops(), [byValue[1]])
+  await keyDown(byValue[1], 'End')
+  assert.equal(document.activeElement, byValue[2])
+  await keyDown(byValue[2], 'ArrowDown')
+  assert.equal(document.activeElement, byValue[2], 'the last bubble stays put')
+  await keyDown(byValue[2], 'Home')
+  assert.equal(document.activeElement, byValue[0])
+  await keyDown(byValue[0], 'ArrowLeft')
+  assert.equal(document.activeElement, byValue[0])
+
+  await keyDown(byValue[0], 'Enter')
+  assert.equal(byValue[0].getAttribute('aria-pressed'), 'true')
+  await keyDown(byValue[0], ' ')
+  assert.equal(byValue[0].getAttribute('aria-pressed'), 'false')
+})
+
+test('bubbles outside the quick filter or a Needs attention chip fade, and the panel lists what is left', async (t) => {
+  const filtered = await render(t, { bugs: filterBacklogBugs(mapBugs, 'crash'), allBugs: mapBugs, totalBugCount: mapBugs.length })
+  await openMap(filtered)
+  assert.equal(bubbles(filtered).length, 3, 'every bug stays on the map, so it keeps its shape')
+  assert.deepEqual(bubbles(filtered).filter((bubble) => !bubble.hasAttribute('data-dim')), [bubbleWithValue(filtered, valueOf(301))])
+  assert.match(bubbleWithValue(filtered, valueOf(303)).getAttribute('aria-label')!, /, outside the filter$/)
+  assert.equal(mapPanel(filtered).querySelector('h3')!.textContent, 'Top 2 by Value · filtered')
+  assert.deepEqual(panelIds(filtered).sort(), [301, 302])
+
+  const none = await render(t, { bugs: [], allBugs: mapBugs, totalBugCount: mapBugs.length })
+  await openMap(none)
+  assert.ok(bubbles(none).every((bubble) => bubble.hasAttribute('data-dim')))
+  assert.equal(mapPanel(none).querySelector('[role="status"]')!.textContent, 'No bugs match.')
+
+  const faceted = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+  await openMap(faceted)
+  await act(async () => facetToggle(faceted, 'old').click())
+  const ancient = attentionBugs.find((bug) => bug.id === 203)!
+  assert.deepEqual(bubbles(faceted).filter((bubble) => !bubble.hasAttribute('data-dim')), [bubbleWithValue(faceted, ancient.value)])
+  assert.deepEqual(panelIds(faceted), [203])
+
+  await act(async () => bubbleWithValue(faceted, attentionBugs[0].value).dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  const row = mapPanel(faceted).querySelector('li[data-bug-id]')!
+  assert.equal(row.getAttribute('data-emphasis'), 'dim', 'a selected bubble outside the chip still lists its bugs, faded')
+  assert.match(row.textContent!, /Outside the filter/)
+})
+
+test('Plan a sprint rings the bubbles it picks, and the key explains the ring', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+  await openMap(host)
+  assert.equal(host.querySelector('[data-picked]'), null)
+  assert.doesNotMatch(mapPanel(host).textContent!, /Picked in Plan a sprint/)
+
+  await startPlanning(host)
+  const picked = bubbles(host).filter((bubble) => bubble.hasAttribute('data-picked'))
+  const valueFor = (id: number) => attentionBugs.find((bug) => bug.id === id)!.value
+  assert.deepEqual(
+    picked.map((bubble) => bubble.getAttribute('aria-label')).sort(),
+    [201, 202].map((id) => `1 bug, Value ${formatBacklogValue(valueFor(id))}, picked`).sort(),
+  )
+  assert.match(mapPanel(host).textContent!, /Picked in Plan a sprint/)
+  assert.match(visibleText(mapPanel(host).querySelector('li[data-bug-id="201"]')!), /Picked$/)
+  assert.doesNotMatch(visibleText(mapPanel(host).querySelector('li[data-bug-id="204"]')!), /Picked/)
+})
+
+test('the map has its own loading skeleton, and its selection outlasts a refresh but not a change of team', async (t) => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => {
+    await act(async () => root.unmount())
+    host.remove()
+  })
+  const otherTeam = { ...team, id: 'other', displayName: 'Team Beta' }
+  const base = { ...defaultProps, bugs: mapBugs, teamOptions: [team, otherTeam] }
+  const renderPage = (overrides: Partial<PageProps>) =>
+    act(async () => root.render(createElement(Root, null, createElement(BacklogPage, { ...base, ...overrides }))))
+
+  await renderPage({})
+  await openMap(host)
+  await act(async () => bubbleWithValue(host, valueOf(303)).dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  assert.deepEqual(panelIds(host), [303])
+
+  await renderPage({ isLoading: true, bugs: [] })
+  assert.equal(valueMap(host), null)
+  const skeleton = host.querySelector('[data-backlog-map-skeleton]')!
+  assert.equal(skeleton.getAttribute('aria-hidden'), 'true')
+  assert.equal(host.querySelector('table'), null, 'no list skeleton stands in for the map')
+
+  await renderPage({})
+  assert.equal(bubbleWithValue(host, valueOf(303)).getAttribute('aria-pressed'), 'true', 'the refresh keeps the selected bubble')
+  assert.deepEqual(panelIds(host), [303])
+
+  await renderPage({ selectedTeamId: otherTeam.id })
+  assert.ok(valueMap(host), 'the view stays on the map')
+  assert.equal(panelHeading(host), 'Reading the map', 'another team starts with nothing selected')
+})
+
+test('with Remember last view on, the page reopens on the map it was left on', async (t) => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')!
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: (key: string) => (key === 'standup:last-view:backlog' ? 'map' : null), setItem: noop },
+  })
+  t.after(() => Object.defineProperty(globalThis, 'localStorage', descriptor))
+
+  const remembered = await render(t, { bugs: mapBugs, rememberLastView: true })
+  assert.equal(viewToggle(remembered, 'Map').getAttribute('aria-pressed'), 'true')
+  assert.ok(valueMap(remembered))
+
+  const fresh = await render(t, { bugs: mapBugs })
+  assert.equal(viewToggle(fresh, 'List').getAttribute('aria-pressed'), 'true')
+  assert.ok(fresh.querySelector('table'))
 })

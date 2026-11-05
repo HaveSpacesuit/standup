@@ -22,6 +22,8 @@ type BacklogListProps = {
   highlightedBugIds?: ReadonlySet<number> | null
   /** Plan a sprint's picks, or null when it is off. */
   plan?: BacklogTablePlan | null
+  /** The view the loading skeleton takes the shape of. */
+  view?: 'list' | 'map'
 }
 
 export function BacklogList({
@@ -35,9 +37,10 @@ export function BacklogList({
   onToggleTier,
   highlightedBugIds = null,
   plan = null,
+  view = 'list',
 }: BacklogListProps) {
   if (isLoading) {
-    return <BacklogLoadingState />
+    return <BacklogLoadingState view={view} />
   }
 
   if (error) {

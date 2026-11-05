@@ -112,9 +112,9 @@ same testers as the QA page), holding the QA page's items assigned to them. Thes
 during standup, load QA data only while the option is on, and don't count toward the Needs
 attention bar. The setting is saved per team and included in team exports.
 
-Development opens on the Developers board, and Quality Assurance on Testers. Turn on Settings > Display
-> "Remember last view" to reopen each page on the view you used last instead, such as Sprint or Flow.
-The setting and each page's last view are saved in this browser, not in team exports.
+Development opens on the Developers board, Quality Assurance on Testers, and Backlog on List. Turn on
+Settings > Display > "Remember last view" to reopen each page on the view you used last instead, such as
+Sprint, Flow, or Map. The setting and each page's last view are saved in this browser, not in team exports.
 
 The toolbar's View toggle switches between the Developers board and the Sprint view. The Sprint view is
 the same board with one lane per sprint instead of per person: the current sprint first and open,
@@ -266,7 +266,7 @@ Recently completed state precedence, and explicit tag-based grouping, are unchan
 
 ### Backlog view
 
-The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, a **Plan a sprint** toggle, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
+The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, a **Plan a sprint** toggle, a **View** toggle for List or Map, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
 
 The table has no sorting, column filtering, or selection, and bug rows highlight when hovered. Its only buttons are on the Value tier headers, plus a checkbox per bug while planning a sprint, both described below. The columns run from why a bug ranks where it does to who has it:
 
@@ -324,6 +324,24 @@ The strip has:
 Checking or unchecking a bug overrides the planner, and the checkbox is ringed to show it was set by hand. A hand pick counts first, even when it is planned or pushes the plan over budget; unchecking it, or checking a bug unchecked by hand, hands it back to the planner. The plan never changes Azure DevOps. Plan a sprint, the budget, and hand picks are not saved: they survive a refresh but reset when you switch teams, and leaving the page turns planning off.
 
 Backlog options > Plan a sprint sets the **Default budget** (10 pts by default, 1–999) and whether to **Skip bugs already in this sprint or the next** and **Skip bugs without an Effort** (both on by default). They are saved and exported with the other Backlog options.
+
+The header's **View** toggle swaps the ranked list for a **Value map**, a bubble chart of the same bugs. Effort runs to the right and Severity score × Impact score runs up, both on log scales, so bugs of equal Value lie on a diagonal:
+
+- Bugs with the same effort, severity, and impact share a bubble, which shows how many bugs it holds.
+- A bubble whose Value assumed a missing or unreadable input has a dashed amber outline. It sits just left of the bubble for the same values entered, since its place is a guess.
+- Bubbles take their Value tier's color, over diagonal bands for the tiers, with a dashed line labeled at each tier threshold.
+- The effort labels are the team's own efforts, not a fixed scale. The first reads "≤4", since the Value counts any effort below 4, or none, as 4.
+- The corners are labeled Quick wins, Big bets, Fill-ins, and Reconsider.
+
+Hover or focus a bubble for its Value, effort, Severity × Impact, and first few bugs. Select it to list its bugs in the side panel, with links to Azure DevOps. Select it again, press Escape, or choose **Back to the reading guide** to go back. With no bubble selected, the panel explains how to read the map, gives a key, and lists the top 10 bugs by Value. The map is one tab stop: arrow keys, Home, and End move between bubbles in Value order, and Enter or Space selects one.
+
+The map keeps the rest of the page in step:
+
+- Every open bug stays on the map. Bubbles outside the quick filter or the pressed Needs attention chip fade instead of disappearing, and the panel lists only what is left ("Top N by Value · filtered").
+- The summary ribbon, Needs attention, and the Plan a sprint strip stay above the map. While planning, a bubble holding a pick is ringed and the panel marks its picks; picking by hand is done in the list.
+- Below about 900 px wide, the panel moves under the plot.
+- The selected bubble survives a refresh and is cleared when you switch teams.
+- Backlog opens on List, or on the view used last when Settings > Display > "Remember last view" is on.
 
 Backlog options > Display has **Compact rows**, the same setting as Compact cards on Development and Quality Assurance, so turning it on in one place turns it on in all three. Compact rows keep each bug to one line: a long title ends in an ellipsis with the full title in its tooltip, only the first tag shows, followed by "+N" whose tooltip lists the rest, and Assigned to shows only the avatar, with the name in its tooltip.
 

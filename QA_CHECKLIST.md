@@ -169,12 +169,12 @@ Prepare data that exercises both populated and empty states:
 - [ ] Reload and verify the selected appearance persists.
 - [ ] Verify the display preference is not included as Azure DevOps data or PAT data.
 - [ ] Verify Settings > Display shows "Remember last view" off by default, with help text naming
-      Developers and Testers as the default views.
-- [ ] With it off, switch Development to Sprint and Quality Assurance to Flow, reload, and verify
-      they open on Developers and Testers.
-- [ ] Turn it on, reload, and verify Development opens on Sprint and Quality Assurance on Flow
-      (the views used last, even though they were chosen while the setting was off). Switch back,
-      reload, and verify the new choices are remembered and the setting itself persists.
+      Developers, Testers, and List as the default views.
+- [ ] With it off, switch Development to Sprint, Quality Assurance to Flow, and Backlog to Map,
+      reload, and verify they open on Developers, Testers, and List.
+- [ ] Turn it on, reload, and verify Development opens on Sprint, Quality Assurance on Flow, and
+      Backlog on Map (the views used last, even though they were chosen while the setting was off).
+      Switch back, reload, and verify the new choices are remembered and the setting itself persists.
 - [ ] With it on and Sprint remembered, start a standup and verify Development switches to the
       Developers board, then reopens on Developers after a reload.
 - [ ] Verify team export does not include the setting or the remembered views.
@@ -515,7 +515,8 @@ Prepare data that exercises both populated and empty states:
 ### Page and header
 
 - [ ] Open Backlog from the navigation rail and verify the header shows the Backlog title, the bug
-      count, the quick filter, the team selector, Manage team, Backlog options, and Refresh.
+      count, the quick filter, Plan a sprint, the View toggle (List and Map, with List pressed), the
+      team selector, Manage team, Backlog options, and Refresh.
 - [ ] Verify the count reads "N bugs" (or "1 bug"), changes to "N of M bugs" while the quick filter
       hides some, and is absent while loading, after an error, and without a team.
 - [ ] Verify Refresh spins and the header says Syncing… while the backlog loads, then "Synced just
@@ -709,6 +710,40 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify the strip, the tint, the hand-pick ring, the cut line, and the over-budget meter are
       readable in light and dark mode; that the strip wraps cleanly as the window narrows; and that
       compact rows keep their height with the checkboxes.
+
+### Value map
+
+- [ ] Press Map in the View toggle; verify the table gives way to a bubble chart with effort across
+      and Severity score × Impact score up (both log scales), and a side panel. Verify the summary
+      ribbon, Needs attention, and Plan a sprint stay above it, and List brings the table back.
+- [ ] Verify bugs with the same effort, severity, and impact share one bubble showing their count;
+      an Effort below 4 shares the bubble of an Effort of 4; and a bubble whose Value assumed a
+      missing or unreadable input has a dashed amber outline, just left of its known neighbor.
+- [ ] Verify bubble colors match the Value tiers, the diagonal bands and dashed lines follow the
+      tier thresholds (change them in Backlog options and verify the map redraws), the effort labels
+      are the team's own efforts starting at "≤4", and the corners read Quick wins, Big bets,
+      Fill-ins, and Reconsider.
+- [ ] Hover a bubble and verify its tooltip shows the bug count, Value, effort, Severity × Impact,
+      and the first four bugs (plus "+N more").
+- [ ] With nothing selected, verify the panel shows Reading the map, the key, and Top 10 by Value.
+      Select a bubble; verify it is marked, the panel lists its bugs with links that open in a new
+      tab, and an assumed bubble says its position is a guess. Verify selecting it again, Escape,
+      and Back to the reading guide each return to the guide.
+- [ ] Tab into the map; verify one bubble (the highest Value) takes focus with a visible ring and
+      its tooltip, arrow keys, Home, and End move in Value order, Enter or Space selects, and the
+      next Tab leaves the map. Verify a screen reader reads each bubble's bug count and Value, and
+      whether it is picked or outside the filter.
+- [ ] Type a quick filter or press a Needs attention chip; verify every bubble stays in place, those
+      without a match fade (and come back partway on hover or focus), and the panel reads "Top N by
+      Value · filtered". With no matches, verify the panel says No bugs match.
+- [ ] Turn on Plan a sprint; verify bubbles holding a pick are ringed, the key adds Picked in Plan a
+      sprint, and picked bugs read Picked in the panel.
+- [ ] Refresh with a bubble selected; verify the map's skeleton (a plot and a side panel) stands in,
+      then the bubble is still selected. Switch teams and verify nothing is selected.
+- [ ] Narrow the window below about 900 px; verify the panel moves under the plot, the key runs
+      across, and the page does not scroll sideways. Verify the map is legible in light and dark mode.
+- [ ] Verify Backlog reopens on List after a reload, or on Map when Settings > Display > "Remember
+      last view" is on and Map was used last.
 
 ### Quick filter
 
