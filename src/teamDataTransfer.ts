@@ -1,6 +1,8 @@
 import type { TagRule, TagRuleAction } from './ado/workItemStatus'
 import type { TeamProfile } from './appSettings'
 import type { AssignmentOptions, AssignmentSprintFilter } from './features/standup/utils/assignmentOptions'
+import type { BacklogOptions } from './features/standup/utils/backlogOptions'
+import { areValidTierThresholds, createDefaultBacklogOptions } from './features/standup/utils/backlogOptions'
 import type {
   QaOptions,
   QaSprintFilter,
@@ -18,6 +20,7 @@ export type TeamDataExport = {
   assignmentOptions: AssignmentOptions
   assignmentTagRules: TagRule[]
   qaOptions: QaOptions
+  backlogOptions: BacklogOptions
 }
 
 const VALID_TAG_RULE_ACTIONS = new Set<TagRuleAction>([
@@ -237,11 +240,38 @@ function parseQaOptions(value: unknown): QaOptions {
   }
 }
 
+/** Exports made before the Backlog page had options leave them out, so a missing value takes the defaults. */
+function parseImportedBacklogOptions(value: unknown): BacklogOptions {
+  const defaults = createDefaultBacklogOptions()
+  if (value === undefined) {
+    return defaults
+  }
+
+  assertObject(value, 'Imported backlog options must be an object.')
+
+  let tierThresholds = defaults.tierThresholds
+  if (value.tierThresholds !== undefined) {
+    assertObject(value.tierThresholds, 'Imported backlog options tierThresholds must be an object.')
+    const { top, high, medium } = value.tierThresholds
+    const candidate = { top, high, medium } as BacklogOptions['tierThresholds']
+    if (![top, high, medium].every((entry) => typeof entry === 'number') || !areValidTierThresholds(candidate)) {
+      throw new Error('Imported backlog options tierThresholds must be positive numbers, each lower than the one above it.')
+    }
+    tierThresholds = candidate
+  }
+
+  return {
+    tierThresholds,
+    startLowCollapsed: typeof value.startLowCollapsed === 'boolean' ? value.startLowCollapsed : defaults.startLowCollapsed,
+  }
+}
+
 export function buildTeamDataExport({
   teamProfile,
   assignmentOptions,
   assignmentTagRules,
   qaOptions,
+  backlogOptions,
 }: Omit<TeamDataExport, 'schemaVersion' | 'exportedAt'>): TeamDataExport {
   return {
     schemaVersion: 1,
@@ -250,6 +280,7 @@ export function buildTeamDataExport({
     assignmentOptions,
     assignmentTagRules,
     qaOptions,
+    backlogOptions,
   }
 }
 
@@ -283,5 +314,6 @@ export function parseImportedTeamData(jsonText: string): TeamDataExport {
       'Imported assignment tag rules must be an array of tag rule objects.',
     ),
     qaOptions: parseQaOptions(parsed.qaOptions),
+    backlogOptions: parseImportedBacklogOptions(parsed.backlogOptions),
   }
 }

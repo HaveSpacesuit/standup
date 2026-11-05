@@ -2,6 +2,8 @@ import { Box, Card, CardContent, Typography } from '@mui/material'
 import { AdoErrorNotice } from './AdoErrorNotice'
 import { BacklogLoadingState } from './BacklogLoadingState'
 import { BacklogTable } from './BacklogTable'
+import type { BacklogTierThresholds } from '../utils/backlogOptions'
+import type { BacklogTierKey } from '../utils/backlogTiers'
 import type { RankedBacklogBug } from '../utils/backlogValue'
 
 type BacklogListProps = {
@@ -13,9 +15,21 @@ type BacklogListProps = {
   totalBugCount: number
   /** One line per bug. */
   compact?: boolean
+  tierThresholds: BacklogTierThresholds
+  collapsedTiers: ReadonlySet<BacklogTierKey>
+  onToggleTier: (tier: BacklogTierKey) => void
 }
 
-export function BacklogList({ isLoading, error, bugs, totalBugCount, compact = false }: BacklogListProps) {
+export function BacklogList({
+  isLoading,
+  error,
+  bugs,
+  totalBugCount,
+  compact = false,
+  tierThresholds,
+  collapsedTiers,
+  onToggleTier,
+}: BacklogListProps) {
   if (isLoading) {
     return <BacklogLoadingState />
   }
@@ -66,5 +80,13 @@ export function BacklogList({ isLoading, error, bugs, totalBugCount, compact = f
     )
   }
 
-  return <BacklogTable bugs={bugs} compact={compact} />
+  return (
+    <BacklogTable
+      bugs={bugs}
+      compact={compact}
+      tierThresholds={tierThresholds}
+      collapsedTiers={collapsedTiers}
+      onToggleTier={onToggleTier}
+    />
+  )
 }

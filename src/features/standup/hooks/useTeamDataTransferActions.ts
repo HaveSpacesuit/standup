@@ -3,6 +3,7 @@ import type { TagRule } from '../../../ado/workItemStatus'
 import type { TeamProfile } from '../../../appSettings'
 import { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } from '../../../teamDataTransfer'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
+import { createDefaultBacklogOptions, type BacklogOptions } from '../utils/backlogOptions'
 import type { QaOptions } from '../utils/qaOptions'
 import { createDefaultAssignmentOptions, createDefaultQaOptions } from '../utils/standupOptionDefaults'
 import { loadStoredTagRulesForTeam } from './useBoardPreferences'
@@ -11,10 +12,12 @@ type UseTeamDataTransferActionsArgs = {
   teamProfiles: TeamProfile[]
   qaOptionsByTeam: Record<string, QaOptions>
   assignmentOptionsByTeam: Record<string, AssignmentOptions>
+  backlogOptionsByTeam: Record<string, BacklogOptions>
   tagRulesByTeam: Record<string, TagRule[]>
   replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => void
   setAssignmentOptionsForTeam: (teamId: string, options: AssignmentOptions) => void
   setQaOptionsForTeam: (teamId: string, options: QaOptions) => void
+  setBacklogOptionsForTeam: (teamId: string, options: BacklogOptions) => void
   setTagRulesForTeam: (teamId: string, rules: TagRule[]) => void
   onTeamChange: (teamId: string) => void
 }
@@ -32,10 +35,12 @@ export function useTeamDataTransferActions({
   teamProfiles,
   qaOptionsByTeam,
   assignmentOptionsByTeam,
+  backlogOptionsByTeam,
   tagRulesByTeam,
   replaceTeamProfiles,
   setAssignmentOptionsForTeam,
   setQaOptionsForTeam,
+  setBacklogOptionsForTeam,
   setTagRulesForTeam,
   onTeamChange,
 }: UseTeamDataTransferActionsArgs): UseTeamDataTransferActionsResult {
@@ -50,6 +55,7 @@ export function useTeamDataTransferActions({
       assignmentOptions: assignmentOptionsByTeam[teamId] ?? createDefaultAssignmentOptions(),
       assignmentTagRules: tagRulesByTeam[teamId] ?? loadStoredTagRulesForTeam(teamId),
       qaOptions: qaOptionsByTeam[teamId] ?? createDefaultQaOptions(),
+      backlogOptions: backlogOptionsByTeam[teamId] ?? createDefaultBacklogOptions(),
     })
     const exportText = serializeTeamDataExport(exportPayload)
     const blob = new Blob([exportText], { type: 'application/json' })
@@ -59,7 +65,7 @@ export function useTeamDataTransferActions({
     link.download = toDownloadFileName(teamProfile.displayName)
     link.click()
     URL.revokeObjectURL(downloadUrl)
-  }, [assignmentOptionsByTeam, qaOptionsByTeam, tagRulesByTeam, teamProfiles])
+  }, [assignmentOptionsByTeam, backlogOptionsByTeam, qaOptionsByTeam, tagRulesByTeam, teamProfiles])
 
   const handleImportTeamData = useCallback((jsonText: string) => {
     const importedData = parseImportedTeamData(jsonText)
@@ -71,12 +77,14 @@ export function useTeamDataTransferActions({
     replaceTeamProfiles(nextTeamProfiles)
     setAssignmentOptionsForTeam(importedTeamId, importedData.assignmentOptions)
     setQaOptionsForTeam(importedTeamId, importedData.qaOptions)
+    setBacklogOptionsForTeam(importedTeamId, importedData.backlogOptions)
     setTagRulesForTeam(importedTeamId, importedData.assignmentTagRules)
     onTeamChange(importedTeamId)
   }, [
     onTeamChange,
     replaceTeamProfiles,
     setAssignmentOptionsForTeam,
+    setBacklogOptionsForTeam,
     setQaOptionsForTeam,
     setTagRulesForTeam,
     teamProfiles,

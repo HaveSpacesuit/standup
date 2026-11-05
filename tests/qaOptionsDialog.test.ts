@@ -69,6 +69,7 @@ const { createDefaultAssignmentOptions, createDefaultQaOptions } =
   await server.ssrLoadModule('/src/features/standup/utils/standupOptionDefaults.ts')
 const { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } =
   await server.ssrLoadModule('/src/teamDataTransfer.ts')
+const { backlogOptionsStorageKey } = await server.ssrLoadModule('/src/features/standup/utils/backlogOptions.ts')
 
 type Element = { type: string; props: Record<string, unknown> }
 
@@ -430,6 +431,34 @@ test('Assignments compact card setting is persisted per team and restored after 
   state = useReloadAppState()
   assert.equal(state.assignmentOptionsByTeam.one.compactCards, true)
   assert.equal(state.assignmentOptionsByTeam.two.compactCards, false)
+})
+
+test('Backlog options are persisted per team, restored after reload, and removed with the team', (t) => {
+  const profile = {
+    orgName: 'org', projectName: 'project', displayName: 'Team',
+    areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo',
+  }
+  const storage = new Map([
+    ['standup:team-profiles', JSON.stringify([{ ...profile, id: 'one' }, { ...profile, id: 'two' }])],
+  ])
+  setupAppStorage(storage, t)
+  function useReloadAppState() {
+    hooks.reset()
+    hooks.beginRender()
+    return useStandupAppState()
+  }
+  let state = useReloadAppState()
+  assert.deepEqual(state.backlogOptionsByTeam.one, { tierThresholds: { top: 80, high: 30, medium: 12 }, startLowCollapsed: true })
+  const changed = { tierThresholds: { top: 100, high: 40, medium: 10 }, startLowCollapsed: false }
+  state.setBacklogOptionsForTeam('one', changed)
+  assert.deepEqual(JSON.parse(storage.get(backlogOptionsStorageKey('one'))!), changed)
+
+  state = useReloadAppState()
+  assert.deepEqual(state.backlogOptionsByTeam.one, changed)
+  assert.equal(state.backlogOptionsByTeam.two.startLowCollapsed, true, 'the other team keeps its own options')
+
+  state.handleTeamProfilesChange([{ ...profile, id: 'two' }])
+  assert.equal(storage.has(backlogOptionsStorageKey('one')), false)
 })
 
 test('team exports preserve the compact card setting and older imports default false', () => {
