@@ -236,6 +236,9 @@ Prepare data that exercises both populated and empty states:
       accessible name.
 - [ ] Verify a recently changed card shows the corner dot and a badge naming the change and its age
       (state or column moves, reassignment, linked PRs, tag changes, and PR votes).
+- [ ] On Development and QA cards, verify an unassigned-to-person change says "Assigned", a change
+      between people says "Reassigned", and clearing the assignee says "Unassigned". Check the badge
+      and tooltip, and verify a state change in the same update still takes priority.
 - [ ] Verify Blocked, Active, and Review cards gain an aging dot for each quarter of the Stale
       threshold without a tracked change (amber at three, red at four), New and Done cards show none,
       and only stale Done cards fade.

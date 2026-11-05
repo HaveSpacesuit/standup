@@ -48,6 +48,9 @@ four aging dots, one for each quarter of the Freshness tab's Stale threshold tha
 a tracked change, turning amber at three and red at four. New and Done cards have no aging dots, and
 only stale Done cards fade.
 
+On both Development and QA cards, assignment changes read "Assigned" when an unassigned item gains
+an assignee, "Reassigned" when it moves between people, and "Unassigned" when its assignee is cleared.
+
 Development options > Members includes "Hide users with no activity" (off by default).
 When enabled, member rows without cards matching the current filters are hidden.
 PR-only cards count as activity. The setting is saved per team in browser local storage

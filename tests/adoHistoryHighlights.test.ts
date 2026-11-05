@@ -101,7 +101,7 @@ test('change details name the latest tracked change, preferring state over other
   const changedDate = (hoursAgo: number) => ({ 'System.ChangedDate': { newValue: at(hoursAgo) } })
   const historyById: Record<number, unknown[]> = {
     201: [
-      { id: 1, fields: { ...changedDate(72), 'System.State': { newValue: 'New' } } },
+      { id: 1, fields: { ...changedDate(72), 'System.State': { newValue: 'New' }, 'System.AssignedTo': { newValue: { uniqueName: 'dev@example.com' } } } },
       { id: 2, fields: { ...changedDate(48), 'System.State': { newValue: 'In Progress' } } },
       { id: 3, fields: { ...changedDate(5), 'System.AssignedTo': { newValue: { uniqueName: 'qa@example.com' } } } },
     ],
@@ -163,6 +163,70 @@ test('change details name the latest tracked change, preferring state over other
   assert.equal(changeDetailsByItemId[-9].reason, 'Waiting for author')
   assert.equal(changeDetailsByItemId[203].idleDays, 0)
   assert.equal(changeDetailsByItemId[203].agingLevel, 0)
+})
+
+test('assignment change labels distinguish first assignment, reassignment, and clearing the assignee', async () => {
+  effects.length = 0
+  state.length = 0
+  const previous = { uniqueName: 'dev@example.test' }
+  const next = { uniqueName: 'qa@example.test' }
+  const cases = [
+    { oldValue: undefined, newValue: next, expected: 'Assigned' },
+    { oldValue: null, newValue: next, expected: 'Assigned' },
+    { oldValue: '', newValue: next, expected: 'Assigned' },
+    { oldValue: { displayName: '  ' }, newValue: next, expected: 'Assigned' },
+    { oldValue: previous, newValue: next, expected: 'Reassigned' },
+    { oldValue: { name: 'Developer' }, newValue: { displayName: 'Tester' }, expected: 'Reassigned' },
+    { oldValue: '', newValue: 'Tester <qa@example.test>', expected: 'Assigned' },
+    { oldValue: 'Developer <dev@example.test>', newValue: 'Tester <qa@example.test>', expected: 'Reassigned' },
+    { oldValue: previous, newValue: '', expected: 'Unassigned' },
+    { oldValue: previous, newValue: undefined, expected: 'Unassigned' },
+    { oldValue: previous, newValue: next, omitOldValue: true, expected: 'Reassigned' },
+  ]
+  const baselineAt = new Date(Date.now() - 72 * HOUR_MS).toISOString()
+  const changedAt = new Date(Date.now() - 23 * HOUR_MS).toISOString()
+  const args = {
+    adoQueryEngine: {
+      async getWorkItemUpdates(_team: unknown, id: number) {
+        const change = cases[id]
+        return [
+          {
+            id: 1, revisedDate: baselineAt,
+            fields: {
+              'System.State': { newValue: 'Approved' },
+              'System.AssignedTo': { newValue: change.oldValue },
+            },
+          },
+          {
+            id: 2, revisedDate: changedAt,
+            fields: {
+              'System.AssignedTo': change.omitOldValue
+                ? { newValue: change.newValue }
+                : { oldValue: change.oldValue, newValue: change.newValue },
+            },
+          },
+        ]
+      },
+    },
+    team: { orgName: 'example-org', projectName: 'example-project', repoName: 'repo' },
+    tagRules: [],
+    workItems: cases.map((change, id) => ({ id, title: change.expected, status: 'New' })),
+  }
+
+  beginRender()
+  useAdoHistoryHighlights(args)
+  const cleanup = effects.shift()?.()
+  await new Promise((resolve) => setImmediate(resolve))
+  beginRender()
+  const { highlightsByItemId, changeDetailsByItemId } = useAdoHistoryHighlights(args)
+  effects.length = 0
+  cleanup?.()
+
+  for (const [id, change] of cases.entries()) {
+    assert.equal(changeDetailsByItemId[id].reason, change.expected, `case ${id}`)
+    assert.equal(changeDetailsByItemId[id].changedAt, changedAt, `case ${id}`)
+    assert.equal(highlightsByItemId[id], 'new', `case ${id}`)
+  }
 })
 
 test('aging level climbs one step per quarter of the stale threshold and is 4 once stale', () => {

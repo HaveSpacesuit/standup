@@ -484,6 +484,7 @@ test('change badge text pairs the reason with how long ago it happened', () => {
   const hoursAgo = (hours: number) => new Date(now - hours * 60 * 60 * 1000).toISOString()
 
   assert.equal(display.getChangeBadgeText({ reason: 'Moved to Done', changedAt: hoursAgo(3), idleDays: 0, agingLevel: 0 }, now), 'Moved to Done · 3h')
+  assert.equal(display.getChangeBadgeText({ reason: 'Assigned', changedAt: hoursAgo(23), idleDays: 0, agingLevel: 0 }, now), 'Assigned · 23h')
   assert.equal(display.getChangeBadgeText({ reason: 'Reassigned', changedAt: hoursAgo(0.2), idleDays: 0, agingLevel: 0 }, now), 'Reassigned · just now')
   assert.equal(display.getChangeBadgeText({ reason: 'Reassigned', idleDays: 0, agingLevel: 0 }, now), 'Reassigned')
   assert.equal(display.getChangeBadgeText({ idleDays: 0, agingLevel: 0 }, now), null)
@@ -624,6 +625,7 @@ test('last change text spells out when a card last changed', () => {
   assert.equal(display.getLastChangeText({ reason: 'Moved to Review', changedAt: hoursAgo(72), idleDays: 3, agingLevel: 2 }, now), 'Moved to Review · 3 days ago')
   assert.equal(display.getLastChangeText({ idleDays: 1, agingLevel: 0 }, now), '1 day ago')
   assert.equal(display.getLastChangeText({ reason: 'Reassigned', changedAt: hoursAgo(3), idleDays: 0, agingLevel: 0 }, now), 'Reassigned · 3h ago')
+  assert.equal(display.getLastChangeText({ reason: 'Assigned', changedAt: hoursAgo(23), idleDays: 0, agingLevel: 0 }, now), 'Assigned · 23h ago')
   assert.equal(display.getLastChangeText({ changedAt: hoursAgo(0.2), idleDays: 0, agingLevel: 0 }, now), 'Just now')
   assert.equal(display.getLastChangeText({ idleDays: 0, agingLevel: 0 }, now), 'Today')
   assert.equal(display.getLastChangeText(undefined, now), null)

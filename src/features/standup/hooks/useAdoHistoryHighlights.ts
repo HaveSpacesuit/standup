@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine, WorkItemSummary } from '../../../ado/queryEngine'
 import { isUsableHistoryTimestamp, resolveUpdateTimestamp, toTimestamp } from '../../../ado/workItemHistoryTimeline'
 import { parsePullRequestArtifactLink } from '../../../ado/adoShared'
+import { parseAssignedTo } from '../../../ado/identity'
 import {
   getRelevantTagRuleSignature,
   resolveStatusFromStateAndTags,
@@ -9,6 +10,7 @@ import {
 } from '../../../ado/workItemStatus'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
+import { getAssignmentChangeReason } from '../utils/assignmentChange'
 
 export type ChangeHighlightState = 'new' | 'stale' | 'none'
 
@@ -72,24 +74,8 @@ type PullRequestDetailsLookup = Map<string, Promise<PullRequestDetailsResponse |
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function parseAssignedIdentityKey(value: unknown): string {
-  if (!value || typeof value !== 'object') {
-    return ''
-  }
-
-  const candidate = value as { uniqueName?: unknown; displayName?: unknown; name?: unknown }
-  if (typeof candidate.uniqueName === 'string' && candidate.uniqueName.trim()) {
-    return candidate.uniqueName.trim()
-  }
-
-  if (typeof candidate.displayName === 'string' && candidate.displayName.trim()) {
-    return candidate.displayName.trim()
-  }
-
-  if (typeof candidate.name === 'string' && candidate.name.trim()) {
-    return candidate.name.trim()
-  }
-
-  return ''
+  const identity = parseAssignedTo(value)
+  return identity?.uniqueName?.trim() || identity?.displayName?.trim() || ''
 }
 
 function getThreadType(thread: PullRequestThread): string {
@@ -137,7 +123,7 @@ function describeTrackedUpdate(change: {
   state: string
   columnChanged: boolean
   column: string
-  assigneeChanged: boolean
+  assignmentChange?: string
   linkedPullRequestId?: number
   tagsChanged: boolean
 }): string {
@@ -147,8 +133,8 @@ function describeTrackedUpdate(change: {
   if (change.columnChanged) {
     return `Moved to ${change.column}`
   }
-  if (change.assigneeChanged) {
-    return 'Reassigned'
+  if (change.assignmentChange) {
+    return change.assignmentChange
   }
   if (change.linkedPullRequestId !== undefined) {
     return `PR ${change.linkedPullRequestId} linked`
@@ -322,7 +308,10 @@ async function computeWorkItemHighlight(
     const fields = update.fields ?? {}
     const beforeState = currentState
     const beforeTags = currentTags
-    const beforeAssignee = currentAssignee
+    const assignment = fields['System.AssignedTo']
+    const beforeAssignee = assignment && Object.hasOwn(assignment, 'oldValue')
+      ? parseAssignedIdentityKey(assignment.oldValue)
+      : currentAssignee
     const beforeColumn = resolveStatusFromStateAndTags(beforeState, beforeTags, tagRules)
     const beforeRelevantTags = getRelevantTagRuleSignature(beforeTags, tagRules)
 
@@ -409,7 +398,9 @@ async function computeWorkItemHighlight(
         state: currentState,
         columnChanged: beforeColumn !== afterColumn,
         column: afterColumn,
-        assigneeChanged: beforeAssignee !== currentAssignee,
+        assignmentChange: beforeAssignee !== currentAssignee
+          ? getAssignmentChangeReason(beforeAssignee, currentAssignee)
+          : undefined,
         linkedPullRequestId,
         tagsChanged: beforeRelevantTags !== afterRelevantTags,
       })
