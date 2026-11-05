@@ -1,9 +1,18 @@
+import svgCalendar from '@stratakit/icons/calendar.svg'
+import svgClock from '@stratakit/icons/clock.svg'
+import svgError from '@stratakit/icons/error.svg'
+import svgFlag from '@stratakit/icons/flag.svg'
+import svgHistory from '@stratakit/icons/history.svg'
+import svgUndo from '@stratakit/icons/undo.svg'
+import svgUserAdd from '@stratakit/icons/user-add.svg'
 import type { TeamIterationOption, TeamMember, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import { toIdentityKeys } from '../../../ado/identity'
 import { BLOCKED_RAIL_WIDTH } from '../utils/boardLayout'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { countWorkingDays, formatDayCount, formatSprintDate } from '../utils/sprintDates'
 import type { AttentionTone } from './boardAttention'
+import type { LaneHeadFlag } from './laneSummary'
+import type { StandupOrderMode } from './standupOrder'
 
 export type QaColumnId = 'new' | 'coming' | 'needs-testing' | 'needs-development' | 'done' | 'history-unavailable'
 export type QaView = 'flow' | 'testers'
@@ -33,14 +42,14 @@ export const COLUMN_META: Record<QaColumnId, { title: string; expectedStates: re
   'history-unavailable': { title: 'History unavailable', expectedStates: [], status: 'Blocked' },
 }
 
-export const QA_ATTENTION_FACETS: readonly { key: QaFacet; label: string; tone: AttentionTone; description: string }[] = [
-  { key: 'failed', label: 'Failed testing', tone: 'critical', description: 'Items whose current state is Failed Testing.' },
-  { key: 'bounced', label: 'Bounced 2+ times', tone: 'critical', description: 'Items sent back from QA at least twice.' },
-  { key: 'unassigned', label: 'Needs a tester', tone: 'attention', description: 'Ready-for-QA items without an assigned tester.' },
-  { key: 'waiting', label: 'Waiting 3+ days', tone: 'attention', description: 'Items waiting in Ready for QA for three or more days.' },
-  { key: 'untriaged', label: 'Untriaged 3+ days', tone: 'attention', description: 'New items without a sprint that are at least three days old.' },
-  { key: 'late', label: 'Arrived late', tone: 'attention', description: 'Items that reached QA with three or fewer working days left in the sprint.' },
-  { key: 'changed', label: 'Recently changed', tone: 'info', description: 'Items with a tracked QA-relevant change in the freshness window.' },
+export const QA_ATTENTION_FACETS: readonly { key: QaFacet; label: string; tone: AttentionTone; iconHref: string; description: string }[] = [
+  { key: 'failed', label: 'Failed testing', tone: 'critical', iconHref: svgError, description: 'Items whose current state is Failed Testing.' },
+  { key: 'bounced', label: 'Bounced 2+ times', tone: 'critical', iconHref: svgUndo, description: 'Items sent back from QA at least twice.' },
+  { key: 'unassigned', label: 'Needs a tester', tone: 'attention', iconHref: svgUserAdd, description: 'Ready-for-QA items without an assigned tester.' },
+  { key: 'waiting', label: 'Waiting 3+ days', tone: 'attention', iconHref: svgClock, description: 'Items waiting in Ready for QA for three or more days.' },
+  { key: 'untriaged', label: 'Untriaged 3+ days', tone: 'attention', iconHref: svgFlag, description: 'New items without a sprint that are at least three days old.' },
+  { key: 'late', label: 'Arrived late', tone: 'attention', iconHref: svgCalendar, description: 'Items that reached QA with three or fewer working days left in the sprint.' },
+  { key: 'changed', label: 'Recently changed', tone: 'info', iconHref: svgHistory, description: 'Items with a tracked QA-relevant change in the freshness window.' },
 ]
 
 export function normalizeState(value: unknown): string {
@@ -238,15 +247,91 @@ export function getQaBoardLayout(columns: readonly Pick<QaColumnState, 'id' | 'r
   }
 }
 
-function getLaneKey(identity: WorkItemSummary['assignedTo'] | undefined, testers: TeamMember[]): string {
-  return matchesTester(identity, testers)?.displayName ?? (identity ? 'other' : 'none')
+/** The Testers view lane for Ready for QA and Coming up cards no tester has picked up. */
+export const QA_NEEDS_TESTER_LANE = '__needs_tester__'
+/** The Testers view lane for cards whose person in that column isn't a tester. */
+export const QA_EVERYONE_ELSE_LANE = '__everyone_else__'
+
+/** A card's Testers view lane: the tester the column follows, who filed it, has it, sent it back, or verified it. */
+export function getQaLaneKey(item: WorkItemSummary, column: QaColumnId, history: ItemHistory, testers: TeamMember[]): string {
+  if (column === 'coming' || column === 'needs-testing') {
+    return matchesTester(item.assignedTo, testers)?.displayName ?? QA_NEEDS_TESTER_LANE
+  }
+
+  const person = column === 'new' ? item.createdBy
+    : column === 'needs-development' ? history.sentBackBy ?? item.assignedTo
+      : column === 'done' ? history.verifiedBy ?? item.assignedTo
+        : item.assignedTo
+  return matchesTester(person, testers)?.displayName ?? QA_EVERYONE_ELSE_LANE
 }
 
-export function getItemForLane(item: WorkItemSummary, column: QaColumnId, history: ItemHistory, testers: TeamMember[]): string {
-  if (column === 'coming') return matchesTester(item.assignedTo, testers)?.displayName ?? 'none'
-  if (column === 'new') return getLaneKey(item.createdBy, testers)
-  if (column === 'needs-testing') return getLaneKey(item.assignedTo, testers)
-  if (column === 'needs-development') return getLaneKey(history.sentBackBy ?? item.assignedTo, testers)
-  if (column === 'done') return getLaneKey(history.verifiedBy ?? item.assignedTo, testers)
-  return getLaneKey(item.assignedTo, testers)
+const QA_FACETS_BY_KEY = new Map(QA_ATTENTION_FACETS.map((facet) => [facet.key, facet]))
+
+export function formatQaFlag(key: QaFacet, count: number): string {
+  switch (key) {
+    case 'failed':
+      return `${count} failed testing`
+    case 'bounced':
+      return `${count} bounced 2+ times`
+    case 'unassigned':
+      return `${count} need${count === 1 ? 's' : ''} a tester`
+    case 'waiting':
+      return `${count} waiting 3d+`
+    case 'untriaged':
+      return `${count} untriaged`
+    case 'late':
+      return `${count} arrived late`
+    case 'changed':
+      return `${count} recently changed`
+  }
+}
+
+/**
+ * Lane flags, most urgent first. Only cards in the Needs a tester lane lack a tester, and that lane
+ * already says so; Recently changed is news rather than a problem.
+ */
+export const QA_LANE_FLAG_ORDER: readonly QaFacet[] = ['failed', 'bounced', 'waiting', 'late', 'untriaged']
+
+/** Lane flags with at least one card, most urgent first. */
+export function getQaLaneFlags(items: readonly { id: number }[], signalsById: ReadonlyMap<number, ReadonlySet<QaFacet>>): LaneHeadFlag[] {
+  return QA_LANE_FLAG_ORDER.flatMap((key) => {
+    const count = items.filter((item) => signalsById.get(item.id)?.has(key)).length
+    const facet = QA_FACETS_BY_KEY.get(key)
+    return count > 0 && facet ? [{ key, label: formatQaFlag(key, count), tone: facet.tone, iconHref: facet.iconHref }] : []
+  })
+}
+
+/** How strongly each signal moves a tester up in Most attention first. Recent changes are routine, so they don't count. */
+export const QA_STANDUP_WEIGHTS: Readonly<Record<QaFacet, number>> = {
+  failed: 4,
+  bounced: 3,
+  waiting: 3,
+  late: 2,
+  unassigned: 2,
+  untriaged: 1,
+  changed: 0,
+}
+
+export function getQaAttentionScore(items: readonly { id: number }[], signalsById: ReadonlyMap<number, ReadonlySet<QaFacet>>): number {
+  let score = 0
+  for (const item of items) {
+    for (const signal of signalsById.get(item.id) ?? []) {
+      score += QA_STANDUP_WEIGHTS[signal]
+    }
+  }
+  return score
+}
+
+/** Lane keys of the testers who take a turn, in speaking order. */
+export function getQaStandupOrder(
+  rows: readonly { key: string; label: string }[],
+  mode: StandupOrderMode,
+  scoreByKey: ReadonlyMap<string, number>,
+): string[] {
+  const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+  return [...rows]
+    .sort(mode === 'alphabetical'
+      ? byLabel
+      : (a, b) => (scoreByKey.get(b.key) ?? 0) - (scoreByKey.get(a.key) ?? 0) || byLabel(a, b))
+    .map((row) => row.key)
 }

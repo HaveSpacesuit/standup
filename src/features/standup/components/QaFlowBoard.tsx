@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Box, Button, ButtonBase, Chip, Divider, IconButton, Typography } from '@mui/material'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { Box, Button, Chip, Divider, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgFlag from '@stratakit/icons/flag.svg'
-import svgInfo from '@stratakit/icons/info.svg'
 import svgUserAdd from '@stratakit/icons/user-add.svg'
+import svgUsers from '@stratakit/icons/users.svg'
 import type { TeamIterationOption, TeamMember, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import { StandupPresenterBar } from './StandupPresenterBar'
 import { AppTooltip } from './AppTooltip'
-import { AdoAvatar } from './AdoAvatar'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
@@ -15,21 +14,26 @@ import { BOARD_COLUMN_DIVIDER, BOARD_HEADER_HEIGHT } from '../utils/boardLayout'
 import { formatSprintDate, getSprintProgress } from '../utils/sprintDates'
 import type { AttentionTone } from './boardAttention'
 import type { BoardRowData } from './KanbanBoardGrid'
-import type { StandupOrderMode } from './standupOrder'
+import { resolveStandupSpeakers, type StandupOrderMode } from './standupOrder'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { QaCard } from './QaCard'
 import { QaColumnHeader } from './QaColumnHeader'
+import { QaTesterLanes } from './QaTesterLanes'
 import {
   COLUMN_META,
   getColumnItems,
-  getItemForLane,
   getItemHistory,
+  getQaAttentionScore,
   getQaBoardLayout,
   getQaColumnStates,
+  getQaLaneKey,
+  getQaStandupOrder,
   getSignalSet,
   matchesTester,
   normalizeState,
   QA_ATTENTION_FACETS,
+  QA_EVERYONE_ELSE_LANE,
+  QA_NEEDS_TESTER_LANE,
   type ItemHistory,
   type QaColumnId,
   type QaColumnState,
@@ -62,6 +66,7 @@ const EMPTY_ITEMS: WorkItemSummary[] = []
 const EMPTY_UPDATES: Record<number, WorkItemUpdate[]> = {}
 const EMPTY_TESTERS: TeamMember[] = []
 const EMPTY_TEAM_ITERATIONS: TeamIterationOption[] = []
+const NO_HISTORY: ItemHistory = { bounceCount: 0 }
 
 
 function getPaletteKey(tone: AttentionTone): string {
@@ -144,10 +149,6 @@ function QaSprintRibbon({ buckets, coming, lookbackDays, iterations, currentIter
   )
 }
 
-function identityName(member: TeamMember): string {
-  return member.displayName
-}
-
 function QaAttentionBar({ counts, selected, onSelect }: {
   counts: Record<QaFacet, number>
   selected: QaFacet | null
@@ -192,19 +193,15 @@ function QaAttentionBar({ counts, selected, onSelect }: {
   )
 }
 
-function FlowColumn({ column, index, items, matchCount, onToggle, historyById, currentIterationName, compact, highlightOptions, testers, selectedFacet, signalsById }: {
+function FlowColumn({ column, index, items, matchCount, onToggle, compact, testers, renderCard }: {
   column: QaColumnState
   index: number
   items: WorkItemSummary[]
   matchCount: number | null
   onToggle: () => void
-  historyById: Map<number, ItemHistory>
-  currentIterationName: string | null
   compact: boolean
-  highlightOptions: CardHighlightOptions
   testers: TeamMember[]
-  selectedFacet: QaFacet | null
-  signalsById: Map<number, Set<QaFacet>>
+  renderCard: (item: WorkItemSummary, column: QaColumnId, compact: boolean) => ReactNode
 }) {
   const { id, rail, collapsible } = column
   const readyUnassigned = id === 'needs-testing'
@@ -213,25 +210,7 @@ function FlowColumn({ column, index, items, matchCount, onToggle, historyById, c
   const readyAssigned = id === 'needs-testing'
     ? items.filter((item) => matchesTester(item.assignedTo, testers))
     : []
-
-  const renderCard = (item: WorkItemSummary) => {
-    const signals = signalsById.get(item.id) ?? new Set<QaFacet>()
-    const emphasis = selectedFacet ? signals.has(selectedFacet) ? 'match' : 'dim' : undefined
-    return (
-      <Box key={item.id} data-qa-card={item.id}>
-        <QaCard
-          item={item}
-          column={id}
-          history={historyById.get(item.id) ?? { bounceCount: 0 }}
-          compact={compact}
-          currentIterationName={currentIterationName}
-          highlightOptions={highlightOptions}
-          emphasis={emphasis}
-          testers={testers}
-        />
-      </Box>
-    )
-  }
+  const renderColumnCard = (item: WorkItemSummary) => <Fragment key={item.id}>{renderCard(item, id, compact)}</Fragment>
 
   return (
     <Box
@@ -294,90 +273,14 @@ function FlowColumn({ column, index, items, matchCount, onToggle, historyById, c
           ) : id === 'needs-testing' ? (
             <>
               <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Needs a tester · {readyUnassigned.length}</Typography>
-              {readyUnassigned.map(renderCard)}
+              {readyUnassigned.map(renderColumnCard)}
               <Divider />
               <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Testing · {readyAssigned.length}</Typography>
-              {readyAssigned.map(renderCard)}
+              {readyAssigned.map(renderColumnCard)}
             </>
-          ) : items.map(renderCard)}
+          ) : items.map(renderColumnCard)}
         </Box>
       )}
-    </Box>
-  )
-}
-
-function LaneRow({ member, laneKey, itemsByLane, columnIds, historyById, currentIterationName, compact, highlightOptions, testers, selectedFacet, signalsById, maxLoad, collapsed, onToggle, isSpeaking }: {
-  member?: TeamMember
-  laneKey: string
-  itemsByLane: Map<string, Partial<Record<QaColumnId, WorkItemSummary[]>>>
-  columnIds: QaColumnId[]
-  historyById: Map<number, ItemHistory>
-  currentIterationName: string | null
-  compact: boolean
-  highlightOptions: CardHighlightOptions
-  testers: TeamMember[]
-  selectedFacet: QaFacet | null
-  signalsById: Map<number, Set<QaFacet>>
-  maxLoad: number
-  collapsed: boolean
-  onToggle: () => void
-  isSpeaking: boolean
-}) {
-  const items = itemsByLane.get(laneKey) ?? {}
-  const count = columnIds.reduce((sum, id) => sum + (items[id]?.length ?? 0), 0)
-  const title = laneKey === 'none' ? 'Needs a tester' : laneKey === 'other' ? 'Everyone else' : member?.displayName ?? laneKey
-  const color = isSpeaking ? 'var(--stratakit-color-border-accent-base)' : 'divider'
-  const flaggedCount = columnIds.reduce((sum, id) => sum + (items[id] ?? []).filter((item) => (signalsById.get(item.id)?.size ?? 0) > 0).length, 0)
-
-  return (
-    <Box
-      component="section"
-      aria-label={`${title}, ${count} items`}
-      sx={{ display: 'grid', gridTemplateColumns: `minmax(150px, 0.7fr) repeat(${columnIds.length}, minmax(210px, 1fr))`, minWidth: 1200, borderBottom: '1px solid', borderColor: color, bgcolor: isSpeaking ? 'action.hover' : 'background.default' }}
-    >
-      <ButtonBase
-        onClick={onToggle}
-        aria-expanded={!collapsed}
-        sx={{ alignSelf: 'start', position: 'sticky', left: 0, zIndex: 1, minHeight: 52, px: 1, justifyContent: 'flex-start', bgcolor: 'background.paper', borderRight: '1px solid', borderColor: 'divider' }}
-      >
-        {member ? (
-          <AdoAvatar
-            alt={member.displayName}
-            descriptor={member.descriptor}
-            src={member.imageUrl}
-            sx={{ width: 24, height: 24, mr: 0.75, fontSize: 10 }}
-          />
-        ) : null}
-        <Typography variant="body-sm" sx={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</Typography>
-        <Typography variant="body-sm" color="text.secondary" sx={{ ml: 0.75 }}>{count}</Typography>
-        <Box sx={{ display: 'grid', gap: 0.375, ml: 0.75, width: 44, flex: '0 0 auto' }}>
-          <Box aria-hidden="true" sx={{ height: 4, borderRadius: 999, bgcolor: 'action.hover', overflow: 'hidden' }}>
-            <Box sx={{ width: `${Math.min(100, count / Math.max(maxLoad, 1) * 100)}%`, height: '100%', bgcolor: 'var(--stratakit-color-bg-accent-base)' }} />
-          </Box>
-          {flaggedCount > 0 ? <Typography variant="caption" sx={{ color: 'var(--stratakit-color-text-attention-base)', lineHeight: 1 }}>{flaggedCount} flags</Typography> : null}
-        </Box>
-      </ButtonBase>
-      {!collapsed ? columnIds.map((id) => (
-        <Box key={id} sx={{ display: 'grid', alignContent: 'start', gap: 0.75, p: 0.75, borderRight: '1px solid', borderColor: 'divider' }}>
-          {(items[id] ?? []).map((item) => {
-            const signals = signalsById.get(item.id) ?? new Set<QaFacet>()
-            const emphasis = selectedFacet ? signals.has(selectedFacet) ? 'match' : 'dim' : undefined
-            return (
-              <QaCard
-                key={`${id}-${item.id}`}
-                item={item}
-                column={id}
-                history={historyById.get(item.id) ?? { bounceCount: 0 }}
-                compact={compact}
-                currentIterationName={currentIterationName}
-                highlightOptions={highlightOptions}
-                emphasis={emphasis}
-                testers={testers}
-              />
-            )
-          })}
-        </Box>
-      )) : null}
     </Box>
   )
 }
@@ -400,13 +303,11 @@ export function QaFlowBoard({
 }: QaFlowBoardProps) {
   const [selectedFacet, setSelectedFacet] = useState<QaFacet | null>(null)
   const [columnOpen, setColumnOpen] = useState<Partial<Record<QaColumnId, boolean>>>({})
-  const [collapsedLanes, setCollapsedLanes] = useState<Set<string>>(() => new Set(['other']))
-  const [standupIndex, setStandupIndex] = useState(0)
+  const [collapseOverrides, setCollapseOverrides] = useState<Record<string, boolean>>({})
   const [standupOrderMode, setStandupOrderMode] = useState<StandupOrderMode>('alphabetical')
-  const now = Date.now()
-  useEffect(() => {
-    if (standupActive) setStandupIndex(0)
-  }, [standupActive])
+  const [standupOrderKeys, setStandupOrderKeys] = useState<readonly string[] | null>(null)
+  const [standupIndex, setStandupIndex] = useState(0)
+  const [spokenKeys, setSpokenKeys] = useState<ReadonlySet<string>>(() => new Set())
   const currentIteration = teamIterations.find((iteration) => iteration.timeFrame === 'current' || iteration.name === currentIterationName)
   const allItems = useMemo(() => buckets.flatMap((bucket) => bucket.items), [buckets])
   const qaItemIds = useMemo(() => new Set(allItems.map((item) => item.id)), [allItems])
@@ -420,13 +321,14 @@ export function QaFlowBoard({
     allItems.map((item) => [item.id, getItemHistory(item, updatesByItemId[item.id] ?? [])]),
   ), [allItems, updatesByItemId])
   const signalsById = useMemo(() => {
+    const now = Date.now()
     const values = new Map<number, Set<QaFacet>>()
     for (const bucket of buckets) {
       for (const item of bucket.items) {
         values.set(item.id, getSignalSet(
           item,
           bucket.id,
-          historyById.get(item.id) ?? { bounceCount: 0 },
+          historyById.get(item.id) ?? NO_HISTORY,
           testers,
           teamIterations,
           cardHighlightOptions.freshDays,
@@ -436,12 +338,18 @@ export function QaFlowBoard({
     }
     for (const item of comingItems) values.set(item.id, new Set())
     return values
-  }, [buckets, cardHighlightOptions.freshDays, comingItems, testers, historyById, now, teamIterations])
+  }, [buckets, cardHighlightOptions.freshDays, comingItems, testers, historyById, teamIterations])
   const facetCounts = useMemo(() => {
     const counts = Object.fromEntries(QA_ATTENTION_FACETS.map((facet) => [facet.key, 0])) as Record<QaFacet, number>
     for (const values of signalsById.values()) for (const key of values) counts[key]++
     return counts
   }, [signalsById])
+  const highlightedIds = useMemo<ReadonlySet<number> | null>(
+    () => selectedFacet
+      ? new Set([...signalsById].filter(([, signals]) => signals.has(selectedFacet)).map(([id]) => id))
+      : null,
+    [selectedFacet, signalsById],
+  )
 
   const columnIds = useMemo<QaColumnId[]>(() => {
     const ids: QaColumnId[] = ['new', 'coming', 'needs-testing', 'needs-development', 'done']
@@ -464,85 +372,142 @@ export function QaFlowBoard({
   )
   const flowLayout = getQaBoardLayout(columns)
   const toggleColumn = ({ id, rail }: QaColumnState) => setColumnOpen((current) => ({ ...current, [id]: rail }))
-  const columnMatchCount = (id: QaColumnId) => selectedFacet
-    ? (itemsByColumn[id] ?? []).filter((item) => signalsById.get(item.id)?.has(selectedFacet)).length
+  const columnMatchCount = (id: QaColumnId) => highlightedIds
+    ? (itemsByColumn[id] ?? []).filter((item) => highlightedIds.has(item.id)).length
     : null
-  const visibleCount = selectedFacet
-    ? allColumnItems.filter((item) => signalsById.get(item.id)?.has(selectedFacet)).length
+  const visibleCount = highlightedIds
+    ? allColumnItems.filter((item) => highlightedIds.has(item.id)).length
     : allColumnItems.length
 
-  const laneKeys = useMemo(
-    () => ['none', ...testers.map(identityName), 'other'],
-    [testers],
-  )
-  const itemsByLane = useMemo(() => {
-    const lanes = new Map<string, Partial<Record<QaColumnId, WorkItemSummary[]>>>()
-    for (const key of laneKeys) lanes.set(key, {})
-    for (const id of columnIds) {
-      for (const item of itemsByColumn[id] ?? []) {
-        const ownerKey = getItemForLane(item, id, historyById.get(item.id) ?? { bounceCount: 0 }, testers)
-        const lane = lanes.get(ownerKey) ?? lanes.get('other')!
-        lane[id] ??= []
-        lane[id]!.push(item)
-      }
-    }
-    return lanes
-  }, [columnIds, testers, historyById, itemsByColumn, laneKeys])
-
-  const speakerRows = useMemo<BoardRowData[]>(() => [
-    { key: 'none', label: 'Needs a tester', isUnassigned: true, iconHref: svgUserAdd },
-    ...testers.map((member) => ({
+  const testerRows = useMemo<BoardRowData[]>(() => [...testers]
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' }))
+    .map((member) => ({
       key: member.displayName,
       label: member.displayName,
       avatarUrl: member.imageUrl,
       avatarDescriptor: member.descriptor,
       memberIdentity: { displayName: member.displayName, uniqueName: member.uniqueName, imageUrl: member.imageUrl },
-    })),
-  ], [testers])
-  const orderedSpeakers = useMemo(() => {
-    if (standupOrderMode === 'alphabetical') return speakerRows
-    return [...speakerRows].sort((a, b) => {
-      if (a.key === 'none') return -1
-      if (b.key === 'none') return 1
-      const aCount = itemsByLane.get(a.key) ? columnIds.reduce((sum, id) => sum + (itemsByLane.get(a.key)?.[id]?.length ?? 0), 0) : 0
-      const bCount = itemsByLane.get(b.key) ? columnIds.reduce((sum, id) => sum + (itemsByLane.get(b.key)?.[id]?.length ?? 0), 0) : 0
-      return bCount - aCount || a.label.localeCompare(b.label)
-    })
-  }, [columnIds, itemsByLane, speakerRows, standupOrderMode])
-  const visibleSpeakers = orderedSpeakers.filter((speaker) => speaker.key === 'none' || speakerRows.some((row) => row.key === speaker.key))
-  const maxLaneLoad = Math.max(...laneKeys.map((key) => columnIds.reduce((sum, id) => sum + (itemsByLane.get(key)?.[id]?.length ?? 0), 0)), 1)
+    })), [testers])
+  const itemsByCell = useMemo(() => {
+    const cells = new Map<string, WorkItemSummary[]>()
+    for (const id of columnIds) {
+      for (const item of itemsByColumn[id] ?? []) {
+        const cellKey = `${getQaLaneKey(item, id, historyById.get(item.id) ?? NO_HISTORY, testers)}:${id}`
+        const cell = cells.get(cellKey)
+        if (cell) cell.push(item)
+        else cells.set(cellKey, [item])
+      }
+    }
+    return cells
+  }, [columnIds, historyById, itemsByColumn, testers])
+  const laneRows = useMemo<BoardRowData[]>(() => {
+    const hasCards = (laneKey: string) => columnIds.some((id) => itemsByCell.has(`${laneKey}:${id}`))
+    return [
+      ...testerRows,
+      ...(hasCards(QA_NEEDS_TESTER_LANE)
+        ? [{ key: QA_NEEDS_TESTER_LANE, label: 'Needs a tester', isUnassigned: true, iconHref: svgUserAdd }]
+        : []),
+      // Other people's QA activity is context, so it starts collapsed behind the testers' lanes.
+      ...(hasCards(QA_EVERYONE_ELSE_LANE)
+        ? [{ key: QA_EVERYONE_ELSE_LANE, label: 'Everyone else', iconHref: svgUsers, defaultCollapsed: testerRows.length > 0 }]
+        : []),
+    ]
+  }, [columnIds, itemsByCell, testerRows])
 
-  const handleStandupGoTo = (index: number) => {
-    if (index >= visibleSpeakers.length) {
+  const collapsedRowKeys = useMemo<ReadonlySet<string>>(
+    () => new Set(laneRows.filter((row) => collapseOverrides[row.key] ?? row.defaultCollapsed ?? false).map((row) => row.key)),
+    [collapseOverrides, laneRows],
+  )
+  const toggleRowCollapsed = (rowKey: string) => {
+    setCollapseOverrides((current) => ({ ...current, [rowKey]: !collapsedRowKeys.has(rowKey) }))
+  }
+  const setAllRowsCollapsed = (collapsed: boolean) => {
+    setCollapseOverrides(Object.fromEntries(laneRows.map((row) => [row.key, collapsed])))
+  }
+
+  const standupScores = useMemo(() => new Map(testerRows.map((row) => [
+    row.key,
+    getQaAttentionScore(columnIds.flatMap((id) => itemsByCell.get(`${row.key}:${id}`) ?? []), signalsById),
+  ])), [columnIds, itemsByCell, signalsById, testerRows])
+  const hasStandupSpeakers = testerRows.length > 0
+  // The order is fixed when standup starts, so refreshed data can't reshuffle testers mid-meeting.
+  if (standupActive && standupOrderKeys === null && hasStandupSpeakers) {
+    setStandupOrderKeys(getQaStandupOrder(testerRows, standupOrderMode, standupScores))
+    setStandupIndex(0)
+    setSpokenKeys(new Set())
+  } else if (!standupActive && standupOrderKeys !== null) {
+    setStandupOrderKeys(null)
+  }
+
+  const standupSpeakers = useMemo(
+    () => (standupActive ? resolveStandupSpeakers(standupOrderKeys ?? [], testerRows) : []),
+    [standupActive, standupOrderKeys, testerRows],
+  )
+  const speakerIndex = Math.min(standupIndex, Math.max(standupSpeakers.length - 1, 0))
+  const presentingRowKey = standupSpeakers[speakerIndex]?.key ?? null
+
+  const goToSpeaker = (index: number) => {
+    if (index === speakerIndex) {
+      return
+    }
+
+    const leaving = standupSpeakers[speakerIndex]
+    if (leaving) {
+      setSpokenKeys((current) => new Set(current).add(leaving.key))
+    }
+
+    if (index >= standupSpeakers.length) {
       onStandupEnd()
       return
     }
-    setStandupIndex(Math.max(index, 0))
+
+    setStandupIndex(Math.max(0, index))
   }
-  const activeSpeakerKey = visibleSpeakers[standupIndex]?.key
+
+  const changeStandupOrder = (mode: StandupOrderMode) => {
+    setStandupOrderMode(mode)
+    setStandupOrderKeys(hasStandupSpeakers ? getQaStandupOrder(testerRows, mode, standupScores) : null)
+    setStandupIndex(0)
+    setSpokenKeys(new Set())
+  }
+
+  const renderCard = (item: WorkItemSummary, column: QaColumnId, compact: boolean) => (
+    <Box data-qa-card={item.id}>
+      <QaCard
+        item={item}
+        column={column}
+        history={historyById.get(item.id) ?? NO_HISTORY}
+        compact={compact}
+        currentIterationName={currentIterationName}
+        highlightOptions={cardHighlightOptions}
+        emphasis={highlightedIds ? highlightedIds.has(item.id) ? 'match' : 'dim' : undefined}
+        testers={testers}
+      />
+    </Box>
+  )
 
   return (
-    <Box component="main" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: 'background.default' }}>
-      <QaSprintRibbon buckets={buckets} coming={comingItems} lookbackDays={lookbackDays} iterations={teamIterations} currentIterationName={currentIterationName} />
+    <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: 'background.default' }}>
       {standupActive ? (
         <StandupPresenterBar
-          speakers={visibleSpeakers}
-          currentIndex={standupIndex}
-          spokenKeys={new Set(visibleSpeakers.slice(0, standupIndex).map((speaker) => speaker.key))}
+          speakers={standupSpeakers}
+          currentIndex={speakerIndex}
+          spokenKeys={spokenKeys}
           orderMode={standupOrderMode}
-          onOrderModeChange={setStandupOrderMode}
-          onGoTo={handleStandupGoTo}
+          onOrderModeChange={changeStandupOrder}
+          onGoTo={goToSpeaker}
           onEnd={onStandupEnd}
         />
       ) : null}
+      <QaSprintRibbon buckets={buckets} coming={comingItems} lookbackDays={lookbackDays} iterations={teamIterations} currentIterationName={currentIterationName} />
       <QaAttentionBar counts={facetCounts} selected={selectedFacet} onSelect={setSelectedFacet} />
       {selectedFacet ? (
         <Typography variant="body-sm" role="status" sx={{ px: 2, py: 0.5, color: 'text.secondary' }}>
           {visibleCount} of {allColumnItems.length} items highlighted · {QA_ATTENTION_FACETS.find((facet) => facet.key === selectedFacet)?.label}
         </Typography>
       ) : null}
-      <Box data-qa-scroll-container="" sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        {view === 'flow' ? (
+      {view === 'flow' ? (
+        <Box data-qa-scroll-container="" sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           <Box sx={{
             display: 'grid',
             gridTemplateColumns: flowLayout.gridTemplate,
@@ -557,69 +522,55 @@ export function QaFlowBoard({
                 items={itemsByColumn[column.id] ?? []}
                 matchCount={columnMatchCount(column.id)}
                 onToggle={() => toggleColumn(column)}
-                historyById={historyById}
-                currentIterationName={currentIterationName}
                 compact={compactCards}
-                highlightOptions={cardHighlightOptions}
                 testers={testers}
-                selectedFacet={selectedFacet}
-                signalsById={signalsById}
+                renderCard={renderCard}
               />
             ))}
           </Box>
-        ) : (
-          <Box sx={{ minWidth: 'max-content' }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: `minmax(150px, 0.7fr) repeat(${columnIds.length}, minmax(210px, 1fr))`, minWidth: 1200, position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Box sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Typography variant="body-sm" sx={{ fontWeight: 700 }}>Testers · {testers.length}</Typography>
-                {testersInferred && testers.length > 0 && onChooseTesters ? (
-                  <IconButton size="small" label="Testers are inferred from recent QA activity. Choose testers" onClick={onChooseTesters}>
-                    <Icon href={svgInfo} />
-                  </IconButton>
-                ) : null}
-              </Box>
-              {columnIds.map((id) => (
-                <Typography key={id} variant="body-sm" sx={{ p: 1, fontWeight: 700, borderLeft: '1px solid', borderColor: 'divider' }}>
-                  {COLUMN_META[id].title} · {(itemsByColumn[id] ?? []).length}
-                </Typography>
-              ))}
+        </Box>
+      ) : (
+        <>
+          {testers.length === 0 ? (
+            <Box
+              sx={{
+                flex: '0 0 auto',
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 1,
+                px: 2,
+                py: 0.75,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+              }}
+            >
+              <Typography variant="body-sm" color="text.secondary">
+                {testersInferred ? 'No QA testers found in recent QA activity.' : 'None of the chosen QA testers are on this team.'}
+              </Typography>
+              {onChooseTesters ? <Button size="small" onClick={onChooseTesters}>Choose testers</Button> : null}
             </Box>
-            {testers.length === 0 ? (
-              <Box sx={{ position: 'sticky', left: 0, width: 'max-content', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1 }}>
-                <Typography variant="body-sm" color="text.secondary">
-                  {testersInferred ? 'No QA testers found in recent QA activity.' : 'None of the chosen QA testers are on this team.'}
-                </Typography>
-                {onChooseTesters ? <Button size="small" onClick={onChooseTesters}>Choose testers</Button> : null}
-              </Box>
-            ) : null}
-            {['none', ...testers.map(identityName), 'other'].map((key) => (
-              <LaneRow
-                key={key}
-                laneKey={key}
-                member={testers.find((member) => member.displayName === key)}
-                itemsByLane={itemsByLane}
-                columnIds={columnIds}
-                historyById={historyById}
-                currentIterationName={currentIterationName}
-                compact={compactCards}
-                highlightOptions={cardHighlightOptions}
-                testers={testers}
-                selectedFacet={selectedFacet}
-                signalsById={signalsById}
-                maxLoad={maxLaneLoad}
-                collapsed={collapsedLanes.has(key)}
-                onToggle={() => setCollapsedLanes((current) => {
-                  const next = new Set(current)
-                  if (next.has(key)) next.delete(key)
-                  else next.add(key)
-                  return next
-                })}
-                isSpeaking={standupActive && activeSpeakerKey === key}
-              />
-            ))}
-          </Box>
-        )}
-      </Box>
+          ) : null}
+          <QaTesterLanes
+            columns={columns}
+            rows={laneRows}
+            itemsByCell={itemsByCell}
+            highlightedIds={highlightedIds}
+            signalsById={signalsById}
+            compactCards={compactCards}
+            testerCount={testers.length}
+            onChooseInferredTesters={testersInferred && testers.length > 0 ? onChooseTesters : undefined}
+            collapsedRowKeys={collapsedRowKeys}
+            // Standup decides which lane is open, so manual collapsing pauses until it ends.
+            onToggleRowCollapsed={presentingRowKey ? undefined : toggleRowCollapsed}
+            onSetAllRowsCollapsed={presentingRowKey ? undefined : setAllRowsCollapsed}
+            onToggleColumn={toggleColumn}
+            presentingRowKey={presentingRowKey}
+            renderCard={renderCard}
+          />
+        </>
+      )}
       {!currentIteration && teamIterations.length === 0 ? (
         <Typography variant="body-sm" color="text.secondary" sx={{ px: 2, py: 1 }}>
           Sprint dates are unavailable for this team.
