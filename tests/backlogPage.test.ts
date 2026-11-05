@@ -1,7 +1,7 @@
 import './stratakitNodeGlobals.ts'
 import assert from 'node:assert/strict'
 import { after, test, type TestContext } from 'node:test'
-import { act, createElement, type ComponentProps } from 'react'
+import { act, createElement, useState, type ComponentProps } from 'react'
 import { createServer } from 'vite'
 import { JSDOM } from 'jsdom'
 
@@ -41,6 +41,8 @@ const { useBacklogPageModel } = await server.ssrLoadModule('/src/features/standu
 const { filterBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogFilter.ts')
 const { formatCreatedDate, getBacklogAgeDays, rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
 const { formatDayCount } = await server.ssrLoadModule('/src/features/standup/utils/sprintDates.ts')
+const { createDefaultBacklogOptions } = await server.ssrLoadModule('/src/features/standup/utils/backlogOptions.ts')
+const { BACKLOG_TIER_COLORS } = await server.ssrLoadModule('/src/features/standup/utils/backlogTiers.ts')
 type PageProps = ComponentProps<typeof import('../src/features/standup/pages/BacklogPage.tsx').BacklogPage>
 
 const document = dom.window.document
@@ -116,6 +118,8 @@ const defaultProps: PageProps = {
   totalBugCount: bugs.length,
   isLoading: false,
   error: null,
+  // Two of the three bugs are Low, which starts collapsed by default; the tier tests turn that back on.
+  backlogOptions: { ...createDefaultBacklogOptions(), startLowCollapsed: false },
 }
 
 async function mount(t: TestContext, page: ReturnType<typeof createElement>) {
@@ -171,9 +175,13 @@ const button = (host: Element, label: string) => host.querySelector<HTMLButtonEl
 const dialog = () => document.querySelector('[role="dialog"]')
 const quickFilter = (host: Element) => host.querySelector<HTMLInputElement>('input[aria-label="Quick filter bugs"]')!
 const clearFilterButton = (host: Element) => host.querySelector<HTMLButtonElement>('button[aria-label="Clear quick filter"]')
+// Each Value tier is a tbody that starts with its header row, so the bug rows are the others.
+const BUG_ROWS = 'tbody tr:not(.backlog-tier-header)'
+const bugRows = (host: Element) => [...host.querySelectorAll(BUG_ROWS)]
+const tierHeaders = (host: Element) => [...host.querySelectorAll('tr.backlog-tier-header')]
 const rowId = (row: Element) => Number(row.querySelector('.backlog-bug-id')!.textContent)
-const listedIds = (host: Element) => [...host.querySelectorAll('tbody tr')].map(rowId)
-const rowFor = (host: Element, id: number) => [...host.querySelectorAll('tbody tr')].find((row) => rowId(row) === id)!
+const listedIds = (host: Element) => bugRows(host).map(rowId)
+const rowFor = (host: Element, id: number) => bugRows(host).find((row) => rowId(row) === id)!
 const titleCell = (host: Element, id: number) => rowFor(host, id).querySelector('td:nth-child(3)')!
 const tagTexts = (cell: Element) => [...cell.querySelectorAll('li')].map((item) => item.textContent)
 
@@ -267,7 +275,7 @@ test('the table lists the ranked bugs under the required columns', async (t) => 
     '#Rank', 'Value', 'Bug', 'Severity', 'Impact', 'Effort', 'Age', 'Sprint', 'State', 'Assigned to',
   ])
 
-  const rows = [...host.querySelectorAll('tbody tr')]
+  const rows = bugRows(host)
   assert.deepEqual(rows.map((row) => [...row.querySelectorAll('td')].map(visibleText)), [
     ['1', '213.0', '102 Data loss (opens in a new tab) needs triage regression', 'S1 · Critical', '1', '4', 'Created ' + formatCreatedDate('2026-03-01T10:00:00Z'), 'This sprint', 'Active', 'Ada Lovelace'],
     ['2', '11.0', '103 Slow page (opens in a new tab)', 'S3 · Medium', '2', '8', 'Created ' + formatCreatedDate('2026-02-01T10:00:00Z'), 'Backlog', 'Active', 'grace@example.com'],
@@ -281,7 +289,7 @@ test('the table lists the ranked bugs under the required columns', async (t) => 
 test('the rank is the place among all open bugs, so it holds while the quick filter hides some', async (t) => {
   const host = await render(t, { bugs: filterBacklogBugs(bugs, 'medium'), totalBugCount: bugs.length })
 
-  const [row] = [...host.querySelectorAll('tbody tr')]
+  const [row] = bugRows(host)
   assert.equal(rowId(row), 103)
   assert.equal(row.querySelector('td')!.textContent, '2')
 })
@@ -385,7 +393,7 @@ test('Effort shows the entered value while the Value uses the minimum effort', a
   }])
   const host = await render(t, { bugs: lowEffort })
 
-  const [row] = [...host.querySelectorAll('tbody tr')]
+  const [row] = bugRows(host)
   assert.equal(cellTexts(row)[5], '2', 'the Effort as entered')
   assert.equal(cellTexts(row)[1], '48.4', 'scored as if the effort were 4')
   assert.equal(declaredStyle(row.querySelector('td:nth-child(6) > span')!)('text-decoration-style'), 'dotted', 'marked as raised')
@@ -446,11 +454,14 @@ test('the table has no sorting, filtering, or selection controls', async (t) => 
   const host = await render(t)
 
   const table = host.querySelector('table')!
-  assert.equal(
-    table.querySelector('button, input, select, textarea, [role="button"], [role="checkbox"], [aria-sort], [aria-selected], [tabindex]'),
-    null,
+  const controls = [...table.querySelectorAll('button, input, select, textarea, [role="button"], [role="checkbox"], [aria-sort], [aria-selected], [tabindex]')]
+  assert.deepEqual(
+    controls.map((control) => control.getAttribute('aria-label')),
+    ['Collapse Top', 'Collapse Low'],
+    'the only buttons collapse the Value tiers',
   )
-  assert.equal(table.querySelectorAll('a').length, bugs.length, 'the title links are the only interactive elements, so the tags are not')
+  assert.ok(controls.every((control) => control.closest('.backlog-tier-header')))
+  assert.equal(table.querySelectorAll('a').length, bugs.length, 'the title links are the only other interactive elements, so the tags are not')
 })
 
 // StrataKit's TableBody turns row hover on; only the stylesheet rule shows the highlight is really themed.
@@ -468,15 +479,19 @@ function hoverBackgrounds() {
   return found
 }
 
-test('body rows highlight on hover and the header row does not', async (t) => {
+test('bug rows highlight on hover and the header rows do not', async (t) => {
   const host = await render(t)
 
-  const rows = [...host.querySelectorAll('tbody tr')]
+  const rows = bugRows(host)
   assert.equal(rows.length, bugs.length)
   for (const row of rows) {
-    assert.ok(row.classList.contains('MuiTableRow-hover'), `the row for bug ${row.firstElementChild!.textContent}`)
+    assert.ok(row.classList.contains('MuiTableRow-hover'), `the row for bug ${rowId(row)}`)
   }
   assert.equal(host.querySelector('thead tr')!.classList.contains('MuiTableRow-hover'), false)
+  assert.equal(tierHeaders(host).length, 2)
+  for (const header of tierHeaders(host)) {
+    assert.equal(header.classList.contains('MuiTableRow-hover'), false, 'a tier header is not a bug to point at')
+  }
   assert.ok(hoverBackgrounds().some((background) => /hover/.test(background)), 'the theme styles the hovered row background')
 })
 
@@ -562,7 +577,7 @@ test('every cell the table shows can be found with the quick filter', async (t) 
   const host = await render(t)
 
   let tagsChecked = 0
-  for (const row of host.querySelectorAll('tbody tr')) {
+  for (const row of bugRows(host)) {
     const cells = [...row.querySelectorAll('td')]
     const id = rowId(row)
     // The Bug cell shows the id, the title, and then one badge per tag, and the filter searches each of them on its own.
@@ -584,8 +599,11 @@ test('visually hidden text is 1px and anchored to the scrolling table so it cann
   const hidden = [...host.querySelectorAll('tbody span')].filter((span) => declaredStyle(span)('clip-path') === 'inset(50%)')
   assert.deepEqual(
     hidden.map((span) => span.textContent!.replace(/^Created .+$/, 'Created')).sort(),
-    [...Array(bugs.length).fill(' (opens in a new tab)'), ...Array(bugs.length).fill('Created'), 'Not set', 'Not set'].sort(),
-    'a new-tab note and a created date per bug, plus the missing impact and effort',
+    [
+      ...Array(bugs.length).fill(' (opens in a new tab)'), ...Array(bugs.length).fill('Created'), 'Not set', 'Not set',
+      '1 bug', '2 bugs',
+    ].sort(),
+    'a new-tab note and a created date per bug, the missing impact and effort, and the size of each tier',
   )
   for (const span of hidden) {
     const style = declaredStyle(span)
@@ -734,4 +752,198 @@ test('Escape dismisses the options dialog', async (t) => {
 
   await act(async () => dialog()!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
   await waitFor(() => dialog() === null)
+})
+
+type BacklogOptions = NonNullable<PageProps['backlogOptions']>
+const tierBugIds = (host: Element) => Object.fromEntries([...host.querySelectorAll('tbody')].map((body) => [
+  body.getAttribute('data-tier'),
+  [...body.querySelectorAll('tr:not(.backlog-tier-header)')].map(rowId),
+]))
+const tierHeader = (host: Element, name: string) =>
+  tierHeaders(host).find((header) => header.querySelector('.backlog-tier-name')?.textContent === name)!
+
+// Owns the Backlog options as the app does, so a change made in the dialog reaches the list.
+function BacklogPageWithOptions({ onBacklogOptionsChange, ...props }: PageProps) {
+  const [options, setOptions] = useState(props.backlogOptions!)
+  return createElement(BacklogPage, {
+    ...props,
+    backlogOptions: options,
+    onBacklogOptionsChange: (next: BacklogOptions) => {
+      onBacklogOptionsChange?.(next)
+      setOptions(next)
+    },
+  })
+}
+
+const renderWithOptions = (t: TestContext, overrides: Partial<PageProps> = {}) =>
+  mount(t, createElement(BacklogPageWithOptions, { ...defaultProps, ...overrides }))
+
+async function openOptions(host: Element) {
+  await act(async () => button(host, 'Backlog options').click())
+  return dialog()!
+}
+
+function thresholdInput(opened: Element, label: string) {
+  const labelElement = [...opened.querySelectorAll('label')].find((candidate) => candidate.textContent === label)!
+  return document.getElementById(labelElement.htmlFor) as HTMLInputElement
+}
+
+async function typeInto(input: HTMLInputElement, text: string) {
+  await act(async () => {
+    setNativeValue.call(input, text)
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  })
+}
+
+test('the bugs are grouped into Value tiers, each under a header with its size, range, and effort', async (t) => {
+  const host = await render(t)
+
+  assert.deepEqual(tierBugIds(host), { top: [102], low: [103, 101] }, 'in ranked order, leaving out tiers with no bugs')
+  assert.deepEqual(listedIds(host), [102, 103, 101], 'the ranks still run down the page')
+
+  const top = tierHeader(host, 'Top')
+  const cell = top.querySelector('th')!
+  assert.equal(top.parentElement!.firstElementChild, top, 'the header leads its tier')
+  assert.equal(cell.getAttribute('scope'), 'rowgroup', 'it names the rows of its tier')
+  assert.equal(cell.getAttribute('colspan'), '10')
+  assert.equal(top.querySelector('.backlog-tier-count [aria-hidden="true"]')!.textContent, '1')
+  assert.equal(visibleText(top.querySelector('.backlog-tier-count')!), '1 bug', 'the count is read out with its noun')
+  assert.equal(top.querySelector('.backlog-tier-range')!.textContent, 'Value 80+')
+  assert.equal(visibleText(top.querySelector('.backlog-tier-effort')!), '4 pts')
+  assert.equal(top.querySelector('.backlog-tier-effort [aria-hidden="true"]')!.textContent, 'Σ ')
+
+  const low = tierHeader(host, 'Low')
+  assert.equal(visibleText(low.querySelector('.backlog-tier-count')!), '2 bugs')
+  assert.equal(low.querySelector('.backlog-tier-range')!.textContent, 'Value under 12')
+  assert.equal(visibleText(low.querySelector('.backlog-tier-effort')!), '8 pts + 1 unestimated', 'a bug without Effort is counted, not summed')
+
+  const [topBody, lowBody] = [...host.querySelectorAll<HTMLElement>('tbody')]
+  assert.equal(topBody.style.getPropertyValue('--backlog-tier'), BACKLOG_TIER_COLORS.top, 'the tier color stripes its rows')
+  assert.equal(lowBody.style.getPropertyValue('--backlog-tier'), BACKLOG_TIER_COLORS.low)
+  assert.equal(lowBody.style.getPropertyValue('--backlog-tier-meter'), 'var(--stratakit-color-bg-mono-base)', 'Low meters are neutral')
+  assert.equal(topBody.style.getPropertyValue('--backlog-tier-meter'), '')
+
+  const style = declaredStyle(cell)
+  assert.equal(style('position'), 'sticky', 'the header stays in view while its tier scrolls')
+  assert.equal(style('top'), 'calc(var(--backlog-head-height, 37px) - 1px)', 'just under the column header')
+})
+
+test('the tiers follow the thresholds in the Backlog options', async (t) => {
+  const host = await render(t, {
+    backlogOptions: { tierThresholds: { top: 300, high: 100, medium: 5 }, startLowCollapsed: false },
+  })
+
+  assert.deepEqual(tierBugIds(host), { high: [102], medium: [103], low: [101] })
+  assert.equal(tierHeader(host, 'High').querySelector('.backlog-tier-range')!.textContent, 'Value 100–300')
+  assert.equal(tierHeader(host, 'Medium').querySelector('.backlog-tier-range')!.textContent, 'Value 5–100')
+})
+
+test('the Low tier starts collapsed by default, and its chevron or Show button expands it', async (t) => {
+  const host = await render(t, { backlogOptions: createDefaultBacklogOptions() })
+
+  assert.deepEqual(listedIds(host), [102], 'only the bugs above Low are listed')
+  const low = tierHeader(host, 'Low')
+  assert.equal(visibleText(low.querySelector('.backlog-tier-count')!), '2 bugs', 'a collapsed tier still says how many it holds')
+  const expand = button(host, 'Expand Low')
+  assert.equal(expand.getAttribute('aria-expanded'), 'false')
+  const show = button(host, 'Show 2 bugs in Low')
+  assert.equal(show.textContent, 'Show 2')
+  assert.equal(button(host, 'Collapse Top').getAttribute('aria-expanded'), 'true')
+  assert.equal(host.querySelector('button[aria-label="Show 1 bug in Top"]'), null, 'an open tier has no Show button')
+
+  await act(async () => show.click())
+  assert.deepEqual(listedIds(host), [102, 103, 101])
+  assert.equal(host.querySelector('button[aria-label="Show 2 bugs in Low"]'), null)
+  const collapse = button(host, 'Collapse Low')
+  assert.equal(document.activeElement, collapse, 'focus moves to the chevron rather than being lost with the Show button')
+  assert.equal(collapse.getAttribute('aria-expanded'), 'true')
+
+  await act(async () => collapse.click())
+  assert.deepEqual(listedIds(host), [102])
+  await act(async () => button(host, 'Collapse Top').click())
+  assert.deepEqual(listedIds(host), [], 'any tier can collapse')
+  assert.equal(tierHeaders(host).length, 2, 'the headers stay to expand them again')
+  await act(async () => button(host, 'Expand Top').click())
+  assert.deepEqual(listedIds(host), [102])
+})
+
+test('a quick filter match in a collapsed tier waits behind its Show button', async (t) => {
+  const host = await render(t, { backlogOptions: createDefaultBacklogOptions(), bugs: filterBacklogBugs(bugs, 'slow'), totalBugCount: bugs.length })
+
+  assert.deepEqual(listedIds(host), [])
+  assert.equal(button(host, 'Show 1 bug in Low').textContent, 'Show 1', 'the header counts the matching bugs')
+  await act(async () => button(host, 'Show 1 bug in Low').click())
+  assert.deepEqual(listedIds(host), [103])
+})
+
+test('the options dialog sets the tier thresholds, applying them once all three make sense together', async (t) => {
+  const changes: BacklogOptions[] = []
+  const host = await renderWithOptions(t, { onBacklogOptionsChange: (next: BacklogOptions) => changes.push(next) })
+  const opened = await openOptions(host)
+
+  const section = opened.querySelector('section[aria-labelledby="backlog-options-tiers"]')!
+  assert.equal(section.querySelector('h3')!.textContent, 'Value tiers')
+  const top = thresholdInput(opened, 'Top from Value')
+  const high = thresholdInput(opened, 'High from Value')
+  const medium = thresholdInput(opened, 'Medium from Value')
+  assert.deepEqual([top.value, high.value, medium.value], ['80', '30', '12'])
+  assert.deepEqual([top.type, top.min], ['number', '1'])
+  assert.match(document.getElementById(top.getAttribute('aria-describedby')!)!.textContent!, /groups bugs by Value/)
+  assert.match(section.textContent!, /Low: everything below Medium/)
+  assert.equal(opened.querySelector('[role="alert"]'), null)
+
+  await typeInto(high, '90')
+  const alert = opened.querySelector('[role="alert"]')!
+  assert.equal(alert.textContent, 'Each threshold must be lower than the one above it.')
+  assert.deepEqual([top, high, medium].map((input) => input.getAttribute('aria-invalid')), ['true', 'true', 'false'])
+  assert.match(high.getAttribute('aria-describedby')!, new RegExp(`\\b${alert.id}\\b`), 'the message is tied to the fields it flags')
+  assert.deepEqual(changes, [], 'the tiers keep the last thresholds that made sense')
+
+  await typeInto(high, '')
+  assert.equal(opened.querySelector('[role="alert"]')!.textContent, 'Enter a Value above 0 for each tier.')
+  assert.deepEqual([top, high, medium].map((input) => input.getAttribute('aria-invalid')), ['false', 'true', 'false'])
+
+  await typeInto(high, '30')
+  await typeInto(medium, '10')
+  assert.equal(opened.querySelector('[role="alert"]'), null)
+  assert.deepEqual(changes.map((change) => change.tierThresholds), [{ top: 80, high: 30, medium: 12 }, { top: 80, high: 30, medium: 10 }])
+  assert.deepEqual(tierBugIds(host), { top: [102], medium: [103], low: [101] }, 'the list regroups straight away')
+  assert.equal(tierHeader(host, 'Medium').querySelector('.backlog-tier-range')!.textContent, 'Value 10–30')
+})
+
+test('turning "Start with the Low tier collapsed" on or off applies to the list straight away', async (t) => {
+  const host = await renderWithOptions(t)
+  assert.deepEqual(listedIds(host), [102, 103, 101])
+  const opened = await openOptions(host)
+  const checkbox = [...opened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+    .find((input) => input.closest('label')?.textContent === 'Start with the Low tier collapsed')!
+  assert.equal(checkbox.checked, false)
+
+  await act(async () => checkbox.click())
+  assert.equal(checkbox.checked, true)
+  assert.deepEqual(listedIds(host), [102])
+
+  await act(async () => checkbox.click())
+  assert.deepEqual(listedIds(host), [102, 103, 101])
+})
+
+test('collapsed tiers stay collapsed through a refresh', async (t) => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => {
+    await act(async () => root.unmount())
+    host.remove()
+  })
+  const renderPage = (overrides: Partial<PageProps>) =>
+    act(async () => root.render(createElement(Root, null, createElement(BacklogPage, { ...defaultProps, ...overrides }))))
+
+  await renderPage({})
+  await act(async () => button(host, 'Collapse Top').click())
+  assert.deepEqual(listedIds(host), [103, 101])
+
+  await renderPage({ isLoading: true, bugs: [] })
+  assert.equal(host.querySelector('table'), null)
+  await renderPage({})
+  assert.deepEqual(listedIds(host), [103, 101], 'the loading skeleton does not reset which tiers are open')
 })

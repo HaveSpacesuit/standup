@@ -522,8 +522,8 @@ Prepare data that exercises both populated and empty states:
       now"; the label ages over time, and switching pages and back without Refresh does not reset it.
 - [ ] Press Ctrl/Cmd + F on Backlog and verify focus moves to the quick filter (selecting any text in
       it) rather than opening the browser's find.
-- [ ] Open Backlog options; verify the dialog has a Display section with Compact rows, closes with
-      Close and Escape, and returns focus to the options button.
+- [ ] Open Backlog options; verify the dialog has a Display section with Compact rows and a Value
+      tiers section, closes with Close and Escape, and returns focus to the options button.
 - [ ] Verify Compact rows matches Compact cards in Development options: turning either on turns on
       both, and the setting persists per team across a reload.
 - [ ] Verify Manage team opens the selected team's Azure DevOps page in a new tab.
@@ -555,10 +555,10 @@ Prepare data that exercises both populated and empty states:
       decimal, with none for whole numbers; that it notes any assumed or raised input; and that it
       says nothing about tie-breaks.
 - [ ] Verify the table has no sorting, column filtering, selection, or row-click behavior, and that the
-      title links are its only interactive elements.
-- [ ] Hover over the rows and verify the row under the pointer is highlighted in both light and dark
-      mode, the highlight follows the pointer from row to row, and the pinned column headers never
-      highlight.
+      title links and the tier header buttons are its only interactive elements.
+- [ ] Hover over the rows and verify the bug row under the pointer is highlighted in both light and
+      dark mode, the highlight follows the pointer from row to row, and the pinned column headers and
+      tier headers never highlight.
 - [ ] Verify each Bug cell shows the ID in bold before the title, and each title opens the bug in
       Azure DevOps in a new tab with safe link attributes, and that a screen reader announces the
       new-tab behavior.
@@ -596,6 +596,34 @@ Prepare data that exercises both populated and empty states:
       borders visible above them.
 - [ ] Narrow the window and verify the table scrolls horizontally inside its own area, with the
       headers staying aligned to their columns.
+
+### Value tiers
+
+- [ ] Verify the bugs are grouped under Top (Value 80+), High (30–80), Medium (12–30), and Low (under
+      12) headers in that order, each tier in ranked order, the ranks running on across tiers, and a
+      tier with no bugs left out. A bug showing 80.0 is in Top.
+- [ ] Verify each tier header shows its name, bug count, Value range, and "Σ N pts", with
+      "+ M unestimated" when some of its bugs have no Effort; a screen reader reads the count as
+      "N bugs" and the header as the name of its rows.
+- [ ] Verify each bug row has a stripe beside the rank in its tier's color (Top strongest, fading
+      through High and Medium to a neutral Low), Low's Value meters are neutral, and both are readable
+      in light and dark mode.
+- [ ] Scroll a long list and verify each tier header stays pinned just under the column header, with
+      no gap or overlap, until the next tier's header replaces it, and that no row content (such as a
+      severity chip or tag) shows through or above it.
+- [ ] On first visit verify Low is collapsed, showing its header with "Show N"; verify Show N and the
+      chevron each expand it, focus stays on the chevron, and the chevron collapses any tier again.
+- [ ] Collapse a tier, then Refresh and switch teams; verify it stays collapsed. Visit another page
+      and come back; verify the tiers reset to the default.
+- [ ] Type a quick filter that matches only bugs in a collapsed tier; verify the tier header counts
+      the matches and Show N reveals them.
+- [ ] In Backlog options > Value tiers, change a threshold and verify the list regroups at once.
+      Enter thresholds out of order or empty or 0; verify the conflicting fields are marked, a message
+      explains the problem, and the tiers keep the last valid thresholds.
+- [ ] Turn Start with the Low tier collapsed off and on; verify Low expands and collapses at once.
+- [ ] Reload and verify the thresholds and the Low setting persist per team; export the team, import
+      it in a clean profile, and verify they carry over. Import an export made before Value tiers and
+      verify the defaults apply.
 
 ### Quick filter
 

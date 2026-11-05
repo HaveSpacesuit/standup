@@ -1,8 +1,10 @@
-import { Fragment, memo, type ReactNode } from 'react'
-import { Badge, Box, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
+import { Fragment, memo, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+import { Badge, Box, Button, IconButton, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
+import svgChevronDown from '@stratakit/icons/chevron-down.svg'
+import svgChevronRight from '@stratakit/icons/chevron-right.svg'
 import svgSortDescending from '@stratakit/icons/sort-descending.svg'
 import svgStatusWarning from '@stratakit/icons/status-warning.svg'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
@@ -11,7 +13,9 @@ import { AppTooltip as Tooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { abbreviateState } from './workItemCardDisplay'
 import { UNASSIGNED_LABEL } from '../utils/backlogFilter'
+import type { BacklogTierThresholds } from '../utils/backlogOptions'
 import type { BacklogSprint } from '../utils/backlogSprint'
+import { BACKLOG_TIER_COLORS, groupBacklogBugsByTier, type BacklogTierGroup, type BacklogTierKey } from '../utils/backlogTiers'
 import {
   describeBacklogValue,
   formatAssignee,
@@ -26,11 +30,17 @@ import {
   type RankedBacklogBug,
 } from '../utils/backlogValue'
 import { formatDayCount, formatSprintDateRange } from '../utils/sprintDates'
+import { formatEffortPoints } from '../utils/sprintEffortTotals'
 
 type BacklogTableProps = {
   bugs: RankedBacklogBug[]
   /** One line per bug: the first tag only, and the assignee's avatar without their name. */
   compact?: boolean
+  /** Where each Value tier starts; the bugs are grouped under a header per tier. */
+  tierThresholds: BacklogTierThresholds
+  /** Tiers that show only their header. */
+  collapsedTiers: ReadonlySet<BacklogTierKey>
+  onToggleTier: (tier: BacklogTierKey) => void
 }
 
 // MUI's sx reads a bare 1 as 100%, so the 1px sizes must be strings.
@@ -81,10 +91,12 @@ const COLUMNS: ReadonlyArray<{ key: string; label: ReactNode; align?: 'right'; t
 
 const noWrapSx: SxProps<Theme> = { whiteSpace: 'nowrap' }
 
+// The tier's color comes from its tbody, so the memoized rows need no tier of their own and keep their props.
 const rankCellSx: SxProps<Theme> = {
   whiteSpace: 'nowrap',
   color: TERTIARY_TEXT_COLOR,
   fontVariantNumeric: 'tabular-nums',
+  boxShadow: 'inset 3px 0 0 var(--backlog-tier, transparent)',
 }
 
 // The id sits before the title like on the cards. Plain class names styled from the cell keep each row to one sx.
@@ -125,7 +137,7 @@ const tagListSx: SxProps<Theme> = {
 // The scroller sits at a fractional offset (the app's 0.8px hairlines), and Chromium can snap a stuck header 1-2px
 // below the scroller's clip edge, exposing the row scrolled behind it. Sticking 1px above the edge keeps the header
 // flush with the clip. Larger offsets are worse: the clip's own rounding then decides where the header is visible.
-const headCellSx: SxProps<Theme> = { bgcolor: 'background.paper', whiteSpace: 'nowrap', top: '-1px' }
+const headCellSx: SxProps<Theme> = { bgcolor: 'background.paper', whiteSpace: 'nowrap', top: '-1px', zIndex: 3 }
 
 const mutedSx: SxProps<Theme> = { color: TERTIARY_TEXT_COLOR }
 
@@ -202,7 +214,7 @@ const valueSx: SxProps<Theme> = {
     display: 'block',
     height: '100%',
     borderRadius: '3px',
-    bgcolor: 'var(--stratakit-color-bg-accent-base)',
+    bgcolor: 'var(--backlog-tier-meter, var(--stratakit-color-bg-accent-base))',
   },
 }
 
@@ -562,6 +574,108 @@ function BugAssignee({ assignedTo, compact }: { assignedTo: RankedBacklogBug['as
   )
 }
 
+const tierHeadCellSx: SxProps<Theme> = {
+  position: 'sticky',
+  // The column header sticks 1px above the scroller's edge (see headCellSx), so its bottom is 1px short of its height.
+  top: 'calc(var(--backlog-head-height, 37px) - 1px)',
+  // Above the badges in the rows (MUI gives them z-index 1) and below the column header.
+  zIndex: 2,
+  p: 0,
+  bgcolor: 'background.paper',
+  textAlign: 'left',
+  fontWeight: 400,
+  // A shadow rather than a border, because a collapsed table's borders stay behind when a sticky cell moves.
+  borderBottom: 0,
+  boxShadow: 'inset 0 -1px 0 var(--stratakit-color-border-glow-strong-default)',
+}
+
+const tierHeadSx: SxProps<Theme> = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
+  minHeight: 36,
+  px: 1,
+  color: 'text.secondary',
+  '& .backlog-tier-bar': { width: 4, height: 18, borderRadius: 999, bgcolor: 'var(--backlog-tier)', flex: 'none' },
+  '& .backlog-tier-name': { color: 'text.primary', fontWeight: 700 },
+  '& .backlog-tier-count': {
+    minWidth: 20,
+    height: 18,
+    px: 0.75,
+    borderRadius: 999,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    bgcolor: TRACK_COLOR,
+    fontSize: 11,
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  '& .backlog-tier-range': { color: TERTIARY_TEXT_COLOR },
+  '& .backlog-tier-effort': { ml: 'auto', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' },
+}
+
+const pluralBugs = (count: number) => `${count} ${count === 1 ? 'bug' : 'bugs'}`
+
+/** A tier's header row: its name, size, Value range, and effort, with buttons to collapse or expand its bugs. */
+const TierHeader = memo(function TierHeader({
+  group,
+  collapsed,
+  onToggle,
+}: {
+  group: BacklogTierGroup
+  collapsed: boolean
+  onToggle: (tier: BacklogTierKey) => void
+}) {
+  const chevronRef = useRef<HTMLButtonElement>(null)
+  const { key, name, range, bugs, effortTotal, unestimatedCount } = group
+
+  return (
+    <TableRow hover={false} className="backlog-tier-header">
+      <TableCell component="th" scope="rowgroup" colSpan={COLUMNS.length} sx={tierHeadCellSx}>
+        <Box sx={tierHeadSx}>
+          <IconButton
+            ref={chevronRef}
+            size="small"
+            label={`${collapsed ? 'Expand' : 'Collapse'} ${name}`}
+            labelPlacement="right"
+            aria-expanded={!collapsed}
+            onClick={() => onToggle(key)}
+          >
+            <Icon href={collapsed ? svgChevronRight : svgChevronDown} />
+          </IconButton>
+          <span className="backlog-tier-bar" aria-hidden="true" />
+          <span className="backlog-tier-name">{name}</span>
+          <span className="backlog-tier-count">
+            <span aria-hidden="true">{bugs.length}</span>
+            <Box component="span" sx={visuallyHiddenSx}>{pluralBugs(bugs.length)}</Box>
+          </span>
+          <span className="backlog-tier-range">{range}</span>
+          <span className="backlog-tier-effort">
+            <span aria-hidden="true">Σ </span>
+            {formatEffortPoints(effortTotal)}
+            {unestimatedCount > 0 ? ` + ${unestimatedCount} unestimated` : null}
+          </span>
+          {collapsed ? (
+            <Button
+              size="small"
+              variant="text"
+              aria-label={`Show ${pluralBugs(bugs.length)} in ${name}`}
+              // The button goes away once the tier opens, so keep focus in the header on the chevron.
+              onClick={() => {
+                chevronRef.current?.focus()
+                onToggle(key)
+              }}
+            >
+              Show {bugs.length}
+            </Button>
+          ) : null}
+        </Box>
+      </TableCell>
+    </TableRow>
+  )
+})
+
 // Typing in the quick filter re-renders the whole page on every keystroke, and filtering hands back the same ranked bug
 // objects, so memoized rows keep the cost proportional to the rows that appear or disappear rather than all of them.
 const BacklogRow = memo(function BacklogRow({ bug, compact }: { bug: RankedBacklogBug; compact: boolean }) {
@@ -581,7 +695,40 @@ const BacklogRow = memo(function BacklogRow({ bug, compact }: { bug: RankedBackl
   )
 })
 
-export const BacklogTable = memo(function BacklogTable({ bugs, compact = false }: BacklogTableProps) {
+function tierBodyStyle(key: BacklogTierKey): CSSProperties {
+  const color = BACKLOG_TIER_COLORS[key]
+  return {
+    '--backlog-tier': color,
+    // The Low tier's own color is too faint for a meter, so its meters take the neutral fill instead of the accent.
+    ...(key === 'low' ? { '--backlog-tier-meter': 'var(--stratakit-color-bg-mono-base)' } : {}),
+  } as CSSProperties
+}
+
+export const BacklogTable = memo(function BacklogTable({
+  bugs,
+  compact = false,
+  tierThresholds,
+  collapsedTiers,
+  onToggleTier,
+}: BacklogTableProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const groups = groupBacklogBugsByTier(bugs, tierThresholds)
+
+  // The tier headers stick just below the column header, whose height changes with the theme's font size.
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    const head = container?.querySelector('thead')
+    if (!container || !head || typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const update = () => container.style.setProperty('--backlog-head-height', `${head.getBoundingClientRect().height}px`)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(head)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <Box
       component="main"
@@ -594,7 +741,7 @@ export const BacklogTable = memo(function BacklogTable({ bugs, compact = false }
       }}
     >
       {/* Relative so the absolutely positioned visually hidden text is contained by this scroller, not the page. */}
-      <TableContainer sx={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <TableContainer ref={containerRef} sx={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Table size="small" stickyHeader aria-label="Open bugs ranked by value">
           <TableHead>
             <TableRow>
@@ -609,11 +756,17 @@ export const BacklogTable = memo(function BacklogTable({ bugs, compact = false }
               ))}
             </TableRow>
           </TableHead>
-          <TableBody>
-            {bugs.map((bug) => (
-              <BacklogRow key={bug.id} bug={bug} compact={compact} />
-            ))}
-          </TableBody>
+          {groups.map((group) => {
+            const collapsed = collapsedTiers.has(group.key)
+            return (
+              <TableBody key={group.key} data-tier={group.key} style={tierBodyStyle(group.key)}>
+                <TierHeader group={group} collapsed={collapsed} onToggle={onToggleTier} />
+                {collapsed ? null : group.bugs.map((bug) => (
+                  <BacklogRow key={bug.id} bug={bug} compact={compact} />
+                ))}
+              </TableBody>
+            )
+          })}
         </Table>
       </TableContainer>
     </Box>

@@ -18,6 +18,8 @@ import {
   parseStoredAssignmentOptions,
   serializeAssignmentOptions,
 } from '../utils/assignmentOptions'
+import type { BacklogOptions } from '../utils/backlogOptions'
+import { backlogOptionsStorageKey, parseStoredBacklogOptions, serializeBacklogOptions } from '../utils/backlogOptions'
 import { loadRememberLastView, saveRememberLastView } from '../utils/lastViews'
 import type { QaOptions } from '../utils/qaOptions'
 import { parseStoredQaOptionsWithRecovery, qaOptionsStorageKey, serializeQaOptions } from '../utils/qaOptions'
@@ -33,6 +35,7 @@ type UseStandupAppStateResult = {
   qaCardHighlightOptionsByTeam: Record<string, CardHighlightOptions>
   assignmentCardHighlightOptions: CardHighlightOptions
   assignmentOptionsByTeam: Record<string, AssignmentOptions>
+  backlogOptionsByTeam: Record<string, BacklogOptions>
   rememberLastView: boolean
   handleTeamProfilesChange: (nextTeamProfiles: TeamProfile[]) => void
   replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => void
@@ -42,6 +45,7 @@ type UseStandupAppStateResult = {
   setQaCardHighlightOptionsPersisted: (teamId: string, next: CardHighlightOptions) => void
   setAssignmentCardHighlightOptionsPersisted: (next: CardHighlightOptions) => void
   setAssignmentOptionsForTeam: (teamId: string, next: AssignmentOptions) => void
+  setBacklogOptionsForTeam: (teamId: string, next: BacklogOptions) => void
   setRememberLastViewPersisted: (next: boolean) => void
 }
 
@@ -59,6 +63,15 @@ function buildAssignmentOptionsByTeam(teamProfiles: TeamProfile[]): Record<strin
     teamProfiles.map((team) => [
       team.id,
       parseStoredAssignmentOptions(localStorage.getItem(assignmentOptionsStorageKey(team.id))),
+    ]),
+  )
+}
+
+function buildBacklogOptionsByTeam(teamProfiles: TeamProfile[]): Record<string, BacklogOptions> {
+  return Object.fromEntries(
+    teamProfiles.map((team) => [
+      team.id,
+      parseStoredBacklogOptions(localStorage.getItem(backlogOptionsStorageKey(team.id))),
     ]),
   )
 }
@@ -112,6 +125,9 @@ export function useStandupAppState(): UseStandupAppStateResult {
   const [assignmentOptionsByTeam, setAssignmentOptionsByTeam] = useState<Record<string, AssignmentOptions>>(() =>
     buildAssignmentOptionsByTeam(teamProfiles),
   )
+  const [backlogOptionsByTeam, setBacklogOptionsByTeam] = useState<Record<string, BacklogOptions>>(() =>
+    buildBacklogOptionsByTeam(teamProfiles),
+  )
   const [rememberLastView, setRememberLastView] = useState(loadRememberLastView)
 
   const persistTeamProfiles = (nextTeamProfiles: TeamProfile[]) => {
@@ -127,6 +143,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
         localStorage.removeItem(qaOptionsStorageKey(team.id))
         localStorage.removeItem(qaCardHighlightOptionsStorageKey(team.id))
         localStorage.removeItem(assignmentOptionsStorageKey(team.id))
+        localStorage.removeItem(backlogOptionsStorageKey(team.id))
         localStorage.removeItem(tagRulesStorageKey(team.id))
       }
     }
@@ -139,6 +156,9 @@ export function useStandupAppState(): UseStandupAppStateResult {
       Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
     ))
     setAssignmentOptionsByTeam((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
+    ))
+    setBacklogOptionsByTeam((previous) => Object.fromEntries(
       Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
     ))
   }
@@ -175,6 +195,11 @@ export function useStandupAppState(): UseStandupAppStateResult {
     localStorage.setItem(assignmentOptionsStorageKey(teamId), serializeAssignmentOptions(next))
   }
 
+  const setBacklogOptionsForTeam = (teamId: string, next: BacklogOptions) => {
+    setBacklogOptionsByTeam((previous) => ({ ...previous, [teamId]: next }))
+    localStorage.setItem(backlogOptionsStorageKey(teamId), serializeBacklogOptions(next))
+  }
+
   const setRememberLastViewPersisted = (next: boolean) => {
     setRememberLastView(next)
     saveRememberLastView(next)
@@ -190,6 +215,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
     qaCardHighlightOptionsByTeam,
     assignmentCardHighlightOptions,
     assignmentOptionsByTeam,
+    backlogOptionsByTeam,
     rememberLastView,
     handleTeamProfilesChange,
     replaceTeamProfiles: persistTeamProfiles,
@@ -199,6 +225,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
     setQaCardHighlightOptionsPersisted,
     setAssignmentCardHighlightOptionsPersisted,
     setAssignmentOptionsForTeam,
+    setBacklogOptionsForTeam,
     setRememberLastViewPersisted,
   }
 }

@@ -4,6 +4,7 @@ import type { TeamProfile } from './appSettings'
 import { TEAM_PROFILES_STORAGE_KEY, loadTeamProfilesWithRecovery, saveTeamProfiles } from './appSettings'
 import { parseImportedTeamData } from './teamDataTransfer'
 import { assignmentOptionsStorageKey, serializeAssignmentOptions } from './features/standup/utils/assignmentOptions'
+import { backlogOptionsStorageKey, serializeBacklogOptions } from './features/standup/utils/backlogOptions'
 import { qaOptionsStorageKey, serializeQaOptions } from './features/standup/utils/qaOptions'
 import { tagRulesStorageKey } from './features/standup/hooks/useBoardPreferences'
 
@@ -23,6 +24,7 @@ function seedDefaultTeamProfiles(): TeamProfile[] {
     const teamId = teamData.teamProfile.id
     localStorage.setItem(assignmentOptionsStorageKey(teamId), serializeAssignmentOptions(teamData.assignmentOptions))
     localStorage.setItem(qaOptionsStorageKey(teamId), serializeQaOptions(teamData.qaOptions))
+    localStorage.setItem(backlogOptionsStorageKey(teamId), serializeBacklogOptions(teamData.backlogOptions))
     localStorage.setItem(tagRulesStorageKey(teamId), JSON.stringify(teamData.assignmentTagRules))
     seededProfiles.push(teamData.teamProfile)
   }
