@@ -1,10 +1,11 @@
 import { Fragment, memo, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
-import { Badge, Box, Button, IconButton, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
+import { Badge, Box, Button, Checkbox, IconButton, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgChevronDown from '@stratakit/icons/chevron-down.svg'
 import svgChevronRight from '@stratakit/icons/chevron-right.svg'
+import svgFlag from '@stratakit/icons/flag.svg'
 import svgSortDescending from '@stratakit/icons/sort-descending.svg'
 import svgStatusWarning from '@stratakit/icons/status-warning.svg'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
@@ -15,6 +16,7 @@ import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { abbreviateState } from './workItemCardDisplay'
 import { UNASSIGNED_LABEL } from '../utils/backlogFilter'
 import type { BacklogTierThresholds } from '../utils/backlogOptions'
+import type { BacklogPlan, BacklogPlanPicks } from '../utils/backlogPlan'
 import type { BacklogSprint } from '../utils/backlogSprint'
 import { BACKLOG_TIER_COLORS, groupBacklogBugsByTier, type BacklogTierGroup, type BacklogTierKey } from '../utils/backlogTiers'
 import {
@@ -31,7 +33,7 @@ import {
   type RankedBacklogBug,
 } from '../utils/backlogValue'
 import { formatDayCount, formatSprintDateRange } from '../utils/sprintDates'
-import { formatEffortPoints } from '../utils/sprintEffortTotals'
+import { formatEffort, formatEffortPoints } from '../utils/sprintEffortTotals'
 
 type BacklogTableProps = {
   bugs: RankedBacklogBug[]
@@ -44,6 +46,15 @@ type BacklogTableProps = {
   onToggleTier: (tier: BacklogTierKey) => void
   /** The bugs a Needs attention facet picks out; the others are dimmed. Null when no facet is on. */
   highlightedBugIds?: ReadonlySet<number> | null
+  /** Plan a sprint's picks, which add a checkbox and a running effort total to each row; null when it is off. */
+  plan?: BacklogTablePlan | null
+}
+
+export type BacklogTablePlan = {
+  plan: BacklogPlan
+  picks: BacklogPlanPicks
+  /** Checks or unchecks a bug by hand; `wasPicked` is whether it was picked before the click. */
+  onTogglePick: (id: number, wasPicked: boolean) => void
 }
 
 // MUI's sx reads a bare 1 as 100%, so the 1px sizes must be strings.
@@ -92,15 +103,29 @@ const COLUMNS: ReadonlyArray<{ key: string; label: ReactNode; align?: 'right'; t
   { key: 'assignee', label: 'Assigned to' },
 ]
 
+// Plan a sprint leads with the pick checkboxes and follows Effort with the running total of the picks.
+const EFFORT_COLUMN_INDEX = COLUMNS.findIndex((column) => column.key === 'effort')
+const PLAN_COLUMNS: typeof COLUMNS = [
+  { key: 'pick', label: <Box component="span" sx={visuallyHiddenSx}>Pick</Box> },
+  ...COLUMNS.slice(0, EFFORT_COLUMN_INDEX + 1),
+  { key: 'running', label: 'Running', align: 'right', tip: 'The effort picked so far, counting down the list.' },
+  ...COLUMNS.slice(EFFORT_COLUMN_INDEX + 1),
+]
+
 const noWrapSx: SxProps<Theme> = { whiteSpace: 'nowrap' }
 
 // The tier's color comes from its tbody, so the memoized rows need no tier of their own and keep their props.
+const TIER_BAR_SHADOW = 'inset 3px 0 0 var(--backlog-tier, transparent)'
 const rankCellSx: SxProps<Theme> = {
   whiteSpace: 'nowrap',
   color: TERTIARY_TEXT_COLOR,
   fontVariantNumeric: 'tabular-nums',
-  boxShadow: 'inset 3px 0 0 var(--backlog-tier, transparent)',
+  boxShadow: TIER_BAR_SHADOW,
 }
+// While planning, the pick checkbox is the first cell, so it carries the tier's bar instead.
+const planRankCellSx: SxProps<Theme> = { ...rankCellSx, boxShadow: 'none' }
+const pickCellSx: SxProps<Theme> = { width: 36, pr: 0, boxShadow: TIER_BAR_SHADOW }
+const runningCellSx: SxProps<Theme> = { whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }
 
 // The id sits before the title like on the cards. Plain class names styled from the cell keep each row to one sx.
 const bugCellSx: SxProps<Theme> = {
@@ -608,6 +633,7 @@ const tierHeadSx: SxProps<Theme> = {
   '& .backlog-tier-range': { color: TERTIARY_TEXT_COLOR },
   '& .backlog-tier-effort': { ml: 'auto', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' },
   '& .backlog-tier-matches:not([data-none])': { color: 'var(--stratakit-color-text-accent-strong)', fontWeight: 600 },
+  '& .backlog-tier-picked': { color: 'var(--stratakit-color-text-accent-strong)', fontWeight: 600 },
 }
 
 const pluralBugs = (count: number) => `${count} ${count === 1 ? 'bug' : 'bugs'}`
@@ -618,19 +644,24 @@ const TierHeader = memo(function TierHeader({
   collapsed,
   onToggle,
   matchCount,
+  pickedCount,
+  columnCount,
 }: {
   group: BacklogTierGroup
   collapsed: boolean
   onToggle: (tier: BacklogTierKey) => void
   /** How many of the tier's bugs the Needs attention facet picks out, when one is on. */
   matchCount?: number
+  /** How many of the tier's bugs Plan a sprint picked, when it is on. */
+  pickedCount?: number
+  columnCount: number
 }) {
   const chevronRef = useRef<HTMLButtonElement>(null)
   const { key, name, range, bugs, effortTotal, unestimatedCount } = group
 
   return (
     <TableRow hover={false} className="backlog-tier-header">
-      <TableCell component="th" scope="rowgroup" colSpan={COLUMNS.length} sx={tierHeadCellSx}>
+      <TableCell component="th" scope="rowgroup" colSpan={columnCount} sx={tierHeadCellSx}>
         <Box sx={tierHeadSx}>
           <IconButton
             ref={chevronRef}
@@ -659,6 +690,12 @@ const TierHeader = memo(function TierHeader({
                 {matchCount} match
               </span>
             ) : null}
+            {pickedCount ? (
+              <span className="backlog-tier-picked">
+                {' · '}
+                {pickedCount} picked
+              </span>
+            ) : null}
           </span>
           {collapsed ? (
             <Button
@@ -680,21 +717,74 @@ const TierHeader = memo(function TierHeader({
   )
 })
 
+/** Where a bug stands in Plan a sprint, which decides its checkbox and the tip that explains it. */
+type PickState = 'picked' | 'hand-picked' | 'hand-skipped' | 'unpicked' | 'outside'
+
+const PICK_TIPS: Readonly<Record<PickState, string>> = {
+  picked: 'Picked in rank order · uncheck to skip',
+  'hand-picked': 'Picked by hand · uncheck to drop',
+  'hand-skipped': 'Skipped by hand · check to pick',
+  unpicked: 'Check to pick it anyway',
+  outside: 'Outside the active filter',
+}
+
+function getPickState(id: number, { plan, picks }: BacklogTablePlan): PickState {
+  if (!plan.candidateIds.has(id)) {
+    return 'outside'
+  }
+  if (plan.pickedIds.has(id)) {
+    return picks.forceIn.has(id) ? 'hand-picked' : 'picked'
+  }
+  return picks.forceOut.has(id) ? 'hand-skipped' : 'unpicked'
+}
+
+const isPicked = (state: PickState | undefined) => state === 'picked' || state === 'hand-picked'
+
+function PlanPick({ id, state, onToggle }: { id: number; state: PickState; onToggle?: (id: number, wasPicked: boolean) => void }) {
+  const picked = isPicked(state)
+  return (
+    // The span holds the tooltip while the checkbox is disabled and draws the ring that marks a hand choice.
+    <Tooltip title={PICK_TIPS[state]} placement="right">
+      <span className="backlog-pick" data-hand={state === 'hand-picked' || state === 'hand-skipped' ? '' : undefined}>
+        <Checkbox
+          checked={picked}
+          disabled={state === 'outside'}
+          onChange={() => onToggle?.(id, picked)}
+          slotProps={{ input: { 'aria-label': `Pick ${id}` } }}
+        />
+      </span>
+    </Tooltip>
+  )
+}
+
 // Typing in the quick filter re-renders the whole page on every keystroke, and filtering hands back the same ranked bug
 // objects, so memoized rows keep the cost proportional to the rows that appear or disappear rather than all of them.
 const BacklogRow = memo(function BacklogRow({
   bug,
   compact,
   emphasis,
+  pickState,
+  running,
+  onTogglePick,
 }: {
   bug: RankedBacklogBug
   compact: boolean
   /** With a Needs attention facet on, whether the bug is one it picks out or one dimmed behind them. */
   emphasis?: 'match' | 'dim'
+  /** Set only while planning a sprint. */
+  pickState?: PickState
+  /** The running effort total for a pick, or why a bug above the last pick was passed over. */
+  running?: string
+  onTogglePick?: (id: number, wasPicked: boolean) => void
 }) {
+  const planning = pickState !== undefined
+  const picked = isPicked(pickState)
   return (
-    <TableRow data-emphasis={emphasis}>
-      <TableCell align="right" sx={rankCellSx}>{bug.rank}</TableCell>
+    <TableRow data-emphasis={emphasis} data-picked={picked ? '' : undefined}>
+      {planning ? (
+        <TableCell sx={pickCellSx}><PlanPick id={bug.id} state={pickState} onToggle={onTogglePick} /></TableCell>
+      ) : null}
+      <TableCell align="right" sx={planning ? planRankCellSx : rankCellSx}>{bug.rank}</TableCell>
       <TableCell sx={noWrapSx}><BugValue bug={bug} /></TableCell>
       <TableCell sx={bugCellSx}>
         <BugTitle bug={bug} compact={compact} />
@@ -703,6 +793,11 @@ const BacklogRow = memo(function BacklogRow({
       <TableCell sx={noWrapSx}><BugSeverity severity={bug.severity} /></TableCell>
       <TableCell sx={noWrapSx}><BugImpact priority={bug.priority} score={bug.impactScore} /></TableCell>
       <TableCell align="right" sx={noWrapSx}><BugEffort effort={bug.effort} /></TableCell>
+      {planning ? (
+        <TableCell align="right" sx={runningCellSx}>
+          {running ? <span className={picked ? 'backlog-running' : 'backlog-skip-reason'}>{running}</span> : null}
+        </TableCell>
+      ) : null}
       <TableCell align="right" sx={noWrapSx}><BugAge createdAt={bug.createdAt} /></TableCell>
       <TableCell sx={noWrapSx}><BugSprint sprint={bug.sprint} iterationPath={bug.iterationPath} /></TableCell>
       <TableCell sx={noWrapSx}><BugState state={bug.state} /></TableCell>
@@ -710,6 +805,63 @@ const BacklogRow = memo(function BacklogRow({
     </TableRow>
   )
 })
+
+const cutLineCellSx: SxProps<Theme> = {
+  p: 0,
+  borderBottom: 0,
+  '& .backlog-cut-line-rule': {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    py: 0.375,
+    color: 'var(--stratakit-color-text-accent-strong)',
+    fontSize: 11,
+    fontWeight: 650,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  '& .backlog-cut-line-rule::before': {
+    content: '""',
+    position: 'absolute',
+    insetInline: 0,
+    top: '50%',
+    borderTop: '2px dashed var(--stratakit-color-border-accent-base)',
+  },
+  '& .backlog-cut-line-label': {
+    position: 'relative',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 0.625,
+    ml: 3.75,
+    px: 1,
+    bgcolor: 'background.paper',
+    whiteSpace: 'nowrap',
+  },
+}
+
+/** A pick's running effort total, or why a bug ranked above the last pick was passed over; nothing below the line. */
+function describeRunning(bug: RankedBacklogBug, plan: BacklogPlan, lastPick: RankedBacklogBug | undefined): string | undefined {
+  const total = plan.runningTotals.get(bug.id)
+  if (total !== undefined) {
+    return formatEffortPoints(total)
+  }
+  return lastPick && bug.rank < lastPick.rank ? plan.skipReasons.get(bug.id) : undefined
+}
+
+/** The dashed line under the last pick: everything above it fits the budget. */
+function CutLine({ used, budget, count, columnCount }: { used: number; budget: number; count: number; columnCount: number }) {
+  return (
+    <TableRow hover={false} className="backlog-cut-line">
+      <TableCell colSpan={columnCount} sx={cutLineCellSx}>
+        <div className="backlog-cut-line-rule">
+          <span className="backlog-cut-line-label">
+            <Icon href={svgFlag} alt="" style={{ color: 'var(--stratakit-color-icon-accent-strong)' }} />
+            Cut line · {formatEffort(used)} of {formatEffortPoints(budget)} · {pluralBugs(count)} above
+          </span>
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
 
 // Like the dimmed cards on the boards: rows a Needs attention facet leaves out fade, and come back on hover or focus.
 const tableSx: SxProps<Theme> = {
@@ -719,6 +871,14 @@ const tableSx: SxProps<Theme> = {
     transition: 'opacity 120ms ease, filter 120ms ease',
   },
   '& tr[data-emphasis="dim"]:hover > td, & tr[data-emphasis="dim"]:focus-within > td': { opacity: 1, filter: 'none' },
+  // A translucent tint, so the row's hover color still shows through a pick.
+  '& tr[data-picked] > td': { bgcolor: 'color-mix(in srgb, var(--stratakit-color-bg-accent-base) 9%, transparent)' },
+  '& .backlog-pick': { display: 'inline-flex', borderRadius: '4px', verticalAlign: 'middle' },
+  '& .backlog-pick[data-hand]': {
+    boxShadow: '0 0 0 2px var(--stratakit-mui-palette-background-paper), 0 0 0 3.5px var(--stratakit-color-border-accent-base)',
+  },
+  '& .backlog-running': { color: 'var(--stratakit-color-text-accent-strong)', fontWeight: 650 },
+  '& .backlog-skip-reason': { color: TERTIARY_TEXT_COLOR, fontSize: 11 },
 }
 
 function tierBodyStyle(key: BacklogTierKey): CSSProperties {
@@ -737,9 +897,12 @@ export const BacklogTable = memo(function BacklogTable({
   collapsedTiers,
   onToggleTier,
   highlightedBugIds = null,
+  plan = null,
 }: BacklogTableProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const groups = groupBacklogBugsByTier(bugs, tierThresholds)
+  const columns = plan ? PLAN_COLUMNS : COLUMNS
+  const lastPick = plan?.plan.picks.at(-1)
 
   // The tier headers stick just below the column header, whose height changes with the theme's font size.
   useLayoutEffect(() => {
@@ -772,7 +935,7 @@ export const BacklogTable = memo(function BacklogTable({
         <Table size="small" stickyHeader aria-label="Open bugs ranked by value" sx={tableSx}>
           <TableHead>
             <TableRow>
-              {COLUMNS.map((column) => (
+              {columns.map((column) => (
                 <TableCell key={column.key} align={column.align} sx={headCellSx}>
                   {column.tip ? (
                     <Tooltip title={column.tip} describeChild>
@@ -786,17 +949,42 @@ export const BacklogTable = memo(function BacklogTable({
           {groups.map((group) => {
             const collapsed = collapsedTiers.has(group.key)
             const matchCount = highlightedBugIds ? group.bugs.filter((bug) => highlightedBugIds.has(bug.id)).length : undefined
+            const pickedCount = plan ? group.bugs.filter((bug) => plan.plan.pickedIds.has(bug.id)).length : undefined
             return (
               <TableBody key={group.key} data-tier={group.key} style={tierBodyStyle(group.key)}>
-                <TierHeader group={group} collapsed={collapsed} onToggle={onToggleTier} matchCount={matchCount} />
-                {collapsed ? null : group.bugs.map((bug) => (
-                  <BacklogRow
-                    key={bug.id}
-                    bug={bug}
-                    compact={compact}
-                    emphasis={highlightedBugIds ? (highlightedBugIds.has(bug.id) ? 'match' : 'dim') : undefined}
-                  />
-                ))}
+                <TierHeader
+                  group={group}
+                  collapsed={collapsed}
+                  onToggle={onToggleTier}
+                  matchCount={matchCount}
+                  pickedCount={pickedCount}
+                  columnCount={columns.length}
+                />
+                {/* A flat keyed list, so the row that gains or loses the cut line below it keeps its focus. */}
+                {collapsed ? null : group.bugs.flatMap((bug) => {
+                  const pickState = plan ? getPickState(bug.id, plan) : undefined
+                  const row = (
+                    <BacklogRow
+                      key={bug.id}
+                      bug={bug}
+                      compact={compact}
+                      emphasis={highlightedBugIds ? (highlightedBugIds.has(bug.id) ? 'match' : 'dim') : undefined}
+                      pickState={pickState}
+                      running={plan ? describeRunning(bug, plan.plan, lastPick) : undefined}
+                      onTogglePick={plan?.onTogglePick}
+                    />
+                  )
+                  return plan && bug.id === lastPick?.id ? [
+                    row,
+                    <CutLine
+                      key="cut-line"
+                      used={plan.plan.used}
+                      budget={plan.plan.budget}
+                      count={plan.plan.picks.length}
+                      columnCount={columns.length}
+                    />,
+                  ] : [row]
+                })}
               </TableBody>
             )
           })}

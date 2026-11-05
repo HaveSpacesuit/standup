@@ -523,8 +523,8 @@ Prepare data that exercises both populated and empty states:
 - [ ] Press Ctrl/Cmd + F on Backlog and verify focus moves to the quick filter (selecting any text in
       it) rather than opening the browser's find.
 - [ ] Open Backlog options; verify the dialog has a Display section with Compact rows, a Value tiers
-      section, and a Needs attention section, closes with Close and Escape, and returns focus to the
-      options button.
+      section, a Needs attention section, and a Plan a sprint section, closes with Close and Escape,
+      and returns focus to the options button.
 - [ ] Verify Compact rows matches Compact cards in Development options: turning either on turns on
       both, and the setting persists per team across a reload.
 - [ ] Verify Manage team opens the selected team's Azure DevOps page in a new tab.
@@ -556,7 +556,7 @@ Prepare data that exercises both populated and empty states:
       decimal, with none for whole numbers; that it notes any assumed or raised input; and that it
       says nothing about tie-breaks.
 - [ ] Verify the table has no sorting, column filtering, selection, or row-click behavior, and that the
-      title links and the tier header buttons are its only interactive elements.
+      title links and the tier header buttons are its only interactive elements outside Plan a sprint.
 - [ ] Hover over the rows and verify the bug row under the pointer is highlighted in both light and
       dark mode, the highlight follows the pointer from row to row, and the pinned column headers and
       tier headers never highlight.
@@ -662,6 +662,53 @@ Prepare data that exercises both populated and empty states:
       over, and an export made before this option imports with 12 months.
 - [ ] Verify the ribbon, the bar, the pressed chip, and dimmed rows are readable in light and dark
       mode, and the loading skeleton shows strips in place of the ribbon and the bar.
+
+### Plan a sprint
+
+- [ ] Verify Plan a sprint in the header is disabled while loading, after an error, and with no open
+      bugs, and that its tooltip explains it.
+- [ ] Press Plan a sprint; verify it shows as pressed, a strip opens under Needs attention, and the
+      table gains a checkbox column before # and a Running column after Effort, with the tier headers
+      still spanning the table. Press it again and verify all of it goes away.
+- [ ] With the default budget of 10 and both skips on, verify the planner checks, in ranked order,
+      each bug that fits what is left of the budget, passing over bugs in this sprint or the next,
+      bugs without an Effort, and bugs too big to fit, while a smaller bug further down still fills the
+      gap.
+- [ ] Verify picked rows are tinted, Running shows each pick's running total ("2 pts", "5 pts"…), a
+      bug passed over above the last pick says why (This sprint, Next sprint, No effort, Too big, or
+      Unchecked), and bugs below the last pick show nothing.
+- [ ] Verify a dashed cut line under the last pick reads "Cut line · N of B pts · M bugs above", each
+      tier header adds "· N picked", and the strip reads "N bugs", "N of B pts" with a meter, and the
+      picks' total Value. Verify a screen reader reads the summary, including "Total Value", and the
+      checkboxes as "Pick <ID>".
+- [ ] Type a budget, and use − and +; verify the plan updates at once and − is disabled at 1. Enter 0,
+      1000, 2.5, or nothing and verify the field is marked with an error explaining the range, the plan
+      keeps the last valid budget, and leaving the field restores it.
+- [ ] Uncheck a picked bug; verify its checkbox is ringed, it reads Unchecked, and the planner fills
+      the space with later bugs. Check a planned or too-big bug; verify it is ringed and picked even
+      over budget, and the strip shows "over by N" in amber with an amber meter.
+- [ ] Uncheck a hand pick, or check a bug unchecked by hand; verify the ring goes away and the planner
+      decides again. Press Reset and verify every hand choice is cleared, the budget returns to the
+      default, and Reset is disabled.
+- [ ] Turn Skip unestimated off; verify bugs without an Effort can be picked, count as 4 pts, and the
+      strip shows "N without effort" with a tooltip. Turn Skip planned off; verify bugs in this sprint
+      or the next can be picked.
+- [ ] Type a quick filter and press a Needs attention chip; verify the planner picks only from the
+      highlighted bugs, and the other rows' checkboxes are disabled with a tooltip saying why.
+- [ ] Press Copy list and paste into a spreadsheet; verify one row per pick in ranked order with the
+      ID, title, Effort, and Value, and the button says Copied. Verify it is disabled with no picks.
+- [ ] Refresh with picks made; verify they and the budget are kept. Switch teams and verify the plan
+      starts over. Leave the page and come back; verify Plan a sprint is off.
+- [ ] In Backlog options > Plan a sprint, verify the Default budget (10), Skip bugs already in this
+      sprint or the next (on), and Skip bugs without an Effort (on). Change the default budget and
+      verify an unedited strip budget follows it; enter 0, 1000, or 2.5 and verify an error explains
+      the range. Verify the skip checkboxes and the strip's checkboxes change together.
+- [ ] Reload and verify the plan options persist per team; export and import the team and verify they
+      carry over, and an export made before them imports with the defaults.
+- [ ] Verify Azure DevOps is unchanged by any of the above.
+- [ ] Verify the strip, the tint, the hand-pick ring, the cut line, and the over-budget meter are
+      readable in light and dark mode; that the strip wraps cleanly as the window narrows; and that
+      compact rows keep their height with the checkboxes.
 
 ### Quick filter
 

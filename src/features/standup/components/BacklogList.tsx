@@ -1,7 +1,7 @@
 import { Box, Card, CardContent, Typography } from '@mui/material'
 import { AdoErrorNotice } from './AdoErrorNotice'
 import { BacklogLoadingState } from './BacklogLoadingState'
-import { BacklogTable } from './BacklogTable'
+import { BacklogTable, type BacklogTablePlan } from './BacklogTable'
 import type { BacklogTierThresholds } from '../utils/backlogOptions'
 import type { BacklogTierKey } from '../utils/backlogTiers'
 import type { RankedBacklogBug } from '../utils/backlogValue'
@@ -20,6 +20,8 @@ type BacklogListProps = {
   onToggleTier: (tier: BacklogTierKey) => void
   /** The bugs a Needs attention facet picks out, or null when no facet is on. */
   highlightedBugIds?: ReadonlySet<number> | null
+  /** Plan a sprint's picks, or null when it is off. */
+  plan?: BacklogTablePlan | null
 }
 
 export function BacklogList({
@@ -32,6 +34,7 @@ export function BacklogList({
   collapsedTiers,
   onToggleTier,
   highlightedBugIds = null,
+  plan = null,
 }: BacklogListProps) {
   if (isLoading) {
     return <BacklogLoadingState />
@@ -91,6 +94,7 @@ export function BacklogList({
       collapsedTiers={collapsedTiers}
       onToggleTier={onToggleTier}
       highlightedBugIds={highlightedBugIds}
+      plan={plan}
     />
   )
 }
