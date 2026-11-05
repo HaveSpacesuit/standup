@@ -18,6 +18,7 @@ import {
   parseStoredAssignmentOptions,
   serializeAssignmentOptions,
 } from '../utils/assignmentOptions'
+import { loadRememberLastView, saveRememberLastView } from '../utils/lastViews'
 import type { QaOptions } from '../utils/qaOptions'
 import { parseStoredQaOptionsWithRecovery, qaOptionsStorageKey, serializeQaOptions } from '../utils/qaOptions'
 import { SELECTED_TEAM_STORAGE_KEY, tagRulesStorageKey } from './useBoardPreferences'
@@ -32,6 +33,7 @@ type UseStandupAppStateResult = {
   qaCardHighlightOptionsByTeam: Record<string, CardHighlightOptions>
   assignmentCardHighlightOptions: CardHighlightOptions
   assignmentOptionsByTeam: Record<string, AssignmentOptions>
+  rememberLastView: boolean
   handleTeamProfilesChange: (nextTeamProfiles: TeamProfile[]) => void
   replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => void
   handlePatSave: (pat: string) => void
@@ -40,6 +42,7 @@ type UseStandupAppStateResult = {
   setQaCardHighlightOptionsPersisted: (teamId: string, next: CardHighlightOptions) => void
   setAssignmentCardHighlightOptionsPersisted: (next: CardHighlightOptions) => void
   setAssignmentOptionsForTeam: (teamId: string, next: AssignmentOptions) => void
+  setRememberLastViewPersisted: (next: boolean) => void
 }
 
 function buildQaOptionsByTeam(teamProfiles: TeamProfile[]): Record<string, ReturnType<typeof parseStoredQaOptionsWithRecovery>> {
@@ -109,6 +112,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
   const [assignmentOptionsByTeam, setAssignmentOptionsByTeam] = useState<Record<string, AssignmentOptions>>(() =>
     buildAssignmentOptionsByTeam(teamProfiles),
   )
+  const [rememberLastView, setRememberLastView] = useState(loadRememberLastView)
 
   const persistTeamProfiles = (nextTeamProfiles: TeamProfile[]) => {
     saveTeamProfiles(nextTeamProfiles)
@@ -171,6 +175,11 @@ export function useStandupAppState(): UseStandupAppStateResult {
     localStorage.setItem(assignmentOptionsStorageKey(teamId), serializeAssignmentOptions(next))
   }
 
+  const setRememberLastViewPersisted = (next: boolean) => {
+    setRememberLastView(next)
+    saveRememberLastView(next)
+  }
+
   return {
     teamProfiles,
     teamProfilesUnreadable,
@@ -181,6 +190,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
     qaCardHighlightOptionsByTeam,
     assignmentCardHighlightOptions,
     assignmentOptionsByTeam,
+    rememberLastView,
     handleTeamProfilesChange,
     replaceTeamProfiles: persistTeamProfiles,
     handlePatSave,
@@ -189,5 +199,6 @@ export function useStandupAppState(): UseStandupAppStateResult {
     setQaCardHighlightOptionsPersisted,
     setAssignmentCardHighlightOptionsPersisted,
     setAssignmentOptionsForTeam,
+    setRememberLastViewPersisted,
   }
 }

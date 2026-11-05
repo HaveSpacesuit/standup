@@ -59,6 +59,8 @@ type AppNavigationRailProps = {
   activeView: AppView
   colorScheme: 'light' | 'dark'
   onToggleColorScheme: () => void
+  rememberLastView: boolean
+  onRememberLastViewChange: (next: boolean) => void
   patConfigured: boolean
   patValue: string
   onPatSave: (pat: string) => void
@@ -72,6 +74,8 @@ type AppNavigationRailProps = {
 }
 
 type SettingsTab = 'azure-devops' | 'teams' | 'display'
+
+const REMEMBER_LAST_VIEW_HELP_ID = 'settings-remember-last-view-help'
 
 const EMPTY_TEAM_PROFILE_FIELDS = {
   orgName: '',
@@ -108,6 +112,8 @@ export function AppNavigationRail({
   activeView,
   colorScheme,
   onToggleColorScheme,
+  rememberLastView,
+  onRememberLastViewChange,
   patConfigured,
   patValue,
   onPatSave,
@@ -418,7 +424,7 @@ export function AppNavigationRail({
 
           <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1.25, color: 'text.secondary' }}>
             <Typography component="li" variant="body-sm">
-              <strong>Development</strong> provides Assignment and Sprint views for the team&apos;s work items.
+              <strong>Development</strong> provides Developers and Sprint views for the team&apos;s work items.
             </Typography>
             <Typography component="li" variant="body-sm">
               <strong>Quality Assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.
@@ -430,7 +436,7 @@ export function AppNavigationRail({
               <strong>Tests</strong> charts e2e test pass rates across configured build and release pipeline stages.
             </Typography>
             <Typography component="li" variant="body-sm">
-              <strong>Settings</strong> stores Azure DevOps credentials, team configuration, and app appearance preferences in browser storage.
+              <strong>Settings</strong> stores Azure DevOps credentials, team configuration, and display preferences in browser storage.
             </Typography>
           </Box>
 
@@ -446,7 +452,7 @@ export function AppNavigationRail({
                 <strong>Teams</strong> lets you define an org, project, area path, iteration path, team name, and repository. Each team stores its own QA and development options.
               </Typography>
               <Typography component="li" variant="body-sm">
-                <strong>Display</strong> toggles the app between light and dark mode without changing your Azure DevOps data.
+                <strong>Display</strong> toggles the app between light and dark mode, and can reopen Development and Quality Assurance on the view you used last. Neither changes your Azure DevOps data.
               </Typography>
             </Box>
           </Box>
@@ -796,7 +802,7 @@ export function AppNavigationRail({
                     Display
                   </Typography>
                   <Typography variant="body-sm" color="text.secondary">
-                    Adjust app appearance for this browser.
+                    Adjust how the app looks and opens in this browser.
                   </Typography>
                 </Box>
 
@@ -813,6 +819,24 @@ export function AppNavigationRail({
                   )}
                   label={<Typography variant="body-sm">Dark mode</Typography>}
                 />
+
+                <Box>
+                  <FormControlLabel
+                    sx={{ m: 0 }}
+                    control={(
+                      <Switch
+                        size="small"
+                        checked={rememberLastView}
+                        onChange={(_event, checked) => onRememberLastViewChange(checked)}
+                        slotProps={{ input: { 'aria-describedby': REMEMBER_LAST_VIEW_HELP_ID } }}
+                      />
+                    )}
+                    label={<Typography variant="body-sm">Remember last view</Typography>}
+                  />
+                  <Typography id={REMEMBER_LAST_VIEW_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Reopen Development and Quality Assurance on the view you used last, such as Sprint or Flow. When off, they open on Developers and Testers.
+                  </Typography>
+                </Box>
               </Stack>
             ) : null}
           </Box>

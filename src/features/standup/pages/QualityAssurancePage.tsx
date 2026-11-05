@@ -5,11 +5,14 @@ import { QualityAssuranceList } from '../components/QualityAssuranceList'
 import { QualityAssuranceToolbar } from '../components/QualityAssuranceToolbar'
 import { QaOptionsDialog } from '../components/QaOptionsDialog'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
+import { useRememberedView } from '../hooks/useRememberedView'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { QaOptions } from '../utils/qaOptions'
 import type { ProjectWorkItemState, TeamIterationOption, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { WorkItemUpdate } from '../../../ado/types'
+
+const QA_VIEWS = ['testers', 'flow'] as const
 
 type QualityAssurancePageProps = {
   patConfigured: boolean
@@ -49,6 +52,8 @@ type QualityAssurancePageProps = {
   teamIterations: TeamIterationOption[]
   teamIterationsLoading: boolean
   teamIterationsError?: string | null
+  /** Open on the view used last (Testers or Flow) instead of Testers. */
+  rememberLastView?: boolean
 }
 
 export function QualityAssurancePage({
@@ -87,10 +92,11 @@ export function QualityAssurancePage({
   teamIterations,
   teamIterationsLoading,
   teamIterationsError,
+  rememberLastView = false,
 }: QualityAssurancePageProps) {
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [optionsInitialTab, setOptionsInitialTab] = useState<'testers' | undefined>(undefined)
-  const [view, setView] = useState<'flow' | 'testers'>('testers')
+  const [view, setView] = useRememberedView('qa-activity', QA_VIEWS, rememberLastView)
   const [standupActive, setStandupActive] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
   const handleTeamChange = (teamId: string) => {

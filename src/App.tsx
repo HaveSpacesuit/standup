@@ -34,6 +34,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     qaCardHighlightOptionsByTeam,
     assignmentCardHighlightOptions,
     assignmentOptionsByTeam,
+    rememberLastView,
     handleTeamProfilesChange,
     replaceTeamProfiles,
     handlePatSave,
@@ -42,6 +43,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     setQaCardHighlightOptionsPersisted,
     setAssignmentCardHighlightOptionsPersisted,
     setAssignmentOptionsForTeam,
+    setRememberLastViewPersisted,
   } = useStandupAppState()
 
   const {
@@ -177,6 +179,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
         activeView={activeView}
         colorScheme={colorScheme}
         onToggleColorScheme={onToggleColorScheme}
+        rememberLastView={rememberLastView}
+        onRememberLastViewChange={setRememberLastViewPersisted}
         patConfigured={patConfigured}
         patValue={storedPatState?.pat ?? ''}
         onPatSave={handlePatSave}
@@ -262,6 +266,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           sprintScope,
           departuresByItemId,
           rolledOverItemIds,
+          rememberLastView,
         }}
         qualityAssurancePageProps={{
           patConfigured,
@@ -299,6 +304,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           teamIterations,
           teamIterationsLoading,
           teamIterationsError,
+          rememberLastView,
         }}
         backlogPageProps={{
           patConfigured,
