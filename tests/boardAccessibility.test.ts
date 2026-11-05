@@ -44,7 +44,6 @@ test('QA cards can expand beyond their columns without creating nested scroll co
     isLoading: false,
     error: null,
     historyWarning: null,
-    colorScheme: 'light',
     buckets: [{
       id: 'new',
       title: 'Newly added',
@@ -683,7 +682,6 @@ test('QA columns are named sections with subordinate headings', () => {
   const html = render(createElement(QualityAssuranceList, {
     isLoading: false,
     error: null,
-    colorScheme: 'light',
     buckets: [{
       id: 'new',
       title: 'Newly added',

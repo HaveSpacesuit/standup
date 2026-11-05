@@ -20,7 +20,6 @@ type QualityAssuranceListProps = {
   onChooseTesters?: () => void
   lookbackDays: number
   compactCards: boolean
-  colorScheme: 'light' | 'dark'
   cardHighlightOptions: CardHighlightOptions
   view: 'flow' | 'testers'
   standupActive: boolean
@@ -41,14 +40,13 @@ export function QualityAssuranceList({
   onChooseTesters,
   lookbackDays,
   compactCards,
-  colorScheme,
   cardHighlightOptions,
   view,
   standupActive,
   onStandupEnd,
 }: QualityAssuranceListProps) {
   if (isLoading) {
-    return <QualityAssuranceLoadingState colorScheme={colorScheme} />
+    return <QualityAssuranceLoadingState view={view} />
   }
 
   if (error) {

@@ -27,7 +27,6 @@ const { StandupContent } = await server.ssrLoadModule('/src/features/standup/com
 function render(teamProfilesUnreadable = false, qaOptionsUnreadable = false, activeView = 'qa-activity') {
   const qualityAssurancePageProps = {
     patConfigured: true,
-    colorScheme: 'light',
     teamOptions: [],
     selectedTeamId: '',
     quickFilterInput: '',

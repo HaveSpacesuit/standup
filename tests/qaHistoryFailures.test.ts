@@ -116,7 +116,6 @@ test('QA history warning is accessible and does not hide the unavailable card', 
         title: 'History unavailable',
         items: [{ id: 1, title: 'Keep this card visible', state: 'Done', status: 'Done' }],
       }],
-      colorScheme: 'light',
     }),
   ))
 
@@ -135,7 +134,6 @@ test('QA history warning remains visible when no cards match the filters', () =>
       error: null,
       historyWarning: 'Unable to load history for 1 work item. QA membership may be incomplete.',
       buckets: [],
-      colorScheme: 'light',
     }),
   ))
 

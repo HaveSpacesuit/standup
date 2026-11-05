@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
-import { Box, Button, Chip, Divider, Typography } from '@mui/material'
+import { Box, Button, Chip, Divider, Skeleton, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgFlag from '@stratakit/icons/flag.svg'
 import svgUserAdd from '@stratakit/icons/user-add.svg'
@@ -68,6 +68,18 @@ const EMPTY_TESTERS: TeamMember[] = []
 const EMPTY_TEAM_ITERATIONS: TeamIterationOption[] = []
 const NO_HISTORY: ItemHistory = { bounceCount: 0 }
 
+const qaRibbonSx = {
+  display: 'flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: 1.5,
+  px: 2,
+  py: 0.75,
+  borderBottom: '1px solid',
+  borderColor: 'divider',
+  bgcolor: 'background.paper',
+} as const
+
 
 function getPaletteKey(tone: AttentionTone): string {
   switch (tone) {
@@ -98,21 +110,7 @@ function QaSprintRibbon({ buckets, coming, lookbackDays, iterations, currentIter
   const total = counts.reduce((sum, entry) => sum + entry.count, 0)
 
   return (
-    <Box
-      component="section"
-      aria-label="Sprint and QA flow"
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 1.5,
-        px: 2,
-        py: 0.75,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-      }}
-    >
+    <Box component="section" aria-label="Sprint and QA flow" sx={qaRibbonSx}>
       <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
         {currentIterationName ?? 'Current sprint'}
       </Typography>
@@ -145,6 +143,28 @@ function QaSprintRibbon({ buckets, coming, lookbackDays, iterations, currentIter
           Next: {next.name}
         </Typography>
       ) : null}
+    </Box>
+  )
+}
+
+/** The sprint and QA flow ribbon's placeholder while QA activity loads, laid out like the real ribbon. */
+export function QaSprintRibbonSkeleton() {
+  return (
+    <Box component="section" aria-label="Sprint and QA flow" aria-busy="true" sx={qaRibbonSx}>
+      <Skeleton variant="text" width={96} height={20} />
+      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+        <Skeleton variant="text" width={76} height={20} />
+        <Skeleton variant="rounded" width={72} height={6} sx={{ borderRadius: 999 }} />
+        <Skeleton variant="text" width={64} height={20} />
+      </Box>
+      <Divider orientation="vertical" flexItem />
+      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 140, flex: '1 1 200px' }}>
+        <Skeleton variant="text" width={52} height={20} />
+        <Skeleton variant="rounded" height={7} sx={{ flex: 1, minWidth: 52, borderRadius: 999 }} />
+        <Skeleton variant="text" width={52} height={20} />
+      </Box>
+      <Skeleton variant="rounded" width={92} height={24} sx={{ borderRadius: 999 }} />
+      <Skeleton variant="text" width={110} height={20} sx={{ ml: 'auto' }} />
     </Box>
   )
 }
