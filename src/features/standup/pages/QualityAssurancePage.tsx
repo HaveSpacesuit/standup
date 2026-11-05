@@ -13,7 +13,6 @@ import type { WorkItemUpdate } from '../../../ado/types'
 
 type QualityAssurancePageProps = {
   patConfigured: boolean
-  colorScheme: 'light' | 'dark'
   teamOptions: TeamOption[]
   selectedTeamId: string
   onTeamChange: (value: string) => void
@@ -54,7 +53,6 @@ type QualityAssurancePageProps = {
 
 export function QualityAssurancePage({
   patConfigured,
-  colorScheme,
   teamOptions,
   selectedTeamId,
   onTeamChange,
@@ -168,7 +166,6 @@ export function QualityAssurancePage({
           compactCards={compactCards}
           lookbackDays={lookbackDays}
           teamIterations={teamIterations}
-          colorScheme={colorScheme}
           cardHighlightOptions={cardHighlightOptions}
           view={view}
           standupActive={standupActive}

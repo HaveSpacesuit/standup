@@ -487,7 +487,12 @@ export const KanbanBoard = memo(function KanbanBoard({
     )
   } else if (isLoading) {
     content = (
-      <KanbanBoardLoadingState layout={LOADING_LAYOUT} statusColumns={STATUS_COLUMNS} />
+      <KanbanBoardLoadingState
+        layout={LOADING_LAYOUT}
+        columns={STATUS_COLUMNS}
+        message="Loading board data..."
+        detail="Fetching team members, work items, and pull requests."
+      />
     )
   } else if (membersError && !isSprintLens) {
     content = <AdoErrorNotice title="Unable to load team members" message={membersError} />

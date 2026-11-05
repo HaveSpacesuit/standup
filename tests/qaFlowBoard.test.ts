@@ -29,6 +29,7 @@ const server = await createServer({
 after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { QaFlowBoard } = await server.ssrLoadModule('/src/features/standup/components/QaFlowBoard.tsx')
+const { QualityAssuranceLoadingState } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceLoadingState.tsx')
 const { getQaLaneFlags, getQaStandupOrder } = await server.ssrLoadModule('/src/features/standup/components/qaBoardModel.ts')
 
 const ago = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
@@ -259,6 +260,18 @@ test('QA testers view marks inferred testers', () => {
   const inferred = render('testers', false, { testersInferred: true, onChooseTesters: () => {} })
   assert.match(inferred, /aria-label="Testers are inferred from recent QA activity\. Choose testers"/)
   assert.doesNotMatch(render('testers'), /inferred from recent QA activity/)
+})
+
+test('QA loading skeleton mirrors the open view, with tester lanes only in the Testers view', () => {
+  for (const view of ['flow', 'testers'] as const) {
+    const html = renderToStaticMarkup(createElement(Root, null, createElement(QualityAssuranceLoadingState, { view })))
+    withDocument(html, (document) => {
+      assert.equal(document.querySelector('section[aria-label="Sprint and QA flow"]')?.getAttribute('aria-busy'), 'true', view)
+      assert.match(document.body.textContent ?? '', /Loading QA activity\.\.\./, view)
+      // Each skeleton lane head starts with an avatar.
+      assert.equal(document.querySelectorAll('.MuiSkeleton-circular').length, view === 'testers' ? 4 : 0, view)
+    })
+  }
 })
 
 test('stored QA options retain the tester selection and older options infer testers', () => {

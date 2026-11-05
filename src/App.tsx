@@ -265,7 +265,6 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
         }}
         qualityAssurancePageProps={{
           patConfigured,
-          colorScheme,
           teamOptions: teamProfiles,
           selectedTeamId,
           onTeamChange,
