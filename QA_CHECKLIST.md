@@ -211,7 +211,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify the board remains usable with many members, columns, cards, and tags.
 - [ ] Verify Development cards have a leading edge in their column's color, show the state only when
       it differs from the column's usual state, and show the sprint only when it is not the current
-      sprint, while QA board cards are unchanged.
+      sprint, and that QA board cards follow the same rules and also mark items with no sprint.
 - [ ] Verify each open PR's next step is the first that applies of: failing checks, rejected, waiting
       for the author, checks unavailable, pending checks (Pipeline), missing approvals (Reviewers),
       and Ready to complete.
@@ -341,10 +341,15 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify column counts and effort totals still include cards from hidden rows, and that hiding
       every row shows an explanatory message instead of an empty board.
 - [ ] Verify both Members options persist per team across a reload and do not affect Sprint view.
+- [ ] In Development options > Members, verify "Include QA testers in standup" is off by default and,
+      when checked, standup on the Developers board continues after the developers with a
+      "Name · QA" lane per QA tester holding their assigned QA items; verify the lanes appear only
+      during standup, use the QA page's testers, leave the Needs attention counts unchanged, and that
+      the setting persists per team and survives export/import.
 - [ ] In Development options > Display, verify "Compact cards" is off by default and, when checked,
       each Development card shows a one-line title and one status line (state, PR progress, next step,
-      owner, recent change, aging dots, and sprint) on both the Developers board and the Sprint view,
-      while the QA board is unchanged.
+      owner, recent change, aging dots, and sprint) on the Developers board, the Sprint view, and the
+      QA board, where Recently completed cards are always compact.
 - [ ] With compact cards on, hover over and keyboard-focus a card and verify its details open beside
       it (flipping near the window edge) with the full title, tags, PRs, next step, state, sprint,
       owner, last change, and each PR's checks; verify Escape closes them and their links work.
@@ -372,24 +377,30 @@ Prepare data that exercises both populated and empty states:
 
 ## 8. Quality Assurance page
 
-- [ ] Hover and keyboard-focus cards in the first and last QA columns at narrow, two-column, and
-      four-column widths; verify enlarged cards are not clipped and no horizontal scrollbar appears.
+- [ ] Hover over and keyboard-focus compact cards in the first and last QA columns, including
+      Recently completed; verify their details open beside them without clipping, and that a narrow
+      window scrolls the board sideways with its column headers aligned.
 
 ### Page and board
 
-- [ ] Open Quality Assurance and verify the QA toolbar, board title, and selected team.
-- [ ] Verify QA loading skeleton, populated board, no-results state, and API-error state.
-- [ ] Verify cards are grouped into Ready for QA, Recently completed, Needs follow-up, and Newly
-      added (or the configured equivalents).
+- [ ] Open Quality Assurance and verify the QA toolbar and selected team, and that the page opens on
+      the Testers view, with the View toggle listing Testers and then Flow.
+- [ ] Verify the loading skeleton mirrors the current view (tester lanes or flow columns, under the
+      ribbon and Needs attention bar), then verify the populated board, no-results state, and
+      API-error state.
+- [ ] Verify the columns read Newly added, Coming up, Ready for QA, Back in development, and Recently
+      completed (or the configured equivalents).
 - [ ] Verify each item is placed in the correct group based on its state/history/timing.
+- [ ] Verify Failed Testing items go to Back in development by default, and Coming up holds only
+      current-sprint In Code Review items from the Development board that are not already in QA.
 - [ ] Fail one or more work-item `/updates` requests; verify successfully loaded cards remain visible,
       affected cards appear under History unavailable, and a warning offers Refresh recovery.
 - [ ] Verify state transitions into and out of QA are represented accurately.
 - [ ] Verify recently created items appear in Newly added according to the lookback window.
-- [ ] Configure Approved in both Needs follow-up and Newly added. Verify a recently created
+- [ ] Configure Approved in both Back in development and Newly added. Verify a recently created
       Approved item with no QA-ready history appears only in Newly added.
 - [ ] With the same overlapping state groups, verify an item that recently entered Ready for QA
-      and returned to Approved appears only in Needs follow-up, including multi-hop transitions.
+      and returned to Approved appears only in Back in development, including multi-hop transitions.
 - [ ] Verify an older Approved item with only recent reassignment does not fall into Newly added
       through the overlapping-state fallback.
 - [ ] Verify overlapping development/new states do not override Ready for QA, Recently completed,
@@ -397,6 +408,53 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify tag-grouped cards appear under the intended tags and ungrouped items remain visible.
 - [ ] Verify item counts, order, metadata, links, highlights, and empty groups are correct.
 - [ ] Verify long and missing metadata is safe and readable.
+- [ ] Verify each card shows the person its column follows (who filed it, its owner, its tester, who
+      sent it back, or who verified it) and its caption: "Filed Nd ago", "Nd in AFT" (or RFT),
+      "Failed testing · Nd" or "Sent back · Nd", "Verified <date>", or "Likely today" for a Coming
+      up card whose PR has two approvals and passing required checks.
+- [ ] Verify Ready for QA is the widest column and Recently completed the narrowest, and that an
+      empty column is a narrow rail running the board's full height with no horizontal color bar;
+      verify selecting a rail expands it and Coming up can always be collapsed.
+- [ ] Verify the ribbon shows the current sprint with its day and days left, a QA flow bar by column,
+      the lookback window, and the next sprint.
+- [ ] Verify each Needs attention facet (Failed testing, Bounced 2+ times, Needs a tester, Waiting 3+
+      days, Untriaged 3+ days, Arrived late, Recently changed) counts the right cards, and that
+      selecting one highlights them, dims the rest, counts matches in the column headers, and Clear
+      restores the board.
+
+### Testers and Flow views
+
+- [ ] Verify the Testers view has one lane per QA tester, sorted by name, each with a load bar, an
+      "N open · M done" caption, and flags for failed, bounced, waiting, late, and untriaged cards.
+- [ ] Verify Coming up and Ready for QA cards without a tester go to Needs a tester, and cards filed,
+      sent back, or verified by someone who isn't a tester go to Everyone else, which starts
+      collapsed; verify each of those lanes appears only when it has cards.
+- [ ] With no testers chosen in QA options, verify testers are inferred from recent QA activity,
+      developers who only hand work to QA get no lane, and the info button beside the Testers
+      heading opens the QA options Testers tab.
+- [ ] For a team without QA activity, verify the view says "No QA testers found in recent QA
+      activity." and Choose testers opens the Testers tab; if no chosen tester is on the team, verify
+      it says "None of the chosen QA testers are on this team."
+- [ ] Choose testers on the QA options Testers tab and verify only they get lanes.
+- [ ] Collapse and expand lanes with their chevrons and with Collapse all lanes and Expand all lanes;
+      verify a collapsed lane summarizes each column on one line.
+- [ ] Verify lanes and columns use the Development board's surfaces and dividers in light and dark
+      modes.
+- [ ] Switch to Flow and verify the columns show without lanes, run to the bottom of the board, and
+      split Ready for QA into Needs a tester and Testing; verify the Flow icon differs from the
+      Development page's Sprint icon.
+
+### QA standup
+
+- [ ] Verify Start QA standup has the same color as Start standup on the Development page and sits in
+      the same place, after the quick filter.
+- [ ] Start QA standup and verify it switches to the Testers view and only testers take a turn (not
+      Needs a tester or Everyone else); the speaker's lane is open and highlighted like the
+      Development standup, the other lanes collapse, and lane toggles pause.
+- [ ] Verify Next and Previous (Ctrl+Down and Ctrl+Up), the speaking-order avatars, Finish, and End;
+      verify Most attention first ranks testers by their cards' QA signals and changing the order
+      starts again from the top.
+- [ ] Verify switching to Flow or changing team ends the QA standup.
 
 ### QA quick filter and refresh
 
@@ -407,12 +465,13 @@ Prepare data that exercises both populated and empty states:
 
 ### QA Options dialog
 
-- [ ] Open QA Options and verify the Work item types, Timing, and Sprints tabs.
+- [ ] Open QA Options and verify the Work item types, Timing, Sprints, Tag filters, Column
+      classification, Freshness, and Testers tabs.
 - [ ] Select all work-item types, a subset, and no types; verify the resulting query/display.
 - [ ] Add a general tag filter; verify matching items appear.
 - [ ] Reject blank and duplicate general tag filters without corrupting the draft.
 - [ ] Remove a general tag filter and verify it no longer applies.
-- [ ] Configure each state group: Ready for QA, Recently completed, Needs follow-up, and Newly
+- [ ] Configure each state group: Ready for QA, Recently completed, Back in development, and Newly
       added.
 - [ ] Add/remove tags in each state group and verify duplicate/case handling.
 - [ ] Configure lookback days with minimum, maximum, zero, decimal, negative, blank, and very large

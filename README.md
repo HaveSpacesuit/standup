@@ -22,8 +22,8 @@ say. Each card has a leading edge in its column's color, the work item type, ID,
 two-line title. States of three or more words use the first three words' initials in badges and
 "Moved to" tags (for example, ICR and AFT); tooltips and hover details keep the full names.
 The state appears only when it differs from the column's usual state, and the sprint
-only when it is not the current sprint. Each linked PR gets one compact row. The QA board and Sprint
-view keep their own cards.
+only when it is not the current sprint. Each linked PR gets one compact row. The Sprint view and the
+QA board use the same cards, adding an owner avatar and a caption suited to each board.
 Work item type icons use StrataKit's theme-aware neutral icon color in regular cards, compact cards,
 and hover details.
 Hover hints throughout the app use StrataKit tooltips rather than native browser titles. Compact
@@ -101,6 +101,12 @@ later join the end of the line, and people who drop off are skipped. Starting cl
 filter and switches to the Developers view; the member filter stays locked while standup runs, and
 switching to the sprint view or changing team ends it.
 
+Development options > Members includes "Include QA testers in standup" (off by default). When it is
+on, standup continues after the developers' turns with a "Name · QA" lane for each QA tester (the
+same testers as the QA page), holding the QA page's items assigned to them. These lanes appear only
+during standup, load QA data only while the option is on, and don't count toward the Needs
+attention bar. The setting is saved per team and included in team exports.
+
 The toolbar's View toggle switches between the Developers board and the Sprint view. The Sprint view is
 the same board with one lane per sprint instead of per person: the current sprint first and open,
 other sprints collapsed beneath it (with their dates), and items without a sprint last. It uses the
@@ -155,8 +161,8 @@ title on one line and a single status line: the state when the column does not i
 progress, the next step and who it is waiting on, what recently changed, and aging dots and the
 sprint on the right. Hover over or focus a card to see the full card along with its state, sprint,
 owner, last change, and each PR's title, repository, and checks. The setting is saved per team in
-browser local storage, is included in team exports, applies to both the Developers board and the Sprint
-view, and does not change the QA board.
+browser local storage, is included in team exports, and applies to the Developers board, the Sprint
+view, and the QA board, where Recently completed cards are always compact.
 
 A sprint ribbon above the board, in both views, keeps sprint context on one line: the current
 sprint's name and dates (hover for the full iteration path), working-day progress ("Day 5 of 10",
@@ -193,15 +199,57 @@ than implying certainty.
 
 ### Quality assurance view
 
-The QA activity page surfaces recently created and changed work items for review, with:
+The QA activity page surfaces recently created and changed work items for the QA side of standup,
+using the Development board's cards, lane heads, and Needs attention bar, with:
 
 - sprint and lookback filters
 - state grouping and tag-based grouping
 - work-item type filters
-- a compact review board for QA triage
+- Testers and Flow views of the same QA columns
 
-States can be shared between Needs follow-up and Newly added. For these shared states, a
-recent transition into a QA-ready state takes precedence and routes the item to Needs follow-up.
+Five columns follow work through QA: **Newly added** (recently filed New or Proposed items),
+**Coming up** (current-sprint In Code Review items from the Development board), **Ready for QA**
+(Available or Ready for Testing), **Back in development** (returned to Committed, Active, In
+Progress, or Failed Testing after Ready for QA), and **Recently completed** (Done, Closed, or
+Completed after Ready for QA). Items whose history could not load go to History unavailable. Ready
+for QA gets the widest column and Recently completed the narrowest. Empty columns shrink to a narrow
+rail that runs the board's full height; select a rail to expand it. Coming up can always be
+collapsed. Column and lane toggles are not saved.
+
+Each card shows the person its column follows: who filed it, its owner (Coming up), its tester, who
+sent it back, or who verified it. A caption says where it stands: "Filed 3d ago", "2d in AFT",
+"Failed testing · 1d" or "Sent back · 1d", "Verified Nov 2", or "Likely today" for a Coming up card
+whose PR has two approvals and passing required checks. Cards without a sprint say so.
+
+A ribbon above the board shows the current sprint and its working-day progress, a QA flow bar
+splitting the board's items by column, the lookback window, and the next sprint. The Needs attention
+bar counts the cards matching each QA signal: Failed testing, Bounced 2+ times (sent back from QA at
+least twice), Needs a tester (Ready for QA or Coming up without a tester), Waiting 3+ days (in Ready
+for QA), Untriaged 3+ days (New with no sprint), Arrived late (reached QA with three or fewer
+working days left in its sprint), and Recently changed. Select one to highlight its cards: the rest
+dim, and column headers count the matches.
+
+**Testers**, the default view, gives each QA tester a lane, sorted by name, with the Developers
+board's lane heads: a load bar, "N open · M done", and flags for failed, bounced, waiting, late, and
+untriaged cards. Coming up and Ready for QA cards sit in their tester's lane, or in **Needs a
+tester**. Other columns follow the person on the card, so work filed, sent back, or verified by
+someone who isn't a tester goes to **Everyone else**, which starts collapsed behind the testers'
+lanes. Each of those two lanes appears only when it has cards. Testers are the members chosen on the
+QA options Testers tab. When none are chosen, they are inferred from recent QA history: people who
+pick up testing work, or verify or send back other people's handoffs, more often than they hand work
+to QA. An info button beside the Testers heading notes inferred testers and opens that tab, and if no
+testers are found the view says so and offers Choose testers. **Flow** shows the columns without
+lanes and splits Ready for QA into Needs a tester and Testing. While QA data loads, the skeleton
+mirrors the current view.
+
+**Start QA standup** sits where Start standup does on the Development page and works the same way:
+it switches to the Testers view, opens only the speaker's lane, and has the same Standup bar,
+shortcuts, and order options. Only testers take a turn, not Needs a tester or Everyone else. Most
+attention first ranks testers by their cards' QA signals, with failed testing weighing most and
+recent changes not at all. Switching to Flow or changing team ends it.
+
+States can be shared between Back in development and Newly added. For these shared states, a
+recent transition into a QA-ready state takes precedence and routes the item to Back in development.
 Otherwise, items created within the lookback window appear in Newly added. Ready for QA and
 Recently completed state precedence, and explicit tag-based grouping, are unchanged.
 
