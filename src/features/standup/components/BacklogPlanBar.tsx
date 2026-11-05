@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type Ref } from 'react'
 import { Box, Button, Checkbox, FormControlLabel, IconButton, TextField, Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgAdd from '@stratakit/icons/add.svg'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgCopy from '@stratakit/icons/copy.svg'
+import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgMinus from '@stratakit/icons/minus.svg'
 import svgUndo from '@stratakit/icons/undo.svg'
 import { AppTooltip } from './AppTooltip'
@@ -23,6 +24,9 @@ type BacklogPlanBarProps = {
   /** Whether there is a hand pick or a changed budget for Reset to undo. */
   canReset: boolean
   onReset: () => void
+  /** Puts the header's Plan a sprint button back; the picks and budget stay for when it opens again. */
+  onClose: () => void
+  budgetInputRef?: Ref<HTMLInputElement>
 }
 
 const ATTENTION_TEXT = 'var(--stratakit-color-text-attention-base)'
@@ -74,7 +78,7 @@ const pluralBugs = (count: number) => `${count} ${count === 1 ? 'bug' : 'bugs'}`
  * The budget, typed or stepped. Typing applies once the text is a whole number in range; until then the plan keeps
  * the last budget that was, and leaving the field puts that budget back.
  */
-function BudgetField({ budget, onChange }: { budget: number; onChange: (budget: number) => void }) {
+function BudgetField({ budget, onChange, inputRef }: { budget: number; onChange: (budget: number) => void; inputRef?: Ref<HTMLInputElement> }) {
   const [text, setText] = useState(() => String(budget))
   const [shownBudget, setShownBudget] = useState(budget)
   // The stepper or Reset can change the budget too, and the field follows.
@@ -101,6 +105,7 @@ function BudgetField({ budget, onChange }: { budget: number; onChange: (budget: 
         type="number"
         value={text}
         error={invalid}
+        inputRef={inputRef}
         onChange={(event) => {
           setText(event.target.value)
           const next = event.target.value.trim() ? Number(event.target.value) : Number.NaN
@@ -215,7 +220,7 @@ function CopyListButton({ plan }: { plan: BacklogPlan }) {
   )
 }
 
-/** Plan a sprint's controls: the budget and what to skip, a summary of the picks, and ways to share or undo them. */
+/** Plan a sprint's controls: the budget and what to skip, a summary of the picks, ways to share or undo them, and Close. */
 export function BacklogPlanBar({
   plan,
   onBudgetChange,
@@ -225,6 +230,8 @@ export function BacklogPlanBar({
   onSkipUnestimatedChange,
   canReset,
   onReset,
+  onClose,
+  budgetInputRef,
 }: BacklogPlanBarProps) {
   return (
     <Box role="region" aria-label="Plan a sprint" sx={barSx}>
@@ -236,7 +243,7 @@ export function BacklogPlanBar({
         <Icon href={svgCalendar} style={{ color: 'var(--stratakit-color-icon-accent-strong)' }} />
         Plan a sprint
       </Typography>
-      <BudgetField budget={plan.budget} onChange={onBudgetChange} />
+      <BudgetField budget={plan.budget} onChange={onBudgetChange} inputRef={budgetInputRef} />
       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.5 }}>
         <AppTooltip title="Leave out bugs already in this sprint or the next">
           <FormControlLabel
@@ -262,6 +269,11 @@ export function BacklogPlanBar({
               Reset
             </Button>
           </span>
+        </AppTooltip>
+        <AppTooltip title="Close the plan; opening it again brings back its picks and budget">
+          <Button size="small" variant="outlined" startIcon={<Icon href={svgDismiss} />} onClick={onClose}>
+            Close
+          </Button>
         </AppTooltip>
       </Box>
     </Box>

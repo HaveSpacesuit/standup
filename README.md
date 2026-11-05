@@ -266,7 +266,7 @@ Recently completed state precedence, and explicit tag-based grouping, are unchan
 
 ### Backlog view
 
-The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, a **Plan a sprint** toggle, a **View** toggle for List or Map, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
+The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, a **Plan a sprint** button, a **View** toggle for List or Map, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
 
 The table has no sorting, column filtering, or selection, and bug rows highlight when hovered. Its only buttons are on the Value tier headers, plus a checkbox per bug while planning a sprint, both described below. The columns run from why a bug ranks where it does to who has it:
 
@@ -311,7 +311,7 @@ Each chip counts the bugs the quick filter leaves. Pressing a chip dims the othe
 
 Backlog options > Needs attention sets the age for the last chip, from 1 to 120 months (12 by default). It applies once the number is valid and is saved and exported with the other Backlog options.
 
-**Plan a sprint** in the header picks the highest-Value bugs that fit an effort budget, for filling a sprint or spare capacity. It opens a strip under Needs attention and adds two columns to the table: a checkbox before the rank and **Running** after Effort. Going down the ranked list, the planner picks each bug that fits what is left of the budget and passes over one that doesn't, so a smaller bug further down can still fill the gap. It picks from the listed bugs: the quick filter's matches, narrowed to the pressed Needs attention chip when there is one; the other bugs' checkboxes are disabled. A bug without an Effort counts as 4 pts. Picked rows are tinted, Running shows each pick's effort added to the picks above it, and a dashed cut line under the last pick reads "Cut line · 9 of 10 pts · 3 bugs above". A bug passed over above the line says why in Running: This sprint, Next sprint, No effort, Too big, or Unchecked. Each tier header adds "· N picked".
+**Plan a sprint** in the header picks the highest-Value bugs that fit an effort budget, for filling a sprint or spare capacity. Like **Start standup**, it is a primary button that steps aside while planning: it opens a strip under Needs attention, moves focus to the budget, and adds two columns to the table: a checkbox before the rank and **Running** after Effort. Going down the ranked list, the planner picks each bug that fits what is left of the budget and passes over one that doesn't, so a smaller bug further down can still fill the gap. It picks from the listed bugs: the quick filter's matches, narrowed to the pressed Needs attention chip when there is one; the other bugs' checkboxes are disabled. A bug without an Effort counts as 4 pts. Picked rows are tinted, Running shows each pick's effort added to the picks above it, and a dashed cut line under the last pick reads "Cut line · 9 of 10 pts · 3 bugs above". A bug passed over above the line says why in Running: This sprint, Next sprint, No effort, Too big, or Unchecked. Each tier header adds "· N picked".
 
 The strip has:
 
@@ -320,8 +320,9 @@ The strip has:
 - A summary: the number of picks, the points used against the budget with a meter, "over by N" in amber when hand picks exceed it, the picks' total Value, and how many picks have no Effort.
 - **Copy list**, which copies the picks as one tab-separated line each (ID, title, Effort, and Value) for pasting into a spreadsheet or chat.
 - **Reset**, which clears hand picks and goes back to the default budget.
+- **Close**, which removes the strip and the two columns and brings back the header button with focus on it. Opening the plan again brings back its picks and budget.
 
-Checking or unchecking a bug overrides the planner, and the checkbox is ringed to show it was set by hand. A hand pick counts first, even when it is planned or pushes the plan over budget; unchecking it, or checking a bug unchecked by hand, hands it back to the planner. The plan never changes Azure DevOps. Plan a sprint, the budget, and hand picks are not saved: they survive a refresh but reset when you switch teams, and leaving the page turns planning off.
+Checking or unchecking a bug overrides the planner, and the checkbox is ringed to show it was set by hand. A hand pick counts first, even when it is planned or pushes the plan over budget; unchecking it, or checking a bug unchecked by hand, hands it back to the planner. The plan never changes Azure DevOps. Plan a sprint, the budget, and hand picks are not saved: they survive a refresh and Close but reset when you switch teams, and leaving the page closes the plan.
 
 Backlog options > Plan a sprint sets the **Default budget** (10 pts by default, 1–999) and whether to **Skip bugs already in this sprint or the next** and **Skip bugs without an Effort** (both on by default). They are saved and exported with the other Backlog options.
 
@@ -333,7 +334,7 @@ The header's **View** toggle swaps the ranked list for a **Value map**, a bubble
 - The effort labels are the team's own efforts, not a fixed scale. The first reads "≤4", since the Value counts any effort below 4, or none, as 4.
 - The corners are labeled Quick wins, Big bets, Fill-ins, and Reconsider.
 
-Hover or focus a bubble for its Value, effort, Severity × Impact, and first few bugs. Select it to list its bugs in the side panel, with links to Azure DevOps. Select it again, press Escape, or choose **Back to the reading guide** to go back. With no bubble selected, the panel explains how to read the map, gives a key, and lists the top 10 bugs by Value. The map is one tab stop: arrow keys, Home, and End move between bubbles in Value order, and Enter or Space selects one.
+Hover or focus a bubble for a short summary: its bug count and Value, its Effort, its Severity and Impact scores, whether its Value used an assumed default, and a reminder to select it. Select it to list its bugs in the side panel, with links to Azure DevOps. Select it again, press Escape, or choose **Back to the reading guide** to go back. With no bubble selected, the panel explains how to read the map, gives a key, and lists the top 10 bugs by Value. The map is one tab stop: arrow keys, Home, and End move between bubbles in Value order, and Enter or Space selects one.
 
 The map keeps the rest of the page in step:
 
