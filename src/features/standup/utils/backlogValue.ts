@@ -19,6 +19,8 @@ export type RankedBacklogBug = BacklogBug & {
   adjustedEffort: number
   /** The exact value score. Ranking compares it unrounded; only the displayed text is rounded. */
   value: number
+  /** 1-based position among all of the team's open bugs, so it holds while the quick filter hides some; 1 when ranked alone. */
+  rank: number
   /** The bug's sprint relative to the team's sprints; it plays no part in the ranking. */
   sprint: BacklogSprint
 }
@@ -62,6 +64,7 @@ function rankWithSprint(bug: BacklogBug, resolveSprint: BacklogSprintResolver): 
     impactScore,
     adjustedEffort,
     value: ((severityScore * impactScore) / adjustedEffort) * VALUE_MULTIPLIER,
+    rank: 1,
     sprint: resolveSprint(bug.iterationPath),
   }
 }
@@ -101,7 +104,120 @@ export function compareRankedBacklogBugs(a: RankedBacklogBug, b: RankedBacklogBu
 /** Ranks the bugs and places each in the team's sprints, which are `iterations` (none until they load). */
 export function rankBacklogBugs(bugs: readonly BacklogBug[], iterations: readonly TeamIterationOption[] = []): RankedBacklogBug[] {
   const resolveSprint = createBacklogSprintResolver(iterations)
-  return bugs.map((bug) => rankWithSprint(bug, resolveSprint)).sort(compareRankedBacklogBugs)
+  const ranked = bugs.map((bug) => rankWithSprint(bug, resolveSprint)).sort(compareRankedBacklogBugs)
+  ranked.forEach((bug, index) => {
+    bug.rank = index + 1
+  })
+  return ranked
+}
+
+/** The lowest and highest Values a bug can score at the minimum effort, which bound the Value meter. */
+const VALUE_METER_MIN = ((SEVERITY_SCORES[4] * IMPACT_SCORES[4]) / MIN_ADJUSTED_EFFORT) * VALUE_MULTIPLIER
+const VALUE_METER_MAX = ((SEVERITY_SCORES[1] * IMPACT_SCORES[1]) / MIN_ADJUSTED_EFFORT) * VALUE_MULTIPLIER
+const VALUE_METER_FLOOR = 4
+
+/**
+ * How full the Value meter is, from 4 to 100. The scale is logarithmic because each severity and impact level
+ * multiplies the Value, so equal steps in the meter are equal steps in level. The bounds come from the formula, not
+ * the team's bugs, so a bar means the same thing on every team; a Value below the lowest bound keeps a sliver.
+ */
+export function getValueMeterPercent(value: number): number {
+  if (!(value > 0)) {
+    return VALUE_METER_FLOOR
+  }
+
+  const position = (Math.log(value) - Math.log(VALUE_METER_MIN)) / (Math.log(VALUE_METER_MAX) - Math.log(VALUE_METER_MIN))
+  return Math.min(100, Math.max(VALUE_METER_FLOOR, position * 100))
+}
+
+/** A number in the Value tooltip: at most one decimal, and none for a whole number ("4.8", "8", "96.8"). */
+export function formatValueTerm(value: number): string {
+  return String(Math.round(value * 10) / 10)
+}
+
+const SEVERITY_NAMES: Readonly<Record<number, string>> = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low' }
+const IMPACT_NAMES: Readonly<Record<number, string>> = {
+  1: 'most users hit it',
+  2: 'many users hit it',
+  3: 'some users hit it',
+  4: 'few users hit it',
+}
+
+export type SeverityDisplay = {
+  /** 1-4 when the Value scores the severity as written; undefined for a severity it cannot read. */
+  level: number | undefined
+  /** The severity's name, such as "Critical", or the severity as written when it has no level. */
+  name: string
+  /** "S1 · Critical", or the severity as written when it has no level. */
+  label: string
+}
+
+/** How the Severity column shows a picklist value such as "1 - Critical", or undefined when it is not set. */
+export function getSeverityDisplay(severity: string | undefined): SeverityDisplay | undefined {
+  const text = severity?.trim()
+  if (!text) {
+    return undefined
+  }
+
+  const level = parseLevel(text)
+  if (level === undefined || SEVERITY_SCORES[level] === undefined) {
+    return { level: undefined, name: text, label: text }
+  }
+
+  const name = text.replace(/^\d+\s*-?\s*/, '') || SEVERITY_NAMES[level]
+  return { level, name, label: `S${level} · ${name}` }
+}
+
+/** What a bug's Impact (its Priority) level means, such as "most users hit it", or undefined for an unknown level. */
+export function getImpactDescription(priority: number | undefined): string | undefined {
+  return priority === undefined ? undefined : IMPACT_NAMES[priority]
+}
+
+function describeSeverity(bug: RankedBacklogBug): string {
+  const display = getSeverityDisplay(bug.severity)
+  const score = formatValueTerm(bug.severityScore)
+  if (display?.level !== undefined) {
+    return `Severity ${bug.severity?.trim()} → ${score}`
+  }
+
+  const given = display ? `"${display.label}" has no level` : 'not set'
+  return `Severity ${given}, counted as ${DEFAULT_LEVEL} - ${SEVERITY_NAMES[DEFAULT_LEVEL]} → ${score}`
+}
+
+function describeImpact(bug: RankedBacklogBug): string {
+  const score = formatValueTerm(bug.impactScore)
+  const description = getImpactDescription(bug.priority)
+  if (description) {
+    return `Impact ${bug.priority}, ${description} → ${score}`
+  }
+
+  const given = bug.priority === undefined ? 'not set' : `${bug.priority} has no level`
+  return `Impact ${given}, counted as ${DEFAULT_LEVEL} → ${score}`
+}
+
+function describeEffort(bug: RankedBacklogBug): string {
+  if (bug.effort === undefined || !Number.isFinite(bug.effort)) {
+    return `Effort not set, counted as ${MIN_ADJUSTED_EFFORT} pts`
+  }
+
+  const effort = formatValueTerm(bug.effort)
+  return bug.effort < MIN_ADJUSTED_EFFORT
+    ? `Effort ${effort} pts, raised to the minimum ${MIN_ADJUSTED_EFFORT}`
+    : `Effort ${effort} pts`
+}
+
+/**
+ * The lines of the Value tooltip: the sum with its terms, then where each term came from, noting any assumed or
+ * raised input. Numbers are rounded to one decimal for reading, so the sum is approximate; the ranking is exact.
+ */
+export function describeBacklogValue(bug: RankedBacklogBug): string[] {
+  const terms = [bug.severityScore, bug.impactScore, bug.adjustedEffort].map(formatValueTerm)
+  return [
+    `Value ${formatValueTerm(bug.value)} = ${terms[0]} × ${terms[1]} ÷ ${terms[2]} × ${VALUE_MULTIPLIER}`,
+    describeSeverity(bug),
+    describeImpact(bug),
+    describeEffort(bug),
+  ]
 }
 
 const CREATED_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' })

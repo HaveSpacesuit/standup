@@ -3,6 +3,7 @@ import { normalizeQuickFilterText } from './boardFilters'
 import {
   formatAssignee,
   formatBacklogValue,
+  getSeverityDisplay,
   type RankedBacklogBug,
 } from './backlogValue'
 
@@ -14,11 +15,12 @@ function shown(value: string | number | undefined): string {
 }
 
 /**
- * The text each Backlog column shows for a bug; the Title column shows the title, then each tag. The quick filter
- * searches exactly these strings, so it matches what is visible in the table (the rounded Value, the sprint label)
- * and never hidden detail such as the iteration path or the Not set placeholder. A long state is shown abbreviated
- * with the full state in its tooltip, so both are listed. Age is left out: it is relative to today, so a filter on it
- * would stop matching as the bugs grow older.
+ * The text each Backlog column shows for a bug; the Bug column shows the id, the title, then each tag. The quick filter
+ * searches exactly these strings, so it matches what is visible in the table (the rounded Value, the "S1 · Critical"
+ * severity, the sprint label) and never hidden detail such as the iteration path or the Not set placeholder. A long
+ * state is shown abbreviated with the full state in its tooltip, so both are listed. Compact rows move the later tags
+ * and the assignee's name into tooltips, and they still match. Rank and Age are left out: they are positions and
+ * spans that shift as bugs are added and grow older, so a filter on them would stop matching.
  */
 export function getBacklogVisibleText(bug: RankedBacklogBug): string[] {
   const state = shown(bug.state)
@@ -28,13 +30,13 @@ export function getBacklogVisibleText(bug: RankedBacklogBug): string[] {
     formatBacklogValue(bug.value),
     bug.title,
     ...(bug.tags ?? []),
-    formatAssignee(bug.assignedTo) || UNASSIGNED_LABEL,
-    shortState,
-    ...(shortState === state ? [] : [state]),
-    bug.sprint.label,
-    shown(bug.severity),
+    getSeverityDisplay(bug.severity)?.label ?? '',
     shown(bug.priority),
     shown(bug.effort),
+    bug.sprint.label,
+    shortState,
+    ...(shortState === state ? [] : [state]),
+    formatAssignee(bug.assignedTo) || UNASSIGNED_LABEL,
   ]
 }
 

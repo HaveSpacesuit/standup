@@ -1,6 +1,6 @@
 import { useState, type RefObject } from 'react'
 import { BacklogList } from '../components/BacklogList'
-import { BacklogSettingsDialog } from '../components/BacklogSettingsDialog'
+import { BacklogOptionsDialog } from '../components/BacklogOptionsDialog'
 import { BacklogToolbar } from '../components/BacklogToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { TeamOption } from '../components/TeamToolbarControls'
@@ -26,6 +26,9 @@ type BacklogPageProps = {
   error: string | null
   /** When the backlog last loaded fresh from Azure DevOps, for the "Synced 5m ago" label. */
   syncedAt?: number | null
+  /** One-line rows; the team's compact density, shared with the Development and QA cards. */
+  compactRows?: boolean
+  onCompactRowsChange?: (compactRows: boolean) => void
 }
 
 export function BacklogPage({
@@ -44,6 +47,8 @@ export function BacklogPage({
   isLoading,
   error,
   syncedAt = null,
+  compactRows = false,
+  onCompactRowsChange = () => {},
 }: BacklogPageProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
@@ -69,13 +74,24 @@ export function BacklogPage({
       />
 
       {hasConfiguredTeams ? (
-        <BacklogList isLoading={isLoading} error={error} bugs={bugs} totalBugCount={totalBugCount} />
+        <BacklogList
+          isLoading={isLoading}
+          error={error}
+          bugs={bugs}
+          totalBugCount={totalBugCount}
+          compact={compactRows}
+        />
       ) : (
         <TeamConfigurationEmptyState pageLabel="Backlog" />
       )}
 
       {hasConfiguredTeams ? (
-        <BacklogSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <BacklogOptionsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          compactRows={compactRows}
+          onCompactRowsChange={onCompactRowsChange}
+        />
       ) : null}
     </>
   )

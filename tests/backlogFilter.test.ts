@@ -70,32 +70,39 @@ test('the visible text lists each column as the table shows it, in column order,
     'Data loss on Save',
     'needs triage',
     'regression',
-    'Ada Lovelace',
-    'Active',
-    'This sprint',
-    '1 - Critical',
+    'S1 · Critical',
     '1',
     '4',
+    'This sprint',
+    'Active',
+    'Ada Lovelace',
   ])
   assert.deepEqual(getBacklogVisibleText(minor), [
     '101',
     '2.5',
     'Minor glitch',
-    'Unassigned',
-    'New',
+    '',
+    '',
+    '',
     'Sprint 4 · ended',
-    '',
-    '',
-    '',
+    'New',
+    'Unassigned',
   ])
 })
 
 test('a long state lists its abbreviation and the full state from its tooltip', () => {
   const [testing] = rankBacklogBugs([createBug({ id: 9, state: 'Available for Testing' })])
 
-  assert.deepEqual(getBacklogVisibleText(testing).slice(3, 6), ['Unassigned', 'AFT', 'Available for Testing'])
+  assert.deepEqual(getBacklogVisibleText(testing).slice(-3), ['AFT', 'Available for Testing', 'Unassigned'])
   assert.equal(matchesBacklogQuickFilter(testing, 'aft'), true)
   assert.equal(matchesBacklogQuickFilter(testing, 'for testing'), true)
+})
+
+test('a severity matches as its chip reads, by level or by name', () => {
+  assert.deepEqual(idsFor('s1'), [102])
+  assert.deepEqual(idsFor('s3 · medium'), [103])
+  assert.deepEqual(idsFor('critical'), [102])
+  assert.deepEqual(idsFor('1 - critical'), [], 'the picklist text is not shown, so it does not match')
 })
 
 test('an empty or whitespace-only filter returns the same ranked list', () => {
@@ -127,8 +134,8 @@ test('each column narrows to the bugs that show the text', () => {
   assert.deepEqual(idsFor('2.5'), [101], 'Value')
   assert.deepEqual(idsFor('glitch'), [101], 'Title')
   assert.deepEqual(idsFor('perf'), [103], 'Tags')
-  assert.deepEqual(idsFor('lovelace'), [102], 'Assigned To')
-  assert.deepEqual(idsFor('unassigned'), [101], 'Assigned To, when nobody is')
+  assert.deepEqual(idsFor('lovelace'), [102], 'Assigned to')
+  assert.deepEqual(idsFor('unassigned'), [101], 'Assigned to, when nobody is')
   assert.deepEqual(idsFor('resolved'), [103], 'State')
   assert.deepEqual(idsFor('this sprint'), [102], 'Sprint')
   assert.deepEqual(idsFor('ended'), [101], 'Sprint')

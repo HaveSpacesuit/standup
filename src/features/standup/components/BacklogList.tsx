@@ -11,9 +11,11 @@ type BacklogListProps = {
   bugs: RankedBacklogBug[]
   /** The number of open bugs before the quick filter. */
   totalBugCount: number
+  /** One line per bug. */
+  compact?: boolean
 }
 
-export function BacklogList({ isLoading, error, bugs, totalBugCount }: BacklogListProps) {
+export function BacklogList({ isLoading, error, bugs, totalBugCount, compact = false }: BacklogListProps) {
   if (isLoading) {
     return <BacklogLoadingState />
   }
@@ -64,5 +66,5 @@ export function BacklogList({ isLoading, error, bugs, totalBugCount }: BacklogLi
     )
   }
 
-  return <BacklogTable bugs={bugs} />
+  return <BacklogTable bugs={bugs} compact={compact} />
 }
