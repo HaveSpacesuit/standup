@@ -26,6 +26,7 @@ const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { PageToolbar } = await server.ssrLoadModule('/src/features/standup/components/PageToolbar.tsx')
 const { StandupToolbar } = await server.ssrLoadModule('/src/features/standup/components/StandupToolbar.tsx')
 const { QualityAssuranceToolbar } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceToolbar.tsx')
+const { QualityAssurancePage } = await server.ssrLoadModule('/src/features/standup/pages/QualityAssurancePage.tsx')
 const { TeamToolbarControls } = await server.ssrLoadModule('/src/features/standup/components/TeamToolbarControls.tsx')
 const { TeamSelectorCard } = await server.ssrLoadModule('/src/features/standup/components/TeamSelectorCard.tsx')
 const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoardGrid.tsx')
@@ -208,16 +209,48 @@ function renderQaToolbar(overrides: Record<string, unknown> = {}) {
   return dom
 }
 
-test('the Development view toggle names People and Sprint in visible text', () => {
+test('the Development view toggle names Developers and Sprint in visible text', () => {
   const dom = renderDevelopmentToolbar()
   try {
     const toggles = [...dom.window.document.querySelectorAll('[aria-label="Assignments board view"] button')]
     assert.deepEqual(toggles.map((button) => [button.textContent, button.getAttribute('aria-pressed'), button.getAttribute('aria-label')]), [
-      ['People', 'true', null],
+      ['Developers', 'true', null],
       ['Sprint', 'false', null],
     ])
   } finally {
     dom.window.close()
+  }
+})
+
+test('the QA page opens on Testers, listed first, and its Flow icon differs from Sprint\'s', () => {
+  const development = renderDevelopmentToolbar()
+  const qa = new JSDOM(render(createElement(QualityAssurancePage, {
+    patConfigured: true,
+    teamOptions: [],
+    selectedTeamId: '',
+    quickFilterInput: '',
+    quickFilterInputRef: { current: null },
+    buckets: [],
+    isLoading: false,
+    newItemsError: null,
+    historyWarning: null,
+  })))
+  try {
+    const toggles = (dom: JSDOM, label: string) => [...dom.window.document.querySelectorAll(`[aria-label="${label}"] button`)]
+    const icon = (button: Element) => button.querySelector('use')?.getAttribute('href')
+    const [testers, flow] = toggles(qa, 'QA board view')
+    const [developers, sprint] = toggles(development, 'Assignments board view')
+    assert.deepEqual([testers, flow].map((button) => [button.textContent, button.getAttribute('aria-pressed')]), [
+      ['Testers', 'true'],
+      ['Flow', 'false'],
+    ])
+    for (const button of [testers, flow, developers, sprint]) assert.ok(icon(button))
+    // Both lane views share the people icon, but Flow and Sprint must not look alike.
+    assert.equal(icon(testers), icon(developers))
+    assert.notEqual(icon(flow), icon(sprint))
+  } finally {
+    development.window.close()
+    qa.window.close()
   }
 })
 
@@ -602,7 +635,7 @@ test('a removed card is a dashed outline with struck effort that says where it w
   }
 })
 
-test('the sprint lens adds a flow line to each column header, and the People board does not', () => {
+test('the sprint lens adds a flow line to each column header, and the Developers board does not', () => {
   const day = 24 * 60 * 60 * 1000
   const sprintStart = Date.now() - 6 * day
   const props = {

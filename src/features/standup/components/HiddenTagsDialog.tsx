@@ -261,7 +261,7 @@ export function HiddenTagsDialog({
                   )}
                 />
                 <Typography variant="body-sm" color="text.secondary" sx={{ mt: 2, mb: 0.5 }}>
-                  Extend the People-view standup after developer turns with QA tester lanes.
+                  Extend the standup with QA tester lanes after the developers' turns.
                 </Typography>
                 <FormControlLabel
                   label="Include QA testers in standup"

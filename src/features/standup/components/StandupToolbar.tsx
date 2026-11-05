@@ -278,7 +278,7 @@ export function StandupToolbar({
                 aria-label="Assignments board view"
               >
                 <ToggleButton value="assignment" render={<Button size="small" startIcon={<Icon href={svgUsers} />} />}>
-                  People
+                  Developers
                 </ToggleButton>
                 <ToggleButton value="sprint" render={<Button size="small" startIcon={<Icon href={svgTimeline} />} />}>
                   Sprint

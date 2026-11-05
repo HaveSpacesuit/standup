@@ -12,7 +12,7 @@ export type AssignmentOptions = {
   sprintFilter: AssignmentSprintFilter
   /** Show Development cards as a title and one status line, with full details on hover or focus. */
   compactCards: boolean
-  /** Add QA tester lanes after developer lanes during a People-view standup. */
+  /** Add QA tester lanes after developer lanes during a Developers view standup. */
   includeQaTestersInStandup: boolean
 }
 
