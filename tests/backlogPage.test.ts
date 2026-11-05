@@ -6,6 +6,15 @@ import { createServer } from 'vite'
 import { JSDOM } from 'jsdom'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>')
+// The assignee avatars read the saved PAT from the bare storage globals.
+for (const name of ['localStorage', 'sessionStorage']) {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, name)
+  Object.defineProperty(globalThis, name, { configurable: true, value: { getItem: () => null } })
+  after(() => {
+    if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+    else Reflect.deleteProperty(globalThis, name)
+  })
+}
 Object.assign(globalThis, {
   window: dom.window,
   document: dom.window.document,
@@ -152,13 +161,20 @@ async function waitFor(condition: () => boolean) {
 }
 
 const cellTexts = (row: Element) => [...row.querySelectorAll('th, td')].map((cell) => cell.textContent)
+// The text a sighted user reads: without decorative (aria-hidden) parts such as the avatar initial or the "?" mark.
+function visibleText(element: Element) {
+  const copy = element.cloneNode(true) as Element
+  copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove())
+  return copy.textContent ?? ''
+}
 const button = (host: Element, label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
 const dialog = () => document.querySelector('[role="dialog"]')
 const quickFilter = (host: Element) => host.querySelector<HTMLInputElement>('input[aria-label="Quick filter bugs"]')!
 const clearFilterButton = (host: Element) => host.querySelector<HTMLButtonElement>('button[aria-label="Clear quick filter"]')
-const listedIds = (host: Element) => [...host.querySelectorAll('tbody tr')].map((row) => Number(row.querySelector('td')!.textContent))
-const titleCell = (host: Element, id: number) =>
-  [...host.querySelectorAll('tbody tr')].find((row) => row.querySelector('td')!.textContent === String(id))!.querySelector('td:nth-child(3)')!
+const rowId = (row: Element) => Number(row.querySelector('.backlog-bug-id')!.textContent)
+const listedIds = (host: Element) => [...host.querySelectorAll('tbody tr')].map(rowId)
+const rowFor = (host: Element, id: number) => [...host.querySelectorAll('tbody tr')].find((row) => rowId(row) === id)!
+const titleCell = (host: Element, id: number) => rowFor(host, id).querySelector('td:nth-child(3)')!
 const tagTexts = (cell: Element) => [...cell.querySelectorAll('li')].map((item) => item.textContent)
 
 // React tracks an input's value, so typing has to go through the native setter for the change to be noticed.
@@ -178,6 +194,21 @@ function declaredStyle(element: Element) {
   const visit = (rules: CSSRuleList) => {
     for (const rule of Array.from(rules) as Array<CSSStyleRule & CSSGroupingRule>) {
       if (rule.selectorText && classes.has(rule.selectorText.replace(/^\./, ''))) matched.push(rule.style)
+      if (rule.cssRules) visit(rule.cssRules)
+    }
+  }
+  for (const sheet of Array.from(document.styleSheets)) visit(sheet.cssRules)
+  return (property: string) => matched.map((style) => style.getPropertyValue(property)).findLast(Boolean) ?? ''
+}
+
+/** Like declaredStyle, for a rule an element's sx sets on a descendant, such as `& .child`. */
+function nestedStyle(element: Element, descendant: string) {
+  const prefixes = Array.from(element.classList, (name) => `.${name}`)
+  const matched: CSSStyleDeclaration[] = []
+  const visit = (rules: CSSRuleList) => {
+    for (const rule of Array.from(rules) as Array<CSSStyleRule & CSSGroupingRule>) {
+      const selector = rule.selectorText?.replace(/\s+/g, ' ')
+      if (selector && prefixes.some((prefix) => selector === `${prefix} ${descendant}`)) matched.push(rule.style)
       if (rule.cssRules) visit(rule.cssRules)
     }
   }
@@ -233,27 +264,62 @@ test('the table lists the ranked bugs under the required columns', async (t) => 
 
   assert.equal(host.querySelector('table')?.getAttribute('aria-label'), 'Open bugs ranked by value')
   assert.deepEqual(cellTexts(host.querySelector('thead tr')!), [
-    'ID', 'Value', 'Title', 'Age', 'Assigned To', 'State', 'Sprint', 'Severity', 'Impact', 'Effort',
+    '#Rank', 'Value', 'Bug', 'Severity', 'Impact', 'Effort', 'Age', 'Sprint', 'State', 'Assigned to',
   ])
 
   const rows = [...host.querySelectorAll('tbody tr')]
-  assert.deepEqual(rows.map(cellTexts), [
-    ['102', '213.0', 'Data loss (opens in a new tab) needs triage regression', ageText('2026-03-01T10:00:00Z'), 'Ada Lovelace', 'Active', 'This sprint', '1 - Critical', '1', '4'],
-    ['103', '11.0', 'Slow page (opens in a new tab)', ageText('2026-02-01T10:00:00Z'), 'grace@example.com', 'Active', 'Backlog', '3 - Medium', '2', '8'],
-    ['101', '2.5', 'Minor glitch (opens in a new tab)', ageText('2026-01-10T09:00:00Z'), 'Unassigned', 'New', 'Sprint 4 · ended', '?Not set', '?Not set', '?Not set'],
+  assert.deepEqual(rows.map((row) => [...row.querySelectorAll('td')].map(visibleText)), [
+    ['1', '213.0', '102 Data loss (opens in a new tab) needs triage regression', 'S1 · Critical', '1', '4', 'Created ' + formatCreatedDate('2026-03-01T10:00:00Z'), 'This sprint', 'Active', 'Ada Lovelace'],
+    ['2', '11.0', '103 Slow page (opens in a new tab)', 'S3 · Medium', '2', '8', 'Created ' + formatCreatedDate('2026-02-01T10:00:00Z'), 'Backlog', 'Active', 'grace@example.com'],
+    ['3', '2.5', '101 Minor glitch (opens in a new tab)', 'Not set', 'Not set', 'Not set', 'Created ' + formatCreatedDate('2026-01-10T09:00:00Z'), 'Sprint 4 · ended', 'New', 'Unassigned'],
   ])
+  assert.equal(cellTexts(rows[0])[6], ageText('2026-03-01T10:00:00Z'), 'the age is shown, and the date read out')
   assert.equal(rows[0].querySelector('time')!.getAttribute('datetime'), '2026-03-01T10:00:00Z')
   assert.equal(rows[0].querySelector('time [aria-hidden="true"]')!.textContent, formatDayCount(getBacklogAgeDays('2026-03-01T10:00:00Z')))
 })
 
-test('an unassigned bug says so in muted text', async (t) => {
+test('the rank is the place among all open bugs, so it holds while the quick filter hides some', async (t) => {
+  const host = await render(t, { bugs: filterBacklogBugs(bugs, 'medium'), totalBugCount: bugs.length })
+
+  const [row] = [...host.querySelectorAll('tbody tr')]
+  assert.equal(rowId(row), 103)
+  assert.equal(row.querySelector('td')!.textContent, '2')
+})
+
+test('the Value has a meter that fills on a log scale and is hidden from screen readers', async (t) => {
   const host = await render(t)
 
-  const unassigned = host.querySelector('tbody tr:last-child')!
-  assert.equal(unassigned.querySelector('td:nth-child(1)')!.textContent, '101')
-  const label = unassigned.querySelector('td:nth-child(5) > span')!
+  const meters = [...host.querySelectorAll('tbody td:nth-child(2) span[aria-hidden="true"]')]
+  assert.equal(meters.length, bugs.length)
+  const widths = meters.map((meter) => (meter.firstElementChild as HTMLElement).style.width)
+  assert.deepEqual(widths, ['100%', '33.3%', '4%'], 'the highest Value fills it; the lowest at the minimum effort keeps a sliver')
+})
+
+test('an unassigned bug says so in muted text, and an assignee has an avatar beside the name', async (t) => {
+  const host = await render(t)
+
+  const unassigned = rowFor(host, 101)
+  const label = unassigned.querySelector('td:nth-child(10) > span')!
   assert.equal(label.textContent, 'Unassigned')
   assert.equal(declaredStyle(label)('color'), 'var(--stratakit-color-text-neutral-tertiary)')
+
+  const assigned = rowFor(host, 102).querySelector('td:nth-child(10)')!
+  const avatar = assigned.querySelector('.MuiAvatar-root')!
+  assert.equal(avatar.getAttribute('aria-hidden'), 'true', 'the initial is not read before the name')
+  assert.equal(avatar.textContent, 'A')
+  assert.equal(visibleText(assigned), 'Ada Lovelace')
+})
+
+test('a New bug shows its state in muted text, and any other state is a badge', async (t) => {
+  const host = await render(t)
+
+  const fresh = rowFor(host, 101).querySelector('td:nth-child(9)')!
+  assert.equal(fresh.querySelector('.MuiBadge-badge'), null)
+  assert.equal(declaredStyle(fresh.firstElementChild!)('color'), 'var(--stratakit-color-text-neutral-tertiary)')
+
+  const active = rowFor(host, 102).querySelector('td:nth-child(9) .MuiBadge-badge')!
+  assert.equal(active.textContent, 'Active')
+  assert.ok(active.matches('.MuiBadge-inline[data-_sk-type="outlined"]'))
 })
 
 test('a long state is abbreviated as on the cards, with the full state for screen readers', async (t) => {
@@ -261,20 +327,51 @@ test('a long state is abbreviated as on the cards, with the full state for scree
     bugs: rankBacklogBugs([{ id: 501, title: 'Ready', state: 'Available for Testing', workItemUrl: workItemUrl(501) }]),
   })
 
-  const state = host.querySelector('tbody td:nth-child(6)')!
+  const state = host.querySelector('tbody td:nth-child(9)')!
   assert.equal(state.querySelector('[aria-hidden="true"]')!.textContent, 'AFT')
+  assert.equal(state.querySelector('[aria-hidden="true"] .MuiBadge-badge')!.textContent, 'AFT')
   assert.equal(state.textContent, 'AFTAvailable for Testing')
+})
+
+test('the severity is a chip whose color climbs with the level', async (t) => {
+  const host = await render(t, {
+    bugs: rankBacklogBugs(['1 - Critical', '2 - High', '3 - Medium', '4 - Low', 'Blocker'].map((severity, index) => ({
+      id: 601 + index,
+      title: severity,
+      severity,
+      workItemUrl: workItemUrl(601 + index),
+    }))),
+  })
+
+  const chip = (id: number) => rowFor(host, id).querySelector('td:nth-child(4) > span')!
+  assert.deepEqual([601, 602, 603, 604, 605].map((id) => chip(id).textContent), [
+    'S1 · Critical', 'S2 · High', 'S3 · Medium', 'S4 · Low', 'Blocker',
+  ])
+  assert.deepEqual([601, 602, 603, 604, 605].map((id) => chip(id).getAttribute('data-level')), ['1', '2', '3', '4', null])
+  assert.equal(chip(601).querySelector('b')!.textContent, 'S1', 'the level stands out from the name')
 })
 
 test('a missing severity, impact, or effort is marked as assumed by the Value', async (t) => {
   const host = await render(t)
 
-  const marks = [...host.querySelectorAll('tbody tr:last-child td')].slice(7)
-  assert.deepEqual(marks.map((cell) => cell.querySelector('[aria-hidden="true"]')?.textContent), ['?', '?', '?'])
+  const cells = [...rowFor(host, 101).querySelectorAll('td')]
+  const severity = cells[3].firstElementChild!
+  assert.equal(severity.textContent, 'Not set')
+  assert.match(declaredStyle(severity)('border'), /dashed/)
+
+  const marks = cells.slice(4, 6)
+  assert.deepEqual(marks.map((cell) => cell.querySelector('[aria-hidden="true"]')?.textContent), ['?', '?'])
   for (const cell of marks) {
-    const mark = cell.firstElementChild!
-    assert.match(declaredStyle(mark)('border'), /dashed/)
+    assert.match(declaredStyle(cell.firstElementChild!)('border'), /dashed/)
   }
+})
+
+test('Impact shows signal bars that fill as more users hit the bug', async (t) => {
+  const host = await render(t)
+
+  const bars = (id: number) => [...rowFor(host, id).querySelectorAll('td:nth-child(5) [aria-hidden="true"] > span')]
+  assert.deepEqual(bars(102).map((bar) => bar.hasAttribute('data-on')), [true, true, true, true], 'Impact 1: most users')
+  assert.deepEqual(bars(103).map((bar) => bar.hasAttribute('data-on')), [true, true, true, false], 'Impact 2')
 })
 
 test('Effort shows the entered value while the Value uses the minimum effort', async (t) => {
@@ -289,8 +386,9 @@ test('Effort shows the entered value while the Value uses the minimum effort', a
   const host = await render(t, { bugs: lowEffort })
 
   const [row] = [...host.querySelectorAll('tbody tr')]
-  assert.equal(cellTexts(row)[9], '2', 'the Effort as entered')
+  assert.equal(cellTexts(row)[5], '2', 'the Effort as entered')
   assert.equal(cellTexts(row)[1], '48.4', 'scored as if the effort were 4')
+  assert.equal(declaredStyle(row.querySelector('td:nth-child(6) > span')!)('text-decoration-style'), 'dotted', 'marked as raised')
 })
 
 test('each title links to its work item in a new tab', async (t) => {
@@ -331,8 +429,8 @@ test('a bug without tags shows only its title, whether the tag list is missing o
     ]),
   })
 
-  assert.equal(titleCell(host, 401).textContent, 'No tag list (opens in a new tab)')
-  assert.equal(titleCell(host, 402).textContent, 'Empty tag list (opens in a new tab)')
+  assert.equal(titleCell(host, 401).textContent, '401 No tag list (opens in a new tab)')
+  assert.equal(titleCell(host, 402).textContent, '402 Empty tag list (opens in a new tab)')
   assert.equal(host.querySelector('tbody ul'), null, 'no empty list is left behind')
 })
 
@@ -466,14 +564,14 @@ test('every cell the table shows can be found with the quick filter', async (t) 
   let tagsChecked = 0
   for (const row of host.querySelectorAll('tbody tr')) {
     const cells = [...row.querySelectorAll('td')]
-    const id = Number(cells[0].textContent)
-    // The Title cell shows the title and then one badge per tag, and the filter searches each of them on its own.
-    // Age is relative to today, so it is left out of the filter on purpose.
+    const id = rowId(row)
+    // The Bug cell shows the id, the title, and then one badge per tag, and the filter searches each of them on its own.
+    // Rank and Age shift as bugs come and go and grow older, so they are left out of the filter on purpose.
     const tags = [...cells[2].querySelectorAll('li')]
     tagsChecked += tags.length
-    const shown = [cells[0], cells[1], cells[2].querySelector('a')!, ...tags, ...cells.slice(4)]
-      .map((element) => (element.textContent ?? '').replace(' (opens in a new tab)', ''))
-    for (const text of shown.filter((cell) => cell && cell !== '?Not set')) {
+    const shown = [cells[2].querySelector('.backlog-bug-id')!, cells[1], cells[2].querySelector('a')!, ...tags, ...cells.slice(3, 6), ...cells.slice(7)]
+      .map((element) => visibleText(element).replace(' (opens in a new tab)', ''))
+    for (const text of shown.filter((cell) => cell && cell !== 'Not set')) {
       assert.ok(filterBacklogBugs(bugs, text).some((bug) => bug.id === id), `"${text}" is shown for bug ${id}`)
     }
   }
@@ -483,14 +581,47 @@ test('every cell the table shows can be found with the quick filter', async (t) 
 test('visually hidden text is 1px and anchored to the scrolling table so it cannot widen the page', async (t) => {
   const host = await render(t)
 
-  const hidden = [...host.querySelectorAll('tbody span')]
-    .filter((span) => /^(\s\(opens in a new tab\)|Not set|Created .+)$/.test(span.textContent ?? ''))
-  assert.equal(hidden.length, bugs.length * 2 + 3, 'a new-tab note and a created date per bug, plus the three missing values')
+  const hidden = [...host.querySelectorAll('tbody span')].filter((span) => declaredStyle(span)('clip-path') === 'inset(50%)')
+  assert.deepEqual(
+    hidden.map((span) => span.textContent!.replace(/^Created .+$/, 'Created')).sort(),
+    [...Array(bugs.length).fill(' (opens in a new tab)'), ...Array(bugs.length).fill('Created'), 'Not set', 'Not set'].sort(),
+    'a new-tab note and a created date per bug, plus the missing impact and effort',
+  )
   for (const span of hidden) {
     const style = declaredStyle(span)
     assert.deepEqual([style('position'), style('width'), style('height')], ['absolute', '1px', '1px'])
   }
   assert.equal(declaredStyle(host.querySelector('.MuiTableContainer-root')!)('position'), 'relative')
+})
+
+test('compact rows keep one line: the first tag, then a count of the rest, and the avatar without the name', async (t) => {
+  const host = await render(t, { compactRows: true })
+
+  const cell = titleCell(host, 102)
+  assert.deepEqual(tagTexts(cell), ['needs triage', '+1and regression'])
+  assert.equal(cell.querySelectorAll('.MuiBadge-badge').length, 1)
+  const wrapper = cell.firstElementChild!
+  assert.equal(declaredStyle(wrapper)('white-space'), 'nowrap')
+  assert.equal(nestedStyle(wrapper, '.backlog-bug-title')('text-overflow'), 'ellipsis', 'only the title gives way')
+  assert.equal(nestedStyle(wrapper, '.backlog-bug-title')('overflow'), 'hidden')
+  assert.equal(cell.querySelector('a .backlog-bug-title')?.textContent, 'Data loss')
+
+  const assignee = rowFor(host, 102).querySelector('td:nth-child(10)')!
+  assert.ok(assignee.querySelector('.MuiAvatar-root'))
+  assert.equal(visibleText(assignee), 'Ada Lovelace', 'the name is still read out')
+  const name = [...assignee.querySelectorAll('span')].find((span) => span.textContent === 'Ada Lovelace')!
+  assert.equal(declaredStyle(name)('clip-path'), 'inset(50%)', 'but only for screen readers')
+
+  const filtered = filterBacklogBugs(bugs, 'regression')
+  assert.deepEqual(filtered.map((bug) => bug.id), [102], 'a tag counted in "+1" still matches the quick filter')
+})
+
+test('comfortable rows list every tag and the assignee name', async (t) => {
+  const host = await render(t)
+
+  assert.deepEqual(tagTexts(titleCell(host, 102)), ['needs triage', 'regression'])
+  assert.equal(declaredStyle(titleCell(host, 102).firstElementChild!)('white-space'), '')
+  assert.equal(nestedStyle(titleCell(host, 102).firstElementChild!, '.backlog-bug-title')('text-overflow'), '')
 })
 
 test('the header counts the listed bugs, out of all of them while a filter hides some', async (t) => {
@@ -575,16 +706,22 @@ test('Refresh calls back to the app', async (t) => {
   assert.equal(refreshes, 1)
 })
 
-test('the options button opens a placeholder dialog that Close dismisses', async (t) => {
-  const host = await render(t)
+test('the options dialog sets compact rows, the density shared with the Development and QA cards', async (t) => {
+  const changes: boolean[] = []
+  const host = await render(t, { compactRows: false, onCompactRowsChange: (next: boolean) => changes.push(next) })
   assert.equal(dialog(), null)
 
   await act(async () => button(host, 'Backlog options').click())
 
   const opened = dialog()!
-  assert.ok(opened)
   assert.equal(document.getElementById(opened.getAttribute('aria-labelledby')!)?.textContent, 'Backlog options')
-  assert.match(opened.textContent!, /no options yet/)
+  const checkbox = [...opened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+    .find((input) => input.closest('label')?.textContent === 'Compact rows')!
+  assert.equal(checkbox.checked, false)
+  assert.match(document.getElementById(checkbox.getAttribute('aria-describedby')!)!.textContent!, /Development and QA/)
+
+  await act(async () => checkbox.click())
+  assert.deepEqual(changes, [true])
 
   await act(async () => [...opened.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
   await waitFor(() => dialog() === null)

@@ -171,7 +171,8 @@ progress, the next step and who it is waiting on, what recently changed, and agi
 sprint on the right. Hover over or focus a card to see the full card along with its state, sprint,
 owner, last change, and each PR's title, repository, and checks. The setting is saved per team in
 browser local storage, is included in team exports, and applies to the Developers board, the Sprint
-view, and the QA board, where Recently completed cards are always compact.
+view, and the QA board, where Recently completed cards are always compact. Backlog options shows the
+same setting as "Compact rows".
 
 A sprint ribbon above the board, in both views, keeps sprint context on one line: the current
 sprint's name and dates (hover for the full iteration path), working-day progress ("Day 5 of 10",
@@ -265,19 +266,26 @@ Recently completed state precedence, and explicit tag-based grouping, are unchan
 
 ### Backlog view
 
-The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, the team selector (its menu ends with **Manage team**), a Backlog options button (a placeholder dialog for now), a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
+The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
 
-The table has no sorting, column filtering, or selection, and rows highlight when hovered. Its columns are:
+The table has no sorting, column filtering, or selection, and rows highlight when hovered. The columns run from why a bug ranks where it does to who has it:
 
-- **ID**, then **Value**, so the score that orders the list sits beside the bug it ranks.
-- **Title**: a link that opens the bug in a new tab, followed by the bug's tags as outlined badges in alphabetical order.
+- **#**: the bug's rank among all of the team's open bugs. It stays the same while the quick filter hides other bugs, so "#14" means the same thing filtered or not.
+- **Value**, with a sort icon in its header because the list is ordered by it. A short meter beside the number shows its size on a log scale, so each Severity or Impact level is an equal step. The meter's ends come from the formula (2.5 to 213.0), not the team's bugs, so a full bar means the same on every team. Hover the Value for its sum, such as "Value 96.8 = 4.8 × 8 ÷ 4 × 10", and where each term came from, including any input the Value assumed or raised. The tooltip's numbers are rounded to one decimal, or none for whole numbers.
+- **Bug**: the ID in bold, then the title as a link that opens the bug in a new tab, then the bug's tags as outlined badges in alphabetical order.
+- **Severity**: a chip such as "S1 · Critical" whose dot and color step up with the severity: red for 1, amber for 2, neutral for 3, and muted for 4. An empty Severity shows a dashed amber **Not set** chip, since the bug may rank too low; a severity the Value cannot read is shown as written in a neutral chip.
+- **Impact**: the bug's Priority field, a stand-in for how many users hit the bug, as four signal bars (Impact 1 fills all four) beside the level. Hover it for what the level means and its score.
+- **Effort**: as entered. An Effort below 4 is underlined with dots, and its tooltip says the Value counts it as 4.
 - **Age**: how long ago the bug was created, such as "9d", "3w", "4mo", or "1y" (the same units as the Development board); hover it for the date.
-- **Assigned To**: "Unassigned" in muted text when nobody is.
-- **State**: a state of three or more words is abbreviated as on the cards, such as AFT for Available for Testing, with the full state in its tooltip.
 - **Sprint**: where the bug's iteration sits among the team's sprints: **This sprint** (highlighted), **Next sprint**, a later sprint's name, a past sprint marked "· ended" with a warning icon (the bug was planned but not finished), or **Backlog** for any other iteration. Hover it for the sprint's dates or the full iteration path. Until the team's sprints load, it shows the last segment of the iteration path.
-- **Severity**, **Impact**, and **Effort**. Impact is the bug's Priority field, a stand-in for how often users encounter the bug. Effort is shown as entered; only the Value calculation raises it to a minimum of 4. When one of the three is empty, the cell shows a dashed **?** whose tooltip says what the Value assumes in its place.
+- **State**: New, where most bugs wait, is muted text; any other state is an outlined badge so work under way stands out. A state of three or more words is abbreviated as on the cards, such as AFT for Available for Testing, with the full state in its tooltip.
+- **Assigned to**: the assignee's avatar and name, or "Unassigned" in muted text when nobody is.
 
-The quick filter keeps the bugs whose visible text contains what you type, checking each column as the table displays it: the ID, the rounded Value, Title, each of the bug's tags, Assigned To (including "Unassigned"), State (both the abbreviation and the full state), Sprint, Severity, Impact, and Effort. Because it matches what is shown, it does not search the iteration path behind a Sprint label, the unrounded Value, the created date, or the marks that stand in for missing values. Age is left out because it changes every day. Matching ignores case and surrounding spaces. The remaining bugs keep their ranked order, and a message appears when none match. The filter text is kept when you refresh, switch teams, or visit another page, but not across a browser reload. / or Ctrl/Cmd + F focuses it.
+When Impact or Effort is empty, the cell shows a dashed **?** whose tooltip says what the Value assumes in its place.
+
+Backlog options > Display has **Compact rows**, the same setting as Compact cards on Development and Quality Assurance, so turning it on in one place turns it on in all three. Compact rows keep each bug to one line: a long title ends in an ellipsis with the full title in its tooltip, only the first tag shows, followed by "+N" whose tooltip lists the rest, and Assigned to shows only the avatar, with the name in its tooltip.
+
+The quick filter keeps the bugs whose visible text contains what you type, checking each column as the table displays it: the ID, the rounded Value, the title, each of the bug's tags (including those behind "+N" in compact rows), Severity as its chip reads ("S1 · Critical"), Impact, Effort, Sprint, State (both the abbreviation and the full state), and Assigned to (including "Unassigned"). Because it matches what is shown, it does not search the iteration path behind a Sprint label, the unrounded Value, the Severity picklist text ("1 - Critical"), the created date, or the marks that stand in for missing values. Rank and Age are left out because they shift as bugs are added and grow older, so a filter on them would stop matching. Matching ignores case and surrounding spaces. The remaining bugs keep their ranked order, and a message appears when none match. The filter text is kept when you refresh, switch teams, or visit another page, but not across a browser reload. / or Ctrl/Cmd + F focuses it.
 
 Value is `((SeverityScore * ImpactScore) / AdjustedEffort) * 10`, shown to one decimal place:
 

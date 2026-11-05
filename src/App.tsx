@@ -323,6 +323,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           isLoading: backlogBugsLoading,
           error: backlogBugsError,
           syncedAt: backlogSyncedAt,
+          compactRows: assignmentOptions.compactCards,
+          onCompactRowsChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, compactCards: next }),
         }}
       />
     </Box>

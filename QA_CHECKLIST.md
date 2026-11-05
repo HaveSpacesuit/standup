@@ -522,8 +522,10 @@ Prepare data that exercises both populated and empty states:
       now"; the label ages over time, and switching pages and back without Refresh does not reset it.
 - [ ] Press Ctrl/Cmd + F on Backlog and verify focus moves to the quick filter (selecting any text in
       it) rather than opening the browser's find.
-- [ ] Open Backlog options; verify the placeholder dialog opens, closes with Close and Escape, and
-      returns focus to the options button.
+- [ ] Open Backlog options; verify the dialog has a Display section with Compact rows, closes with
+      Close and Escape, and returns focus to the options button.
+- [ ] Verify Compact rows matches Compact cards in Development options: turning either on turns on
+      both, and the setting persists per team across a reload.
 - [ ] Verify Manage team opens the selected team's Azure DevOps page in a new tab.
 
 ### Data scope
@@ -539,21 +541,33 @@ Prepare data that exercises both populated and empty states:
 
 ### Table
 
-- [ ] Verify the columns are, in order: ID, Value, Title, Age, Assigned To, State, Sprint, Severity,
-      Impact, and Effort.
+- [ ] Verify the columns are, in order: # (rank), Value, Bug, Severity, Impact, Effort, Age, Sprint,
+      State, and Assigned to.
+- [ ] Verify # numbers the bugs 1, 2, 3… in ranked order, and a bug keeps its number while the quick
+      filter hides others; a screen reader reads the header as Rank.
+- [ ] Verify Value shows a sort icon in its header, and its header tooltip explains the order and the
+      formula.
+- [ ] Verify each Value has a short meter: 213.0 fills it, 2.5 leaves a sliver, and the bars grow in
+      equal steps per Severity or Impact level rather than in proportion to the number. Verify the
+      meter is readable in light and dark mode and is not announced by a screen reader.
+- [ ] Hover a Value and verify the tooltip shows the sum in bold (such as "Value 96.8 = 4.8 × 8 ÷ 4 ×
+      10") with one line each for Severity, Impact, and Effort; that its numbers have at most one
+      decimal, with none for whole numbers; that it notes any assumed or raised input; and that it
+      says nothing about tie-breaks.
 - [ ] Verify the table has no sorting, column filtering, selection, or row-click behavior, and that the
       title links are its only interactive elements.
 - [ ] Hover over the rows and verify the row under the pointer is highlighted in both light and dark
       mode, the highlight follows the pointer from row to row, and the pinned column headers never
       highlight.
-- [ ] Verify each Title opens the bug in Azure DevOps in a new tab with safe link attributes, and that
-      a screen reader announces the new-tab behavior.
+- [ ] Verify each Bug cell shows the ID in bold before the title, and each title opens the bug in
+      Azure DevOps in a new tab with safe link attributes, and that a screen reader announces the
+      new-tab behavior.
 - [ ] Verify a bug with tags in Azure DevOps lists them after its title as outlined badges, in
       alphabetical order ignoring case, in both light and dark mode, and a bug without tags shows only
       its title. A numeric tag such as 2026 is shown as written, not as 99+.
 - [ ] Verify the tag badges cannot be clicked or focused, and that a screen reader reads them as a
       list named Tags after the title link rather than as part of the link text.
-- [ ] Verify a bug with many or long tags wraps them onto further lines within the Title column,
+- [ ] Verify a bug with many or long tags wraps them onto further lines within the Bug column,
       without widening the table or indenting the wrapped lines.
 - [ ] Verify Age shows how long ago each bug was created in coarsening units (13d, 2w, 4mo, 1y), its
       tooltip shows the created date, and a screen reader reads the created date.
@@ -562,11 +576,21 @@ Prepare data that exercises both populated and empty states:
       sprint, and Backlog for any other iteration; hover each to see the sprint dates or the path.
 - [ ] Verify a state of three or more words, such as Available for Testing, shows its abbreviation
       (AFT) with the full state in its tooltip, and a screen reader reads the full state.
-- [ ] Verify Impact shows the bug's Priority value, Severity shows the Azure DevOps label, and Effort
-      shows the value as entered (an Effort below 4 is shown as entered, though its Value uses 4).
-- [ ] Verify an unassigned bug shows Unassigned in muted text, and a missing Severity, Priority, or
-      Effort shows a dashed ? whose tooltip says what the Value assumes, which screen readers
-      announce as Not set.
+- [ ] Verify New is muted text and every other state is an outlined badge, in light and dark mode.
+- [ ] Verify Severity shows a chip such as "S1 · Critical": red for 1, amber for 2, neutral for 3,
+      and muted for 4. A missing Severity shows a dashed amber Not set chip whose tooltip says the
+      Value counts it as 4 - Low; a severity the Value cannot read is shown as written with a tooltip.
+- [ ] Verify Impact shows four signal bars beside the bug's Priority (Impact 1 fills all four, Impact
+      4 fills one), and its tooltip says how many users hit the bug and its score.
+- [ ] Verify Effort shows the value as entered; an Effort below 4 has a dotted underline and a
+      tooltip saying the Value counts it as 4.
+- [ ] Verify Assigned to shows the assignee's avatar (or initial) and name, and an unassigned bug
+      shows Unassigned in muted text. A missing Priority or Effort shows a dashed ? whose tooltip
+      says what the Value assumes, which screen readers announce as Not set.
+- [ ] Turn on Compact rows and verify each bug fits on one line: a long title ends in an ellipsis
+      with the full title in its tooltip, only the first tag shows with "+N" listing the rest in its
+      tooltip, and Assigned to shows only the avatar with the name in its tooltip. Verify a screen
+      reader still reads every tag and the assignee's name.
 - [ ] Verify long titles, assignee names, and sprint names stay readable without breaking layout.
 - [ ] Scroll a long list slowly and verify the column headers stay pinned, with no row text or
       borders visible above them.
@@ -575,12 +599,14 @@ Prepare data that exercises both populated and empty states:
 
 ### Quick filter
 
-- [ ] Type part of a bug's ID, value, title, tag, assignee (or Unassigned), state (abbreviated or
-      full), sprint label, severity, impact, or effort, as the table shows it, and verify only the
-      bugs showing that text remain (a bug matched by one of its tags still lists all of its tags).
+- [ ] Type part of a bug's ID, value, title, tag, severity as its chip reads (S1 or Critical),
+      impact, effort, sprint label, state (abbreviated or full), or assignee (or Unassigned), as the
+      table shows it, and verify only the bugs showing that text remain (a bug matched by one of its
+      tags still lists all of its tags, and in compact rows a tag behind "+N" still matches).
 - [ ] Verify matching ignores case and leading or trailing spaces.
 - [ ] Verify the filter does not match what the table does not show: the iteration path behind a
-      Sprint label, the created date or age, the unrounded Value, or the mark for a missing value.
+      Sprint label, the created date or age, the rank, the unrounded Value, the Severity picklist
+      text (1 - Critical), or the mark for a missing value.
 - [ ] Verify the remaining bugs keep their ranked order.
 - [ ] Verify a filter with no matches shows a message that no bugs match (not the no-open-bugs
       state), and that the clear icon, which appears once text is entered, restores every bug.

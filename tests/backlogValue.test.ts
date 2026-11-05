@@ -8,12 +8,17 @@ const server = await createServer({ configFile: false, server: { middlewareMode:
 after(() => server.close())
 const {
   compareRankedBacklogBugs,
+  describeBacklogValue,
   formatBacklogValue,
   formatCreatedDate,
+  formatValueTerm,
   getAdjustedEffort,
   getBacklogAgeDays,
+  getImpactDescription,
   getImpactScore,
+  getSeverityDisplay,
   getSeverityScore,
+  getValueMeterPercent,
   rankBacklogBug,
   rankBacklogBugs,
 } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
@@ -259,4 +264,85 @@ test('created date is blank when missing or invalid and otherwise includes the y
   assert.equal(formatCreatedDate(''), '')
   assert.equal(formatCreatedDate('not a date'), '')
   assert.match(formatCreatedDate('2026-06-15T12:00:00Z'), /2026/)
+})
+
+test('each ranked bug knows its 1-based rank, and a bug ranked alone is first', () => {
+  const ranked = rankBacklogBugs([
+    createBug({ id: 1 }),
+    createBug({ id: 2, severity: '1 - Critical' }),
+    createBug({ id: 3, severity: '2 - High' }),
+  ])
+
+  assert.deepEqual(ranked.map((bug) => [bug.id, bug.rank]), [[2, 1], [3, 2], [1, 3]])
+  assert.equal(rankBacklogBug(createBug({ id: 4 })).rank, 1)
+})
+
+test('the Value meter fills on a log scale between the lowest and highest Value at the minimum effort', () => {
+  const highest = rankBacklogBug(createBug({ id: 1, severity: '1 - Critical', priority: 1, effort: 1 })).value
+  const lowest = rankBacklogBug(createBug({ id: 2 })).value
+
+  assert.equal(getValueMeterPercent(highest), 100)
+  assert.equal(getValueMeterPercent(highest * 10), 100, 'never past full')
+  assert.equal(getValueMeterPercent(lowest), 4, 'the lowest keeps a sliver')
+  assert.equal(getValueMeterPercent(lowest / 10), 4, 'a larger effort cannot empty it')
+  assert.equal(getValueMeterPercent(0), 4)
+  assertValue(getValueMeterPercent(Math.sqrt(highest * lowest)), 50)
+})
+
+test('Value tooltip numbers round to one decimal and drop it for whole numbers', () => {
+  assert.deepEqual([4.84, 10.648, 8, 96.8, 212.96, 12.5, 0.25, 100].map(formatValueTerm), [
+    '4.8', '10.6', '8', '96.8', '213', '12.5', '0.3', '100',
+  ])
+})
+
+test('a severity shows as a level and name, or as written when the Value cannot read it', () => {
+  assert.deepEqual(getSeverityDisplay('1 - Critical'), { level: 1, name: 'Critical', label: 'S1 · Critical' })
+  assert.deepEqual(getSeverityDisplay(' 4 - Low '), { level: 4, name: 'Low', label: 'S4 · Low' })
+  assert.deepEqual(getSeverityDisplay('2'), { level: 2, name: 'High', label: 'S2 · High' })
+  assert.deepEqual(getSeverityDisplay('Blocker'), { level: undefined, name: 'Blocker', label: 'Blocker' })
+  assert.deepEqual(getSeverityDisplay('5 - Trivial'), { level: undefined, name: '5 - Trivial', label: '5 - Trivial' })
+  assert.equal(getSeverityDisplay(undefined), undefined)
+  assert.equal(getSeverityDisplay('  '), undefined)
+})
+
+test('an impact level says how many users hit the bug', () => {
+  assert.deepEqual([1, 2, 3, 4].map(getImpactDescription), [
+    'most users hit it', 'many users hit it', 'some users hit it', 'few users hit it',
+  ])
+  assert.equal(getImpactDescription(5), undefined)
+  assert.equal(getImpactDescription(undefined), undefined)
+})
+
+test('the Value tooltip shows the sum with rounded terms and where each term came from', () => {
+  const bug = rankBacklogBug(createBug({ id: 1, severity: '2 - High', priority: 1, effort: 2 }))
+
+  assert.deepEqual(describeBacklogValue(bug), [
+    'Value 96.8 = 4.8 × 8 ÷ 4 × 10',
+    'Severity 2 - High → 4.8',
+    'Impact 1, most users hit it → 8',
+    'Effort 2 pts, raised to the minimum 4',
+  ])
+})
+
+test('the Value tooltip says which inputs it assumed, and never explains tie-breaks', () => {
+  const bare = rankBacklogBug(createBug({ id: 1 }))
+  assert.deepEqual(describeBacklogValue(bare), [
+    'Value 2.5 = 1 × 1 ÷ 4 × 10',
+    'Severity not set, counted as 4 - Low → 1',
+    'Impact not set, counted as 4 → 1',
+    'Effort not set, counted as 4 pts',
+  ])
+
+  const unreadable = rankBacklogBug(createBug({ id: 2, severity: 'Blocker', priority: 7, effort: 12.5 }))
+  assert.deepEqual(describeBacklogValue(unreadable), [
+    'Value 0.8 = 1 × 1 ÷ 12.5 × 10',
+    'Severity "Blocker" has no level, counted as 4 - Low → 1',
+    'Impact 7 has no level, counted as 4 → 1',
+    'Effort 12.5 pts',
+  ])
+
+  const tied = rankBacklogBugs([createBug({ id: 3 }), createBug({ id: 4 })])
+  for (const bug of tied) {
+    assert.doesNotMatch(describeBacklogValue(bug).join('\n'), /tie|older|severity first/i)
+  }
 })
