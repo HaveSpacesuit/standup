@@ -11,6 +11,8 @@ import { TipLines } from './TipLines'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import {
   createLogScale,
+  describeBacklogMapBubble,
+  describeMapEffort,
   formatMapEffort,
   getIsoValueLine,
   getMapEffortDomain,
@@ -33,7 +35,6 @@ import {
   type BacklogTierKey,
 } from '../utils/backlogTiers'
 import { formatBacklogValue, formatValueTerm, MIN_ADJUSTED_EFFORT, type RankedBacklogBug } from '../utils/backlogValue'
-import { formatEffort } from '../utils/sprintEffortTotals'
 
 type BacklogMapProps = {
   /** Every open bug, ranked. All of them are plotted, so the map keeps its shape while filters come and go. */
@@ -54,8 +55,6 @@ const MARGIN = { top: 16, right: 18, bottom: 46, left: 58 }
 /** Where ResizeObserver is missing, as in tests, the plot takes a typical size. */
 const FALLBACK_SIZE = { width: 720, height: 440 }
 const MIN_SIZE = { width: 420, height: 300 }
-const TIP_BUG_COUNT = 4
-const TIP_TITLE_LENGTH = 40
 const TOP_BUG_COUNT = 10
 const LOW_BAND_VALUE = 1e-3
 const HIGH_BAND_VALUE = 1e6
@@ -68,7 +67,6 @@ const ATTENTION_BORDER = 'var(--stratakit-color-border-attention-base)'
 const PICKED_BORDER = 'var(--stratakit-color-border-accent-strong)'
 
 const pluralBugs = (count: number) => `${count} ${count === 1 ? 'bug' : 'bugs'}`
-const truncate = (text: string, length: number) => (text.length > length ? `${text.slice(0, length - 1)}…` : text)
 
 const plotSx: SxProps<Theme> = {
   position: 'absolute',
@@ -129,16 +127,16 @@ function usePlotSize(ref: RefObject<HTMLDivElement | null>) {
   return { width: Math.max(MIN_SIZE.width, size.width), height: Math.max(MIN_SIZE.height, size.height) }
 }
 
-function BubbleTip({ bubble }: { bubble: BacklogMapBubble }) {
-  const count = bubble.bugs.length
-  const lines = [
-    `${pluralBugs(count)} · Value ${formatBacklogValue(bubble.value)}`,
-    `Effort ${formatMapEffort(bubble.adjustedEffort)} pts · Severity × Impact ${formatValueTerm(bubble.benefit)}`,
-    ...(bubble.assumed ? ['Uses an assumed default'] : []),
-    ...bubble.bugs.slice(0, TIP_BUG_COUNT).map((bug) => `${bug.id} ${truncate(bug.title, TIP_TITLE_LENGTH)}`),
-    ...(count > TIP_BUG_COUNT ? [`+${count - TIP_BUG_COUNT} more`] : []),
-  ]
-  return <TipLines lines={lines} boldFirst />
+function BubbleTip({ bubble, selected }: { bubble: BacklogMapBubble; selected: boolean }) {
+  const { lines, hint } = describeBacklogMapBubble(bubble, selected)
+  return (
+    <>
+      <TipLines lines={lines} boldFirst />
+      <Box component="span" sx={{ display: 'block', mt: 0.75 }}>
+        {hint}
+      </Box>
+    </>
+  )
 }
 
 const tierBounds = (key: BacklogTierKey, thresholds: BacklogTierThresholds): [number, number] => {
@@ -506,7 +504,7 @@ export const BacklogMap = memo(function BacklogMap({
                 ...(dim ? ['outside the filter'] : []),
               ].join(', ')
               return (
-                <Tooltip key={bubble.key} title={<BubbleTip bubble={bubble} />} describeChild placement="top">
+                <Tooltip key={bubble.key} title={<BubbleTip bubble={bubble} selected={isSelected} />} describeChild placement="top">
                   <g
                     ref={(element) => {
                       if (element) {
@@ -570,7 +568,7 @@ export const BacklogMap = memo(function BacklogMap({
                 {pluralBugs(selected.bugs.length)} · Value {formatBacklogValue(selected.value)}
               </Typography>
               <Typography variant="body-sm" color="text.secondary">
-                Effort {selected.adjustedEffort === MIN_ADJUSTED_EFFORT ? `${MIN_ADJUSTED_EFFORT} pts or less` : `${formatEffort(selected.adjustedEffort)} pts`}
+                Effort {describeMapEffort(selected.adjustedEffort)}
                 {' · '}Severity × Impact {formatValueTerm(selected.benefit)}
               </Typography>
               {selected.assumed ? (

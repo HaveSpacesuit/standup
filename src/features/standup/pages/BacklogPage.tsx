@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import type { TeamIterationOption } from '../../../ado/types'
 import { AttentionBar } from '../components/AttentionBar'
 import { BacklogList } from '../components/BacklogList'
@@ -187,6 +187,24 @@ export function BacklogPage({
   }
   const canResetPlan = budgetOverride !== null || planPicks.forceIn.size > 0 || planPicks.forceOut.size > 0
 
+  // Like Start standup and its presenter bar, the header button and the strip take turns, so focus moves to whichever
+  // replaced the one just pressed.
+  const planButtonRef = useRef<HTMLButtonElement>(null)
+  const budgetInputRef = useRef<HTMLInputElement>(null)
+  const planFocusTarget = useRef<RefObject<HTMLElement | null> | null>(null)
+  useEffect(() => {
+    planFocusTarget.current?.current?.focus()
+    planFocusTarget.current = null
+  }, [planning])
+  const openPlan = () => {
+    planFocusTarget.current = budgetInputRef
+    setPlanning(true)
+  }
+  const closePlan = () => {
+    planFocusTarget.current = planButtonRef
+    setPlanning(false)
+  }
+
   return (
     <>
       <BacklogToolbar
@@ -204,8 +222,9 @@ export function BacklogPage({
         isLoading={isLoading}
         countLabel={hasList ? formatBacklogCount(bugs.length, totalBugCount) : null}
         syncedAt={syncedAt}
-        planning={showPlan}
-        onPlanningChange={setPlanning}
+        planning={planning}
+        onPlan={openPlan}
+        planButtonRef={planButtonRef}
         canPlan={showSummary}
         view={view}
         onViewChange={setView}
@@ -233,6 +252,8 @@ export function BacklogPage({
               onSkipUnestimatedChange={(skip) => onBacklogOptionsChange({ ...backlogOptions, skipUnestimatedBugs: skip })}
               canReset={canResetPlan}
               onReset={resetPlan}
+              onClose={closePlan}
+              budgetInputRef={budgetInputRef}
             />
           ) : null}
         </>

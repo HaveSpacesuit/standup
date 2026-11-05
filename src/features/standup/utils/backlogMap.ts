@@ -1,6 +1,13 @@
 import type { BacklogTierThresholds } from './backlogOptions'
 import { getBacklogTier, type BacklogTierKey } from './backlogTiers'
-import { getImpactDescription, getSeverityDisplay, MIN_ADJUSTED_EFFORT, type RankedBacklogBug } from './backlogValue'
+import {
+  formatBacklogValue,
+  formatValueTerm,
+  getImpactDescription,
+  getSeverityDisplay,
+  MIN_ADJUSTED_EFFORT,
+  type RankedBacklogBug,
+} from './backlogValue'
 import { formatEffort } from './sprintEffortTotals'
 
 /** Bugs with the same inputs to the Value, which share one place on the map. */
@@ -8,6 +15,8 @@ export type BacklogMapBubble = {
   key: string
   /** The effort the Value divides by: the Effort, raised to the minimum. */
   adjustedEffort: number
+  severityScore: number
+  impactScore: number
   /** Severity score × Impact score: what fixing one of the bugs is worth before its effort. */
   benefit: number
   value: number
@@ -50,7 +59,10 @@ export function usesAssumedDefault(bug: RankedBacklogBug): boolean {
     || !Number.isFinite(bug.effort)
 }
 
-/** One bubble per distinct effort, benefit, and assumed flag; given ranked bugs, the bubbles follow the best rank. */
+/**
+ * One bubble per distinct effort, benefit, and assumed flag; given ranked bugs, the bubbles follow the best rank.
+ * Severity scores are powers of 2.2 and Impact scores powers of 2, so each benefit has one Severity and Impact score.
+ */
 export function groupBacklogMapBubbles(bugs: readonly RankedBacklogBug[], thresholds: BacklogTierThresholds): BacklogMapBubble[] {
   const bubbles = new Map<string, BacklogMapBubble>()
   for (const bug of bugs) {
@@ -64,6 +76,8 @@ export function groupBacklogMapBubbles(bugs: readonly RankedBacklogBug[], thresh
       bubbles.set(key, {
         key,
         adjustedEffort: bug.adjustedEffort,
+        severityScore: bug.severityScore,
+        impactScore: bug.impactScore,
         benefit,
         value: bug.value,
         tier: getBacklogTier(bug.value, thresholds),
@@ -112,6 +126,30 @@ export function pickEffortTicks(efforts: readonly number[], toX: (effort: number
 /** "≤4" for the minimum, which also stands for every smaller or missing Effort; otherwise the effort. */
 export function formatMapEffort(effort: number): string {
   return effort === MIN_ADJUSTED_EFFORT ? `≤${MIN_ADJUSTED_EFFORT}` : formatEffort(effort)
+}
+
+/** "8 pts", or "4 pts or less" for the minimum, which also stands for every smaller or missing Effort. */
+export function describeMapEffort(effort: number): string {
+  return effort === MIN_ADJUSTED_EFFORT ? `${MIN_ADJUSTED_EFFORT} pts or less` : `${formatEffort(effort)} pts`
+}
+
+/**
+ * A bubble's tooltip: how many bugs it holds and their Value, the numbers that place it, and a hint for what selecting
+ * it does. The bugs themselves are listed in the side panel, not here.
+ */
+export function describeBacklogMapBubble(bubble: BacklogMapBubble, selected: boolean): { lines: string[]; hint: string } {
+  const count = bubble.bugs.length
+  const hint = selected
+    ? 'Click again to go back to the reading guide'
+    : count === 1 ? 'Click to show this bug in the side panel' : 'Click to list these bugs in the side panel'
+  const lines = [
+    `${count} ${count === 1 ? 'bug' : 'bugs'} · Value ${formatBacklogValue(bubble.value)}`,
+    `Effort ${describeMapEffort(bubble.adjustedEffort)}`,
+    `Severity score ${formatValueTerm(bubble.severityScore)}`,
+    `Impact score ${formatValueTerm(bubble.impactScore)}`,
+    ...(bubble.assumed ? ['Uses an assumed default'] : []),
+  ]
+  return { lines, hint }
 }
 
 /** The benefit that scores `value` at `effort`, for drawing a line of equal Value. */

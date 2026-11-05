@@ -9,6 +9,8 @@ after(() => server.close())
 const {
   benefitForValue,
   createLogScale,
+  describeBacklogMapBubble,
+  describeMapEffort,
   formatMapEffort,
   getBubbleRadius,
   getIsoValueLine,
@@ -85,6 +87,29 @@ test('bugs with the same inputs to the Value share a bubble, in ranked order, ap
   ])
   assertClose(bubbles[0].benefit, 4.84 * 4)
   assertClose(bubbles[0].value, 48.4)
+  assert.deepEqual([bubbles[0].severityScore, bubbles[0].impactScore], [4.84, 4], 'a bubble keeps the scores behind its benefit')
+  assert.deepEqual([bubbles[3].severityScore, bubbles[3].impactScore], [4.84, 1])
+})
+
+test('a bubble\'s tooltip gives its numbers and how to list its bugs, but not the bugs themselves', () => {
+  const ranked = rankBacklogBugs([
+    createBug({ id: 1, effort: 2 }),
+    createBug({ id: 2, effort: 4 }),
+    createBug({ id: 3, severity: undefined, effort: 13 }),
+  ])
+  const [shared, assumed] = groupBacklogMapBubbles(ranked, THRESHOLDS)
+
+  assert.deepEqual(describeBacklogMapBubble(shared, false), {
+    lines: ['2 bugs · Value 48.4', 'Effort 4 pts or less', 'Severity score 4.8', 'Impact score 4'],
+    hint: 'Click to list these bugs in the side panel',
+  })
+  assert.deepEqual(describeBacklogMapBubble(assumed, false), {
+    // Severity 4 by default: 1 × 4 ÷ 13 × 10.
+    lines: ['1 bug · Value 3.1', 'Effort 13 pts', 'Severity score 1', 'Impact score 4', 'Uses an assumed default'],
+    hint: 'Click to show this bug in the side panel',
+  })
+  assert.equal(describeBacklogMapBubble(shared, true).hint, 'Click again to go back to the reading guide')
+  assert.equal(describeMapEffort(8), '8 pts')
 })
 
 test('the effort axis spans the team\'s efforts with a margin, and at least 2.5 times the smallest', () => {

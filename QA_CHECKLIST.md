@@ -515,8 +515,8 @@ Prepare data that exercises both populated and empty states:
 ### Page and header
 
 - [ ] Open Backlog from the navigation rail and verify the header shows the Backlog title, the bug
-      count, the quick filter, Plan a sprint, the View toggle (List and Map, with List pressed), the
-      team selector, Manage team, Backlog options, and Refresh.
+      count, the quick filter, a blue Plan a sprint button, the View toggle (List and Map, with List
+      pressed), the team selector, Manage team, Backlog options, and Refresh.
 - [ ] Verify the count reads "N bugs" (or "1 bug"), changes to "N of M bugs" while the quick filter
       hides some, and is absent while loading, after an error, and without a team.
 - [ ] Verify Refresh spins and the header says Syncing… while the backlog loads, then "Synced just
@@ -666,11 +666,14 @@ Prepare data that exercises both populated and empty states:
 
 ### Plan a sprint
 
-- [ ] Verify Plan a sprint in the header is disabled while loading, after an error, and with no open
-      bugs, and that its tooltip explains it.
-- [ ] Press Plan a sprint; verify it shows as pressed, a strip opens under Needs attention, and the
-      table gains a checkbox column before # and a Running column after Effort, with the tier headers
-      still spanning the table. Press it again and verify all of it goes away.
+- [ ] Verify Plan a sprint in the header looks like Start standup on Development (a filled primary
+      button with an icon) in light and dark mode, is disabled while loading, after an error, and with
+      no open bugs, and that its tooltip explains it.
+- [ ] Press Plan a sprint; verify the button leaves the header, a strip opens under Needs attention
+      with focus in Budget, and the table gains a checkbox column before # and a Running column after
+      Effort, with the tier headers still spanning the table.
+- [ ] Press Close at the end of the strip; verify the strip and both columns go away, Plan a sprint
+      returns with focus on it. Open it again and verify the picks and budget are as you left them.
 - [ ] With the default budget of 10 and both skips on, verify the planner checks, in ranked order,
       each bug that fits what is left of the budget, passing over bugs in this sprint or the next,
       bugs without an Effort, and bugs too big to fit, while a smaller bug further down still fills the
@@ -698,8 +701,9 @@ Prepare data that exercises both populated and empty states:
       highlighted bugs, and the other rows' checkboxes are disabled with a tooltip saying why.
 - [ ] Press Copy list and paste into a spreadsheet; verify one row per pick in ranked order with the
       ID, title, Effort, and Value, and the button says Copied. Verify it is disabled with no picks.
-- [ ] Refresh with picks made; verify they and the budget are kept. Switch teams and verify the plan
-      starts over. Leave the page and come back; verify Plan a sprint is off.
+- [ ] Refresh with picks made; verify Plan a sprint stays out of the header while the backlog reloads,
+      and the picks and budget are kept. Switch teams and verify the plan
+      starts over. Leave the page and come back; verify the plan is closed and Plan a sprint is back.
 - [ ] In Backlog options > Plan a sprint, verify the Default budget (10), Skip bugs already in this
       sprint or the next (on), and Skip bugs without an Effort (on). Change the default budget and
       verify an unedited strip budget follows it; enter 0, 1000, or 2.5 and verify an error explains
@@ -723,8 +727,10 @@ Prepare data that exercises both populated and empty states:
       tier thresholds (change them in Backlog options and verify the map redraws), the effort labels
       are the team's own efforts starting at "≤4", and the corners read Quick wins, Big bets,
       Fill-ins, and Reconsider.
-- [ ] Hover a bubble and verify its tooltip shows the bug count, Value, effort, Severity × Impact,
-      and the first four bugs (plus "+N more").
+- [ ] Hover a bubble and verify its tooltip shows only the bug count and Value, Effort, Severity
+      score, Impact score, "Uses an assumed default" for a dashed bubble, and "Click to list these
+      bugs in the side panel" ("…show this bug…" for one bug); no bug titles. Select it and verify
+      the hint reads "Click again to go back to the reading guide".
 - [ ] With nothing selected, verify the panel shows Reading the map, the key, and Top 10 by Value.
       Select a bubble; verify it is marked, the panel lists its bugs with links that open in a new
       tab, and an assumed bubble says its position is a guess. Verify selecting it again, Escape,

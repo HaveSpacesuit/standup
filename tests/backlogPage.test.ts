@@ -1138,7 +1138,7 @@ test('the options dialog sets how old a New bug is before the chip flags it', as
   assert.equal(facetLabel(host, 'old').getAttribute('aria-label'), 'Older than 30 months, 0 bugs', 'about 26 months old is not flagged')
 })
 
-const planToggle = (host: Element) => [...host.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Plan a sprint')!
+const planStart = (host: Element) => [...host.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Plan a sprint')
 const planBar = (host: Element) => host.querySelector('[role="region"][aria-label="Plan a sprint"]')
 const planStatus = (host: Element) => planBar(host)!.querySelector('[role="status"]')!.textContent
 const pickBox = (host: Element, id: number) => host.querySelector<HTMLInputElement>(`input[aria-label="Pick ${id}"]`)!
@@ -1153,7 +1153,11 @@ const stripCheckbox = (host: Element, label: string) => [...planBar(host)!.query
 const headTexts = (host: Element) => [...host.querySelectorAll('thead th')].map((cell) => cell.textContent)
 
 async function startPlanning(host: Element) {
-  await act(async () => planToggle(host).click())
+  await act(async () => planStart(host)!.click())
+}
+
+async function closePlan(host: Element) {
+  await act(async () => planButton(host, 'Close').click())
 }
 
 test('Plan a sprint picks the highest-Value bugs that fit the budget, with their running effort and a cut line', async (t) => {
@@ -1161,13 +1165,15 @@ test('Plan a sprint picks the highest-Value bugs that fit the budget, with their
   assert.deepEqual(listedIds(host), [201, 204, 202, 203])
   const plainHead = headTexts(host)
 
-  assert.equal(planToggle(host).getAttribute('aria-pressed'), 'false')
+  assert.ok(planStart(host)!.classList.contains('MuiButton-contained'), 'a primary button, like Start standup')
+  assert.equal(planStart(host)!.hasAttribute('aria-pressed'), false)
   assert.equal(planBar(host), null)
   assert.equal(pickBox(host, 201), null)
 
   await startPlanning(host)
-  assert.equal(planToggle(host).getAttribute('aria-pressed'), 'true')
+  assert.equal(planStart(host), undefined, 'the strip takes the place of the button, as the presenter bar does')
   assert.ok(planBar(host))
+  assert.equal(document.activeElement, budgetInput(host), 'focus moves into the strip')
   assert.deepEqual(headTexts(host), ['Pick', ...plainHead.slice(0, 6), 'Running', ...plainHead.slice(6)])
   assert.equal(tierHeaders(host)[0].querySelector('th')!.getAttribute('colspan'), '12', 'the tier headers span the new columns')
 
@@ -1184,9 +1190,9 @@ test('Plan a sprint picks the highest-Value bugs that fit the budget, with their
   const pickedCounts = [...host.querySelectorAll('.backlog-tier-picked')].map((count) => count.textContent)
   assert.equal(pickedCounts.reduce((sum, text) => sum + Number(/(\d+) picked/.exec(text!)![1]), 0), 2, 'each tier counts its picks')
 
-  await startPlanning(host)
-  assert.equal(planToggle(host).getAttribute('aria-pressed'), 'false')
+  await closePlan(host)
   assert.equal(planBar(host), null)
+  assert.equal(document.activeElement, planStart(host), 'focus goes back to the button')
   assert.equal(host.querySelector('.backlog-cut-line'), null)
   assert.deepEqual(headTexts(host), plainHead)
 })
@@ -1370,15 +1376,20 @@ test('Plan a sprint waits for bugs, and its picks outlast a refresh but not a ch
     act(async () => root.render(createElement(Root, null, createElement(BacklogPage, { ...base, ...overrides }))))
 
   await renderPage({ bugs: [] })
-  assert.equal(planToggle(host).disabled, true, 'there is nothing to plan')
+  assert.equal(planStart(host)!.disabled, true, 'there is nothing to plan')
 
   await renderPage({})
   await startPlanning(host)
   await act(async () => pickBox(host, 204).click())
   assert.deepEqual(pickedIds(host), [201, 204, 202])
 
+  await closePlan(host)
+  await startPlanning(host)
+  assert.deepEqual(pickedIds(host), [201, 204, 202], 'closing the plan keeps the hand picks for when it opens again')
+
   await renderPage({ isLoading: true, bugs: [] })
   assert.equal(planBar(host), null)
+  assert.equal(planStart(host), undefined, 'the header stays as it was while the backlog reloads')
   await renderPage({})
   assert.deepEqual(pickedIds(host), [201, 204, 202], 'the loading skeleton does not drop the hand picks')
 

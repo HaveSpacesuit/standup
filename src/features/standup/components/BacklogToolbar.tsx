@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import type { Ref, RefObject } from 'react'
 import { Box, Button, CircularProgress, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { AppTooltip as Tooltip } from './AppTooltip'
 import { Icon } from '@stratakit/mui'
@@ -29,10 +29,11 @@ type BacklogToolbarProps = {
   /** "43 bugs" or "12 of 43 bugs"; null while there is no list to count. */
   countLabel: string | null
   syncedAt: number | null
-  /** Whether Plan a sprint is on. */
+  /** Whether Plan a sprint is open; its strip then takes the place of the button, as the presenter bar does for standup. */
   planning?: boolean
-  onPlanningChange?: (planning: boolean) => void
-  /** Whether there are bugs to plan with; Plan a sprint stays off until there are. */
+  onPlan?: () => void
+  planButtonRef?: Ref<HTMLButtonElement>
+  /** Whether there are bugs to plan with; Plan a sprint stays disabled until there are. */
   canPlan?: boolean
   /** The ranked list or the Value map. */
   view?: BacklogView
@@ -57,7 +58,8 @@ export function BacklogToolbar({
   countLabel,
   syncedAt,
   planning = false,
-  onPlanningChange,
+  onPlan,
+  planButtonRef,
   canPlan = false,
   view = 'list',
   onViewChange,
@@ -85,22 +87,26 @@ export function BacklogToolbar({
           inputRef={quickFilterInputRef}
           disabled={!patConfigured}
         />
-        {onPlanningChange ? (
-          <Tooltip title="Pick the highest-Value bugs that fit an effort budget">
-            <span>
-              <ToggleButton
-                value="plan"
-                selected={planning}
-                onChange={() => onPlanningChange(!planning)}
-                disabled={!canPlan}
-                render={<Button size="small" startIcon={<Icon href={svgCalendar} />} sx={{ flexShrink: 0, whiteSpace: 'nowrap' }} />}
-              >
-                Plan a sprint
-              </ToggleButton>
-            </span>
-          </Tooltip>
-        ) : null}
       </Box>
+
+      {onPlan && !planning ? (
+        <Tooltip title="Pick the highest-Value bugs that fit an effort budget">
+          <span>
+            <Button
+              ref={planButtonRef}
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<Icon href={svgCalendar} />}
+              onClick={onPlan}
+              disabled={!canPlan}
+              sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
+              Plan a sprint
+            </Button>
+          </span>
+        </Tooltip>
+      ) : null}
 
       <TeamToolbarControls
         teamOptions={teamOptions}
