@@ -1,6 +1,21 @@
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
-import { getLaneFlags, type AttentionFacetKey, type LaneFlag } from './boardAttention'
+import { getLaneFlags, type AttentionFacetKey, type AttentionTone, type LaneFlag } from './boardAttention'
+
+/** One column's share of a lane's load bar. */
+export type LaneLoadSegment = {
+  key: string
+  count: number
+  color: string
+}
+
+/** An attention signal shared by some of a lane's cards, such as "2 blocked". */
+export type LaneHeadFlag = {
+  key: string
+  label: string
+  tone: AttentionTone
+  iconHref: string
+}
 
 export type LaneSummary = {
   statusCounts: Record<StatusColumn, number>
