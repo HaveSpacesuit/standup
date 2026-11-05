@@ -2,7 +2,6 @@ import Box from '@mui/material/Box'
 import { Fragment, type ReactNode } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
-import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { AdoAvatar } from './AdoAvatar'
 import {
   getClosedPullRequestLabel,
@@ -30,11 +29,9 @@ function Person({ identity }: { identity: IdentityRef }) {
 export function DevelopmentCardDetails({
   item,
   model,
-  changeDetail,
 }: {
   item: WorkItemSummary
   model: DevelopmentCardModel
-  changeDetail?: CardChangeDetail
 }) {
   const rows: DetailRow[] = []
   if (!model.pullRequestOnly && item.state) {
@@ -49,7 +46,7 @@ export function DevelopmentCardDetails({
     rows.push({ key: 'owner', term: model.pullRequestOnly ? 'Author' : 'Assigned to', value: <Person identity={item.assignedTo} /> })
   }
 
-  const lastChange = getLastChangeText(changeDetail)
+  const lastChange = getLastChangeText(model.changeDetail)
   if (lastChange) {
     rows.push({ key: 'change', term: 'Last change', value: lastChange })
   }

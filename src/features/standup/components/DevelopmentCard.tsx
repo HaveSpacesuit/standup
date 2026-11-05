@@ -346,13 +346,12 @@ function DevelopmentCardHoverCard({
   item,
   model,
   accent,
-  changeDetail,
   owner,
   ownerLabel,
   caption,
   showNoSprintBadge,
   cancelled,
-}: CardPartProps & { changeDetail?: CardChangeDetail; owner: IdentityRef | null }) {
+}: CardPartProps & { owner: IdentityRef | null }) {
   return (
     <Box
       data-development-card-hover=""
@@ -377,7 +376,7 @@ function DevelopmentCardHoverCard({
     >
       <CardTitle item={item} model={model} owner={owner} ownerLabel={ownerLabel} cancelled={cancelled} />
       <CardSections item={item} model={model} accent={accent} caption={caption} showNoSprintBadge={showNoSprintBadge} />
-      <DevelopmentCardDetails item={item} model={model} changeDetail={changeDetail} />
+      <DevelopmentCardDetails item={item} model={model} />
     </Box>
   )
 }
@@ -533,7 +532,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
 
   return (
     <Tooltip
-      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} changeDetail={changeDetail} owner={owner} ownerLabel={ownerLabel} caption={caption} showNoSprintBadge={showNoSprintBadge} cancelled={cancelled} />}
+      title={<DevelopmentCardHoverCard item={item} model={model} accent={accent} owner={owner} ownerLabel={ownerLabel} caption={caption} showNoSprintBadge={showNoSprintBadge} cancelled={cancelled} />}
       placement="right-start"
       enterDelay={400}
       enterNextDelay={150}

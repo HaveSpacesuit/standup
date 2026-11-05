@@ -569,6 +569,27 @@ const modelOf = (item: Record<string, unknown>, overrides: Record<string, unknow
   ...overrides,
 })
 
+test('a tester taking a card in its developer’s row reads "Tester assigned", not "Reassigned"', () => {
+  const changedAt = new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString()
+  const alex = { displayName: 'Alex Example', uniqueName: 'alex@example.test' }
+  const quinn = { displayName: 'Quinn Tester', uniqueName: 'quinn@example.test' }
+  const inTesting = { ...baseItem, status: 'Review', state: 'Available for Testing', assignedTo: quinn }
+  const modelWith = (item: Record<string, unknown>, reason: string, rowMember: unknown = alex) =>
+    modelOf(item, { rowMember, highlightState: 'new', changeDetail: { reason, changedAt, idleDays: 0, agingLevel: 0 } })
+
+  for (const reason of ['Reassigned', 'Assigned']) {
+    const model = modelWith(inTesting, reason)
+    assert.equal(model.changeBadgeText, 'Tester assigned · 16h', reason)
+    assert.equal(model.changeDetail.reason, 'Tester assigned', reason)
+  }
+
+  // Other changes, and assignments on cards that are not in testing, keep their wording.
+  assert.equal(modelWith(inTesting, 'Moved to Available for Testing').changeBadgeText, 'Moved to AFT · 16h')
+  assert.equal(modelWith({ ...inTesting, state: 'Ready to build' }, 'Reassigned').changeBadgeText, 'Reassigned · 16h', 'handed off')
+  assert.equal(modelWith({ ...inTesting, assignedTo: alex }, 'Reassigned').changeBadgeText, 'Reassigned · 16h', 'back with its developer')
+  assert.equal(modelWith(inTesting, 'Reassigned', null).changeBadgeText, 'Reassigned · 16h', 'no row developer')
+})
+
 test('a card replayed to a past day measures its journey from then and leaves out live details', () => {
   const day = 24 * 60 * 60 * 1000
   const sprintStart = new Date(2026, 9, 5).getTime()
@@ -713,6 +734,33 @@ test('a compact card shows who has handed-off work and what changed', () => {
   assert.doesNotMatch(text, /Recently changed/, 'the change text already announces the change')
 })
 
+test('an in-testing card says its tester was assigned on the card, compact line, and hover details', () => {
+  const changedAt = new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString()
+  const item = { ...baseItem, status: 'Review', state: 'Available for Testing', assignedTo: { displayName: 'Quinn Tester', uniqueName: 'quinn@example.test' } }
+  const props = {
+    item,
+    rowMember: { displayName: 'Alex Example', uniqueName: 'alex@example.test' },
+    highlightState: 'new',
+    changeDetail: { reason: 'Reassigned', changedAt, idleDays: 0, agingLevel: 0 },
+    currentIterationName: 'Sprint 42',
+  }
+
+  const full = textOf(render(props))
+  assert.match(full, /In testing/)
+  assert.match(full, /Tester assigned · 16h/)
+  assert.doesNotMatch(full, /Reassigned/)
+
+  const compact = textOf(render({ ...props, compact: true }))
+  assert.match(compact, /Latest change: Tester assigned · 16h/)
+  assert.doesNotMatch(compact, /Reassigned/)
+
+  const details = textOf(renderToStaticMarkup(createElement(Root, null, createElement(DevelopmentCardDetails, {
+    item,
+    model: modelOf(item, { rowMember: props.rowMember, changeDetail: props.changeDetail }),
+  }))))
+  assert.match(details, /Last changeTester assigned · 16h ago/)
+})
+
 test('a compact title reserves the full effort badge height without unclamping its text', () => {
   for (const effort of [0, 8, 40]) {
     const html = render({ item: { ...baseItem, effort }, compact: true })
@@ -746,8 +794,10 @@ test('hover card details list the facts a compact card leaves out', () => {
   }
   const html = renderToStaticMarkup(createElement(Root, null, createElement(DevelopmentCardDetails, {
     item,
-    model: modelOf(item, { showRolloverIndicator: true }),
-    changeDetail: { reason: 'Moved to Available for Testing', idleDays: 2, agingLevel: 1 },
+    model: modelOf(item, {
+      showRolloverIndicator: true,
+      changeDetail: { reason: 'Moved to Available for Testing', idleDays: 2, agingLevel: 1 },
+    }),
   })))
   const text = textOf(html)
 

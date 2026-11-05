@@ -271,6 +271,21 @@ function isSamePerson(left: IdentityRef, right: IdentityRef): boolean {
   return toIdentityKeys(right).some((key) => leftKeys.has(key))
 }
 
+const IN_TESTING_STEP = 'In testing'
+const ASSIGNMENT_CHANGES = new Set(['Assigned', 'Reassigned'])
+
+/**
+ * The card's last change in its row's terms: a tester taking a card that stays in its developer's
+ * row reads "Tester assigned", not as though the card moved between developers.
+ */
+export function getCardChangeForStep(detail: CardChangeDetail | undefined, cardStep: NextStep | null): CardChangeDetail | undefined {
+  if (cardStep?.text !== IN_TESTING_STEP || !detail?.reason || !ASSIGNMENT_CHANGES.has(detail.reason)) {
+    return detail
+  }
+
+  return { ...detail, reason: 'Tester assigned' }
+}
+
 /** A card-level step for work items whose next move does not depend on a PR. */
 export function getCardNextStep(item: WorkItemSummary, rowMember?: IdentityRef | null): NextStep | null {
   if (item.kind === 'pull-request') {
@@ -293,7 +308,7 @@ export function getCardNextStep(item: WorkItemSummary, rowMember?: IdentityRef |
     return {
       tone: 'neutral',
       iconHref: svgInspection,
-      text: inTesting ? 'In testing' : 'Handed off',
+      text: inTesting ? IN_TESTING_STEP : 'Handed off',
       coversState: inTesting,
       owner: { kind: 'person', identity: item.assignedTo },
     }
@@ -477,6 +492,8 @@ export type DevelopmentCardModel = {
   showStateBadge: boolean
   showSprint: boolean
   showRollover: boolean
+  /** The card's last change, worded for its row; see getCardChangeForStep. */
+  changeDetail?: CardChangeDetail
   changeBadgeText: string | null
   changeBadgeFullText: string | null
   agingDots: AgingDots | null
@@ -501,6 +518,7 @@ export function getDevelopmentCardModel({
   const pullRequestOnly = item.kind === 'pull-request' ? item.pullRequest : undefined
   const linkedPullRequests = pullRequestOnly || historical ? [] : (item.activePullRequests ?? [])
   const cardStep = historical ? null : getCardNextStep(item, rowMember)
+  const shownChange = getCardChangeForStep(changeDetail, cardStep)
   // A blocked card's step line already carries the reason from its blocked tag.
   const hiddenTag = item.status === 'Blocked' && cardStep ? findBlockedTag(item.tags) : undefined
   const isNew = !historical && highlightState === 'new'
@@ -529,9 +547,10 @@ export function getDevelopmentCardModel({
       && !cardStep?.coversState,
     showSprint: !historical && !pullRequestOnly && shouldShowSprint(item.sprintName, currentIterationName),
     showRollover: !historical && !pullRequestOnly && showRolloverIndicator,
-    changeBadgeText: isNew ? getChangeBadgeText(changeDetail, now) : null,
-    changeBadgeFullText: isNew ? getChangeBadgeText(changeDetail, now, false) : null,
-    agingDots: journeyCaption || historical ? null : getAgingDots(item.status, changeDetail),
+    changeDetail: shownChange,
+    changeBadgeText: isNew ? getChangeBadgeText(shownChange, now) : null,
+    changeBadgeFullText: isNew ? getChangeBadgeText(shownChange, now, false) : null,
+    agingDots: journeyCaption || historical ? null : getAgingDots(item.status, shownChange),
     journeyCaption,
     titleUrl: pullRequestOnly ? pullRequestOnly.url : item.workItemUrl,
     titleText: pullRequestOnly ? pullRequestOnly.title : item.title,
