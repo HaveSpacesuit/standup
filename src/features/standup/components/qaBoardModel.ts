@@ -8,6 +8,7 @@ import svgUserAdd from '@stratakit/icons/user-add.svg'
 import type { TeamIterationOption, TeamMember, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import { toIdentityKeys } from '../../../ado/identity'
 import { BLOCKED_RAIL_WIDTH } from '../utils/boardLayout'
+import { getAssignmentChangeReason } from '../utils/assignmentChange'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { countWorkingDays, formatDayCount, formatSprintDate } from '../utils/sprintDates'
 import type { AttentionTone } from './boardAttention'
@@ -71,9 +72,15 @@ export function getItemHistory(item: WorkItemSummary, updates: WorkItemUpdate[])
   const states: Array<{ oldState: string; newState: string; update: WorkItemUpdate }> = []
   let latestTrackedUpdate: WorkItemUpdate | undefined
   let reason: string | undefined
+  let currentAssignee: unknown
 
   for (const update of updates) {
     const fields = update.fields ?? {}
+    const assignment = fields['System.AssignedTo']
+    const previousAssignee = assignment && Object.hasOwn(assignment, 'oldValue')
+      ? assignment.oldValue
+      : currentAssignee
+    if (assignment) currentAssignee = assignment.newValue
     const stateField = fields['System.State']
     if (stateField) {
       const oldState = normalizeState(stateField.oldValue)
@@ -89,8 +96,8 @@ export function getItemHistory(item: WorkItemSummary, updates: WorkItemUpdate[])
       latestTrackedUpdate = update
       reason = fields['System.State']
         ? `Moved to ${String(fields['System.State'].newValue ?? item.state ?? 'a new state')}`
-        : fields['System.AssignedTo']
-          ? 'Reassigned'
+        : assignment
+          ? getAssignmentChangeReason(previousAssignee, currentAssignee)
           : 'Tags changed'
     }
   }

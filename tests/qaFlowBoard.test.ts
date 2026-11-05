@@ -32,7 +32,7 @@ const { QaFlowBoard } = await server.ssrLoadModule('/src/features/standup/compon
 const { QualityAssuranceLoadingState } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceLoadingState.tsx')
 const { QaColumnHeader } = await server.ssrLoadModule('/src/features/standup/components/QaColumnHeader.tsx')
 const { default: checkmarkIcon } = await server.ssrLoadModule('@stratakit/icons/checkmark.svg')
-const { getQaLaneFlags, getQaStandupOrder } = await server.ssrLoadModule('/src/features/standup/components/qaBoardModel.ts')
+const { getItemHistory, getQaLaneFlags, getQaStandupOrder } = await server.ssrLoadModule('/src/features/standup/components/qaBoardModel.ts')
 
 const ago = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 const tester = { displayName: 'Taylor Reed', uniqueName: 'taylor@example.test' }
@@ -154,6 +154,44 @@ function withDocument<T>(html: string, read: (document: Document) => T): T {
     dom.window.close()
   }
 }
+
+test('QA history distinguishes assignment changes and still gives state changes priority', () => {
+  const changedAt = ago(0.5)
+  for (const oldValue of [undefined, null, '', {}, { displayName: '  ' }]) {
+    const history = getItemHistory(ready, [{
+      revisedDate: changedAt,
+      fields: { 'System.AssignedTo': { oldValue, newValue: tester } },
+    }])
+    assert.equal(history.reason, 'Assigned')
+    assert.equal(history.changedAt, changedAt)
+  }
+
+  for (const oldValue of [{ uniqueName: 'dev@example.test' }, { name: 'Developer' }, 'Developer <dev@example.test>']) {
+    assert.equal(getItemHistory(ready, [{
+      revisedDate: changedAt,
+      fields: { 'System.AssignedTo': { oldValue, newValue: tester } },
+    }]).reason, 'Reassigned')
+  }
+
+  assert.equal(getItemHistory(ready, [
+    { fields: { 'System.AssignedTo': { newValue: { uniqueName: 'dev@example.test' } } } },
+    { revisedDate: changedAt, fields: { 'System.AssignedTo': { newValue: tester } } },
+  ]).reason, 'Reassigned', 'earlier history supplies the previous assignee when oldValue is omitted')
+
+  assert.equal(getItemHistory(ready, [{
+    revisedDate: changedAt,
+    fields: { 'System.AssignedTo': { oldValue: tester, newValue: '' } },
+  }]).reason, 'Unassigned')
+
+  assert.equal(getItemHistory(ready, [{
+    revisedDate: changedAt,
+    fields: {
+      'System.State': { oldValue: 'Active', newValue: 'Available for Testing' },
+      'System.AssignedTo': { newValue: tester },
+      'System.Tags': { newValue: 'QA' },
+    },
+  }]).reason, 'Moved to Available for Testing')
+})
 
 test('QA flow follows the testing journey and surfaces its timing and attention signals', () => {
   const html = render()
