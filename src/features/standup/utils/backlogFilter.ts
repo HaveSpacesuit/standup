@@ -1,11 +1,13 @@
+import { abbreviateState } from '../components/workItemCardDisplay'
 import { normalizeQuickFilterText } from './boardFilters'
 import {
   formatAssignee,
   formatBacklogValue,
-  formatCreatedDate,
-  formatIterationPath,
   type RankedBacklogBug,
 } from './backlogValue'
+
+/** Shown in muted text in place of an assignee. */
+export const UNASSIGNED_LABEL = 'Unassigned'
 
 function shown(value: string | number | undefined): string {
   return value === undefined ? '' : String(value)
@@ -13,23 +15,36 @@ function shown(value: string | number | undefined): string {
 
 /**
  * The text each Backlog column shows for a bug; the Title column shows the title, then each tag. The quick filter
- * searches exactly these strings, so it matches what is visible in the table (a shortened iteration path, the rounded
- * Value) and never hidden detail such as the full path or the Not set placeholder.
+ * searches exactly these strings, so it matches what is visible in the table (the rounded Value, the sprint label)
+ * and never hidden detail such as the iteration path or the Not set placeholder. A long state is shown abbreviated
+ * with the full state in its tooltip, so both are listed. Age is left out: it is relative to today, so a filter on it
+ * would stop matching as the bugs grow older.
  */
 export function getBacklogVisibleText(bug: RankedBacklogBug): string[] {
+  const state = shown(bug.state)
+  const shortState = abbreviateState(state)
   return [
     String(bug.id),
+    formatBacklogValue(bug.value),
     bug.title,
     ...(bug.tags ?? []),
-    formatCreatedDate(bug.createdAt),
-    formatAssignee(bug.assignedTo),
-    shown(bug.state),
-    formatIterationPath(bug.iterationPath),
+    formatAssignee(bug.assignedTo) || UNASSIGNED_LABEL,
+    shortState,
+    ...(shortState === state ? [] : [state]),
+    bug.sprint.label,
     shown(bug.severity),
     shown(bug.priority),
     shown(bug.effort),
-    formatBacklogValue(bug.value),
   ]
+}
+
+/** "1 bug", "43 bugs", or "12 of 43 bugs" while a filter hides some. */
+export function formatBacklogCount(shownCount: number, totalCount: number): string {
+  if (shownCount === totalCount) {
+    return `${totalCount} ${totalCount === 1 ? 'bug' : 'bugs'}`
+  }
+
+  return `${shownCount} of ${totalCount} ${totalCount === 1 ? 'bug' : 'bugs'}`
 }
 
 /** `filterText` must already be normalized (trimmed and lower-cased). */

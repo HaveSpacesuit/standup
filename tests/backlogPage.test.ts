@@ -30,12 +30,15 @@ const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { BacklogPage } = await server.ssrLoadModule('/src/features/standup/pages/BacklogPage.tsx')
 const { useBacklogPageModel } = await server.ssrLoadModule('/src/features/standup/hooks/useBacklogPageModel.ts')
 const { filterBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogFilter.ts')
-const { formatCreatedDate, rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
+const { formatCreatedDate, getBacklogAgeDays, rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
+const { formatDayCount } = await server.ssrLoadModule('/src/features/standup/utils/sprintDates.ts')
 type PageProps = ComponentProps<typeof import('../src/features/standup/pages/BacklogPage.tsx').BacklogPage>
 
 const document = dom.window.document
 const noop = () => {}
 const workItemUrl = (id: number) => `https://dev.azure.com/example-org/example-project/_workitems/edit/${id}`
+// The Age cell shows a relative age and, for screen readers, the date it counts from.
+const ageText = (createdAt: string) => `${formatDayCount(getBacklogAgeDays(createdAt))}Created ${formatCreatedDate(createdAt)}`
 
 const team = {
   id: 'team',
@@ -47,6 +50,11 @@ const team = {
   teamName: 'Alpha',
   repoName: '',
 }
+
+const iterations = [
+  { name: 'Sprint 4', path: 'Project\\Team\\2026\\Sprint 4', timeFrame: 'past', startDate: '2026-05-18', finishDate: '2026-05-29' },
+  { name: 'Sprint 5', path: 'Project\\Team\\2026\\Sprint 5', timeFrame: 'current', startDate: '2026-06-01', finishDate: '2026-06-12' },
+]
 
 const bugs: PageProps['bugs'] = rankBacklogBugs([
   {
@@ -82,7 +90,7 @@ const bugs: PageProps['bugs'] = rankBacklogBugs([
     effort: 8,
     workItemUrl: workItemUrl(103),
   },
-])
+], iterations)
 
 const defaultProps: PageProps = {
   patConfigured: true,
@@ -150,7 +158,7 @@ const quickFilter = (host: Element) => host.querySelector<HTMLInputElement>('inp
 const clearFilterButton = (host: Element) => host.querySelector<HTMLButtonElement>('button[aria-label="Clear quick filter"]')
 const listedIds = (host: Element) => [...host.querySelectorAll('tbody tr')].map((row) => Number(row.querySelector('td')!.textContent))
 const titleCell = (host: Element, id: number) =>
-  [...host.querySelectorAll('tbody tr')].find((row) => row.querySelector('td')!.textContent === String(id))!.querySelector('td:nth-child(2)')!
+  [...host.querySelectorAll('tbody tr')].find((row) => row.querySelector('td')!.textContent === String(id))!.querySelector('td:nth-child(3)')!
 const tagTexts = (cell: Element) => [...cell.querySelectorAll('li')].map((item) => item.textContent)
 
 // React tracks an input's value, so typing has to go through the native setter for the change to be noticed.
@@ -225,27 +233,48 @@ test('the table lists the ranked bugs under the required columns', async (t) => 
 
   assert.equal(host.querySelector('table')?.getAttribute('aria-label'), 'Open bugs ranked by value')
   assert.deepEqual(cellTexts(host.querySelector('thead tr')!), [
-    'ID', 'Title', 'Created Date', 'Assigned To', 'State', 'Iteration Path', 'Severity', 'Impact', 'Effort', 'Value',
+    'ID', 'Value', 'Title', 'Age', 'Assigned To', 'State', 'Sprint', 'Severity', 'Impact', 'Effort',
   ])
 
   const rows = [...host.querySelectorAll('tbody tr')]
   assert.deepEqual(rows.map(cellTexts), [
-    ['102', 'Data loss (opens in a new tab) needs triage regression', formatCreatedDate('2026-03-01T10:00:00Z'), 'Ada Lovelace', 'Active', '2026\\Sprint 5', '1 - Critical', '1', '4', '213.0'],
-    ['103', 'Slow page (opens in a new tab)', formatCreatedDate('2026-02-01T10:00:00Z'), 'grace@example.com', 'Active', 'Project', '3 - Medium', '2', '8', '11.0'],
-    ['101', 'Minor glitch (opens in a new tab)', formatCreatedDate('2026-01-10T09:00:00Z'), '', 'New', '2026\\Sprint 4', '—Not set', '—Not set', '—Not set', '2.5'],
+    ['102', '213.0', 'Data loss (opens in a new tab) needs triage regression', ageText('2026-03-01T10:00:00Z'), 'Ada Lovelace', 'Active', 'This sprint', '1 - Critical', '1', '4'],
+    ['103', '11.0', 'Slow page (opens in a new tab)', ageText('2026-02-01T10:00:00Z'), 'grace@example.com', 'Active', 'Backlog', '3 - Medium', '2', '8'],
+    ['101', '2.5', 'Minor glitch (opens in a new tab)', ageText('2026-01-10T09:00:00Z'), 'Unassigned', 'New', 'Sprint 4 · ended', '?Not set', '?Not set', '?Not set'],
   ])
-  assert.match(rows[0].querySelector('time')!.textContent!, /2026/)
   assert.equal(rows[0].querySelector('time')!.getAttribute('datetime'), '2026-03-01T10:00:00Z')
+  assert.equal(rows[0].querySelector('time [aria-hidden="true"]')!.textContent, formatDayCount(getBacklogAgeDays('2026-03-01T10:00:00Z')))
 })
 
-test('an unassigned bug leaves its Assigned To cell empty', async (t) => {
+test('an unassigned bug says so in muted text', async (t) => {
   const host = await render(t)
 
   const unassigned = host.querySelector('tbody tr:last-child')!
   assert.equal(unassigned.querySelector('td:nth-child(1)')!.textContent, '101')
-  const assignedTo = unassigned.querySelector('td:nth-child(4)')!
-  assert.equal(assignedTo.textContent, '')
-  assert.equal(assignedTo.children.length, 0)
+  const label = unassigned.querySelector('td:nth-child(5) > span')!
+  assert.equal(label.textContent, 'Unassigned')
+  assert.equal(declaredStyle(label)('color'), 'var(--stratakit-color-text-neutral-tertiary)')
+})
+
+test('a long state is abbreviated as on the cards, with the full state for screen readers', async (t) => {
+  const host = await render(t, {
+    bugs: rankBacklogBugs([{ id: 501, title: 'Ready', state: 'Available for Testing', workItemUrl: workItemUrl(501) }]),
+  })
+
+  const state = host.querySelector('tbody td:nth-child(6)')!
+  assert.equal(state.querySelector('[aria-hidden="true"]')!.textContent, 'AFT')
+  assert.equal(state.textContent, 'AFTAvailable for Testing')
+})
+
+test('a missing severity, impact, or effort is marked as assumed by the Value', async (t) => {
+  const host = await render(t)
+
+  const marks = [...host.querySelectorAll('tbody tr:last-child td')].slice(7)
+  assert.deepEqual(marks.map((cell) => cell.querySelector('[aria-hidden="true"]')?.textContent), ['?', '?', '?'])
+  for (const cell of marks) {
+    const mark = cell.firstElementChild!
+    assert.match(declaredStyle(mark)('border'), /dashed/)
+  }
 })
 
 test('Effort shows the entered value while the Value uses the minimum effort', async (t) => {
@@ -260,8 +289,8 @@ test('Effort shows the entered value while the Value uses the minimum effort', a
   const host = await render(t, { bugs: lowEffort })
 
   const [row] = [...host.querySelectorAll('tbody tr')]
-  assert.equal(cellTexts(row)[8], '2', 'the Effort as entered')
-  assert.equal(cellTexts(row)[9], '48.4', 'scored as if the effort were 4')
+  assert.equal(cellTexts(row)[9], '2', 'the Effort as entered')
+  assert.equal(cellTexts(row)[1], '48.4', 'scored as if the effort were 4')
 })
 
 test('each title links to its work item in a new tab', async (t) => {
@@ -439,11 +468,12 @@ test('every cell the table shows can be found with the quick filter', async (t) 
     const cells = [...row.querySelectorAll('td')]
     const id = Number(cells[0].textContent)
     // The Title cell shows the title and then one badge per tag, and the filter searches each of them on its own.
-    const tags = [...cells[1].querySelectorAll('li')]
+    // Age is relative to today, so it is left out of the filter on purpose.
+    const tags = [...cells[2].querySelectorAll('li')]
     tagsChecked += tags.length
-    const shown = [cells[0], cells[1].querySelector('a')!, ...tags, ...cells.slice(2)]
+    const shown = [cells[0], cells[1], cells[2].querySelector('a')!, ...tags, ...cells.slice(4)]
       .map((element) => (element.textContent ?? '').replace(' (opens in a new tab)', ''))
-    for (const text of shown.filter((cell) => cell && cell !== '—Not set')) {
+    for (const text of shown.filter((cell) => cell && cell !== '?Not set')) {
       assert.ok(filterBacklogBugs(bugs, text).some((bug) => bug.id === id), `"${text}" is shown for bug ${id}`)
     }
   }
@@ -453,13 +483,44 @@ test('every cell the table shows can be found with the quick filter', async (t) 
 test('visually hidden text is 1px and anchored to the scrolling table so it cannot widen the page', async (t) => {
   const host = await render(t)
 
-  const hidden = [...host.querySelectorAll('tbody span')].filter((span) => /^(\s\(opens in a new tab\)|Not set)$/.test(span.textContent ?? ''))
-  assert.equal(hidden.length, bugs.length + 3, 'one new-tab note per bug plus the three missing values')
+  const hidden = [...host.querySelectorAll('tbody span')]
+    .filter((span) => /^(\s\(opens in a new tab\)|Not set|Created .+)$/.test(span.textContent ?? ''))
+  assert.equal(hidden.length, bugs.length * 2 + 3, 'a new-tab note and a created date per bug, plus the three missing values')
   for (const span of hidden) {
     const style = declaredStyle(span)
     assert.deepEqual([style('position'), style('width'), style('height')], ['absolute', '1px', '1px'])
   }
   assert.equal(declaredStyle(host.querySelector('.MuiTableContainer-root')!)('position'), 'relative')
+})
+
+test('the header counts the listed bugs, out of all of them while a filter hides some', async (t) => {
+  const host = await render(t)
+  const count = () => host.querySelector('header [aria-live="polite"]')!.textContent
+
+  assert.equal(count(), '3 bugs')
+
+  const filtered = await render(t, { bugs: bugs.slice(0, 1), totalBugCount: 3 })
+  assert.equal(filtered.querySelector('header [aria-live="polite"]')!.textContent, '1 of 3 bugs')
+})
+
+test('the header has no count while there is no list to count', async (t) => {
+  for (const overrides of [{ isLoading: true }, { error: 'Failed' }, { teamOptions: [], selectedTeamId: '' }]) {
+    const host = await render(t, { ...overrides, bugs: [] })
+    assert.equal(host.querySelector('header [aria-live="polite"]')!.textContent, '', JSON.stringify(overrides))
+  }
+})
+
+test('the header says when the backlog last synced, and Syncing while it loads', async (t) => {
+  const synced = await render(t, { syncedAt: Date.now() - 5 * 60_000 })
+  assert.match(synced.querySelector('header')!.textContent!, /Synced 5m ago/)
+
+  const loading = await render(t, { isLoading: true, bugs: [], syncedAt: Date.now() })
+  assert.match(loading.querySelector('header')!.textContent!, /Syncing…/)
+  assert.equal(button(loading, 'Refresh').getAttribute('aria-busy'), 'true')
+  assert.ok(button(loading, 'Refresh').querySelector('.MuiCircularProgress-root'), 'Refresh spins while the backlog loads')
+
+  const never = await render(t)
+  assert.doesNotMatch(never.querySelector('header')!.textContent!, /Sync/)
 })
 
 test('a loading backlog shows progress instead of the table', async (t) => {

@@ -7,7 +7,7 @@ type UseTeamDataSyncedAtArgs = {
   failed: boolean
 }
 
-/** Remembers, per team, when the Development data last finished loading fresh from Azure DevOps. */
+/** Remembers, per team, when a page's data last finished loading fresh from Azure DevOps. */
 export function useTeamDataSyncedAt({ teamId, isLoading, failed }: UseTeamDataSyncedAtArgs) {
   const [syncedAtByTeam, setSyncedAtByTeam] = useState<Record<string, number>>({})
   const wasLoadingRef = useRef(isLoading)

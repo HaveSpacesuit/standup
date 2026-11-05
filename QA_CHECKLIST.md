@@ -514,8 +514,12 @@ Prepare data that exercises both populated and empty states:
 
 ### Page and header
 
-- [ ] Open Backlog from the navigation rail and verify the header shows the Backlog title, the quick
-      filter, the team selector, Manage team, Backlog options, and Refresh.
+- [ ] Open Backlog from the navigation rail and verify the header shows the Backlog title, the bug
+      count, the quick filter, the team selector, Manage team, Backlog options, and Refresh.
+- [ ] Verify the count reads "N bugs" (or "1 bug"), changes to "N of M bugs" while the quick filter
+      hides some, and is absent while loading, after an error, and without a team.
+- [ ] Verify Refresh spins and the header says Syncing… while the backlog loads, then "Synced just
+      now"; the label ages over time, and switching pages and back without Refresh does not reset it.
 - [ ] Press Ctrl/Cmd + F on Backlog and verify focus moves to the quick filter (selecting any text in
       it) rather than opening the browser's find.
 - [ ] Open Backlog options; verify the placeholder dialog opens, closes with Close and Escape, and
@@ -535,8 +539,8 @@ Prepare data that exercises both populated and empty states:
 
 ### Table
 
-- [ ] Verify the columns are, in order: ID, Title, Created Date, Assigned To, State, Iteration Path,
-      Severity, Impact, Effort, and Value.
+- [ ] Verify the columns are, in order: ID, Value, Title, Age, Assigned To, State, Sprint, Severity,
+      Impact, and Effort.
 - [ ] Verify the table has no sorting, column filtering, selection, or row-click behavior, and that the
       title links are its only interactive elements.
 - [ ] Hover over the rows and verify the row under the pointer is highlighted in both light and dark
@@ -551,12 +555,19 @@ Prepare data that exercises both populated and empty states:
       list named Tags after the title link rather than as part of the link text.
 - [ ] Verify a bug with many or long tags wraps them onto further lines within the Title column,
       without widening the table or indenting the wrapped lines.
-- [ ] Verify Iteration Path shows only the last two segments of the full path.
+- [ ] Verify Age shows how long ago each bug was created in coarsening units (13d, 2w, 4mo, 1y), its
+      tooltip shows the created date, and a screen reader reads the created date.
+- [ ] Verify Sprint reads This sprint (highlighted) for the current sprint, Next sprint for the
+      earliest upcoming one, a later sprint's name, "Sprint N · ended" with a warning icon for a past
+      sprint, and Backlog for any other iteration; hover each to see the sprint dates or the path.
+- [ ] Verify a state of three or more words, such as Available for Testing, shows its abbreviation
+      (AFT) with the full state in its tooltip, and a screen reader reads the full state.
 - [ ] Verify Impact shows the bug's Priority value, Severity shows the Azure DevOps label, and Effort
       shows the value as entered (an Effort below 4 is shown as entered, though its Value uses 4).
-- [ ] Verify an unassigned bug has an empty Assigned To cell, and a missing Severity, Priority,
-      Effort, or other value shows a placeholder that screen readers announce as Not set.
-- [ ] Verify long titles, assignee names, and iteration paths stay readable without breaking layout.
+- [ ] Verify an unassigned bug shows Unassigned in muted text, and a missing Severity, Priority, or
+      Effort shows a dashed ? whose tooltip says what the Value assumes, which screen readers
+      announce as Not set.
+- [ ] Verify long titles, assignee names, and sprint names stay readable without breaking layout.
 - [ ] Scroll a long list slowly and verify the column headers stay pinned, with no row text or
       borders visible above them.
 - [ ] Narrow the window and verify the table scrolls horizontally inside its own area, with the
@@ -564,12 +575,12 @@ Prepare data that exercises both populated and empty states:
 
 ### Quick filter
 
-- [ ] Type part of a bug's ID, title, tag, created date, assignee, state, iteration path, severity,
-      impact, effort, or value, as the table shows it, and verify only the bugs showing that text
-      remain (a bug matched by one of its tags still lists all of its tags).
+- [ ] Type part of a bug's ID, value, title, tag, assignee (or Unassigned), state (abbreviated or
+      full), sprint label, severity, impact, or effort, as the table shows it, and verify only the
+      bugs showing that text remain (a bug matched by one of its tags still lists all of its tags).
 - [ ] Verify matching ignores case and leading or trailing spaces.
-- [ ] Verify the filter does not match what the table does not show: the iteration path segments cut
-      from the display, the unrounded Value, or the placeholder for a missing value.
+- [ ] Verify the filter does not match what the table does not show: the iteration path behind a
+      Sprint label, the created date or age, the unrounded Value, or the mark for a missing value.
 - [ ] Verify the remaining bugs keep their ranked order.
 - [ ] Verify a filter with no matches shows a message that no bugs match (not the no-open-bugs
       state), and that the clear icon, which appears once text is entered, restores every bug.

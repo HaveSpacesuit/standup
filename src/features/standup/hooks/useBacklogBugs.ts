@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AdoQueryEngine, BacklogBug } from '../../../ado/queryEngine'
+import type { AdoQueryEngine, BacklogBug, TeamIterationOption } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
 import { rankBacklogBugs, type RankedBacklogBug } from '../utils/backlogValue'
 import { isAbortError, toErrorMessage } from './queryErrors'
@@ -7,6 +7,8 @@ import { isAbortError, toErrorMessage } from './queryErrors'
 type UseBacklogBugsArgs = {
   adoQueryEngine: AdoQueryEngine | null
   selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>
+  /** The team's sprints, to label each bug's iteration as this sprint, next sprint, ended, or backlog. */
+  iterations: TeamIterationOption[]
   reloadNonce: number
   enabled: boolean
 }
@@ -20,6 +22,7 @@ type UseBacklogBugsResult = {
 export function useBacklogBugs({
   adoQueryEngine,
   selectedTeam,
+  iterations,
   reloadNonce,
   enabled,
 }: UseBacklogBugsArgs): UseBacklogBugsResult {
@@ -69,7 +72,7 @@ export function useBacklogBugs({
     }
   }, [adoQueryEngine, enabled, reloadNonce, selectedTeam])
 
-  const backlogBugs = useMemo(() => (bugs ? rankBacklogBugs(bugs) : []), [bugs])
+  const backlogBugs = useMemo(() => (bugs ? rankBacklogBugs(bugs, iterations) : []), [bugs, iterations])
 
   // Until the first result (or error) arrives, report loading so the page never flashes an empty state.
   const backlogBugsLoading = loading || (enabled && adoQueryEngine !== null && bugs === null && error === null)
