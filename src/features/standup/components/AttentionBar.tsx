@@ -3,26 +3,30 @@ import { useId } from 'react'
 import { Icon } from '@stratakit/mui'
 import svgFlag from '@stratakit/icons/flag.svg'
 import { AppTooltip } from './AppTooltip'
-import {
-  ATTENTION_TONE_COLORS,
-  PEOPLE_ATTENTION_FACETS,
-  type AttentionFacet,
-  type AttentionFacetKey,
-} from './boardAttention'
+import { ATTENTION_TONE_COLORS, type AttentionTone } from './boardAttention'
 
-type AttentionBarProps = {
-  facetCounts: Record<AttentionFacetKey, number>
-  totalCards: number
-  activeFacet: AttentionFacetKey | null
+/** What a chip needs from a facet; the board's facets and the backlog's both fit. */
+export type AttentionBarFacet<Key extends string> = {
+  key: Key
+  label: string
+  tone: AttentionTone
+  description: string
+}
+
+type AttentionBarProps<Key extends string> = {
+  facetCounts: Record<Key, number>
+  /** How many items the highlight is out of, such as the cards on the board. */
+  totalItems: number
+  activeFacet: Key | null
   highlightedCount: number
-  onChange: (facet: AttentionFacetKey | null) => void
-  /** The facets this board offers, in bar order; defaults to the Developers board's, which leave out journey-only facets. */
-  facets?: readonly AttentionFacet[]
+  onChange: (facet: Key | null) => void
+  /** The facets this page offers, in bar order. */
+  facets: readonly AttentionBarFacet<Key>[]
+  /** The item noun, singular then plural, for counts such as "3 of 12 cards highlighted". */
+  itemNoun?: readonly [string, string]
 }
 
-function formatCards(count: number): string {
-  return `${count} ${count === 1 ? 'card' : 'cards'}`
-}
+const CARD_NOUN = ['card', 'cards'] as const
 
 const PRESSED_CHIP_STYLE = {
   backgroundColor: 'var(--stratakit-color-bg-accent-muted)',
@@ -30,10 +34,19 @@ const PRESSED_CHIP_STYLE = {
   color: 'var(--stratakit-color-text-accent-strong)',
 } as const
 
-/** Facet chips that highlight matching cards in place, so the board keeps its shape while one signal is in focus. */
-export function AttentionBar({ facetCounts, totalCards, activeFacet, highlightedCount, onChange, facets = PEOPLE_ATTENTION_FACETS }: AttentionBarProps) {
+/** Facet chips that highlight matching items in place, so the page keeps its shape while one signal is in focus. */
+export function AttentionBar<Key extends string>({
+  facetCounts,
+  totalItems,
+  activeFacet,
+  highlightedCount,
+  onChange,
+  facets,
+  itemNoun = CARD_NOUN,
+}: AttentionBarProps<Key>) {
   const labelId = useId()
   const activeLabel = facets.find((facet) => facet.key === activeFacet)?.label
+  const formatItems = (count: number) => `${count} ${count === 1 ? itemNoun[0] : itemNoun[1]}`
 
   return (
     <Box
@@ -84,7 +97,7 @@ export function AttentionBar({ facetCounts, totalCards, activeFacet, highlighted
                 slotProps={{
                   label: {
                     'aria-pressed': pressed,
-                    'aria-label': `${facet.label}, ${formatCards(count)}`,
+                    'aria-label': `${facet.label}, ${formatItems(count)}`,
                   },
                 }}
                 label={(
@@ -125,7 +138,7 @@ export function AttentionBar({ facetCounts, totalCards, activeFacet, highlighted
         variant="body-sm"
         sx={{ ml: 'auto', color: 'text.secondary', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
       >
-        {activeFacet ? `${highlightedCount} of ${formatCards(totalCards)} highlighted · ${activeLabel}` : ''}
+        {activeFacet ? `${highlightedCount} of ${formatItems(totalItems)} highlighted · ${activeLabel}` : ''}
       </Typography>
     </Box>
   )

@@ -1,9 +1,19 @@
-import { useCallback, useState, type RefObject } from 'react'
+import { useCallback, useMemo, useState, type RefObject } from 'react'
+import type { TeamIterationOption } from '../../../ado/types'
+import { AttentionBar } from '../components/AttentionBar'
 import { BacklogList } from '../components/BacklogList'
 import { BacklogOptionsDialog } from '../components/BacklogOptionsDialog'
+import { BacklogRibbon } from '../components/BacklogRibbon'
 import { BacklogToolbar } from '../components/BacklogToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { TeamOption } from '../components/TeamToolbarControls'
+import {
+  countBacklogFacets,
+  getBacklogFacetMatches,
+  getBacklogFacets,
+  summarizeBacklog,
+  type BacklogFacetKey,
+} from '../utils/backlogAttention'
 import { formatBacklogCount } from '../utils/backlogFilter'
 import { createDefaultBacklogOptions, type BacklogOptions } from '../utils/backlogOptions'
 import type { BacklogTierKey } from '../utils/backlogTiers'
@@ -22,8 +32,12 @@ type BacklogPageProps = {
   onRefresh: () => void
   /** The ranked bugs that pass the quick filter. */
   bugs: RankedBacklogBug[]
+  /** Every open bug, for the summary ribbon, which describes the whole backlog; defaults to `bugs`. */
+  allBugs?: RankedBacklogBug[]
   /** How many open bugs there are before the quick filter, to tell "no match" from "no open bugs". */
   totalBugCount: number
+  /** The team's sprints, for the ribbon's planned and new-this-sprint counts; none until they load. */
+  teamIterations?: readonly TeamIterationOption[]
   isLoading: boolean
   error: string | null
   /** When the backlog last loaded fresh from Azure DevOps, for the "Synced 5m ago" label. */
@@ -31,12 +45,14 @@ type BacklogPageProps = {
   /** One-line rows; the team's compact density, shared with the Development and QA cards. */
   compactRows?: boolean
   onCompactRowsChange?: (compactRows: boolean) => void
-  /** The team's Backlog options: the Value tier thresholds and whether Low starts collapsed. */
+  /** The team's Backlog options: the Value tier thresholds, whether Low starts collapsed, and when a New bug is old. */
   backlogOptions?: BacklogOptions
   onBacklogOptionsChange?: (next: BacklogOptions) => void
 }
 
 const DEFAULT_BACKLOG_OPTIONS = createDefaultBacklogOptions()
+const NO_ITERATIONS: readonly TeamIterationOption[] = []
+const BUG_NOUN = ['bug', 'bugs'] as const
 
 const initialCollapsedTiers = (startLowCollapsed: boolean): ReadonlySet<BacklogTierKey> =>
   new Set<BacklogTierKey>(startLowCollapsed ? ['low'] : [])
@@ -87,7 +103,9 @@ export function BacklogPage({
   quickFilterInputRef,
   onRefresh,
   bugs,
+  allBugs = bugs,
   totalBugCount,
+  teamIterations = NO_ITERATIONS,
   isLoading,
   error,
   syncedAt = null,
@@ -98,8 +116,23 @@ export function BacklogPage({
 }: BacklogPageProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [collapsedTiers, toggleTier] = useCollapsedTiers(backlogOptions.startLowCollapsed)
+  const [attentionFacet, setAttentionFacet] = useState<BacklogFacetKey | null>(null)
+  const { agingMonths, tierThresholds } = backlogOptions
   const hasConfiguredTeams = teamOptions.length > 0
   const hasList = patConfigured && hasConfiguredTeams && !isLoading && !error
+  const showSummary = hasList && allBugs.length > 0
+
+  const summary = useMemo(
+    () => summarizeBacklog(allBugs, tierThresholds, teamIterations),
+    [allBugs, tierThresholds, teamIterations],
+  )
+  const facets = useMemo(() => getBacklogFacets(agingMonths), [agingMonths])
+  // The chips count the bugs the quick filter leaves, like the highlight they turn on.
+  const facetCounts = useMemo(() => countBacklogFacets(bugs, { agingMonths }), [bugs, agingMonths])
+  const highlightedBugIds = useMemo(
+    () => (attentionFacet ? getBacklogFacetMatches(bugs, attentionFacet, { agingMonths }) : null),
+    [bugs, attentionFacet, agingMonths],
+  )
 
   return (
     <>
@@ -120,6 +153,21 @@ export function BacklogPage({
         syncedAt={syncedAt}
       />
 
+      {showSummary ? (
+        <>
+          <BacklogRibbon summary={summary} tierThresholds={tierThresholds} />
+          <AttentionBar
+            facetCounts={facetCounts}
+            totalItems={bugs.length}
+            activeFacet={attentionFacet}
+            highlightedCount={highlightedBugIds?.size ?? 0}
+            onChange={setAttentionFacet}
+            facets={facets}
+            itemNoun={BUG_NOUN}
+          />
+        </>
+      ) : null}
+
       {hasConfiguredTeams ? (
         <BacklogList
           isLoading={isLoading}
@@ -127,9 +175,10 @@ export function BacklogPage({
           bugs={bugs}
           totalBugCount={totalBugCount}
           compact={compactRows}
-          tierThresholds={backlogOptions.tierThresholds}
+          tierThresholds={tierThresholds}
           collapsedTiers={collapsedTiers}
           onToggleTier={toggleTier}
+          highlightedBugIds={highlightedBugIds}
         />
       ) : (
         <TeamConfigurationEmptyState pageLabel="Backlog" />

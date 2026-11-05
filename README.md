@@ -287,6 +287,30 @@ The ranked bugs are grouped into four Value tiers: **Top** (Value 80+), **High**
 
 Backlog options > Value tiers sets the lowest Value of Top, High, and Medium; anything below Medium is Low. Each threshold must be above 0 and lower than the one above it. Until all three are valid, the fields that conflict are marked with a message and the tiers keep the last valid thresholds; a valid change applies straight away. **Start with the Low tier collapsed** (on by default) sets whether Low opens collapsed, and turning it on or off collapses or expands Low at once. These Backlog options are saved per team in this browser and included in team exports; importing an export made before they existed uses the defaults.
 
+Between the header and the table, a one-line summary ribbon describes the whole backlog, including bugs the quick filter hides. It shows:
+
+- the number of open bugs;
+- their total Effort, such as "Σ 348 pts + 4 unestimated";
+- the Value mix, as a bar and a count per tier;
+- the Severity mix, S1 to S4 plus any not set;
+- what is planned, such as "6 this · 6 next · 6 ended";
+- how many bugs were created since the current sprint started;
+- the median age.
+
+Each group has a tooltip with the details and takes keyboard focus so the tooltip opens from the keyboard too. The sprint groups appear only once the team's sprints have loaded. As the window narrows, the ribbon drops Severity first, then the new-this-sprint count, the median age, Planned, and finally the Value bar.
+
+Below the ribbon, a **Needs attention** bar works like the one on the Development board, with chips for signals worth a look during sprint planning:
+
+- **Severe, not planned**: Severity 1, or Severity 2 with Impact 1, and not in this sprint or the next.
+- **In an ended sprint**.
+- **Missing severity or impact**: this includes a level the Value cannot read, since the Value counts either one as 4.
+- **No effort**.
+- **Older than 1 year**: the bug is still New a year after it was created.
+
+Each chip counts the bugs the quick filter leaves. Pressing a chip dims the other bugs without hiding or reordering them, says how many bugs it highlights, and adds "· N match" to each tier header, which counts the matches in a collapsed tier too. A dimmed row comes back to full strength on hover or focus. Pressing the chip again, or **Clear**, turns it off, and the chip is not saved, so it resets when you leave the page.
+
+Backlog options > Needs attention sets the age for the last chip, from 1 to 120 months (12 by default). It applies once the number is valid and is saved and exported with the other Backlog options.
+
 Backlog options > Display has **Compact rows**, the same setting as Compact cards on Development and Quality Assurance, so turning it on in one place turns it on in all three. Compact rows keep each bug to one line: a long title ends in an ellipsis with the full title in its tooltip, only the first tag shows, followed by "+N" whose tooltip lists the rest, and Assigned to shows only the avatar, with the name in its tooltip.
 
 The quick filter keeps the bugs whose visible text contains what you type, checking each column as the table displays it: the ID, the rounded Value, the title, each of the bug's tags (including those behind "+N" in compact rows), Severity as its chip reads ("S1 · Critical"), Impact, Effort, Sprint, State (both the abbreviation and the full state), and Assigned to (including "Unassigned"). Because it matches what is shown, it does not search the iteration path behind a Sprint label, the unrounded Value, the Severity picklist text ("1 - Critical"), the created date, or the marks that stand in for missing values. Rank and Age are left out because they shift as bugs are added and grow older, so a filter on them would stop matching. Matching ignores case and surrounding spaces. The remaining bugs keep their ranked order, and a message appears when none match. The filter text is kept when you refresh, switch teams, or visit another page, but not across a browser reload. / or Ctrl/Cmd + F focuses it.

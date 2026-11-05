@@ -830,7 +830,7 @@ test('the bugs are grouped into Value tiers, each under a header with its size, 
 
 test('the tiers follow the thresholds in the Backlog options', async (t) => {
   const host = await render(t, {
-    backlogOptions: { tierThresholds: { top: 300, high: 100, medium: 5 }, startLowCollapsed: false },
+    backlogOptions: { tierThresholds: { top: 300, high: 100, medium: 5 }, startLowCollapsed: false, agingMonths: 12 },
   })
 
   assert.deepEqual(tierBugIds(host), { high: [102], medium: [103], low: [101] })
@@ -946,4 +946,193 @@ test('collapsed tiers stay collapsed through a refresh', async (t) => {
   assert.equal(host.querySelector('table'), null)
   await renderPage({})
   assert.deepEqual(listedIds(host), [103, 101], 'the loading skeleton does not reset which tiers are open')
+})
+
+const DAY_MS = 86_400_000
+const daysAgo = (days: number) => new Date(Date.now() - days * DAY_MS).toISOString()
+const futureIterations = [
+  ...iterations,
+  { name: 'Sprint 6', path: 'Project\\Team\\2026\\Sprint 6', timeFrame: 'future', startDate: '2026-06-15', finishDate: '2026-06-26' },
+]
+// One bug for each Needs attention facet, dated from today so the age facet holds whenever the tests run.
+const attentionBugs: PageProps['bugs'] = rankBacklogBugs([
+  {
+    id: 201, title: 'Crash on save', state: 'New', createdAt: daysAgo(30), iterationPath: 'Project',
+    severity: '1 - Critical', priority: 1, effort: 2, workItemUrl: workItemUrl(201),
+  },
+  {
+    id: 202, title: 'Stale sprint bug', state: 'Active', createdAt: daysAgo(10), iterationPath: 'Project\\Team\\2026\\Sprint 4',
+    severity: '3 - Medium', priority: 2, effort: 3, workItemUrl: workItemUrl(202),
+  },
+  {
+    id: 203, title: 'Ancient request', state: 'New', createdAt: daysAgo(800), iterationPath: 'Project',
+    priority: 2, workItemUrl: workItemUrl(203),
+  },
+  {
+    id: 204, title: 'Planned crash', state: 'Active', createdAt: daysAgo(3), iterationPath: 'Project\\Team\\2026\\Sprint 5',
+    severity: '2 - High', priority: 1, effort: 1, workItemUrl: workItemUrl(204),
+  },
+], futureIterations)
+const ribbon = (host: Element) => host.querySelector('section[aria-label="Backlog summary"]')
+const facetToggle = (host: Element, key: string) => host.querySelector<HTMLElement>(`[data-attention-facet="${key}"]`)!
+// The chip's label carries its pressed state and its spoken name.
+const facetLabel = (host: Element, key: string) => facetToggle(host, key).querySelector('[aria-pressed]')!
+const facetLabels = (host: Element) => [...host.querySelectorAll('[aria-pressed]')].map((toggle) => toggle.getAttribute('aria-label'))
+const attentionStatus = (host: Element) => facetToggle(host, 'severe').closest('[role="group"]')!.parentElement!.querySelector('[role="status"]')!
+
+test('the summary ribbon sums up the backlog: its size, effort, Value and severity mix, sprints, and age', async (t) => {
+  const host = await render(t, { teamIterations: iterations })
+  const text = ribbon(host)!.textContent!
+
+  assert.match(text, /^3 open bugs/)
+  assert.match(text, /Total effort 12 pts \+ 1 unestimated/, 'the Σ is read as "Total effort"')
+  assert.match(text, /Value1 top0 high0 medium2 low/)
+  assert.match(text, /Severity1 S10 S21 S30 S41 not set/)
+  assert.match(text, /Planned1 this · 0 next · 1 ended/)
+  assert.match(text, /\+0 new this sprint/)
+  assert.match(text, /Median age \d+[dwmoy]+$/)
+  assert.ok(
+    [...ribbon(host)!.querySelectorAll('[tabindex="0"]')].length >= 5,
+    'each group can take focus, so its tooltip opens from the keyboard too',
+  )
+})
+
+test('the ribbon describes the whole backlog while the quick filter narrows the list', async (t) => {
+  const host = await render(t, { bugs: filterBacklogBugs(bugs, 'slow'), allBugs: bugs, totalBugCount: bugs.length, teamIterations: iterations })
+
+  assert.deepEqual(listedIds(host), [103])
+  assert.match(ribbon(host)!.textContent!, /^3 open bugs/)
+})
+
+test('without the team sprints the ribbon leaves out what is planned and new this sprint', async (t) => {
+  const text = ribbon(await render(t))!.textContent!
+
+  assert.match(text, /^3 open bugs/)
+  assert.doesNotMatch(text, /Planned/)
+  assert.doesNotMatch(text, /new this sprint/)
+})
+
+test('there is no summary or Needs attention bar without bugs to describe, and the skeleton stands in while loading', async (t) => {
+  for (const overrides of [{ bugs: [] }, { error: 'Failed', bugs: [] }]) {
+    const host = await render(t, overrides)
+    assert.equal(ribbon(host), null, JSON.stringify(overrides))
+    assert.equal(host.querySelector('[data-attention-facet]'), null)
+  }
+
+  const loading = await render(t, { isLoading: true, bugs: [] })
+  assert.equal(ribbon(loading), null)
+  const skeleton = loading.querySelector('[data-backlog-summary-skeleton]')!
+  assert.equal(skeleton.getAttribute('aria-hidden'), 'true')
+})
+
+test('the Needs attention chips count the listed bugs that show each signal', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+
+  assert.deepEqual(facetLabels(host), [
+    'Severe, not planned, 1 bug',
+    'In an ended sprint, 1 bug',
+    'Missing severity or impact, 1 bug',
+    'No effort, 1 bug',
+    'Older than 1 year, 1 bug',
+  ])
+  assert.equal(attentionStatus(host).textContent, '')
+  assert.ok(bugRows(host).every((row) => !row.hasAttribute('data-emphasis')), 'nothing is dimmed until a chip is pressed')
+  assert.equal(host.querySelector('.backlog-tier-matches'), null)
+
+  const filtered = await render(t, {
+    bugs: filterBacklogBugs(attentionBugs, 'ancient'), allBugs: attentionBugs, totalBugCount: 4, teamIterations: futureIterations,
+  })
+  assert.deepEqual(facetLabels(filtered), [
+    'Severe, not planned, 0 bugs',
+    'In an ended sprint, 0 bugs',
+    'Missing severity or impact, 1 bug',
+    'No effort, 1 bug',
+    'Older than 1 year, 1 bug',
+  ], 'the counts follow the quick filter')
+  assert.match(ribbon(filtered)!.textContent!, /^4 open bugs/)
+})
+
+test('pressing a chip dims the other bugs, counts its matches in each tier, and Clear undoes it', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+
+  await act(async () => facetToggle(host, 'old').click())
+  assert.equal(facetLabel(host, 'old').getAttribute('aria-pressed'), 'true')
+  assert.equal(attentionStatus(host).textContent, '1 of 4 bugs highlighted · Older than 1 year')
+  assert.deepEqual(
+    Object.fromEntries(bugRows(host).map((row) => [rowId(row), row.getAttribute('data-emphasis')])),
+    { 201: 'dim', 202: 'dim', 203: 'match', 204: 'dim' },
+  )
+  assert.match(rowFor(host, 203).textContent!, /Highlighted/, 'screen readers hear which rows the chip picks out')
+  assert.doesNotMatch(rowFor(host, 201).textContent!, /Highlighted/)
+
+  for (const body of host.querySelectorAll('tbody')) {
+    const matches = body.querySelector('.backlog-tier-matches')!
+    const holdsMatch = [...body.querySelectorAll('tr:not(.backlog-tier-header)')].some((row) => rowId(row) === 203)
+    assert.equal(matches.textContent, holdsMatch ? ' · 1 match' : ' · 0 match')
+    assert.equal(matches.hasAttribute('data-none'), !holdsMatch, 'only a tier with matches calls them out')
+  }
+
+  const clear = [...host.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Clear')!
+  await act(async () => clear.click())
+  assert.equal(facetLabel(host, 'old').getAttribute('aria-pressed'), 'false')
+  assert.ok(bugRows(host).every((row) => !row.hasAttribute('data-emphasis')))
+})
+
+test('a match in a collapsed tier is counted on its header', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations, backlogOptions: createDefaultBacklogOptions() })
+
+  await act(async () => facetToggle(host, 'old').click())
+  assert.ok(!listedIds(host).includes(203), 'the old bug is in the collapsed Low tier')
+  assert.equal(tierHeader(host, 'Low').querySelector('.backlog-tier-matches')!.textContent, ' · 1 match')
+})
+
+test('dimmed rows fade but come back on hover or focus', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+  const table = host.querySelector('table')!
+  const prefixes = Array.from(table.classList, (name) => `.${name} `)
+  const rules: CSSStyleRule[] = []
+  const visit = (list: CSSRuleList) => {
+    for (const rule of Array.from(list) as Array<CSSStyleRule & CSSGroupingRule>) {
+      if (rule.selectorText && prefixes.some((prefix) => rule.selectorText.includes(prefix))) rules.push(rule)
+      if (rule.cssRules) visit(rule.cssRules)
+    }
+  }
+  for (const sheet of Array.from(document.styleSheets)) visit(sheet.cssRules)
+  const ruleFor = (pattern: RegExp) => rules.find((rule) => pattern.test(rule.selectorText))!
+
+  const dim = ruleFor(/tr\[data-emphasis="dim"\]\s*>\s*td$/)
+  assert.equal(dim.style.getPropertyValue('opacity'), '0.35')
+  assert.match(dim.style.getPropertyValue('filter'), /grayscale/)
+  const restored = ruleFor(/tr\[data-emphasis="dim"\]:hover\s*>\s*td/)
+  assert.match(restored.selectorText, /tr\[data-emphasis="dim"\]:focus-within\s*>\s*td/)
+  assert.equal(restored.style.getPropertyValue('opacity'), '1')
+})
+
+test('the options dialog sets how old a New bug is before the chip flags it', async (t) => {
+  const changes: BacklogOptions[] = []
+  const host = await renderWithOptions(t, {
+    bugs: attentionBugs, teamIterations: futureIterations, onBacklogOptionsChange: (next: BacklogOptions) => changes.push(next),
+  })
+  const opened = await openOptions(host)
+
+  const section = opened.querySelector('section[aria-labelledby="backlog-options-attention"]')!
+  assert.equal(section.querySelector('h3')!.textContent, 'Needs attention')
+  const months = thresholdInput(opened, 'Flag New bugs older than (months)')
+  assert.deepEqual([months.value, months.type, months.min, months.max], ['12', 'number', '1', '120'])
+  assert.match(document.getElementById(months.getAttribute('aria-describedby')!)!.textContent!, /still New after this many months/)
+
+  for (const invalid of ['0', '2.5', '121', '']) {
+    await typeInto(months, invalid)
+    assert.equal(opened.querySelector('[role="alert"]')!.textContent, 'Enter a whole number of months from 1 to 120.', invalid)
+    assert.equal(months.getAttribute('aria-invalid'), 'true')
+  }
+  assert.deepEqual(changes, [], 'the chip keeps the last age that made sense')
+
+  await typeInto(months, '24')
+  assert.equal(opened.querySelector('[role="alert"]'), null)
+  assert.deepEqual(changes.map((change) => change.agingMonths), [24])
+  assert.equal(facetLabel(host, 'old').getAttribute('aria-label'), 'Older than 2 years, 1 bug')
+
+  await typeInto(months, '30')
+  assert.equal(facetLabel(host, 'old').getAttribute('aria-label'), 'Older than 30 months, 0 bugs', 'about 26 months old is not flagged')
 })

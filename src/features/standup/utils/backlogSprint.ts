@@ -40,6 +40,15 @@ function describeIteration(iteration: TeamIterationOption, isNext: boolean): Bac
   }
 }
 
+/** The team's next sprint: its earliest future one. */
+export function findNextIteration(iterations: readonly TeamIterationOption[]): TeamIterationOption | undefined {
+  return iterations
+    .filter((iteration) => iteration.timeFrame === 'future')
+    .reduce<TeamIterationOption | undefined>((earliest, iteration) => (
+      !earliest || startTime(iteration) < startTime(earliest) ? iteration : earliest
+    ), undefined)
+}
+
 /**
  * Labels a bug's iteration path against the team's sprints, matching the full path without regard to case. A path
  * that is none of the team's sprints, such as the team's root or backlog iteration, is the backlog. The earliest
@@ -53,11 +62,7 @@ export function createBacklogSprintResolver(iterations: readonly TeamIterationOp
     }
   }
 
-  const next = iterations
-    .filter((iteration) => iteration.timeFrame === 'future')
-    .reduce<TeamIterationOption | undefined>((earliest, iteration) => (
-      !earliest || startTime(iteration) < startTime(earliest) ? iteration : earliest
-    ), undefined)
+  const next = findNextIteration(iterations)
   const sprintsByPath = new Map(iterations.map((iteration) => [
     normalizePath(iteration.path),
     describeIteration(iteration, iteration === next),
