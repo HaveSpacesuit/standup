@@ -1,5 +1,6 @@
 import type { TeamIterationOption, TeamMember, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import { toIdentityKeys } from '../../../ado/identity'
+import { BLOCKED_RAIL_WIDTH } from '../utils/boardLayout'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { countWorkingDays, formatDayCount, formatSprintDate } from '../utils/sprintDates'
 import type { AttentionTone } from './boardAttention'
@@ -183,6 +184,58 @@ export function getSignalSet(
 
 export function getColumnItems(buckets: QualityAssuranceBucket[], id: QaColumnId): WorkItemSummary[] {
   return buckets.find((bucket) => bucket.id === id)?.items ?? []
+}
+
+export type QaColumnState = {
+  id: QaColumnId
+  count: number
+  /** The column is collapsed to a narrow rail. */
+  rail: boolean
+  /** An open column offers a Collapse button. */
+  collapsible: boolean
+}
+
+/** Empty columns start as rails and Coming up can always collapse; a column someone toggled keeps that choice. */
+export function getQaColumnStates(
+  columnIds: readonly QaColumnId[],
+  counts: Partial<Record<QaColumnId, number>>,
+  open: Partial<Record<QaColumnId, boolean>>,
+): QaColumnState[] {
+  return columnIds.map((id) => {
+    const count = counts[id] ?? 0
+    return { id, count, rail: !(open[id] ?? count > 0), collapsible: id === 'coming' || count === 0 }
+  })
+}
+
+type QaColumnTrack = { min: number; fr: number }
+
+/** Ready for QA holds the work testers act on, so it gets the most room, and Recently completed the least. */
+const QA_COLUMN_TRACKS: Partial<Record<QaColumnId, QaColumnTrack>> = {
+  'needs-testing': { min: 320, fr: 1.45 },
+  done: { min: 200, fr: 0.9 },
+}
+const DEFAULT_QA_COLUMN_TRACK: QaColumnTrack = { min: 220, fr: 1 }
+
+export type QaBoardLayout = {
+  gridTemplate: string
+  /** Sum of the minimum track widths, so every layer of the board stays aligned. */
+  minWidth: number
+}
+
+/** Grid tracks for the QA columns, after the lane column when the board has lanes. */
+export function getQaBoardLayout(columns: readonly Pick<QaColumnState, 'id' | 'rail'>[], laneColumnWidth = 0): QaBoardLayout {
+  const tracks = columns.map(({ id, rail }) => {
+    if (rail) {
+      return { template: `${BLOCKED_RAIL_WIDTH}px`, min: BLOCKED_RAIL_WIDTH }
+    }
+    const { min, fr } = QA_COLUMN_TRACKS[id] ?? DEFAULT_QA_COLUMN_TRACK
+    return { template: `minmax(${min}px, ${fr}fr)`, min }
+  })
+
+  return {
+    gridTemplate: [...(laneColumnWidth > 0 ? [`${laneColumnWidth}px`] : []), ...tracks.map((track) => track.template)].join(' '),
+    minWidth: laneColumnWidth + tracks.reduce((sum, track) => sum + track.min, 0),
+  }
 }
 
 function getLaneKey(identity: WorkItemSummary['assignedTo'] | undefined, testers: TeamMember[]): string {

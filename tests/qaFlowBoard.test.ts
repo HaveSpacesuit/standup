@@ -156,6 +156,16 @@ test('QA flow follows the testing journey and surfaces its timing and attention 
   assert.match(html, /line-through/)
 })
 
+test('QA flow shrinks empty columns to rails that can be expanded, and Coming up can collapse', () => {
+  const html = render('flow', false, { buckets: [{ id: 'new', title: 'Newly added', items: [filed] }] })
+  assert.match(html, /<section[^>]*aria-labelledby="qa-column-needs-development"[^>]*data-qa-column="needs-development"/)
+  assert.match(html, /aria-label="Expand Back in development, no cards"/)
+  assert.match(html, /Back in development · none/)
+  assert.doesNotMatch(html, /aria-label="Expand Newly added/)
+  assert.match(html, /aria-label="Collapse Coming up"/)
+  assert.doesNotMatch(html, /aria-label="Collapse Newly added"/)
+})
+
 test('QA testers view provides lanes and reuses the standup presenter', () => {
   const html = render('testers', true)
   assert.match(html, /Taylor Reed/)
