@@ -1,10 +1,12 @@
 import type { RefObject } from 'react'
-import { Box, Button, CircularProgress, IconButton, ToggleButton, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { AppTooltip as Tooltip } from './AppTooltip'
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
+import svgGraphScatterChart from '@stratakit/icons/graph-scatter-chart.svg'
 import svgIssueReport from '@stratakit/icons/issue-report.svg'
+import svgList from '@stratakit/icons/list.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import { PageToolbar } from './PageToolbar'
 import { QuickFilterField } from './QuickFilterField'
@@ -32,7 +34,12 @@ type BacklogToolbarProps = {
   onPlanningChange?: (planning: boolean) => void
   /** Whether there are bugs to plan with; Plan a sprint stays off until there are. */
   canPlan?: boolean
+  /** The ranked list or the Value map. */
+  view?: BacklogView
+  onViewChange?: (view: BacklogView) => void
 }
+
+export type BacklogView = 'list' | 'map'
 
 export function BacklogToolbar({
   patConfigured,
@@ -52,6 +59,8 @@ export function BacklogToolbar({
   planning = false,
   onPlanningChange,
   canPlan = false,
+  view = 'list',
+  onViewChange,
 }: BacklogToolbarProps) {
   const hasConfiguredTeams = teamOptions.length > 0
   const canLoad = patConfigured && hasConfiguredTeams
@@ -98,6 +107,29 @@ export function BacklogToolbar({
         selectedTeamId={selectedTeamId}
         onTeamChange={onTeamChange}
         teamManagementUrl={teamManagementUrl}
+        beforeChildren={onViewChange ? (
+          <>
+            <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap', '@container (max-width: 960px)': { display: 'none' } }}>
+              View
+            </Typography>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={view}
+              onChange={(_event, value: BacklogView | null) => {
+                if (value) onViewChange(value)
+              }}
+              aria-label="Backlog view"
+            >
+              <ToggleButton value="list" render={<Button size="small" startIcon={<Icon href={svgList} />} />}>
+                List
+              </ToggleButton>
+              <ToggleButton value="map" render={<Button size="small" startIcon={<Icon href={svgGraphScatterChart} />} />}>
+                Map
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </>
+        ) : undefined}
       >
         <Tooltip title="Backlog options">
           <span>

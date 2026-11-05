@@ -3,8 +3,8 @@ import type { AppView } from '../hooks/useAppNavigation'
 export const REMEMBER_LAST_VIEW_STORAGE_KEY = 'standup:remember-last-view'
 const LAST_VIEW_STORAGE_KEY_PREFIX = 'standup:last-view'
 
-/** Pages with a View toggle: Developers or Sprint, and Testers or Flow. */
-export type RememberedViewPage = Extract<AppView, 'development' | 'qa-activity'>
+/** Pages with a View toggle: Developers or Sprint, Testers or Flow, and List or Map. */
+export type RememberedViewPage = Extract<AppView, 'development' | 'qa-activity' | 'backlog'>
 
 export function lastViewStorageKey(page: RememberedViewPage): string {
   return `${LAST_VIEW_STORAGE_KEY_PREFIX}:${page}`

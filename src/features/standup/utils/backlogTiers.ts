@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { BacklogTierThresholds } from './backlogOptions'
 import { formatBacklogValue, formatValueTerm, type RankedBacklogBug } from './backlogValue'
 
@@ -18,6 +19,15 @@ export const BACKLOG_TIER_COLORS: Readonly<Record<BacklogTierKey, string>> = {
   high: `color-mix(in oklab, var(--stratakit-color-bg-accent-base) 62%, ${SURFACE})`,
   medium: `color-mix(in oklab, var(--stratakit-color-bg-accent-base) 30%, ${SURFACE})`,
   low: 'var(--stratakit-color-bg-mono-muted)',
+}
+
+/** Sets `--backlog-tier` for a tier's color bar, and `--backlog-tier-meter` for its Value meters. */
+export function getBacklogTierStyle(key: BacklogTierKey): CSSProperties {
+  return {
+    '--backlog-tier': BACKLOG_TIER_COLORS[key],
+    // The Low tier's own color is too faint for a meter, so its meters take the neutral fill instead of the accent.
+    ...(key === 'low' ? { '--backlog-tier-meter': 'var(--stratakit-color-bg-mono-base)' } : {}),
+  } as CSSProperties
 }
 
 /**

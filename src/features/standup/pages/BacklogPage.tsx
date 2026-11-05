@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, type RefObject } from 'react'
 import type { TeamIterationOption } from '../../../ado/types'
 import { AttentionBar } from '../components/AttentionBar'
 import { BacklogList } from '../components/BacklogList'
+import { BacklogMap } from '../components/BacklogMap'
 import { BacklogOptionsDialog } from '../components/BacklogOptionsDialog'
 import { BacklogPlanBar } from '../components/BacklogPlanBar'
 import { BacklogRibbon } from '../components/BacklogRibbon'
@@ -9,6 +10,7 @@ import type { BacklogTablePlan } from '../components/BacklogTable'
 import { BacklogToolbar } from '../components/BacklogToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { TeamOption } from '../components/TeamToolbarControls'
+import { useRememberedView } from '../hooks/useRememberedView'
 import {
   countBacklogFacets,
   getBacklogFacetMatches,
@@ -51,7 +53,11 @@ type BacklogPageProps = {
   /** The team's Backlog options: the Value tier thresholds, whether Low starts collapsed, and when a New bug is old. */
   backlogOptions?: BacklogOptions
   onBacklogOptionsChange?: (next: BacklogOptions) => void
+  /** Reopen the view used last, List or Map; otherwise the page opens on List. */
+  rememberLastView?: boolean
 }
+
+const BACKLOG_VIEWS = ['list', 'map'] as const
 
 const DEFAULT_BACKLOG_OPTIONS = createDefaultBacklogOptions()
 const NO_ITERATIONS: readonly TeamIterationOption[] = []
@@ -116,7 +122,9 @@ export function BacklogPage({
   onCompactRowsChange = () => {},
   backlogOptions = DEFAULT_BACKLOG_OPTIONS,
   onBacklogOptionsChange = () => {},
+  rememberLastView = false,
 }: BacklogPageProps) {
+  const [view, setView] = useRememberedView('backlog', BACKLOG_VIEWS, rememberLastView)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [collapsedTiers, toggleTier] = useCollapsedTiers(backlogOptions.startLowCollapsed)
   const [attentionFacet, setAttentionFacet] = useState<BacklogFacetKey | null>(null)
@@ -124,12 +132,15 @@ export function BacklogPage({
   // Null follows the team's default budget, so changing it in the options applies until the budget is edited here.
   const [budgetOverride, setBudgetOverride] = useState<number | null>(null)
   const [planPicks, setPlanPicks] = useState(NO_PLAN_PICKS)
+  // The map's selected bubble; kept here so it outlasts a refresh, which swaps the map for the loading skeleton.
+  const [mapSelection, setMapSelection] = useState<string | null>(null)
   // Picks and a budget belong to one team's backlog, so switching teams starts the plan over.
   const [planTeamId, setPlanTeamId] = useState(selectedTeamId)
   if (planTeamId !== selectedTeamId) {
     setPlanTeamId(selectedTeamId)
     setPlanPicks(NO_PLAN_PICKS)
     setBudgetOverride(null)
+    setMapSelection(null)
   }
   const { agingMonths, tierThresholds, defaultPlanBudget, skipPlannedBugs, skipUnestimatedBugs } = backlogOptions
   const hasConfiguredTeams = teamOptions.length > 0
@@ -196,6 +207,8 @@ export function BacklogPage({
         planning={showPlan}
         onPlanningChange={setPlanning}
         canPlan={showSummary}
+        view={view}
+        onViewChange={setView}
       />
 
       {showSummary ? (
@@ -225,7 +238,19 @@ export function BacklogPage({
         </>
       ) : null}
 
-      {hasConfiguredTeams ? (
+      {!hasConfiguredTeams ? (
+        <TeamConfigurationEmptyState pageLabel="Backlog" />
+      ) : view === 'map' && showSummary ? (
+        <BacklogMap
+          allBugs={allBugs}
+          bugs={bugs}
+          tierThresholds={tierThresholds}
+          highlightedBugIds={highlightedBugIds}
+          pickedIds={plan?.pickedIds ?? null}
+          selectedKey={mapSelection}
+          onSelectedKeyChange={setMapSelection}
+        />
+      ) : (
         <BacklogList
           isLoading={isLoading}
           error={error}
@@ -237,9 +262,8 @@ export function BacklogPage({
           onToggleTier={toggleTier}
           highlightedBugIds={highlightedBugIds}
           plan={tablePlan}
+          view={view}
         />
-      ) : (
-        <TeamConfigurationEmptyState pageLabel="Backlog" />
       )}
 
       {hasConfiguredTeams ? (
