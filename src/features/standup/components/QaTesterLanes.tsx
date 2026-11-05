@@ -93,7 +93,8 @@ export function QaTesterLanes({
         flexDirection: 'column',
       }}
     >
-      <Box sx={{ minWidth, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* The scroller is a flex column; shrinking to its height would cut the column backgrounds off at the first screen. */}
+      <Box sx={{ minWidth, minHeight: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ position: 'sticky', top: 0, zIndex: 3 }}>
           <Box
             sx={{
@@ -164,7 +165,7 @@ export function QaTesterLanes({
           </Box>
         </Box>
 
-        <Box sx={{ position: 'relative', flex: '1 1 auto', minHeight: 0, minWidth, bgcolor: 'background.default' }}>
+        <Box sx={{ position: 'relative', flex: '1 0 auto', minWidth, bgcolor: 'background.default' }}>
           <Box
             aria-hidden="true"
             sx={{

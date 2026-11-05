@@ -423,7 +423,8 @@ Unreadable saved team profiles or QA options produce a recovery warning. Only re
 ### UX details
 
 - board loading uses a skeleton layout to keep the page stable while data loads
-- the board header and content share one scroll container for alignment
+- the board header and content share one scroll container for alignment, and the column dividers
+  and tints run the full height of the board however far it scrolls
 - dense columns can collapse and expand groups for easier sprint review
 - light/dark visual mode is supported
 - optionally reopens Development and Quality Assurance on the view used last (Settings > Display)

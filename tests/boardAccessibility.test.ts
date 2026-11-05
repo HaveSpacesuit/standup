@@ -483,6 +483,25 @@ test('an empty Blocked column collapses to a rail that keeps its heading', () =>
   assert.match(full, /Card 1/)
 })
 
+test('board column backgrounds grow with the lanes instead of stopping at the first screen', () => {
+  const dom = new JSDOM(renderBoardGrid())
+  try {
+    const { document } = dom.window
+    const styles = [...document.querySelectorAll('style')].map((style) => style.textContent ?? '')
+    const getStyles = (element: Element) => styles.filter((css) =>
+      [...element.classList].some((className) => css.includes(`.${className}{`)),
+    ).join('')
+    const cardsArea = document.querySelector('[data-board-column="New"]')?.parentElement?.parentElement
+    const content = cardsArea?.parentElement
+    assert.ok(cardsArea && content)
+    // Inside the flex-column scroller, a shrinkable content box is squeezed to the viewport and the dividers end there.
+    assert.match(getStyles(content), /flex-shrink:0;/)
+    assert.match(getStyles(cardsArea), /flex:1 0 auto;/)
+  } finally {
+    dom.window.close()
+  }
+})
+
 test('New and Done cards are compact while in-flight columns stay full until Compact cards is on', () => {
   const cardsByCell = {
     'alex:New': [boardCard(1, 'New')],

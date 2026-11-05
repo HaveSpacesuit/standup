@@ -279,6 +279,25 @@ test('QA testers view leaves out the shared lanes when they have no cards', () =
   })
 })
 
+test('QA testers view grows its column backgrounds with the lanes instead of stopping at the first screen', () => {
+  const dom = new JSDOM(render('testers'))
+  try {
+    const { document } = dom.window
+    const styles = [...document.querySelectorAll('style')].map((style) => style.textContent ?? '')
+    const getStyles = (element: Element) => styles.filter((css) =>
+      [...element.classList].some((className) => css.includes(`.${className}{`)),
+    ).join('')
+    const cardsArea = document.querySelector('[data-qa-board-column="new"]')?.parentElement?.parentElement
+    const content = cardsArea?.parentElement
+    assert.ok(cardsArea && content)
+    assert.ok(content.parentElement?.hasAttribute('data-qa-scroll-container'))
+    assert.match(getStyles(content), /flex-shrink:0;/)
+    assert.match(getStyles(cardsArea), /flex:1 0 auto;/)
+  } finally {
+    dom.window.close()
+  }
+})
+
 test('QA standup takes turns through the testers and opens only the speaker’s lane', () => {
   withDocument(render('testers', true), (document) => {
     assert.ok(document.querySelector('[data-lane="Taylor Reed"]')?.hasAttribute('data-lane-presenting'))

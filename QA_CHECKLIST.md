@@ -199,6 +199,9 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify the loading skeleton appears while team data is loading and does not cause major layout
       shift.
 - [ ] Verify the board header and board content scroll together and columns remain aligned.
+- [ ] Scroll a board taller than the window to the bottom and verify the column dividers, the Blocked
+      tint, and the Blocked rail run all the way down instead of stopping where the first screen
+      ended.
 - [ ] Verify the sprint summary identifies the current sprint and displays correct counts/progress.
 - [ ] Verify an empty team shows a useful empty state rather than a broken board.
 - [ ] Verify a team with no current sprint or missing iteration data has a clear fallback state.
@@ -455,7 +458,8 @@ Prepare data that exercises both populated and empty states:
 - [ ] Collapse and expand lanes with their chevrons and with Collapse all lanes and Expand all lanes;
       verify a collapsed lane summarizes each column on one line.
 - [ ] Verify lanes and columns use the Development board's surfaces and dividers in light and dark
-      modes.
+      modes, and that the dividers run to the bottom of the board after scrolling down a tall list
+      of lanes.
 - [ ] Switch to Flow and verify the columns show without lanes, run to the bottom of the board, and
       split Ready for QA into Needs a tester and Testing; verify the Flow icon differs from the
       Development page's Sprint icon.
