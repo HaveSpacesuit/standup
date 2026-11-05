@@ -1,7 +1,8 @@
 import type { RefObject } from 'react'
-import { Box, CircularProgress, IconButton, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, IconButton, ToggleButton, Typography } from '@mui/material'
 import { AppTooltip as Tooltip } from './AppTooltip'
 import { Icon } from '@stratakit/mui'
+import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgIssueReport from '@stratakit/icons/issue-report.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
@@ -26,6 +27,11 @@ type BacklogToolbarProps = {
   /** "43 bugs" or "12 of 43 bugs"; null while there is no list to count. */
   countLabel: string | null
   syncedAt: number | null
+  /** Whether Plan a sprint is on. */
+  planning?: boolean
+  onPlanningChange?: (planning: boolean) => void
+  /** Whether there are bugs to plan with; Plan a sprint stays off until there are. */
+  canPlan?: boolean
 }
 
 export function BacklogToolbar({
@@ -43,6 +49,9 @@ export function BacklogToolbar({
   isLoading,
   countLabel,
   syncedAt,
+  planning = false,
+  onPlanningChange,
+  canPlan = false,
 }: BacklogToolbarProps) {
   const hasConfiguredTeams = teamOptions.length > 0
   const canLoad = patConfigured && hasConfiguredTeams
@@ -67,6 +76,21 @@ export function BacklogToolbar({
           inputRef={quickFilterInputRef}
           disabled={!patConfigured}
         />
+        {onPlanningChange ? (
+          <Tooltip title="Pick the highest-Value bugs that fit an effort budget">
+            <span>
+              <ToggleButton
+                value="plan"
+                selected={planning}
+                onChange={() => onPlanningChange(!planning)}
+                disabled={!canPlan}
+                render={<Button size="small" startIcon={<Icon href={svgCalendar} />} sx={{ flexShrink: 0, whiteSpace: 'nowrap' }} />}
+              >
+                Plan a sprint
+              </ToggleButton>
+            </span>
+          </Tooltip>
+        ) : null}
       </Box>
 
       <TeamToolbarControls

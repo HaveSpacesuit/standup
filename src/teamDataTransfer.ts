@@ -6,7 +6,9 @@ import {
   areValidTierThresholds,
   createDefaultBacklogOptions,
   isValidAgingMonths,
+  isValidPlanBudget,
   MAX_AGING_MONTHS,
+  MAX_PLAN_BUDGET,
 } from './features/standup/utils/backlogOptions'
 import type {
   QaOptions,
@@ -270,10 +272,24 @@ function parseImportedBacklogOptions(value: unknown): BacklogOptions {
     throw new Error(`Imported backlog options agingMonths must be a whole number of months from 1 to ${MAX_AGING_MONTHS}.`)
   }
 
+  const defaultPlanBudget = value.defaultPlanBudget ?? defaults.defaultPlanBudget
+  if (!isValidPlanBudget(defaultPlanBudget)) {
+    throw new Error(`Imported backlog options defaultPlanBudget must be a whole number of points from 1 to ${MAX_PLAN_BUDGET}.`)
+  }
+
+  const imported = value
+  const readFlag = (key: 'startLowCollapsed' | 'skipPlannedBugs' | 'skipUnestimatedBugs') => {
+    const flag = imported[key]
+    return typeof flag === 'boolean' ? flag : defaults[key]
+  }
+
   return {
     tierThresholds,
-    startLowCollapsed: typeof value.startLowCollapsed === 'boolean' ? value.startLowCollapsed : defaults.startLowCollapsed,
+    startLowCollapsed: readFlag('startLowCollapsed'),
     agingMonths,
+    defaultPlanBudget,
+    skipPlannedBugs: readFlag('skipPlannedBugs'),
+    skipUnestimatedBugs: readFlag('skipUnestimatedBugs'),
   }
 }
 

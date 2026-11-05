@@ -266,9 +266,9 @@ Recently completed state precedence, and explicit tag-based grouping, are unchan
 
 ### Backlog view
 
-The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
+The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, a **Plan a sprint** toggle, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
 
-The table has no sorting, column filtering, or selection, and bug rows highlight when hovered. Its only buttons are on the Value tier headers, described below. The columns run from why a bug ranks where it does to who has it:
+The table has no sorting, column filtering, or selection, and bug rows highlight when hovered. Its only buttons are on the Value tier headers, plus a checkbox per bug while planning a sprint, both described below. The columns run from why a bug ranks where it does to who has it:
 
 - **#**: the bug's rank among all of the team's open bugs. It stays the same while the quick filter hides other bugs, so "#14" means the same thing filtered or not.
 - **Value**, with a sort icon in its header because the list is ordered by it. A short meter beside the number shows its size on a log scale, so each Severity or Impact level is an equal step. The meter's ends come from the formula (2.5 to 213.0), not the team's bugs, so a full bar means the same on every team. Hover the Value for its sum, such as "Value 96.8 = 4.8 × 8 ÷ 4 × 10", and where each term came from, including any input the Value assumed or raised. The tooltip's numbers are rounded to one decimal, or none for whole numbers.
@@ -310,6 +310,20 @@ Below the ribbon, a **Needs attention** bar works like the one on the Developmen
 Each chip counts the bugs the quick filter leaves. Pressing a chip dims the other bugs without hiding or reordering them, says how many bugs it highlights, and adds "· N match" to each tier header, which counts the matches in a collapsed tier too. A dimmed row comes back to full strength on hover or focus. Pressing the chip again, or **Clear**, turns it off, and the chip is not saved, so it resets when you leave the page.
 
 Backlog options > Needs attention sets the age for the last chip, from 1 to 120 months (12 by default). It applies once the number is valid and is saved and exported with the other Backlog options.
+
+**Plan a sprint** in the header picks the highest-Value bugs that fit an effort budget, for filling a sprint or spare capacity. It opens a strip under Needs attention and adds two columns to the table: a checkbox before the rank and **Running** after Effort. Going down the ranked list, the planner picks each bug that fits what is left of the budget and passes over one that doesn't, so a smaller bug further down can still fill the gap. It picks from the listed bugs: the quick filter's matches, narrowed to the pressed Needs attention chip when there is one; the other bugs' checkboxes are disabled. A bug without an Effort counts as 4 pts. Picked rows are tinted, Running shows each pick's effort added to the picks above it, and a dashed cut line under the last pick reads "Cut line · 9 of 10 pts · 3 bugs above". A bug passed over above the line says why in Running: This sprint, Next sprint, No effort, Too big, or Unchecked. Each tier header adds "· N picked".
+
+The strip has:
+
+- **Budget**, in points, with − and + buttons. It starts at the team's default and accepts a whole number from 1 to 999; until the number is valid the field says so and the plan keeps the last valid budget.
+- **Skip planned** and **Skip unestimated**, which leave out bugs already in this sprint or the next, and bugs without an Effort. These are the same settings as in Backlog options.
+- A summary: the number of picks, the points used against the budget with a meter, "over by N" in amber when hand picks exceed it, the picks' total Value, and how many picks have no Effort.
+- **Copy list**, which copies the picks as one tab-separated line each (ID, title, Effort, and Value) for pasting into a spreadsheet or chat.
+- **Reset**, which clears hand picks and goes back to the default budget.
+
+Checking or unchecking a bug overrides the planner, and the checkbox is ringed to show it was set by hand. A hand pick counts first, even when it is planned or pushes the plan over budget; unchecking it, or checking a bug unchecked by hand, hands it back to the planner. The plan never changes Azure DevOps. Plan a sprint, the budget, and hand picks are not saved: they survive a refresh but reset when you switch teams, and leaving the page turns planning off.
+
+Backlog options > Plan a sprint sets the **Default budget** (10 pts by default, 1–999) and whether to **Skip bugs already in this sprint or the next** and **Skip bugs without an Effort** (both on by default). They are saved and exported with the other Backlog options.
 
 Backlog options > Display has **Compact rows**, the same setting as Compact cards on Development and Quality Assurance, so turning it on in one place turns it on in all three. Compact rows keep each bug to one line: a long title ends in an ellipsis with the full title in its tooltip, only the first tag shows, followed by "+N" whose tooltip lists the rest, and Assigned to shows only the avatar, with the name in its tooltip.
 

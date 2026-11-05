@@ -23,6 +23,7 @@ const { createDefaultAssignmentOptions, createDefaultQaOptions } =
   await server.ssrLoadModule('/src/features/standup/utils/standupOptionDefaults.ts')
 
 const thresholds = { top: 80, high: 30, medium: 12 }
+const planDefaults = { defaultPlanBudget: 10, skipPlannedBugs: true, skipUnestimatedBugs: true }
 
 function createBug(overrides: Partial<BacklogBug> & { id: number }): BacklogBug {
   return {
@@ -32,8 +33,13 @@ function createBug(overrides: Partial<BacklogBug> & { id: number }): BacklogBug 
   }
 }
 
-test('the default tiers start at Value 80, 30, and 12, with Low collapsed and New bugs flagged after a year', () => {
-  assert.deepEqual(createDefaultBacklogOptions(), { tierThresholds: thresholds, startLowCollapsed: true, agingMonths: 12 })
+test('the default tiers start at Value 80, 30, and 12, with Low collapsed, New bugs flagged after a year, and a 10 pt plan', () => {
+  assert.deepEqual(createDefaultBacklogOptions(), {
+    tierThresholds: thresholds,
+    startLowCollapsed: true,
+    agingMonths: 12,
+    ...planDefaults,
+  })
   assert.notEqual(createDefaultBacklogOptions().tierThresholds, createDefaultBacklogOptions().tierThresholds, 'each caller gets its own copy')
   assert.equal(backlogOptionsStorageKey('team-1'), 'standup:backlog-options:team-1')
 })
@@ -101,7 +107,14 @@ test('tier thresholds must be positive and each lower than the one above it', ()
 })
 
 test('stored options round-trip, and anything missing or invalid falls back to its default', () => {
-  const options = { tierThresholds: { top: 120, high: 40, medium: 8 }, startLowCollapsed: false, agingMonths: 18 }
+  const options = {
+    tierThresholds: { top: 120, high: 40, medium: 8 },
+    startLowCollapsed: false,
+    agingMonths: 18,
+    defaultPlanBudget: 25,
+    skipPlannedBugs: false,
+    skipUnestimatedBugs: false,
+  }
   assert.deepEqual(parseStoredBacklogOptions(serializeBacklogOptions(options)), options)
 
   for (const raw of [null, '', '{bad', '[]', '"text"', '{}']) {
@@ -109,7 +122,7 @@ test('stored options round-trip, and anything missing or invalid falls back to i
   }
   assert.deepEqual(
     parseBacklogOptions({ tierThresholds: { top: 10, high: 20, medium: 5 }, startLowCollapsed: false }),
-    { tierThresholds: thresholds, startLowCollapsed: false, agingMonths: 12 },
+    { tierThresholds: thresholds, startLowCollapsed: false, agingMonths: 12, ...planDefaults },
     'thresholds out of order are replaced as a set',
   )
   assert.deepEqual(parseBacklogOptions({ tierThresholds: { top: '80', high: 30, medium: 12 } }).tierThresholds, thresholds)
@@ -119,6 +132,13 @@ test('stored options round-trip, and anything missing or invalid falls back to i
   }
   assert.equal(parseBacklogOptions({ agingMonths: 1 }).agingMonths, 1)
   assert.equal(parseBacklogOptions({ agingMonths: 120 }).agingMonths, 120)
+  for (const defaultPlanBudget of [0, -5, 2.5, 1000, '13', null, Number.NaN]) {
+    assert.equal(parseBacklogOptions({ defaultPlanBudget }).defaultPlanBudget, 10, String(defaultPlanBudget))
+  }
+  assert.equal(parseBacklogOptions({ defaultPlanBudget: 1 }).defaultPlanBudget, 1)
+  assert.equal(parseBacklogOptions({ defaultPlanBudget: 999 }).defaultPlanBudget, 999)
+  assert.equal(parseBacklogOptions({ skipPlannedBugs: 'no' }).skipPlannedBugs, true, 'only false turns a skip off')
+  assert.equal(parseBacklogOptions({ skipUnestimatedBugs: false }).skipUnestimatedBugs, false)
 })
 
 const teamProfile = {
@@ -137,7 +157,14 @@ function exportWith(backlogOptions: unknown) {
 }
 
 test('team exports carry the Backlog options, and older exports import the defaults', () => {
-  const options = { tierThresholds: { top: 120, high: 40, medium: 8 }, startLowCollapsed: false, agingMonths: 6 }
+  const options = {
+    tierThresholds: { top: 120, high: 40, medium: 8 },
+    startLowCollapsed: false,
+    agingMonths: 6,
+    defaultPlanBudget: 40,
+    skipPlannedBugs: false,
+    skipUnestimatedBugs: true,
+  }
   const exported = exportWith(options)
   assert.deepEqual(exported.backlogOptions, options)
   assert.deepEqual(parseImportedTeamData(JSON.stringify(exported)).backlogOptions, options)
@@ -148,8 +175,13 @@ test('team exports carry the Backlog options, and older exports import the defau
 
   assert.deepEqual(
     parseImportedTeamData(JSON.stringify(exportWith({ startLowCollapsed: false }))).backlogOptions,
-    { tierThresholds: thresholds, startLowCollapsed: false, agingMonths: 12 },
+    { tierThresholds: thresholds, startLowCollapsed: false, agingMonths: 12, ...planDefaults },
     'a missing field takes its default',
+  )
+  assert.equal(
+    parseImportedTeamData(JSON.stringify(exportWith({ skipPlannedBugs: 'yes' }))).backlogOptions.skipPlannedBugs,
+    true,
+    'a flag that is not true or false takes its default, like Start with the Low tier collapsed',
   )
 })
 
@@ -168,6 +200,13 @@ test('an import with unusable Backlog options is rejected rather than silently c
       () => parseImportedTeamData(JSON.stringify(exportWith({ agingMonths }))),
       /agingMonths must be a whole number of months from 1 to 120\./,
       String(agingMonths),
+    )
+  }
+  for (const defaultPlanBudget of [0, 2.5, 1000, '13']) {
+    assert.throws(
+      () => parseImportedTeamData(JSON.stringify(exportWith({ defaultPlanBudget }))),
+      /defaultPlanBudget must be a whole number of points from 1 to 999\./,
+      String(defaultPlanBudget),
     )
   }
 })

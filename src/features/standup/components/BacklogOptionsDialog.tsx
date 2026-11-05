@@ -13,18 +13,21 @@ import {
 } from '@mui/material'
 import {
   areValidTierThresholds,
-  isValidAgingMonths,
   MAX_AGING_MONTHS,
+  MAX_PLAN_BUDGET,
   type BacklogOptions,
   type BacklogTierThresholds,
 } from '../utils/backlogOptions'
 import { BACKLOG_TIER_COLORS, type BacklogTierKey } from '../utils/backlogTiers'
+import { MIN_ADJUSTED_EFFORT } from '../utils/backlogValue'
 
 const COMPACT_ROWS_HELP_ID = 'backlog-compact-rows-help'
 const TIERS_HELP_ID = 'backlog-tiers-help'
 const TIERS_ERROR_ID = 'backlog-tiers-error'
 const AGING_HELP_ID = 'backlog-aging-help'
 const AGING_ERROR_ID = 'backlog-aging-error'
+const PLAN_HELP_ID = 'backlog-plan-help'
+const PLAN_ERROR_ID = 'backlog-plan-error'
 
 type ThresholdKey = keyof BacklogTierThresholds
 
@@ -158,40 +161,62 @@ function TierThresholdFields({
   )
 }
 
-/** The age for the "Older than" chip, edited as text and applied once it is a whole number of months in range. */
-function AgingMonthsField({ months, onChange }: { months: number; onChange: (next: number) => void }) {
-  const [draft, setDraft] = useState(() => String(months))
-  const parsed = draft.trim() ? Number(draft) : Number.NaN
-  const invalid = !isValidAgingMonths(parsed)
+/**
+ * A whole number edited as text, so a half-typed number can be shown, and applied once it is in range. The dialog
+ * unmounts its content when it closes, so reopening it starts again from the saved number.
+ */
+function WholeNumberField({
+  label,
+  value,
+  onChange,
+  max,
+  unit,
+  helpId,
+  errorId,
+  width,
+}: {
+  label: string
+  value: number
+  onChange: (next: number) => void
+  max: number
+  /** The plural unit for the error, as in "Enter a whole number of months from 1 to 120." */
+  unit: string
+  helpId: string
+  errorId: string
+  width: number
+}) {
+  const [draft, setDraft] = useState(() => String(value))
+  const isValid = (next: number) => Number.isInteger(next) && next >= 1 && next <= max
+  const invalid = !isValid(draft.trim() ? Number(draft) : Number.NaN)
 
   return (
     <>
       <TextField
         size="small"
         type="number"
-        label="Flag New bugs older than (months)"
+        label={label}
         value={draft}
         error={invalid}
         onChange={(event) => {
           setDraft(event.target.value)
           const next = event.target.value.trim() ? Number(event.target.value) : Number.NaN
-          if (isValidAgingMonths(next)) {
+          if (isValid(next)) {
             onChange(next)
           }
         }}
         slotProps={{
           htmlInput: {
             min: 1,
-            max: MAX_AGING_MONTHS,
+            max,
             step: 1,
-            'aria-describedby': invalid ? `${AGING_HELP_ID} ${AGING_ERROR_ID}` : AGING_HELP_ID,
+            'aria-describedby': invalid ? `${helpId} ${errorId}` : helpId,
           },
         }}
-        sx={{ width: 260 }}
+        sx={{ width }}
       />
       {invalid ? (
-        <Typography id={AGING_ERROR_ID} role="alert" variant="body-sm" sx={{ color: 'var(--stratakit-color-text-critical-base)', mt: 1 }}>
-          Enter a whole number of months from 1 to {MAX_AGING_MONTHS}.
+        <Typography id={errorId} role="alert" variant="body-sm" sx={{ color: 'var(--stratakit-color-text-critical-base)', mt: 1 }}>
+          Enter a whole number of {unit} from 1 to {max}.
         </Typography>
       ) : null}
     </>
@@ -261,10 +286,56 @@ export function BacklogOptionsDialog({
             The "Older than" chip highlights bugs that are still New after this many months, so the team can close them or
             confirm they still matter.
           </Typography>
-          <AgingMonthsField
-            months={backlogOptions.agingMonths}
+          <WholeNumberField
+            label="Flag New bugs older than (months)"
+            value={backlogOptions.agingMonths}
             onChange={(agingMonths) => onBacklogOptionsChange({ ...backlogOptions, agingMonths })}
+            max={MAX_AGING_MONTHS}
+            unit="months"
+            helpId={AGING_HELP_ID}
+            errorId={AGING_ERROR_ID}
+            width={260}
           />
+        </Box>
+
+        <Box component="section" aria-labelledby="backlog-options-plan" sx={{ mt: 3 }}>
+          <Typography id="backlog-options-plan" variant="body-md" render={<h3 />} sx={{ fontWeight: 700, mt: 0, mb: 0.5 }}>
+            Plan a sprint
+          </Typography>
+          <Typography id={PLAN_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mb: 2 }}>
+            Plan a sprint picks the highest-Value bugs that fit an effort budget. It starts from this budget, and a bug
+            without an Effort counts as {MIN_ADJUSTED_EFFORT} points.
+          </Typography>
+          <WholeNumberField
+            label="Default budget (pts)"
+            value={backlogOptions.defaultPlanBudget}
+            onChange={(defaultPlanBudget) => onBacklogOptionsChange({ ...backlogOptions, defaultPlanBudget })}
+            max={MAX_PLAN_BUDGET}
+            unit="points"
+            helpId={PLAN_HELP_ID}
+            errorId={PLAN_ERROR_ID}
+            width={200}
+          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', mt: 1 }}>
+            <FormControlLabel
+              label="Skip bugs already in this sprint or the next"
+              control={(
+                <Checkbox
+                  checked={backlogOptions.skipPlannedBugs}
+                  onChange={(_, checked) => onBacklogOptionsChange({ ...backlogOptions, skipPlannedBugs: checked })}
+                />
+              )}
+            />
+            <FormControlLabel
+              label="Skip bugs without an Effort"
+              control={(
+                <Checkbox
+                  checked={backlogOptions.skipUnestimatedBugs}
+                  onChange={(_, checked) => onBacklogOptionsChange({ ...backlogOptions, skipUnestimatedBugs: checked })}
+                />
+              )}
+            />
+          </Box>
         </Box>
       </DialogContent>
       <DialogActions>

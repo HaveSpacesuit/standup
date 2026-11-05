@@ -175,8 +175,8 @@ const button = (host: Element, label: string) => host.querySelector<HTMLButtonEl
 const dialog = () => document.querySelector('[role="dialog"]')
 const quickFilter = (host: Element) => host.querySelector<HTMLInputElement>('input[aria-label="Quick filter bugs"]')!
 const clearFilterButton = (host: Element) => host.querySelector<HTMLButtonElement>('button[aria-label="Clear quick filter"]')
-// Each Value tier is a tbody that starts with its header row, so the bug rows are the others.
-const BUG_ROWS = 'tbody tr:not(.backlog-tier-header)'
+// Each Value tier is a tbody that starts with its header row, so the bug rows are the others, bar Plan a sprint's cut line.
+const BUG_ROWS = 'tbody tr:not(.backlog-tier-header):not(.backlog-cut-line)'
 const bugRows = (host: Element) => [...host.querySelectorAll(BUG_ROWS)]
 const tierHeaders = (host: Element) => [...host.querySelectorAll('tr.backlog-tier-header')]
 const rowId = (row: Element) => Number(row.querySelector('.backlog-bug-id')!.textContent)
@@ -757,7 +757,7 @@ test('Escape dismisses the options dialog', async (t) => {
 type BacklogOptions = NonNullable<PageProps['backlogOptions']>
 const tierBugIds = (host: Element) => Object.fromEntries([...host.querySelectorAll('tbody')].map((body) => [
   body.getAttribute('data-tier'),
-  [...body.querySelectorAll('tr:not(.backlog-tier-header)')].map(rowId),
+  [...body.querySelectorAll('tr:not(.backlog-tier-header):not(.backlog-cut-line)')].map(rowId),
 ]))
 const tierHeader = (host: Element, name: string) =>
   tierHeaders(host).find((header) => header.querySelector('.backlog-tier-name')?.textContent === name)!
@@ -830,7 +830,7 @@ test('the bugs are grouped into Value tiers, each under a header with its size, 
 
 test('the tiers follow the thresholds in the Backlog options', async (t) => {
   const host = await render(t, {
-    backlogOptions: { tierThresholds: { top: 300, high: 100, medium: 5 }, startLowCollapsed: false, agingMonths: 12 },
+    backlogOptions: { ...createDefaultBacklogOptions(), tierThresholds: { top: 300, high: 100, medium: 5 }, startLowCollapsed: false },
   })
 
   assert.deepEqual(tierBugIds(host), { high: [102], medium: [103], low: [101] })
@@ -977,7 +977,8 @@ const ribbon = (host: Element) => host.querySelector('section[aria-label="Backlo
 const facetToggle = (host: Element, key: string) => host.querySelector<HTMLElement>(`[data-attention-facet="${key}"]`)!
 // The chip's label carries its pressed state and its spoken name.
 const facetLabel = (host: Element, key: string) => facetToggle(host, key).querySelector('[aria-pressed]')!
-const facetLabels = (host: Element) => [...host.querySelectorAll('[aria-pressed]')].map((toggle) => toggle.getAttribute('aria-label'))
+const facetLabels = (host: Element) =>
+  [...host.querySelectorAll('[data-attention-facet] [aria-pressed]')].map((toggle) => toggle.getAttribute('aria-label'))
 const attentionStatus = (host: Element) => facetToggle(host, 'severe').closest('[role="group"]')!.parentElement!.querySelector('[role="status"]')!
 
 test('the summary ribbon sums up the backlog: its size, effort, Value and severity mix, sprints, and age', async (t) => {
@@ -1135,4 +1136,252 @@ test('the options dialog sets how old a New bug is before the chip flags it', as
 
   await typeInto(months, '30')
   assert.equal(facetLabel(host, 'old').getAttribute('aria-label'), 'Older than 30 months, 0 bugs', 'about 26 months old is not flagged')
+})
+
+const planToggle = (host: Element) => [...host.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Plan a sprint')!
+const planBar = (host: Element) => host.querySelector('[role="region"][aria-label="Plan a sprint"]')
+const planStatus = (host: Element) => planBar(host)!.querySelector('[role="status"]')!.textContent
+const pickBox = (host: Element, id: number) => host.querySelector<HTMLInputElement>(`input[aria-label="Pick ${id}"]`)!
+const pickedIds = (host: Element) => bugRows(host).filter((row) => row.hasAttribute('data-picked')).map(rowId)
+const handPicked = (host: Element, id: number) => pickBox(host, id).closest('.backlog-pick')!.hasAttribute('data-hand')
+const running = (host: Element, id: number) => rowFor(host, id).querySelector('.backlog-running, .backlog-skip-reason')?.textContent ?? ''
+const budgetInput = (host: Element) => host.querySelector<HTMLInputElement>('input[aria-label="Effort budget in points"]')!
+const planButton = (host: Element, text: string) =>
+  [...planBar(host)!.querySelectorAll('button')].find((candidate) => candidate.textContent === text)!
+const stripCheckbox = (host: Element, label: string) => [...planBar(host)!.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+  .find((input) => input.closest('label')?.textContent === label)!
+const headTexts = (host: Element) => [...host.querySelectorAll('thead th')].map((cell) => cell.textContent)
+
+async function startPlanning(host: Element) {
+  await act(async () => planToggle(host).click())
+}
+
+test('Plan a sprint picks the highest-Value bugs that fit the budget, with their running effort and a cut line', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+  assert.deepEqual(listedIds(host), [201, 204, 202, 203])
+  const plainHead = headTexts(host)
+
+  assert.equal(planToggle(host).getAttribute('aria-pressed'), 'false')
+  assert.equal(planBar(host), null)
+  assert.equal(pickBox(host, 201), null)
+
+  await startPlanning(host)
+  assert.equal(planToggle(host).getAttribute('aria-pressed'), 'true')
+  assert.ok(planBar(host))
+  assert.deepEqual(headTexts(host), ['Pick', ...plainHead.slice(0, 6), 'Running', ...plainHead.slice(6)])
+  assert.equal(tierHeaders(host)[0].querySelector('th')!.getAttribute('colspan'), '12', 'the tier headers span the new columns')
+
+  assert.deepEqual(pickedIds(host), [201, 202], 'the planned bug and the one without an Effort are passed over')
+  assert.deepEqual([201, 204, 202, 203].map((id) => pickBox(host, id).checked), [true, false, true, false])
+  assert.deepEqual([201, 204, 202, 203].map((id) => running(host, id)), ['2 pts', 'This sprint', '5 pts', ''],
+    'a bug passed over above the line says why; nothing below it does')
+  assert.match(planStatus(host)!, /^2 bugs5 of 10 pts.*Total Value/)
+
+  const cutLine = rowFor(host, 202).nextElementSibling!
+  assert.ok(cutLine.classList.contains('backlog-cut-line'), 'the cut line follows the last pick')
+  assert.equal(cutLine.textContent, 'Cut line · 5 of 10 pts · 2 bugs above')
+  assert.equal(host.querySelectorAll('.backlog-cut-line').length, 1)
+  const pickedCounts = [...host.querySelectorAll('.backlog-tier-picked')].map((count) => count.textContent)
+  assert.equal(pickedCounts.reduce((sum, text) => sum + Number(/(\d+) picked/.exec(text!)![1]), 0), 2, 'each tier counts its picks')
+
+  await startPlanning(host)
+  assert.equal(planToggle(host).getAttribute('aria-pressed'), 'false')
+  assert.equal(planBar(host), null)
+  assert.equal(host.querySelector('.backlog-cut-line'), null)
+  assert.deepEqual(headTexts(host), plainHead)
+})
+
+test('picks made by hand override the planner, are ringed, and Reset clears them', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+  await startPlanning(host)
+  const reset = planButton(host, 'Reset')
+  assert.equal(reset.disabled, true, 'nothing to reset yet')
+
+  await act(async () => pickBox(host, 201).click())
+  assert.deepEqual(pickedIds(host), [202])
+  assert.equal(handPicked(host, 201), true)
+  assert.equal(running(host, 201), 'Unchecked')
+
+  await act(async () => pickBox(host, 204).click())
+  assert.deepEqual(pickedIds(host), [204, 202], 'a hand pick goes in even though it is planned')
+  assert.equal(handPicked(host, 204), true)
+  assert.equal(handPicked(host, 202), false)
+  assert.deepEqual([running(host, 204), running(host, 202)], ['1 pts', '4 pts'])
+
+  await act(async () => pickBox(host, 204).click())
+  assert.deepEqual(pickedIds(host), [202], 'unchecking a hand pick hands it back to the planner, which skips it')
+  assert.equal(handPicked(host, 204), false)
+
+  assert.equal(reset.disabled, false)
+  await act(async () => reset.click())
+  assert.deepEqual(pickedIds(host), [201, 202])
+  assert.equal(handPicked(host, 201), false)
+  assert.equal(reset.disabled, true)
+})
+
+test('the budget can be typed or stepped, keeps the last usable value, and starts from the team default', async (t) => {
+  const host = await renderWithOptions(t, {
+    bugs: attentionBugs, teamIterations: futureIterations, backlogOptions: { ...defaultProps.backlogOptions!, defaultPlanBudget: 4 },
+  })
+  await startPlanning(host)
+  const budget = budgetInput(host)
+  assert.deepEqual([budget.value, budget.min, budget.max], ['4', '1', '999'])
+  assert.deepEqual(pickedIds(host), [201])
+  assert.match(planStatus(host)!, /^1 bug2 of 4 pts/)
+
+  await act(async () => button(host, 'Increase budget').click())
+  assert.equal(budget.value, '5')
+  assert.deepEqual(pickedIds(host), [201, 202])
+
+  for (const invalid of ['0', '2.5', '1000', '']) {
+    await typeInto(budget, invalid)
+    assert.equal(budget.getAttribute('aria-invalid'), 'true', invalid)
+    assert.equal(planBar(host)!.querySelector('[role="alert"]')!.textContent, 'Enter a whole number of points from 1 to 999.')
+    assert.deepEqual(pickedIds(host), [201, 202], 'the plan keeps the last budget that made sense')
+  }
+  await act(async () => budget.dispatchEvent(new dom.window.FocusEvent('focusout', { bubbles: true })))
+  assert.equal(budget.value, '5', 'leaving the field puts the budget back')
+  assert.equal(budget.getAttribute('aria-invalid'), 'false')
+
+  await typeInto(budget, '1')
+  assert.deepEqual(pickedIds(host), [], 'nothing fits in 1 pt')
+  assert.match(planStatus(host)!, /^0 bugs0 of 1 pts/)
+  assert.equal(host.querySelector('.backlog-cut-line'), null)
+  assert.equal(button(host, 'Decrease budget').disabled, true)
+  assert.equal(planButton(host, 'Copy list').disabled, true, 'there is nothing to copy')
+
+  await typeInto(budget, '20')
+  await act(async () => pickBox(host, 204).click())
+  assert.match(planStatus(host)!, /^3 bugs6 of 20 pts/)
+  await act(async () => planButton(host, 'Reset').click())
+  assert.equal(budget.value, '4', 'Reset goes back to the default budget')
+})
+
+test('a hand pick can run the plan over budget, which the summary calls out', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+  await startPlanning(host)
+  await typeInto(budgetInput(host), '2')
+  assert.deepEqual(pickedIds(host), [201])
+
+  await act(async () => pickBox(host, 202).click())
+  assert.deepEqual(pickedIds(host), [202], 'the hand pick counts first, leaving no room for the planner')
+  assert.match(planStatus(host)!, /^1 bug3 of 2 ptsover by 1/)
+})
+
+test('with Skip unestimated off, a bug without an Effort counts as the minimum and the summary says so', async (t) => {
+  const host = await render(t, {
+    bugs: attentionBugs, teamIterations: futureIterations, backlogOptions: { ...defaultProps.backlogOptions!, skipUnestimatedBugs: false },
+  })
+  await startPlanning(host)
+
+  assert.deepEqual(pickedIds(host), [201, 202, 203])
+  assert.equal(running(host, 203), '9 pts')
+  assert.match(planStatus(host)!, /1 without effort$/)
+})
+
+test('the strip\'s skip checkboxes are the team options, and the options dialog sets the default budget', async (t) => {
+  const changes: BacklogOptions[] = []
+  const host = await renderWithOptions(t, {
+    bugs: attentionBugs, teamIterations: futureIterations, onBacklogOptionsChange: (next: BacklogOptions) => changes.push(next),
+  })
+  await startPlanning(host)
+
+  await act(async () => stripCheckbox(host, 'Skip planned').click())
+  assert.deepEqual(changes.map((change) => change.skipPlannedBugs), [false])
+  assert.deepEqual(pickedIds(host), [201, 204, 202], 'the planned bug can be picked now')
+
+  const opened = await openOptions(host)
+  const section = opened.querySelector('section[aria-labelledby="backlog-options-plan"]')!
+  assert.equal(section.querySelector('h3')!.textContent, 'Plan a sprint')
+  const optionCheckbox = (label: string) => [...section.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+    .find((input) => input.closest('label')?.textContent === label)!
+  assert.equal(optionCheckbox('Skip bugs already in this sprint or the next').checked, false, 'the same setting as the strip')
+  assert.equal(optionCheckbox('Skip bugs without an Effort').checked, true)
+
+  const defaultBudget = thresholdInput(opened, 'Default budget (pts)')
+  assert.deepEqual([defaultBudget.value, defaultBudget.min, defaultBudget.max], ['10', '1', '999'])
+  assert.match(document.getElementById(defaultBudget.getAttribute('aria-describedby')!)!.textContent!, /fit an effort budget/)
+  await typeInto(defaultBudget, '1000')
+  assert.equal(section.querySelector('[role="alert"]')!.textContent, 'Enter a whole number of points from 1 to 999.')
+  await typeInto(defaultBudget, '3')
+  assert.equal(changes.at(-1)!.defaultPlanBudget, 3)
+  assert.equal(budgetInput(host).value, '3', 'an unedited budget follows the default')
+  assert.deepEqual(pickedIds(host), [201, 204])
+
+  await act(async () => optionCheckbox('Skip bugs without an Effort').click())
+  assert.equal(changes.at(-1)!.skipUnestimatedBugs, false)
+  assert.equal(stripCheckbox(host, 'Skip unestimated').checked, false)
+})
+
+test('with a Needs attention chip on, the plan picks only from its bugs', async (t) => {
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+  await act(async () => facetToggle(host, 'ended').click())
+  await startPlanning(host)
+
+  assert.deepEqual(pickedIds(host), [202])
+  for (const id of [201, 204, 203]) {
+    assert.equal(pickBox(host, id).disabled, true, `${id} is outside the chip`)
+  }
+  assert.equal(running(host, 201), '', 'a bug outside the chip gives no reason')
+})
+
+test('Copy list copies the picks, one per line, and says whether it worked', async (t) => {
+  const copied: string[] = []
+  let fail = false
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis.navigator, 'clipboard')
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: async (text: string) => {
+        if (fail) throw new Error('denied')
+        copied.push(text)
+      },
+    },
+  })
+  t.after(() => {
+    if (descriptor) Object.defineProperty(globalThis.navigator, 'clipboard', descriptor)
+    else Reflect.deleteProperty(globalThis.navigator, 'clipboard')
+  })
+
+  const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations })
+  await startPlanning(host)
+  const copy = planButton(host, 'Copy list')
+  await act(async () => copy.click())
+  assert.equal(copied.length, 1)
+  assert.match(copied[0], /^201\tCrash on save\t2 pts\tValue [\d.]+\n202\tStale sprint bug\t3 pts\tValue [\d.]+$/)
+  assert.equal(copy.textContent, 'Copied')
+
+  fail = true
+  await act(async () => copy.click())
+  assert.equal(copy.textContent, 'Copy failed')
+})
+
+test('Plan a sprint waits for bugs, and its picks outlast a refresh but not a change of team', async (t) => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => {
+    await act(async () => root.unmount())
+    host.remove()
+  })
+  const otherTeam = { ...team, id: 'other', displayName: 'Team Beta' }
+  const base = { ...defaultProps, bugs: attentionBugs, teamIterations: futureIterations, teamOptions: [team, otherTeam] }
+  const renderPage = (overrides: Partial<PageProps>) =>
+    act(async () => root.render(createElement(Root, null, createElement(BacklogPage, { ...base, ...overrides }))))
+
+  await renderPage({ bugs: [] })
+  assert.equal(planToggle(host).disabled, true, 'there is nothing to plan')
+
+  await renderPage({})
+  await startPlanning(host)
+  await act(async () => pickBox(host, 204).click())
+  assert.deepEqual(pickedIds(host), [201, 204, 202])
+
+  await renderPage({ isLoading: true, bugs: [] })
+  assert.equal(planBar(host), null)
+  await renderPage({})
+  assert.deepEqual(pickedIds(host), [201, 204, 202], 'the loading skeleton does not drop the hand picks')
+
+  await renderPage({ selectedTeamId: otherTeam.id })
+  assert.deepEqual(pickedIds(host), [201, 202], 'another team starts its plan over')
 })
