@@ -1,0 +1,125 @@
+import assert from 'node:assert/strict'
+import { after, beforeEach, test } from 'node:test'
+import { act, createElement } from 'react'
+import { JSDOM } from 'jsdom'
+import { createServer } from 'vite'
+
+const storage = new Map<string, string>()
+let storageThrows = false
+const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => {
+      if (storageThrows) throw new Error('storage unavailable')
+      return storage.get(key) ?? null
+    },
+    setItem: (key: string, value: string) => {
+      if (storageThrows) throw new Error('quota exceeded')
+      storage.set(key, value)
+    },
+  },
+})
+
+const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
+Object.assign(globalThis, {
+  window: dom.window,
+  document: dom.window.document,
+  IS_REACT_ACT_ENVIRONMENT: true,
+})
+const { createRoot } = await import('react-dom/client')
+const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
+after(async () => {
+  await server.close()
+  dom.window.close()
+  if (storageDescriptor) Object.defineProperty(globalThis, 'localStorage', storageDescriptor)
+  else Reflect.deleteProperty(globalThis, 'localStorage')
+})
+const {
+  REMEMBER_LAST_VIEW_STORAGE_KEY,
+  lastViewStorageKey,
+  loadLastView,
+  loadRememberLastView,
+  saveLastView,
+  saveRememberLastView,
+} = await server.ssrLoadModule('/src/features/standup/utils/lastViews.ts')
+const { useRememberedView } = await server.ssrLoadModule('/src/features/standup/hooks/useRememberedView.ts')
+
+const DEVELOPMENT_VIEWS = ['people', 'sprint'] as const
+const QA_VIEWS = ['testers', 'flow'] as const
+
+beforeEach(() => {
+  storage.clear()
+  storageThrows = false
+})
+
+test('remember last view is off until it is turned on, and the choice persists', () => {
+  assert.equal(loadRememberLastView(), false)
+  saveRememberLastView(true)
+  assert.equal(storage.get(REMEMBER_LAST_VIEW_STORAGE_KEY), 'true')
+  assert.equal(loadRememberLastView(), true)
+  saveRememberLastView(false)
+  assert.equal(loadRememberLastView(), false)
+})
+
+test('each page saves its own last view, and unknown saved views are ignored', () => {
+  assert.equal(loadLastView('development', DEVELOPMENT_VIEWS), null)
+  saveLastView('development', 'sprint')
+  saveLastView('qa-activity', 'flow')
+  assert.notEqual(lastViewStorageKey('development'), lastViewStorageKey('qa-activity'))
+  assert.equal(loadLastView('development', DEVELOPMENT_VIEWS), 'sprint')
+  assert.equal(loadLastView('qa-activity', QA_VIEWS), 'flow')
+
+  storage.set(lastViewStorageKey('development'), 'assignment')
+  assert.equal(loadLastView('development', DEVELOPMENT_VIEWS), null)
+})
+
+test('unavailable storage never breaks loading or saving', () => {
+  storageThrows = true
+  assert.equal(loadRememberLastView(), false)
+  assert.equal(loadLastView('qa-activity', QA_VIEWS), null)
+  assert.doesNotThrow(() => saveRememberLastView(true))
+  assert.doesNotThrow(() => saveLastView('qa-activity', 'flow'))
+})
+
+async function renderView(t: { after: (fn: () => unknown) => void }, page: 'development' | 'qa-activity', views: readonly [string, ...string[]], remember: boolean) {
+  let state: readonly [string, (next: string) => void]
+  function Harness() {
+    state = useRememberedView(page, views, remember)
+    return null
+  }
+  const root = createRoot(document.createElement('div'))
+  t.after(() => act(() => root.unmount()))
+  await act(async () => root.render(createElement(Harness)))
+  return {
+    get view() { return state![0] },
+    setView: (next: string) => act(async () => state![1](next)),
+  }
+}
+
+test('pages open on their first view when remember last view is off', async (t) => {
+  storage.set(lastViewStorageKey('development'), 'sprint')
+  storage.set(lastViewStorageKey('qa-activity'), 'flow')
+  assert.equal((await renderView(t, 'development', DEVELOPMENT_VIEWS, false)).view, 'people')
+  assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, false)).view, 'testers')
+})
+
+test('pages reopen on their saved view when remember last view is on', async (t) => {
+  storage.set(lastViewStorageKey('development'), 'sprint')
+  storage.set(lastViewStorageKey('qa-activity'), 'flow')
+  assert.equal((await renderView(t, 'development', DEVELOPMENT_VIEWS, true)).view, 'sprint')
+  assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, true)).view, 'flow')
+
+  storage.set(lastViewStorageKey('qa-activity'), 'retired-view')
+  assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, true)).view, 'testers')
+})
+
+test('view changes are saved even while the setting is off, so turning it on reopens the latest view', async (t) => {
+  const qa = await renderView(t, 'qa-activity', QA_VIEWS, false)
+  await qa.setView('flow')
+  assert.equal(qa.view, 'flow')
+  assert.equal(storage.get(lastViewStorageKey('qa-activity')), 'flow')
+  assert.equal(storage.get(lastViewStorageKey('development')), undefined)
+
+  assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, true)).view, 'flow')
+})
