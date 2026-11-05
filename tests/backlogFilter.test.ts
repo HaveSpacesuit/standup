@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { createServer } from 'vite'
-import type { BacklogBug } from '../src/ado/types.ts'
+import type { BacklogBug, TeamIterationOption } from '../src/ado/types.ts'
 
 // backlogFilter.ts imports its siblings without file extensions, so Vite loads it rather than Node directly.
 const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
 after(() => server.close())
-const { filterBacklogBugs, getBacklogVisibleText, matchesBacklogQuickFilter } =
+const { filterBacklogBugs, formatBacklogCount, getBacklogVisibleText, matchesBacklogQuickFilter } =
   await server.ssrLoadModule('/src/features/standup/utils/backlogFilter.ts')
 const { formatCreatedDate, rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
 
@@ -17,6 +17,12 @@ function createBug(overrides: Partial<BacklogBug> & { id: number }): BacklogBug 
     ...overrides,
   }
 }
+
+const iterations: TeamIterationOption[] = [
+  { name: 'Sprint 4', path: 'Project\\Team\\2026\\Sprint 4', timeFrame: 'past', startDate: '2026-05-18' },
+  { name: 'Sprint 5', path: 'Project\\Team\\2026\\Sprint 5', timeFrame: 'current', startDate: '2026-06-01' },
+  { name: 'Sprint 6', path: 'Project\\Team\\2026\\Sprint 6', timeFrame: 'future', startDate: '2026-06-15' },
+]
 
 // Ranked: 102 (213.0), 103 (11.0), 101 (2.5).
 const bugs = rankBacklogBugs([
@@ -51,7 +57,7 @@ const bugs = rankBacklogBugs([
     priority: 2,
     effort: 8,
   }),
-])
+], iterations)
 
 const idsFor = (filterText: string) => filterBacklogBugs(bugs, filterText).map((bug) => bug.id)
 
@@ -60,30 +66,36 @@ test('the visible text lists each column as the table shows it, in column order,
 
   assert.deepEqual(getBacklogVisibleText(critical), [
     '102',
+    '213.0',
     'Data loss on Save',
     'needs triage',
     'regression',
-    formatCreatedDate('2026-03-01T10:00:00Z'),
     'Ada Lovelace',
     'Active',
-    '2026\\Sprint 5',
+    'This sprint',
     '1 - Critical',
     '1',
     '4',
-    '213.0',
   ])
   assert.deepEqual(getBacklogVisibleText(minor), [
     '101',
-    'Minor glitch',
-    formatCreatedDate('2026-01-10T09:00:00Z'),
-    '',
-    'New',
-    '2026\\Sprint 4',
-    '',
-    '',
-    '',
     '2.5',
+    'Minor glitch',
+    'Unassigned',
+    'New',
+    'Sprint 4 · ended',
+    '',
+    '',
+    '',
   ])
+})
+
+test('a long state lists its abbreviation and the full state from its tooltip', () => {
+  const [testing] = rankBacklogBugs([createBug({ id: 9, state: 'Available for Testing' })])
+
+  assert.deepEqual(getBacklogVisibleText(testing).slice(3, 6), ['Unassigned', 'AFT', 'Available for Testing'])
+  assert.equal(matchesBacklogQuickFilter(testing, 'aft'), true)
+  assert.equal(matchesBacklogQuickFilter(testing, 'for testing'), true)
 })
 
 test('an empty or whitespace-only filter returns the same ranked list', () => {
@@ -111,15 +123,17 @@ test('every column the table shows can be searched', () => {
 
 test('each column narrows to the bugs that show the text', () => {
   assert.deepEqual(idsFor('101'), [101], 'ID')
-  assert.deepEqual(idsFor('glitch'), [101], 'Title')
-  assert.deepEqual(idsFor('perf'), [103], 'Tags')
-  assert.deepEqual(idsFor(formatCreatedDate('2026-03-01T10:00:00Z')), [102], 'Created Date as displayed')
-  assert.deepEqual(idsFor('lovelace'), [102], 'Assigned To')
-  assert.deepEqual(idsFor('resolved'), [103], 'State')
-  assert.deepEqual(idsFor('2026\\sprint 5'), [102], 'Iteration Path')
-  assert.deepEqual(idsFor('critical'), [102], 'Severity')
   assert.deepEqual(idsFor('213.0'), [102], 'Value')
   assert.deepEqual(idsFor('2.5'), [101], 'Value')
+  assert.deepEqual(idsFor('glitch'), [101], 'Title')
+  assert.deepEqual(idsFor('perf'), [103], 'Tags')
+  assert.deepEqual(idsFor('lovelace'), [102], 'Assigned To')
+  assert.deepEqual(idsFor('unassigned'), [101], 'Assigned To, when nobody is')
+  assert.deepEqual(idsFor('resolved'), [103], 'State')
+  assert.deepEqual(idsFor('this sprint'), [102], 'Sprint')
+  assert.deepEqual(idsFor('ended'), [101], 'Sprint')
+  assert.deepEqual(idsFor('backlog'), [103], 'Sprint')
+  assert.deepEqual(idsFor('critical'), [102], 'Severity')
 })
 
 test('Assigned To matches the unique name only when there is no display name', () => {
@@ -139,7 +153,7 @@ test('a bug with an empty tag list shows the same text as one without tags', () 
   const [noTags] = rankBacklogBugs([createBug({ id: 9 })])
 
   assert.deepEqual(getBacklogVisibleText(emptyList), getBacklogVisibleText(noTags))
-  assert.equal(getBacklogVisibleText(noTags).length, 10, 'one entry per column, with no placeholder for tags')
+  assert.equal(getBacklogVisibleText(noTags).length, 9, 'one entry per searchable column, with no placeholder for tags')
 })
 
 test('Impact and Effort match the numbers as entered, not the effort used for the Value', () => {
@@ -153,24 +167,33 @@ test('Impact and Effort match the numbers as entered, not the effort used for th
   assert.equal(matchesBacklogQuickFilter(quickFix, '4'), false, 'the minimum effort of 4 is not displayed')
 })
 
-test('only the last two iteration path segments are searchable', () => {
-  assert.deepEqual(idsFor('sprint 4'), [101])
-  assert.deepEqual(idsFor('project'), [103], 'a single-segment path is shown whole')
-  assert.deepEqual(idsFor('team'), [], 'a segment that is cut from the display')
-  assert.deepEqual(idsFor('project\\team'), [], 'the cut prefix')
+test('the sprint label is searchable, not the iteration path behind it', () => {
+  assert.deepEqual(idsFor('sprint 4'), [101], 'the ended sprint\'s name')
+  assert.deepEqual(idsFor('project'), [])
+  assert.deepEqual(idsFor('team'), [])
+  assert.deepEqual(idsFor('sprint 5'), [], 'the current sprint shows as This sprint')
+})
+
+test('before the team sprints load, the path\'s last segment is searchable', () => {
+  const [unplaced] = rankBacklogBugs([createBug({ id: 9, iterationPath: 'Project\\Team\\2026\\Sprint 5' })])
+
+  assert.equal(matchesBacklogQuickFilter(unplaced, 'sprint 5'), true)
+  assert.equal(matchesBacklogQuickFilter(unplaced, '2026'), false)
 })
 
 test('text the table does not show is not searchable', () => {
-  assert.deepEqual(idsFor('2026-03-01'), [], 'the raw ISO timestamp behind the date')
+  assert.deepEqual(idsFor('2026'), [], 'the iteration path and the created date behind the age')
+  assert.deepEqual(idsFor(formatCreatedDate('2026-03-01T10:00:00Z')), [], 'the created date in the age tooltip')
   assert.deepEqual(idsFor('212.96'), [], 'the unrounded value')
   assert.deepEqual(idsFor('not set'), [], 'the Not set placeholder text')
   assert.deepEqual(idsFor('—'), [], 'the dash placeholder')
+  assert.deepEqual(idsFor('?'), [], 'the mark for an input the Value assumes')
   assert.deepEqual(idsFor('opens in a new tab'), [], 'the link note')
 })
 
 test('filtering keeps the ranked order', () => {
-  assert.deepEqual(idsFor('2026'), [102, 103, 101], 'every bug shows 2026 in its date')
-  assert.deepEqual(idsFor('2026\\sprint'), [102, 101], 'two bugs, still best value first')
+  assert.deepEqual(idsFor('.'), [102, 103, 101], 'every Value shows one decimal')
+  assert.deepEqual(idsFor('sprint'), [102, 101], 'two bugs, still best value first')
 })
 
 test('a filter that matches nothing returns an empty list', () => {
@@ -178,6 +201,14 @@ test('a filter that matches nothing returns an empty list', () => {
 })
 
 test('a filter that excludes nothing returns the same list, so an unchanged table is not re-rendered', () => {
-  assert.equal(filterBacklogBugs(bugs, '2026'), bugs)
+  assert.equal(filterBacklogBugs(bugs, '.'), bugs)
   assert.notEqual(filterBacklogBugs(bugs, 'sprint'), bugs)
+})
+
+test('the count names the bugs shown, and the total while a filter hides some', () => {
+  assert.equal(formatBacklogCount(0, 0), '0 bugs')
+  assert.equal(formatBacklogCount(1, 1), '1 bug')
+  assert.equal(formatBacklogCount(43, 43), '43 bugs')
+  assert.equal(formatBacklogCount(12, 43), '12 of 43 bugs')
+  assert.equal(formatBacklogCount(0, 1), '0 of 1 bug')
 })

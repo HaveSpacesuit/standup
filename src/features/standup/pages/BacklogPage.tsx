@@ -4,6 +4,7 @@ import { BacklogSettingsDialog } from '../components/BacklogSettingsDialog'
 import { BacklogToolbar } from '../components/BacklogToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { TeamOption } from '../components/TeamToolbarControls'
+import { formatBacklogCount } from '../utils/backlogFilter'
 import type { RankedBacklogBug } from '../utils/backlogValue'
 
 type BacklogPageProps = {
@@ -23,6 +24,8 @@ type BacklogPageProps = {
   totalBugCount: number
   isLoading: boolean
   error: string | null
+  /** When the backlog last loaded fresh from Azure DevOps, for the "Synced 5m ago" label. */
+  syncedAt?: number | null
 }
 
 export function BacklogPage({
@@ -40,9 +43,11 @@ export function BacklogPage({
   totalBugCount,
   isLoading,
   error,
+  syncedAt = null,
 }: BacklogPageProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const hasConfiguredTeams = teamOptions.length > 0
+  const hasList = patConfigured && hasConfiguredTeams && !isLoading && !error
 
   return (
     <>
@@ -59,6 +64,8 @@ export function BacklogPage({
         onRefresh={onRefresh}
         onOpenSettings={() => setSettingsOpen(true)}
         isLoading={isLoading}
+        countLabel={hasList ? formatBacklogCount(bugs.length, totalBugCount) : null}
+        syncedAt={syncedAt}
       />
 
       {hasConfiguredTeams ? (

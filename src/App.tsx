@@ -94,6 +94,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     backlogBugs,
     backlogBugsLoading,
     backlogBugsError,
+    backlogSyncedAt,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
@@ -321,6 +322,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           totalBugCount: backlogBugs.length,
           isLoading: backlogBugsLoading,
           error: backlogBugsError,
+          syncedAt: backlogSyncedAt,
         }}
       />
     </Box>

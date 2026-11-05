@@ -1,17 +1,22 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
+import { createServer } from 'vite'
 import type { BacklogBug } from '../src/ado/types.ts'
-import {
+
+// backlogValue.ts imports its siblings without file extensions, so Vite loads it rather than Node directly.
+const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
+after(() => server.close())
+const {
   compareRankedBacklogBugs,
   formatBacklogValue,
   formatCreatedDate,
-  formatIterationPath,
   getAdjustedEffort,
+  getBacklogAgeDays,
   getImpactScore,
   getSeverityScore,
   rankBacklogBug,
   rankBacklogBugs,
-} from '../src/features/standup/utils/backlogValue.ts'
+} = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
 
 function createBug(overrides: Partial<BacklogBug> & { id: number }): BacklogBug {
   return {
@@ -217,14 +222,36 @@ test('the comparator treats identical rows as equal only when they are the same 
   assert.ok(compareRankedBacklogBugs(ranked, rankBacklogBug(createBug({ id: 2 }))) < 0)
 })
 
-test('iteration path keeps only the last two segments', () => {
-  assert.equal(formatIterationPath('Project\\Team\\2026\\Sprint 5'), '2026\\Sprint 5')
-  assert.equal(formatIterationPath('Project\\Sprint 5'), 'Project\\Sprint 5')
-  assert.equal(formatIterationPath('Project'), 'Project')
-  assert.equal(formatIterationPath('\\Project\\Team\\Sprint 5\\'), 'Team\\Sprint 5')
-  assert.equal(formatIterationPath(' Project \\ Team \\ Sprint 5 '), 'Team\\Sprint 5')
-  assert.equal(formatIterationPath(''), '')
-  assert.equal(formatIterationPath(undefined), '')
+test('age is the whole days since the bug was created, and missing for a missing or invalid date', () => {
+  const now = Date.parse('2026-06-15T12:00:00Z')
+
+  assert.equal(getBacklogAgeDays('2026-06-15T08:00:00Z', now), 0, 'created earlier today')
+  assert.equal(getBacklogAgeDays('2026-06-14T13:00:00Z', now), 0, 'under a full day')
+  assert.equal(getBacklogAgeDays('2026-06-14T12:00:00Z', now), 1)
+  assert.equal(getBacklogAgeDays('2025-06-15T12:00:00Z', now), 365)
+  assert.equal(getBacklogAgeDays('2026-06-16T12:00:00Z', now), 0, 'a clock-skewed future date is never negative')
+  assert.equal(getBacklogAgeDays(undefined, now), undefined)
+  assert.equal(getBacklogAgeDays('', now), undefined)
+  assert.equal(getBacklogAgeDays('not a date', now), undefined)
+})
+
+test('a ranked bug carries its sprint, which never changes the ranking', () => {
+  const iterations = [{
+    name: 'Sprint 5',
+    path: 'Project\\Sprint 5',
+    timeFrame: 'current' as const,
+    startDate: '2026-06-01',
+    finishDate: '2026-06-14',
+  }]
+  const bugs = [
+    createBug({ id: 1, iterationPath: 'Project\\Sprint 5' }),
+    createBug({ id: 2, severity: '1 - Critical', iterationPath: 'Project' }),
+  ]
+
+  const ranked = rankBacklogBugs(bugs, iterations)
+  assert.deepEqual(ranked.map((bug) => [bug.id, bug.sprint.label]), [[2, 'Backlog'], [1, 'This sprint']])
+  assert.deepEqual(ranked.map((bug) => bug.id), rankedIds(bugs), 'the same order as without sprints')
+  assert.equal(rankBacklogBug(bugs[0]).sprint.label, 'Sprint 5', 'without sprints, the path\'s last segment')
 })
 
 test('created date is blank when missing or invalid and otherwise includes the year', () => {

@@ -93,6 +93,8 @@ type UseBoardViewModelResult = {
   backlogBugs: RankedBacklogBug[]
   backlogBugsLoading: boolean
   backlogBugsError: string | null
+  /** When the backlog last loaded fresh from Azure DevOps. */
+  backlogSyncedAt: number | null
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   selectedAssignmentWorkItemTypes: string[]
@@ -282,10 +284,11 @@ export function useBoardViewModel({
     [effectiveTeam, members, qaStateGroupOverrides, qaTesterNames, qaUpdatesByItemId],
   )
 
-  // The backlog ignores sprints, so it only needs a configured team, not resolved iterations.
+  // The backlog only needs a configured team to load; the team's sprints just label each bug's iteration.
   const { backlogBugs, backlogBugsLoading, backlogBugsError } = useBacklogBugs({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
+    iterations: teamIterations,
     reloadNonce: backlogReloadNonce,
     enabled: activeView === 'backlog',
   })
@@ -381,6 +384,7 @@ export function useBoardViewModel({
 
     if (activeView === 'backlog') {
       adoQueryEngine.clearBacklogDataCache(selectedTeam.id)
+      markBacklogRefreshRequested()
       setBacklogReloadNonce((current) => current + 1)
       return
     }
@@ -414,6 +418,11 @@ export function useBoardViewModel({
     teamId: selectedTeam?.id ?? '',
     isLoading: isTeamDataLoading,
     failed: Boolean(teamIterationsError || membersError || workItemsError),
+  })
+  const { syncedAt: backlogSyncedAt, markRefreshRequested: markBacklogRefreshRequested } = useTeamDataSyncedAt({
+    teamId: selectedTeam?.id ?? '',
+    isLoading: backlogBugsLoading,
+    failed: Boolean(backlogBugsError),
   })
 
   return {
@@ -464,6 +473,7 @@ export function useBoardViewModel({
     backlogBugs,
     backlogBugsLoading,
     backlogBugsError,
+    backlogSyncedAt,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
