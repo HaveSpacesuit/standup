@@ -185,8 +185,9 @@ const zeroCounts = { blocked: 0, failing: 0, approval: 0, idle: 0, qa: 0, ready:
 
 function renderBar(props: Record<string, unknown> = {}) {
   return render(createElement(AttentionBar, {
+    facets: attention.PEOPLE_ATTENTION_FACETS,
     facetCounts: { ...zeroCounts, blocked: 2, approval: 3 },
-    totalCards: 12,
+    totalItems: 12,
     activeFacet: null,
     highlightedCount: 0,
     onChange: () => {},
@@ -228,6 +229,15 @@ test('an active facet is pressed, offers Clear, and announces how many cards it 
   // A selected facet stays available even when its count drops to zero, so it can be cleared.
   withDocument(renderBar({ activeFacet: 'idle', highlightedCount: 0 }), (document) => {
     assert.equal(document.querySelector('[data-attention-facet="idle"]')?.classList.contains('Mui-disabled'), false)
+  })
+})
+
+test('the attention bar names its items with the page noun', () => {
+  withDocument(renderBar({ activeFacet: 'blocked', highlightedCount: 1, itemNoun: ['bug', 'bugs'] }), (document) => {
+    const labels = [...document.querySelectorAll('[aria-pressed]')].map((toggle) => toggle.getAttribute('aria-label'))
+    assert.equal(labels[0], 'Blocked, 2 bugs')
+    assert.equal(labels[1], 'Failing checks, 0 bugs')
+    assert.equal(document.querySelector('[role="status"]')?.textContent, '1 of 12 bugs highlighted · Blocked')
   })
 })
 

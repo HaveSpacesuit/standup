@@ -2,7 +2,12 @@ import type { TagRule, TagRuleAction } from './ado/workItemStatus'
 import type { TeamProfile } from './appSettings'
 import type { AssignmentOptions, AssignmentSprintFilter } from './features/standup/utils/assignmentOptions'
 import type { BacklogOptions } from './features/standup/utils/backlogOptions'
-import { areValidTierThresholds, createDefaultBacklogOptions } from './features/standup/utils/backlogOptions'
+import {
+  areValidTierThresholds,
+  createDefaultBacklogOptions,
+  isValidAgingMonths,
+  MAX_AGING_MONTHS,
+} from './features/standup/utils/backlogOptions'
 import type {
   QaOptions,
   QaSprintFilter,
@@ -260,9 +265,15 @@ function parseImportedBacklogOptions(value: unknown): BacklogOptions {
     tierThresholds = candidate
   }
 
+  const agingMonths = value.agingMonths ?? defaults.agingMonths
+  if (!isValidAgingMonths(agingMonths)) {
+    throw new Error(`Imported backlog options agingMonths must be a whole number of months from 1 to ${MAX_AGING_MONTHS}.`)
+  }
+
   return {
     tierThresholds,
     startLowCollapsed: typeof value.startLowCollapsed === 'boolean' ? value.startLowCollapsed : defaults.startLowCollapsed,
+    agingMonths,
   }
 }
 

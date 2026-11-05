@@ -10,6 +10,7 @@ import svgStatusWarning from '@stratakit/icons/status-warning.svg'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
 import { AdoAvatar } from './AdoAvatar'
 import { AppTooltip as Tooltip } from './AppTooltip'
+import { TipLines } from './TipLines'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { abbreviateState } from './workItemCardDisplay'
 import { UNASSIGNED_LABEL } from '../utils/backlogFilter'
@@ -41,6 +42,8 @@ type BacklogTableProps = {
   /** Tiers that show only their header. */
   collapsedTiers: ReadonlySet<BacklogTierKey>
   onToggleTier: (tier: BacklogTierKey) => void
+  /** The bugs a Needs attention facet picks out; the others are dimmed. Null when no facet is on. */
+  highlightedBugIds?: ReadonlySet<number> | null
 }
 
 // MUI's sx reads a bare 1 as 100%, so the 1px sizes must be strings.
@@ -140,15 +143,6 @@ const tagListSx: SxProps<Theme> = {
 const headCellSx: SxProps<Theme> = { bgcolor: 'background.paper', whiteSpace: 'nowrap', top: '-1px', zIndex: 3 }
 
 const mutedSx: SxProps<Theme> = { color: TERTIARY_TEXT_COLOR }
-
-/** Tooltip text on separate lines; the first can be bold, like the sum above the terms it explains. */
-function TipLines({ lines, boldFirst = false }: { lines: string[]; boldFirst?: boolean }) {
-  return lines.map((line, index) => (
-    <Box key={line} component="span" sx={{ display: 'block', fontWeight: boldFirst && index === 0 ? 700 : undefined }}>
-      {line}
-    </Box>
-  ))
-}
 
 function NotSet() {
   return (
@@ -613,6 +607,7 @@ const tierHeadSx: SxProps<Theme> = {
   },
   '& .backlog-tier-range': { color: TERTIARY_TEXT_COLOR },
   '& .backlog-tier-effort': { ml: 'auto', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' },
+  '& .backlog-tier-matches:not([data-none])': { color: 'var(--stratakit-color-text-accent-strong)', fontWeight: 600 },
 }
 
 const pluralBugs = (count: number) => `${count} ${count === 1 ? 'bug' : 'bugs'}`
@@ -622,10 +617,13 @@ const TierHeader = memo(function TierHeader({
   group,
   collapsed,
   onToggle,
+  matchCount,
 }: {
   group: BacklogTierGroup
   collapsed: boolean
   onToggle: (tier: BacklogTierKey) => void
+  /** How many of the tier's bugs the Needs attention facet picks out, when one is on. */
+  matchCount?: number
 }) {
   const chevronRef = useRef<HTMLButtonElement>(null)
   const { key, name, range, bugs, effortTotal, unestimatedCount } = group
@@ -655,6 +653,12 @@ const TierHeader = memo(function TierHeader({
             <span aria-hidden="true">Σ </span>
             {formatEffortPoints(effortTotal)}
             {unestimatedCount > 0 ? ` + ${unestimatedCount} unestimated` : null}
+            {matchCount !== undefined ? (
+              <span className="backlog-tier-matches" data-none={matchCount === 0 ? '' : undefined}>
+                {' · '}
+                {matchCount} match
+              </span>
+            ) : null}
           </span>
           {collapsed ? (
             <Button
@@ -678,12 +682,24 @@ const TierHeader = memo(function TierHeader({
 
 // Typing in the quick filter re-renders the whole page on every keystroke, and filtering hands back the same ranked bug
 // objects, so memoized rows keep the cost proportional to the rows that appear or disappear rather than all of them.
-const BacklogRow = memo(function BacklogRow({ bug, compact }: { bug: RankedBacklogBug; compact: boolean }) {
+const BacklogRow = memo(function BacklogRow({
+  bug,
+  compact,
+  emphasis,
+}: {
+  bug: RankedBacklogBug
+  compact: boolean
+  /** With a Needs attention facet on, whether the bug is one it picks out or one dimmed behind them. */
+  emphasis?: 'match' | 'dim'
+}) {
   return (
-    <TableRow>
+    <TableRow data-emphasis={emphasis}>
       <TableCell align="right" sx={rankCellSx}>{bug.rank}</TableCell>
       <TableCell sx={noWrapSx}><BugValue bug={bug} /></TableCell>
-      <TableCell sx={bugCellSx}><BugTitle bug={bug} compact={compact} /></TableCell>
+      <TableCell sx={bugCellSx}>
+        <BugTitle bug={bug} compact={compact} />
+        {emphasis === 'match' ? <Box component="span" sx={visuallyHiddenSx}>Highlighted</Box> : null}
+      </TableCell>
       <TableCell sx={noWrapSx}><BugSeverity severity={bug.severity} /></TableCell>
       <TableCell sx={noWrapSx}><BugImpact priority={bug.priority} score={bug.impactScore} /></TableCell>
       <TableCell align="right" sx={noWrapSx}><BugEffort effort={bug.effort} /></TableCell>
@@ -694,6 +710,16 @@ const BacklogRow = memo(function BacklogRow({ bug, compact }: { bug: RankedBackl
     </TableRow>
   )
 })
+
+// Like the dimmed cards on the boards: rows a Needs attention facet leaves out fade, and come back on hover or focus.
+const tableSx: SxProps<Theme> = {
+  '& tr[data-emphasis="dim"] > td': {
+    opacity: 0.35,
+    filter: 'grayscale(0.6)',
+    transition: 'opacity 120ms ease, filter 120ms ease',
+  },
+  '& tr[data-emphasis="dim"]:hover > td, & tr[data-emphasis="dim"]:focus-within > td': { opacity: 1, filter: 'none' },
+}
 
 function tierBodyStyle(key: BacklogTierKey): CSSProperties {
   const color = BACKLOG_TIER_COLORS[key]
@@ -710,6 +736,7 @@ export const BacklogTable = memo(function BacklogTable({
   tierThresholds,
   collapsedTiers,
   onToggleTier,
+  highlightedBugIds = null,
 }: BacklogTableProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const groups = groupBacklogBugsByTier(bugs, tierThresholds)
@@ -742,7 +769,7 @@ export const BacklogTable = memo(function BacklogTable({
     >
       {/* Relative so the absolutely positioned visually hidden text is contained by this scroller, not the page. */}
       <TableContainer ref={containerRef} sx={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <Table size="small" stickyHeader aria-label="Open bugs ranked by value">
+        <Table size="small" stickyHeader aria-label="Open bugs ranked by value" sx={tableSx}>
           <TableHead>
             <TableRow>
               {COLUMNS.map((column) => (
@@ -758,11 +785,17 @@ export const BacklogTable = memo(function BacklogTable({
           </TableHead>
           {groups.map((group) => {
             const collapsed = collapsedTiers.has(group.key)
+            const matchCount = highlightedBugIds ? group.bugs.filter((bug) => highlightedBugIds.has(bug.id)).length : undefined
             return (
               <TableBody key={group.key} data-tier={group.key} style={tierBodyStyle(group.key)}>
-                <TierHeader group={group} collapsed={collapsed} onToggle={onToggleTier} />
+                <TierHeader group={group} collapsed={collapsed} onToggle={onToggleTier} matchCount={matchCount} />
                 {collapsed ? null : group.bugs.map((bug) => (
-                  <BacklogRow key={bug.id} bug={bug} compact={compact} />
+                  <BacklogRow
+                    key={bug.id}
+                    bug={bug}
+                    compact={compact}
+                    emphasis={highlightedBugIds ? (highlightedBugIds.has(bug.id) ? 'match' : 'dim') : undefined}
+                  />
                 ))}
               </TableBody>
             )

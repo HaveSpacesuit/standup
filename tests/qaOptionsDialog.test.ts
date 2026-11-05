@@ -448,8 +448,8 @@ test('Backlog options are persisted per team, restored after reload, and removed
     return useStandupAppState()
   }
   let state = useReloadAppState()
-  assert.deepEqual(state.backlogOptionsByTeam.one, { tierThresholds: { top: 80, high: 30, medium: 12 }, startLowCollapsed: true })
-  const changed = { tierThresholds: { top: 100, high: 40, medium: 10 }, startLowCollapsed: false }
+  assert.deepEqual(state.backlogOptionsByTeam.one, { tierThresholds: { top: 80, high: 30, medium: 12 }, startLowCollapsed: true, agingMonths: 12 })
+  const changed = { tierThresholds: { top: 100, high: 40, medium: 10 }, startLowCollapsed: false, agingMonths: 24 }
   state.setBacklogOptionsForTeam('one', changed)
   assert.deepEqual(JSON.parse(storage.get(backlogOptionsStorageKey('one'))!), changed)
 

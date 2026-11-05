@@ -18,6 +18,8 @@ type BacklogListProps = {
   tierThresholds: BacklogTierThresholds
   collapsedTiers: ReadonlySet<BacklogTierKey>
   onToggleTier: (tier: BacklogTierKey) => void
+  /** The bugs a Needs attention facet picks out, or null when no facet is on. */
+  highlightedBugIds?: ReadonlySet<number> | null
 }
 
 export function BacklogList({
@@ -29,6 +31,7 @@ export function BacklogList({
   tierThresholds,
   collapsedTiers,
   onToggleTier,
+  highlightedBugIds = null,
 }: BacklogListProps) {
   if (isLoading) {
     return <BacklogLoadingState />
@@ -87,6 +90,7 @@ export function BacklogList({
       tierThresholds={tierThresholds}
       collapsedTiers={collapsedTiers}
       onToggleTier={onToggleTier}
+      highlightedBugIds={highlightedBugIds}
     />
   )
 }

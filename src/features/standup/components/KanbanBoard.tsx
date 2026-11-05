@@ -522,7 +522,7 @@ export const KanbanBoard = memo(function KanbanBoard({
         {replayBoard ? null : (
           <AttentionBar
             facetCounts={attention.facetCounts}
-            totalCards={attention.totalCards}
+            totalItems={attention.totalCards}
             activeFacet={attentionFacet}
             highlightedCount={highlightedItemIds?.size ?? 0}
             onChange={setAttentionFacet}

@@ -9,11 +9,16 @@ export type BacklogOptions = {
   tierThresholds: BacklogTierThresholds
   /** Low usually holds most of the backlog, so it can start collapsed to keep the list on the bugs worth discussing. */
   startLowCollapsed: boolean
+  /** How many months a bug can stay New before Needs attention flags it as old. */
+  agingMonths: number
 }
 
 export const BACKLOG_OPTIONS_STORAGE_KEY_PREFIX = 'standup:backlog-options'
 
 export const DEFAULT_BACKLOG_TIER_THRESHOLDS: Readonly<BacklogTierThresholds> = { top: 80, high: 30, medium: 12 }
+
+export const DEFAULT_AGING_MONTHS = 12
+export const MAX_AGING_MONTHS = 120
 
 export function backlogOptionsStorageKey(teamId: string): string {
   return `${BACKLOG_OPTIONS_STORAGE_KEY_PREFIX}:${teamId}`
@@ -23,7 +28,13 @@ export function createDefaultBacklogOptions(): BacklogOptions {
   return {
     tierThresholds: { ...DEFAULT_BACKLOG_TIER_THRESHOLDS },
     startLowCollapsed: true,
+    agingMonths: DEFAULT_AGING_MONTHS,
   }
+}
+
+/** A whole number of months, from 1 to 10 years. */
+export function isValidAgingMonths(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= MAX_AGING_MONTHS
 }
 
 /** Each threshold must be a positive number below the one above it, so every Value falls in exactly one tier. */
@@ -55,6 +66,7 @@ export function parseBacklogOptions(value: unknown): BacklogOptions {
   return {
     tierThresholds: parseTierThresholds(candidate.tierThresholds),
     startLowCollapsed: candidate.startLowCollapsed !== false,
+    agingMonths: isValidAgingMonths(candidate.agingMonths) ? candidate.agingMonths : DEFAULT_AGING_MONTHS,
   }
 }
 

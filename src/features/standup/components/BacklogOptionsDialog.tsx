@@ -11,12 +11,20 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { areValidTierThresholds, type BacklogOptions, type BacklogTierThresholds } from '../utils/backlogOptions'
+import {
+  areValidTierThresholds,
+  isValidAgingMonths,
+  MAX_AGING_MONTHS,
+  type BacklogOptions,
+  type BacklogTierThresholds,
+} from '../utils/backlogOptions'
 import { BACKLOG_TIER_COLORS, type BacklogTierKey } from '../utils/backlogTiers'
 
 const COMPACT_ROWS_HELP_ID = 'backlog-compact-rows-help'
 const TIERS_HELP_ID = 'backlog-tiers-help'
 const TIERS_ERROR_ID = 'backlog-tiers-error'
+const AGING_HELP_ID = 'backlog-aging-help'
+const AGING_ERROR_ID = 'backlog-aging-error'
 
 type ThresholdKey = keyof BacklogTierThresholds
 
@@ -150,6 +158,46 @@ function TierThresholdFields({
   )
 }
 
+/** The age for the "Older than" chip, edited as text and applied once it is a whole number of months in range. */
+function AgingMonthsField({ months, onChange }: { months: number; onChange: (next: number) => void }) {
+  const [draft, setDraft] = useState(() => String(months))
+  const parsed = draft.trim() ? Number(draft) : Number.NaN
+  const invalid = !isValidAgingMonths(parsed)
+
+  return (
+    <>
+      <TextField
+        size="small"
+        type="number"
+        label="Flag New bugs older than (months)"
+        value={draft}
+        error={invalid}
+        onChange={(event) => {
+          setDraft(event.target.value)
+          const next = event.target.value.trim() ? Number(event.target.value) : Number.NaN
+          if (isValidAgingMonths(next)) {
+            onChange(next)
+          }
+        }}
+        slotProps={{
+          htmlInput: {
+            min: 1,
+            max: MAX_AGING_MONTHS,
+            step: 1,
+            'aria-describedby': invalid ? `${AGING_HELP_ID} ${AGING_ERROR_ID}` : AGING_HELP_ID,
+          },
+        }}
+        sx={{ width: 260 }}
+      />
+      {invalid ? (
+        <Typography id={AGING_ERROR_ID} role="alert" variant="body-sm" sx={{ color: 'var(--stratakit-color-text-critical-base)', mt: 1 }}>
+          Enter a whole number of months from 1 to {MAX_AGING_MONTHS}.
+        </Typography>
+      ) : null}
+    </>
+  )
+}
+
 export function BacklogOptionsDialog({
   open,
   onClose,
@@ -202,6 +250,20 @@ export function BacklogOptionsDialog({
                 onChange={(_, checked) => onBacklogOptionsChange({ ...backlogOptions, startLowCollapsed: checked })}
               />
             )}
+          />
+        </Box>
+
+        <Box component="section" aria-labelledby="backlog-options-attention" sx={{ mt: 3 }}>
+          <Typography id="backlog-options-attention" variant="body-md" render={<h3 />} sx={{ fontWeight: 700, mt: 0, mb: 0.5 }}>
+            Needs attention
+          </Typography>
+          <Typography id={AGING_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mb: 2 }}>
+            The "Older than" chip highlights bugs that are still New after this many months, so the team can close them or
+            confirm they still matter.
+          </Typography>
+          <AgingMonthsField
+            months={backlogOptions.agingMonths}
+            onChange={(agingMonths) => onBacklogOptionsChange({ ...backlogOptions, agingMonths })}
           />
         </Box>
       </DialogContent>

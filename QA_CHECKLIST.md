@@ -522,8 +522,9 @@ Prepare data that exercises both populated and empty states:
       now"; the label ages over time, and switching pages and back without Refresh does not reset it.
 - [ ] Press Ctrl/Cmd + F on Backlog and verify focus moves to the quick filter (selecting any text in
       it) rather than opening the browser's find.
-- [ ] Open Backlog options; verify the dialog has a Display section with Compact rows and a Value
-      tiers section, closes with Close and Escape, and returns focus to the options button.
+- [ ] Open Backlog options; verify the dialog has a Display section with Compact rows, a Value tiers
+      section, and a Needs attention section, closes with Close and Escape, and returns focus to the
+      options button.
 - [ ] Verify Compact rows matches Compact cards in Development options: turning either on turns on
       both, and the setting persists per team across a reload.
 - [ ] Verify Manage team opens the selected team's Azure DevOps page in a new tab.
@@ -624,6 +625,43 @@ Prepare data that exercises both populated and empty states:
 - [ ] Reload and verify the thresholds and the Low setting persist per team; export the team, import
       it in a clean profile, and verify they carry over. Import an export made before Value tiers and
       verify the defaults apply.
+
+### Summary ribbon and Needs attention
+
+- [ ] Verify a one-line ribbon above the table shows, for every open bug of the team: the count, the
+      total Effort with "+ N unestimated", the Value mix as a bar with a count per tier, the Severity
+      mix (S1–S4, with "N not set" in amber when some have none), Planned ("N this · N next · N
+      ended", with ended in amber), "+N new this sprint", and the median age. Check the numbers
+      against the list.
+- [ ] Hover or Tab to each ribbon group and verify its tooltip gives the detail: the per-tier counts
+      with their Value ranges, the per-severity counts, the sprint names, and the current sprint's
+      start date.
+- [ ] Type a quick filter and verify the ribbon still describes the whole backlog.
+- [ ] With a team whose sprints are not set up, verify the ribbon leaves out Planned and new this
+      sprint.
+- [ ] Narrow the window and verify the ribbon stays on one line, dropping Severity first, then new this
+      sprint, the median age, Planned, and the Value bar, without clipping text.
+- [ ] Verify the Needs attention bar lists Severe, not planned; In an ended sprint; Missing severity or
+      impact; No effort; and Older than 1 year, each with the count of listed bugs that show it, and a
+      chip with no bugs is disabled.
+- [ ] Verify Severe, not planned counts S1 bugs, and S2 bugs with Impact 1, that are not in this
+      sprint or the next (a sprint after next still counts); Missing severity or impact counts a
+      severity the Value cannot read; and Older than 1 year counts only bugs still in New.
+- [ ] Type a quick filter and verify the chip counts follow it.
+- [ ] Press a chip and verify it shows as pressed, the other bugs dim but stay in place, each tier
+      header adds "· N match" (accented only when N is above 0, and counted in a collapsed tier too),
+      and the bar says "N of M bugs highlighted · <chip>". Hover or Tab into a dimmed row and verify
+      it returns to full strength. Verify a screen reader announces the highlighted count and reads
+      Highlighted on the matching rows.
+- [ ] Press the chip again, or Clear, and verify the highlight is removed. Leave the page and come
+      back; verify no chip is pressed.
+- [ ] In Backlog options > Needs attention, change the age to 18 and verify the chip reads "Older than
+      18 months" and recounts; 24 reads "Older than 2 years". Enter 0, 121, 2.5, or nothing and verify
+      an error explains the range and the chip keeps the last valid age.
+- [ ] Reload and verify the age persists per team; export and import the team and verify it carries
+      over, and an export made before this option imports with 12 months.
+- [ ] Verify the ribbon, the bar, the pressed chip, and dimmed rows are readable in light and dark
+      mode, and the loading skeleton shows strips in place of the ribbon and the bar.
 
 ### Quick filter
 
