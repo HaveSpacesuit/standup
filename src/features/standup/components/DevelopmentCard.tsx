@@ -421,10 +421,10 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   const isDimmed = emphasis === 'dim'
   const restingOpacity = isDimmed ? 0.35 : model.isFaded ? 0.68 : 1
   const restingFilter = isDimmed ? 'grayscale(0.6)' : model.isFaded ? 'saturate(0.78)' : 'none'
+  // Hover and focus bring a dimmed or faded card back to full strength and deepen its shadow, without moving it: the
+  // card itself is not a button or a drag handle, only its links are.
   const raisedSx = {
     zIndex: 2,
-    // A compact card opens its hover card rather than lifting.
-    transform: compact ? 'none' : 'translateY(-1px)',
     boxShadow: `${edges}, var(--stratakit-shadow-surface-md)`,
     opacity: 1,
     filter: 'none',
@@ -490,7 +490,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
         boxShadow: restingShadow,
         opacity: restingOpacity,
         filter: restingFilter,
-        transition: 'transform 160ms ease, box-shadow 160ms ease, opacity 120ms ease, filter 120ms ease',
+        transition: 'box-shadow 160ms ease, opacity 120ms ease, filter 120ms ease',
         '&:hover': raisedSx,
         '&:focus-within': raisedSx,
       }}
