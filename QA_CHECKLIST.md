@@ -169,11 +169,12 @@ Prepare data that exercises both populated and empty states:
 - [ ] Reload and verify the selected appearance persists.
 - [ ] Verify the display preference is not included as Azure DevOps data or PAT data.
 - [ ] Verify Settings > Display shows "Remember last view" off by default, with help text naming
-      Developers, Testers, and List as the default views.
-- [ ] With it off, switch Development to Sprint, Quality Assurance to Flow, and Backlog to Map,
-      reload, and verify they open on Developers, Testers, and List.
-- [ ] Turn it on, reload, and verify Development opens on Sprint, Quality Assurance on Flow, and
-      Backlog on Map (the views used last, even though they were chosen while the setting was off).
+      Developers, Testers, List, and Rows as the default views.
+- [ ] With it off, switch Development to Sprint, Quality Assurance to Flow, Backlog to Map, and Tests
+      to Overlay, reload, and verify they open on Developers, Testers, List, and Rows.
+- [ ] Turn it on, reload, and verify Development opens on Sprint, Quality Assurance on Flow,
+      Backlog on Map, and Tests on Overlay (the views used last, even though they were chosen while
+      the setting was off).
       Switch back, reload, and verify the new choices are remembered and the setting itself persists.
 - [ ] With it on and Sprint remembered, start a standup and verify Development switches to the
       Developers board, then reopens on Developers after a reload.
@@ -805,9 +806,13 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify the toolbar shows the Tests title (the page's only heading), Test options, "Synced …",
       and Refresh; Refresh spins while loading and is disabled until a PAT and a pipeline exist.
 - [ ] Verify the intro line names the lookback days, and "How to read this chart" explains the
-      executed-tests ratio, the log scale, and dashed gaps.
+      executed-tests ratio and the log scale, plus dashed gaps (Overlay) or the usual band, exception
+      colors, and hatching (Rows).
 - [ ] Verify the empty state points to Test options when no pipeline is configured.
 - [ ] Verify the toolbar shows "N pipelines"; hovering or focusing it lists each pipeline's status.
+- [ ] Verify the View toggle appears only once a PAT and a pipeline exist, opens on Rows, and
+      switching to Overlay changes the chart, the intro line, "How to read this chart", and the
+      loading skeleton.
 
 ### Health strip
 
@@ -825,6 +830,23 @@ Prepare data that exercises both populated and empty states:
 - [ ] In Test options > Pipelines, set a Short name and verify the tile and chart tooltip use it;
       clear it and verify the default returns.
 - [ ] Verify the tiles, chips, and sparklines are readable in dark mode.
+
+### Rows view
+
+- [ ] Verify one row per pipeline on a shared time axis, each with a neutral line, a shaded usual
+      range, and its latest pass rate at the right edge; only below-usual (amber), sharp-drop (red),
+      and fewer-tests (hollow amber) runs are colored.
+- [ ] Verify each row label shows the short name, stage, latest pass rate, and date (or "N working
+      days ago" / "N of ~M tests"), with a status-colored left edge.
+- [ ] Verify a pipeline with no recent runs hatches the idle days with "No runs for N working days".
+- [ ] Verify the selected team's sprint names run along the top with a line at each sprint start,
+      and the current sprint reads "Sprint N · Day X of Y"; with no sprints loaded, no labels show.
+- [ ] Hover a row and verify the crosshair appears on every row with the day in the header, and each
+      pill shows the day's lowest run ("99.2% · lowest of 2"), "no run", or "not run yet" for today.
+- [ ] Click a row and verify the hovered day's lowest run opens in Azure DevOps in a new tab.
+- [ ] Click a row label (or tile) and verify the other rows fade; click again or press Esc to clear.
+- [ ] Verify "Show at most one result per pipeline per day" changes only the Overlay.
+- [ ] Verify the rows, band, pills, and hatching are readable in dark mode.
 
 ### Overlay chart
 

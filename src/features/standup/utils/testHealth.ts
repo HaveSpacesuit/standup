@@ -272,6 +272,19 @@ export const TEST_HEALTH_STATUS_LABELS: Record<TestHealthStatus, string> = {
   stale: 'No recent runs',
 }
 
+/** The day's run with the lowest pass rate (the earliest on a tie), or null when the pipeline didn't run that day. */
+export function lowestTestRunOn(health: Pick<TestPipelineHealth, 'runs'>, day: number): TestRun | null {
+  let lowest: TestRun | null = null
+  for (const run of health.runs) {
+    if (run.day === day && (!lowest || run.rate < lowest.rate)) lowest = run
+  }
+  return lowest
+}
+
+export function countTestRunsOn(health: Pick<TestPipelineHealth, 'runs'>, day: number): number {
+  return health.runs.reduce((count, run) => count + (run.day === day ? 1 : 0), 0)
+}
+
 /** "98.6–99.4%" */
 export function formatTestUsualRange(health: Pick<TestPipelineHealth, 'usualLow' | 'usualHigh'>): string {
   const low = formatPassRate(health.usualLow)

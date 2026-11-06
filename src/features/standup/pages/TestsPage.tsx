@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Box, CircularProgress, IconButton, Typography } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import type { Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
+import svgChartLine from '@stratakit/icons/chart-line.svg'
 import svgReport from '@stratakit/icons/report.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
+import svgTableRows from '@stratakit/icons/table-rows-comfortable.svg'
 import { AdoHttpClient } from '../../../ado/httpClient'
 import { loadTestPoints, type TestPoint } from '../../../ado/testPipelinesApi'
+import type { TeamIterationOption } from '../../../ado/types'
 import { AppTooltip as Tooltip } from '../components/AppTooltip'
 import { PageToolbar } from '../components/PageToolbar'
 import { SyncStatus } from '../components/SyncStatus'
 import { TestHealthStrip } from '../components/TestHealthStrip'
 import { TestPassChart, type TestChartFocus, type TestSeries } from '../components/TestPassChart'
+import { TestRowsChart } from '../components/TestRowsChart'
 import { TestsIntro } from '../components/TestsIntro'
 import { TestsLoadingState } from '../components/TestsLoadingState'
 import { TestsSettingsDialog } from '../components/TestsSettingsDialog'
 import { TipLines } from '../components/TipLines'
+import { useRememberedView } from '../hooks/useRememberedView'
 import {
   DEFAULT_TEST_LOOKBACK_DAYS, loadTestLookbackDays, loadTestPipelines,
   saveTestLookbackDays, saveTestPipelines, testLookbackStart, testPipelineSource, testStageLabel, type TestPipeline,
@@ -29,6 +34,7 @@ import {
   type TestHealthEntry,
 } from '../utils/testHealth'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
+import { testSprintBands } from '../utils/testSprints'
 
 // StrataKit has no categorical palette, so the third series color is a violet tuned for each color scheme.
 const pageSx = (theme: Theme) => ({
@@ -38,9 +44,20 @@ const pageSx = (theme: Theme) => ({
   ...(theme.applyStyles('dark', { '--tests-series-violet': 'oklch(72% 0.13 305)' }) as object),
 })
 
-type TestsPageProps = { pat: string | null; defaultOrg: string; defaultProject: string }
+type TestsPageProps = {
+  pat: string | null
+  defaultOrg: string
+  defaultProject: string
+  /** The selected team's sprints; projects share sprint dates, so these label every pipeline's timeline. */
+  teamIterations?: TeamIterationOption[]
+  rememberLastView?: boolean
+}
 
-export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
+const TEST_VIEWS = ['rows', 'overlay'] as const
+type TestsView = (typeof TEST_VIEWS)[number]
+
+export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = [], rememberLastView = false }: TestsPageProps) {
+  const [view, setView] = useRememberedView('tests', TEST_VIEWS, rememberLastView)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [stored] = useState(() => {
     try {
@@ -111,6 +128,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
     return points.length > 0 ? [{ ...entry, points }] : []
   }), [filteredSeries, dailyOptions])
   const axis = useMemo(() => range ? createTestTimeAxis(range) : null, [range])
+  const sprints = useMemo(() => axis ? testSprintBands(teamIterations, axis) : [], [axis, teamIterations])
   // Health compares each run with the pipeline's own runs, so it uses every run, not the daily lowest.
   const healthEntries = useMemo<TestHealthEntry[]>(() => axis ? filteredSeries.flatMap(({ pipeline, points, color, shape }) => {
     const health = testPipelineHealth(points, axis, healthOptions)
@@ -240,6 +258,29 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
           </Tooltip>
         )}
         <Box sx={{ flex: 1 }} />
+        {canLoad && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap', '@container (max-width: 960px)': { display: 'none' } }}>
+              View
+            </Typography>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={view}
+              onChange={(_event, value: TestsView | null) => {
+                if (value) setView(value)
+              }}
+              aria-label="Tests view"
+            >
+              <ToggleButton value="rows" render={<Button size="small" startIcon={<Icon href={svgTableRows} />} />}>
+                Rows
+              </ToggleButton>
+              <ToggleButton value="overlay" render={<Button size="small" startIcon={<Icon href={svgChartLine} />} />}>
+                Overlay
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        )}
         <Tooltip title="Test options">
           <span>
             <IconButton size="small" aria-label="Test options" onClick={() => setSettingsOpen(true)}>
@@ -266,13 +307,13 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
       </PageToolbar>
 
       <Box component="main" sx={pageSx}>
-        {canLoad && <TestsIntro lookbackDays={lookbackDays} daily={dailyOptions.enabled} />}
+        {canLoad && <TestsIntro lookbackDays={lookbackDays} daily={dailyOptions.enabled} view={view} />}
         {error && <Alert severity="error">{error}</Alert>}
         {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
         {passRateFilterStorageError && <Alert severity="error">{passRateFilterStorageError}</Alert>}
         {dailyStorageError && <Alert severity="error">{dailyStorageError}</Alert>}
         {healthStorageError && <Alert severity="error">{healthStorageError}</Alert>}
-        {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} />}
+        {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} view={view} />}
         {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
         {pipelines.length === 0 && !error && (
           <Typography variant="body-md" color="text.secondary">
@@ -295,7 +336,17 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
             onToggleFocus={(id) => setFocusId((current) => current === id ? null : id)}
           />
         )}
-        {!loading && range && chartSeries.length > 0 && (
+        {!loading && view === 'rows' && axis && healthEntries.length > 0 && (
+          <TestRowsChart
+            entries={healthEntries}
+            axis={axis}
+            sprints={sprints}
+            lookbackDays={lookbackDays}
+            focusId={focusedEntry?.pipeline.id ?? null}
+            onToggleFocus={(id) => setFocusId((current) => current === id ? null : id)}
+          />
+        )}
+        {!loading && view === 'overlay' && range && chartSeries.length > 0 && (
           <Box sx={{ height: 480, flexShrink: 0 }}>
             <TestPassChart series={chartSeries} range={range} focus={chartFocus} />
           </Box>

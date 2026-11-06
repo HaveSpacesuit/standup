@@ -112,9 +112,9 @@ same testers as the QA page), holding the QA page's items assigned to them. Thes
 during standup, load QA data only while the option is on, and don't count toward the Needs
 attention bar. The setting is saved per team and included in team exports.
 
-Development opens on the Developers board, Quality Assurance on Testers, and Backlog on List. Turn on
-Settings > Display > "Remember last view" to reopen each page on the view you used last instead, such as
-Sprint, Flow, or Map. The setting and each page's last view are saved in this browser, not in team exports.
+Development opens on the Developers board, Quality Assurance on Testers, Backlog on List, and Tests on Rows.
+Turn on Settings > Display > "Remember last view" to reopen each page on the view you used last instead, such as
+Sprint, Flow, Map, or Overlay. The setting and each page's last view are saved in this browser, not in team exports.
 
 The toolbar's View toggle switches between the Developers board and the Sprint view. The Sprint view is
 the same board with one lane per sprint instead of per person: the current sprint first and open,
@@ -359,9 +359,15 @@ A missing Severity or Priority counts as 4. AdjustedEffort is the Effort field w
 
 ### Tests view
 
-The Tests page charts e2e pass percentages across a configurable lookback window (60 days by default) for each configured Azure DevOps build/YAML pipeline or classic release pipeline. Use Test options to set the number of days, enter the organization and project, type to search pipelines and stages, choose a test-publishing stage (or the whole build pipeline), and add it to the chart. The lookback window is saved in browser local storage and applies to all configured pipelines. Build history is filtered by finish time; release history is queried by creation time, then charted by the selected stage's completion time when available. Multiple pipelines appear as separate lines, each with its own color and marker shape. Each point represents one run, including multiple runs on the same day. Runs are joined by straight lines, and runs 4 or more days apart are joined by a dashed line so outages read as gaps. The x-axis marks each Monday, with weekends shaded. Hovering snaps to the nearest run within 24px; its tooltip leads with the failure count ("77 failed of 842 · 90.9% passed") and shows the run's date and time. Click a point to open its build Tests tab or release summary in a new tab. The y-axis ("Tests passed") uses a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages to make differences near 100% easier to see; "How to read this chart" beside the intro line explains the scale. Each point is passed tests divided by executed test results, excluding `NotExecuted`, `Skipped`, `NotApplicable`, and `NotImpacted`. Tests must be published to Azure DevOps for the chart to find them; stages without executed test results are shown as missing data, not 0% passed. If test results cannot be loaded, the page or options dialog reminds you to ensure your PAT has Test Management (Read) access. The refresh button reloads the latest results, and "Synced 3m ago" beside it shows when they last loaded. Tests has no filter, view, or team controls; pipeline selections are saved in browser local storage.
+The Tests page charts e2e pass percentages across a configurable lookback window (60 days by default) for each configured Azure DevOps build/YAML pipeline or classic release pipeline. Use Test options to set the number of days, enter the organization and project, type to search pipelines and stages, choose a test-publishing stage (or the whole build pipeline), and add it to the chart. The lookback window is saved in browser local storage and applies to all configured pipelines. Build history is filtered by finish time; release history is queried by creation time, then charted by the selected stage's completion time when available. Each point is passed tests divided by executed test results, excluding `NotExecuted`, `Skipped`, `NotApplicable`, and `NotImpacted`. Tests must be published to Azure DevOps for the chart to find them; stages without executed test results are shown as missing data, not 0% passed. If test results cannot be loaded, the page or options dialog reminds you to ensure your PAT has Test Management (Read) access. The refresh button reloads the latest results, and "Synced 3m ago" beside it shows when they last loaded. Tests has no filter or team controls; pipeline selections are saved in browser local storage.
 
-A health strip above the chart shows one tile per pipeline with runs (up to four per row), and doubles as the chart's legend. Each tile shows the pipeline's short name (the parenthetical in its name, such as "PWW", unless a short name is set in Test options) and stage, its latest pass rate, the change against its median, a 21-day sparkline, and a status chip whose tooltip explains the status:
+The toolbar's View toggle switches between Rows (the default) and Overlay. Both use a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages so differences near 100% stay visible; "How to read this chart" beside the intro line explains the view.
+
+**Rows** gives each pipeline its own short row on a shared time axis: a neutral line of every run, the pipeline's usual range as a shaded band, and its latest pass rate labelled at the right edge. Only exceptions get color: amber for a run below usual, red for a sharp drop, and a hollow amber point when fewer tests ran than usual. A pipeline with no recent runs hatches the days since its last run. Each row's label shows the short name, stage, latest pass rate, and its date (or "N working days ago" / "121 of ~220 tests" when that is the story); its left edge takes the status color. Sprint names from the team selected on the other pages run along the top, with a line where each sprint starts, and the current sprint reads "Sprint 42 · Day 9 of 10" (working days); projects share sprint dates, so one team's sprints label every pipeline. Hovering any row shows a crosshair on every row for that day, with the day in the header and each pipeline's lowest run that day ("99.2% · lowest of 2"), "no run", or "not run yet" for today. Click a row to open that day's lowest run in a new tab.
+
+**Overlay** draws every pipeline on one chart as separate lines, each with its own color and marker shape. Each point represents one run, including multiple runs on the same day. Runs are joined by straight lines, and runs 4 or more days apart are joined by a dashed line so outages read as gaps. The x-axis marks each Monday, with weekends shaded. Hovering snaps to the nearest run within 24px; its tooltip leads with the failure count ("77 failed of 842 · 90.9% passed") and shows the run's date and time. Click a point to open its build Tests tab or release summary in a new tab.
+
+A health strip above the chart shows one tile per pipeline with runs (up to four per row), and doubles as the Overlay's legend. Each tile shows the pipeline's short name (the parenthetical in its name, such as "PWW", unless a short name is set in Test options) and stage, its latest pass rate, the change against its median, a 21-day sparkline, and a status chip whose tooltip explains the status:
 
 - **Usual** — the latest run is within or above the pipeline's usual range (the middle 80% of its runs in the lookback window, ignoring sharp drops).
 - **Below usual** — the latest run is below that range by more than a small noise margin.
@@ -369,7 +375,7 @@ A health strip above the chart shows one tile per pipeline with runs (up to four
 - **Fewer tests** — the latest run executed fewer than 80% of the pipeline's usual test count.
 - **No recent runs** — no results for 2 or more working days; the sparkline hatches the idle days.
 
-The toolbar summarizes the statuses ("4 pipelines"; hover or focus it for counts). Click a tile to focus its pipeline: the other lines fade, the chart shades its usual range, and hover snaps only to its runs. Click the tile again or press Esc to clear focus. Health uses the runs that pass the pass rate filter, before any daily grouping.
+The toolbar summarizes the statuses ("4 pipelines"; hover or focus it for counts). Click a tile (or a row's label in Rows) to focus its pipeline: in Overlay the other lines fade, the chart shades its usual range, and hover snaps only to its runs; in Rows the other rows fade. Click it again or press Esc to clear focus. Health uses the runs that pass the pass rate filter, before any daily grouping.
 
 Test options uses two tabs: Options contains the lookback window, and Pipelines contains
 the configured pipeline list and controls for adding or removing pipelines.
@@ -378,7 +384,8 @@ a percentage from 0 to 100 inclusive to hide chart points at or below that pass 
 example, 0 excludes 0% results and 20 excludes results at 20% or lower; 100 hides all results.
 Decimal thresholds are supported. The setting is saved in browser local storage and applies
 to all configured pipelines without refetching results. Disabling it restores the hidden points.
-Options also includes "Show at most one result per pipeline per day" (unchecked by default).
+Options also includes "Show at most one result per pipeline per day" (unchecked by default); it
+applies to the Overlay view, since Rows plots every run and reads the day's lowest on hover.
 Choose Lowest result, Average result, or Highest result. Days use the browser's local timezone,
 and the pass rate filter is applied to individual runs before grouping. Average is the arithmetic
 mean of run percentages, not weighted by test count. Multi-run averages have no run link;

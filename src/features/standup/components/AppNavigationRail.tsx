@@ -834,7 +834,7 @@ export function AppNavigationRail({
                     label={<Typography variant="body-sm">Remember last view</Typography>}
                   />
                   <Typography id={REMEMBER_LAST_VIEW_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Reopen Development, Quality Assurance, and Backlog on the view you used last, such as Sprint, Flow, or Map. When off, they open on Developers, Testers, and List.
+                    Reopen Development, Quality Assurance, Backlog, and Tests on the view you used last, such as Sprint, Flow, Map, or Overlay. When off, they open on Developers, Testers, List, and Rows.
                   </Typography>
                 </Box>
               </Stack>

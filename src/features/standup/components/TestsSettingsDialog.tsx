@@ -302,6 +302,7 @@ export function TestsSettingsDialog({
             </Select>
           </FormControl>
           <Typography variant="body-sm" color="text.secondary">
+            Applies to the Overlay view; Rows plots every run and reads the day&apos;s lowest on hover.
             Groups runs by your local calendar day, after applying the pass rate filter.
             Average gives each run equal weight. When multiple runs are averaged, the point
             does not represent a specific run and cannot link to a test run.
