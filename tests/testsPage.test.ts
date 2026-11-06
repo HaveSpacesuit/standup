@@ -141,3 +141,68 @@ test('Test options sets when a pipeline counts as having no recent runs or fewer
   await act(async () => [...dialog()!.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
   await waitFor(() => dialog() === null)
 })
+
+test('failing tests load only when a change is opened, labelled against the previous run; Esc closes the run, then the focus', async (t) => {
+  storage.set('standup:test-pipelines', JSON.stringify([
+    { id: 'web', orgName: 'org', projectName: 'Example', kind: 'build', definitionId: 7, name: 'ProjectWise Web (PWW)', stageName: 'E2E' },
+  ]))
+  // Fifteen daily builds ending an hour ago; the latest is a sharp drop.
+  const builds = Array.from({ length: 15 }, (_, index) => ({
+    id: index + 1, status: 'completed', finishTime: new Date(Date.now() - (14 - index) * 86_400_000 - 3_600_000).toISOString(),
+  }))
+  const failedBy = (id: number) => id === 15 ? 300 : id === 14 ? 8 : 6 + (id % 3)
+  const failing: Record<string, unknown[]> = {
+    15: [{ automatedTestName: 'Suite.opens a folder', outcome: 'Failed' }, { automatedTestName: 'Suite.uploads a file', outcome: 'Failed' }],
+    14: [{ automatedTestName: 'Suite.opens a folder', outcome: 'Failed' }],
+  }
+  const requested: URL[] = []
+  const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
+  const previousFetch = globalThis.fetch
+  globalThis.fetch = (async (input: URL, init?: RequestInit) => {
+    const url = new URL(input)
+    if (url.protocol !== 'https:') return previousFetch(input, init)
+    requested.push(url)
+    if (url.pathname.endsWith('/_apis/build/builds')) return json({ value: [...builds].reverse() })
+    const pipelineId = Number(url.searchParams.get('pipelineId'))
+    if (url.pathname.endsWith('/_apis/testresults/metrics')) {
+      const failed = failedBy(pipelineId)
+      return json({ resultSummary: { resultSummaryByRunState: { Completed: { aggregatedResultDetailsByOutcome: {
+        Passed: { count: 1000 - failed, outcome: 'Passed' }, Failed: { count: failed, outcome: 'Failed' },
+      } } } } })
+    }
+    if (url.pathname.endsWith('/_apis/testresults/resultsbypipeline')) return json(failing[pipelineId] ?? [])
+    throw new Error(`Unexpected request: ${url}`)
+  }) as typeof fetch
+  t.after(() => {
+    globalThis.fetch = previousFetch
+  })
+  const host = await render(t, { pat: 'token' })
+  const failingRequests = () => requested.filter((url) => url.pathname.endsWith('/resultsbypipeline'))
+  const change = () => host.querySelector<HTMLButtonElement>('aside[aria-label="Changes"] button[data-change="web:drop:15"]')
+  const details = () => host.querySelector('[data-testid="tests-run-details"]')
+  const focusButton = () => host.querySelector<HTMLButtonElement>('button[data-pipeline="web"]')!
+  await waitFor(() => change() !== null)
+  assert.equal(failingRequests().length, 0, 'visiting the page reads no failing tests')
+  assert.equal(details(), null)
+
+  await act(async () => focusButton().click())
+  assert.equal(focusButton().getAttribute('aria-pressed'), 'true')
+  await act(async () => change()!.click())
+  assert.equal(change()!.getAttribute('aria-pressed'), 'true')
+  await waitFor(() => /Again/.test(details()?.textContent ?? ''))
+  assert.deepEqual(failingRequests().map((url) => url.searchParams.get('pipelineId')).sort(), ['14', '15'])
+  const rows = [...details()!.querySelectorAll('[data-testid="tests-failing"] li')].map((item) => item.textContent)
+  assert.deepEqual(rows, ['Suite.uploads a fileNew', 'Suite.opens a folderAgain'], 'tests new since the previous run come first')
+  assert.match(details()!.textContent!, /Sharp drop to 70%/)
+  assert.equal(details()!.querySelector('a[href*="buildId=15"]')?.getAttribute('target'), '_blank')
+
+  await act(async () => dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' })))
+  assert.equal(details(), null)
+  assert.equal(focusButton().getAttribute('aria-pressed'), 'true', 'the first Esc keeps the focus')
+  await act(async () => dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' })))
+  assert.equal(focusButton().getAttribute('aria-pressed'), 'false')
+
+  await act(async () => change()!.click())
+  await waitFor(() => /Again/.test(details()?.textContent ?? ''))
+  assert.equal(failingRequests().length, 2, 'reopening a run reads its failing tests from the cache')
+})

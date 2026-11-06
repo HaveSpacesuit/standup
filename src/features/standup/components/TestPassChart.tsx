@@ -8,8 +8,8 @@ import { useElementSize } from '../hooks/useElementSize'
 import { testPointPassRate, testStageLabel, type TestChartPoint, type TestPipeline } from '../utils/testPipelines'
 import {
   createTestTimeAxis, formatAxisDay, formatPassRate, formatRunDay, formatRunTime, formatTestCount, isTestWeekend,
-  PASS_RATE_TICKS, passRatePosition, testAxisDate, testDayTime, testLinePaths, testMondayIndexes, testPipelineShortName,
-  testRunUrl, type TestSeriesShape,
+  PASS_RATE_TICKS, passRatePosition, TEST_CHANGE_TONES, testAxisDate, testChangeTitle, testDayTime, testLinePaths,
+  testMondayIndexes, testPipelineShortName, testRunChanges, type TestChange, type TestRunSelection, type TestSeriesShape,
 } from '../utils/testHealth'
 
 export type TestSeries = { pipeline: TestPipeline; points: TestChartPoint[]; color: string; shape: TestSeriesShape }
@@ -29,10 +29,10 @@ const Y_BOTTOM = passRatePosition(0)
 const MIN_TICK_LABEL_GAP = 52
 const FADED_OPACITY = 0.18
 
-type PlotPoint = { key: string; series: TestSeries; point: TestChartPoint; x: number; y: number }
+type PlotPoint = { key: string; series: TestSeries; point: TestChartPoint; x: number; y: number; changes: TestChange[] }
 
 function PointTip({ entry }: { entry: PlotPoint }) {
-  const { series, point } = entry
+  const { series, point, changes } = entry
   const date = new Date(point.date)
   const lines = [`${testPipelineShortName(series.pipeline)} · ${testStageLabel(series.pipeline.stageName)}`]
   if ('passRate' in point) {
@@ -46,18 +46,32 @@ function PointTip({ entry }: { entry: PlotPoint }) {
   return (
     <Box component="span" sx={{ display: 'block', whiteSpace: 'nowrap' }}>
       <TipLines lines={lines} boldFirst />
+      {changes.length ? (
+        <Box component="span" sx={{ display: 'block', mt: 0.5, fontWeight: 600 }}>{changes.map(testChangeTitle).join(' · ')}</Box>
+      ) : null}
       <Box component="span" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
-        {point.runId !== undefined ? 'Click to open in Azure DevOps' : 'An average has no single run to open'}
+        {point.runId !== undefined ? 'Click for run details' : 'An average has no single run to show'}
       </Box>
     </Box>
   )
 }
 
+const NO_CHANGES: TestChange[] = []
+
+type TestPassChartProps = {
+  series: TestSeries[]
+  range: TestChartRange
+  focus?: TestChartFocus | null
+  changes?: TestChange[]
+  selection?: TestRunSelection | null
+  onSelectRun: (pipelineId: string, runId: number) => void
+}
+
 /**
  * Every pipeline's pass rate over time on one log-scaled chart. Focusing a pipeline fades the others, shades its usual
- * range, and limits hover to its runs.
+ * range, and limits hover to its runs. Runs with changes get a ring; clicking a run opens it in run details.
  */
-export function TestPassChart({ series, range, focus = null }: { series: TestSeries[]; range: TestChartRange; focus?: TestChartFocus | null }) {
+export function TestPassChart({ series, range, focus = null, changes = NO_CHANGES, selection = null, onSelectRun }: TestPassChartProps) {
   const plotRef = useRef<HTMLDivElement>(null)
   const measured = useElementSize(plotRef, FALLBACK_SIZE)
   const width = Math.max(MIN_WIDTH, measured.width)
@@ -79,7 +93,10 @@ export function TestPassChart({ series, range, focus = null }: { series: TestSer
     const lines = series.map((entry) => {
       const points = entry.points.flatMap((point, index) => {
         const t = testDayTime(axis, Date.parse(point.date))
-        return t >= 0 ? [{ key: `${entry.pipeline.id}:${index}`, series: entry, point, t, x: x(t), y: y(passRatePosition(testPointPassRate(point))) }] : []
+        const pointChanges = point.runId === undefined ? NO_CHANGES : testRunChanges(changes, entry.pipeline.id, point.runId)
+        return t >= 0 ? [{
+          key: `${entry.pipeline.id}:${index}`, series: entry, point, t, x: x(t), y: y(passRatePosition(testPointPassRate(point))), changes: pointChanges,
+        }] : []
       })
       return { entry, points, paths: testLinePaths(points), faded: focusId !== null && entry.pipeline.id !== focusId }
     })
@@ -90,7 +107,10 @@ export function TestPassChart({ series, range, focus = null }: { series: TestSer
       weekends: Array.from({ length: axis.dayCount }, (_, index) => index).filter((index) => isTestWeekend(axis, index)),
       mondays: mondays.map((index, order) => ({ index, x: x(index), label: order % labelEvery === 0 ? formatAxisDay(testAxisDate(axis, index)) : null })),
     }
-  }, [axis, series, focusId, width, height])
+  }, [axis, series, focusId, width, height, changes])
+  const selected = selection
+    ? plot.lines.find((line) => line.entry.pipeline.id === selection.pipelineId)?.points.find((point) => point.point.runId === selection.runId) ?? null
+    : null
 
   const findNearest = (event: MouseEvent<SVGSVGElement>): PlotPoint | null => {
     const box = event.currentTarget.getBoundingClientRect()
@@ -137,7 +157,7 @@ export function TestPassChart({ series, range, focus = null }: { series: TestSer
           onMouseLeave={() => setHover(null)}
           onClick={() => {
             const runId = activeHover?.point.runId
-            if (activeHover && runId !== undefined) window.open(testRunUrl(activeHover.series.pipeline, runId), '_blank', 'noopener,noreferrer')
+            if (activeHover && runId !== undefined) onSelectRun(activeHover.series.pipeline.id, runId)
           }}
         >
           <g aria-hidden="true">
@@ -182,8 +202,24 @@ export function TestPassChart({ series, range, focus = null }: { series: TestSer
                 {points.map((point) => (
                   <SeriesMarker key={point.key} shape={entry.shape} x={point.x} y={point.y} r={3.1} color={entry.color} />
                 ))}
+                {points.filter((point) => point.changes.length).map((point) => (
+                  <circle
+                    key={point.key}
+                    data-change={point.changes[0].id}
+                    className={`tests-change-ring tests-change-ring-${TEST_CHANGE_TONES[point.changes[0].type]}`}
+                    cx={point.x}
+                    cy={point.y}
+                    r={7}
+                  />
+                ))}
               </g>
             ))}
+            {selected ? (
+              <g data-testid="tests-overlay-selected">
+                <line className="tests-sel-line" x1={selected.x} x2={selected.x} y1={plot.top} y2={plot.bottom} />
+                <circle className="tests-sel-ring" cx={selected.x} cy={selected.y} r={9} />
+              </g>
+            ) : null}
             {activeHover ? <circle className="tests-hover-ring" cx={activeHover.x} cy={activeHover.y} r={6.5} style={{ stroke: activeHover.series.color }} /> : null}
           </g>
         </Box>

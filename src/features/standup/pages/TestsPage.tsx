@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, CircularProgress, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import type { Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
@@ -13,13 +13,17 @@ import type { TeamIterationOption } from '../../../ado/types'
 import { AppTooltip as Tooltip } from '../components/AppTooltip'
 import { PageToolbar } from '../components/PageToolbar'
 import { SyncStatus } from '../components/SyncStatus'
+import { TestChangesPanel } from '../components/TestChangesPanel'
 import { TestHealthStrip } from '../components/TestHealthStrip'
+import { TESTS_PANEL_STACK_QUERY } from '../components/testHealthPresentation'
 import { TestPassChart, type TestChartFocus, type TestSeries } from '../components/TestPassChart'
 import { TestRowsChart } from '../components/TestRowsChart'
+import { TestRunDetails } from '../components/TestRunDetails'
 import { TestsIntro } from '../components/TestsIntro'
 import { TestsLoadingState } from '../components/TestsLoadingState'
 import { TestsSettingsDialog } from '../components/TestsSettingsDialog'
 import { TipLines } from '../components/TipLines'
+import type { FailingTestsCache } from '../hooks/useFailingTests'
 import { useRememberedView } from '../hooks/useRememberedView'
 import {
   DEFAULT_TEST_LOOKBACK_DAYS, loadTestLookbackDays, loadTestPipelines,
@@ -30,19 +34,25 @@ import {
   DEFAULT_TEST_HEALTH_OPTIONS, loadTestHealthOptions, saveTestHealthOptions, type TestHealthOptions,
 } from '../utils/testPipelines'
 import {
-  createTestTimeAxis, pluralizeTests, TEST_HEALTH_STATUS_LABELS, testPipelineHealth, testPipelineShortName, testSeriesStyle,
-  type TestHealthEntry,
+  createTestTimeAxis, pluralizeTests, TEST_HEALTH_STATUS_LABELS, testChanges, testPipelineHealth, testPipelineShortName,
+  testRunChanges, testSeriesStyle, type TestChange, type TestHealthEntry, type TestRunSelection,
 } from '../utils/testHealth'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
 import { testSprintBands } from '../utils/testSprints'
 
 // StrataKit has no categorical palette, so the third series color is a violet tuned for each color scheme.
 const pageSx = (theme: Theme) => ({
-  flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2,
+  flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', containerType: 'inline-size',
   '--tests-series-violet': 'oklch(55% 0.16 305)',
   // applyStyles is typed as emotion's CSSObject, which sx doesn't accept as is.
   ...(theme.applyStyles('dark', { '--tests-series-violet': 'oklch(72% 0.13 305)' }) as object),
 })
+// The charts scroll beside the Changes panel; on narrow pages the panel moves under them and everything scrolls together.
+const layoutSx = { flex: 1, minHeight: 0, display: 'flex', [TESTS_PANEL_STACK_QUERY]: { flexDirection: 'column', overflowY: 'auto' } }
+const contentSx = {
+  flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2,
+  [TESTS_PANEL_STACK_QUERY]: { flex: '0 0 auto', overflowY: 'visible' },
+}
 
 type TestsPageProps = {
   pat: string | null
@@ -110,6 +120,9 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
   const [syncedAt, setSyncedAt] = useState<number | null>(null)
   const [refreshNonce, setRefreshNonce] = useState(0)
   const [focusId, setFocusId] = useState<string | null>(null)
+  const [selection, setSelection] = useState<TestRunSelection | null>(null)
+  // Failing tests, by pipeline and run, for the page's lifetime; finished runs don't change.
+  const [failingCache] = useState<FailingTestsCache>(() => new Map())
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
   // Only the fields that pick results; renaming a pipeline's short name doesn't refetch.
   const sourceKey = JSON.stringify(pipelines.map(testPipelineSource))
@@ -138,15 +151,41 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
   const chartFocus = useMemo<TestChartFocus | null>(() => focusedEntry
     ? { id: focusedEntry.pipeline.id, highPosition: focusedEntry.health.usualHighPosition, lowPosition: focusedEntry.health.usualLowPosition }
     : null, [focusedEntry])
+  const changes = useMemo(() => axis ? testChanges(healthEntries, axis, healthOptions) : [], [axis, healthEntries, healthOptions])
+  // A selection is by run ID, so it survives a refresh, and lapses when its run leaves the data.
+  const selectedEntry = selection ? healthEntries.find((entry) => entry.pipeline.id === selection.pipelineId) ?? null : null
+  const selectedRun = selection && selectedEntry ? selectedEntry.health.runs.find((run) => run.runId === selection.runId) ?? null : null
+  const activeSelection = selectedRun ? selection : null
+  const selectedChange = activeSelection?.changeId ? changes.find((change) => change.id === activeSelection.changeId) ?? null : null
+
+  // Selecting a run on another pipeline ends the focus, and focusing another pipeline closes the run.
+  const selectRun = useCallback((pipelineId: string, runId: number) => {
+    setSelection((current) => current?.pipelineId === pipelineId && current.runId === runId
+      ? null
+      : { pipelineId, runId, changeId: testRunChanges(changes, pipelineId, runId)[0]?.id ?? null })
+    setFocusId((current) => current !== null && current !== pipelineId ? null : current)
+  }, [changes])
+  const selectChange = useCallback((change: TestChange) => {
+    setSelection((current) => current?.changeId === change.id
+      ? null
+      : { pipelineId: change.pipelineId, runId: change.run.runId, changeId: change.id })
+    setFocusId((current) => current !== null && current !== change.pipelineId ? null : current)
+  }, [])
+  const toggleFocus = (id: string) => {
+    setFocusId((current) => current === id ? null : id)
+    setSelection((current) => current && current.pipelineId !== id ? null : current)
+  }
 
   useEffect(() => {
-    if (!focusedEntry || settingsOpen) return
+    if ((!activeSelection && !focusedEntry) || settingsOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.defaultPrevented) setFocusId(null)
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (activeSelection) setSelection(null)
+      else setFocusId(null)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [focusedEntry, settingsOpen])
+  }, [activeSelection, focusedEntry, settingsOpen])
 
   const updateHealthOptions = (next: TestHealthOptions) => {
     try {
@@ -307,53 +346,86 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
       </PageToolbar>
 
       <Box component="main" sx={pageSx}>
-        {canLoad && <TestsIntro lookbackDays={lookbackDays} daily={dailyOptions.enabled} view={view} />}
-        {error && <Alert severity="error">{error}</Alert>}
-        {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
-        {passRateFilterStorageError && <Alert severity="error">{passRateFilterStorageError}</Alert>}
-        {dailyStorageError && <Alert severity="error">{dailyStorageError}</Alert>}
-        {healthStorageError && <Alert severity="error">{healthStorageError}</Alert>}
-        {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} view={view} />}
-        {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
-        {pipelines.length === 0 && !error && (
-          <Typography variant="body-md" color="text.secondary">
-            Add a build or release pipeline in Test options to start tracking test pass rates.
-          </Typography>
-        )}
-        {pat && pipelines.length > 0 && !loading && series.every(({ points }) => points.length === 0) && !error && (
-          <Alert severity="info">No published test results were found for the selected stages in the last {lookbackDays} days.</Alert>
-        )}
-        {!loading && filteredSeries.some((entry, index) => entry.points.length === 0 && series[index].points.length > 0) && (
-          <Alert severity="info">Some pipelines have no chart points above the {passRateFilter.threshold}% pass rate threshold. Lower the threshold or disable the filter in Test options to show more results.</Alert>
-        )}
-        {!loading && axis && healthEntries.length > 0 && (
-          <TestHealthStrip
-            entries={healthEntries}
-            axis={axis}
-            options={healthOptions}
-            lookbackDays={lookbackDays}
-            focusId={focusedEntry?.pipeline.id ?? null}
-            onToggleFocus={(id) => setFocusId((current) => current === id ? null : id)}
-          />
-        )}
-        {!loading && view === 'rows' && axis && healthEntries.length > 0 && (
-          <TestRowsChart
-            entries={healthEntries}
-            axis={axis}
-            sprints={sprints}
-            lookbackDays={lookbackDays}
-            focusId={focusedEntry?.pipeline.id ?? null}
-            onToggleFocus={(id) => setFocusId((current) => current === id ? null : id)}
-          />
-        )}
-        {!loading && view === 'overlay' && range && chartSeries.length > 0 && (
-          <Box sx={{ height: 480, flexShrink: 0 }}>
-            <TestPassChart series={chartSeries} range={range} focus={chartFocus} />
+        <Box sx={layoutSx}>
+          <Box sx={contentSx}>
+            {canLoad && <TestsIntro lookbackDays={lookbackDays} daily={dailyOptions.enabled} view={view} />}
+            {error && <Alert severity="error">{error}</Alert>}
+            {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
+            {passRateFilterStorageError && <Alert severity="error">{passRateFilterStorageError}</Alert>}
+            {dailyStorageError && <Alert severity="error">{dailyStorageError}</Alert>}
+            {healthStorageError && <Alert severity="error">{healthStorageError}</Alert>}
+            {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} view={view} />}
+            {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
+            {pipelines.length === 0 && !error && (
+              <Typography variant="body-md" color="text.secondary">
+                Add a build or release pipeline in Test options to start tracking test pass rates.
+              </Typography>
+            )}
+            {pat && pipelines.length > 0 && !loading && series.every(({ points }) => points.length === 0) && !error && (
+              <Alert severity="info">No published test results were found for the selected stages in the last {lookbackDays} days.</Alert>
+            )}
+            {!loading && filteredSeries.some((entry, index) => entry.points.length === 0 && series[index].points.length > 0) && (
+              <Alert severity="info">Some pipelines have no chart points above the {passRateFilter.threshold}% pass rate threshold. Lower the threshold or disable the filter in Test options to show more results.</Alert>
+            )}
+            {!loading && axis && healthEntries.length > 0 && (
+              <TestHealthStrip
+                entries={healthEntries}
+                axis={axis}
+                options={healthOptions}
+                lookbackDays={lookbackDays}
+                focusId={focusedEntry?.pipeline.id ?? null}
+                onToggleFocus={toggleFocus}
+              />
+            )}
+            {!loading && view === 'rows' && axis && healthEntries.length > 0 && (
+              <TestRowsChart
+                entries={healthEntries}
+                axis={axis}
+                sprints={sprints}
+                lookbackDays={lookbackDays}
+                focusId={focusedEntry?.pipeline.id ?? null}
+                onToggleFocus={toggleFocus}
+                changes={changes}
+                selection={activeSelection}
+                onSelectRun={selectRun}
+                onSelectChange={selectChange}
+              />
+            )}
+            {!loading && view === 'overlay' && range && chartSeries.length > 0 && (
+              <Box sx={{ height: 480, flexShrink: 0 }}>
+                <TestPassChart series={chartSeries} range={range} focus={chartFocus} changes={changes} selection={activeSelection} onSelectRun={selectRun} />
+              </Box>
+            )}
+            {!loading && series.filter(({ points }) => points.length === 0).map(({ pipeline }) => (
+              <Alert key={pipeline.id} severity="info">No published results for {pipeline.name} · {testStageLabel(pipeline.stageName)} in the last {lookbackDays} days.</Alert>
+            ))}
           </Box>
-        )}
-        {!loading && series.filter(({ points }) => points.length === 0).map(({ pipeline }) => (
-          <Alert key={pipeline.id} severity="info">No published results for {pipeline.name} · {testStageLabel(pipeline.stageName)} in the last {lookbackDays} days.</Alert>
-        ))}
+          {canLoad && (loading || healthEntries.length > 0) && (
+            <TestChangesPanel
+              loading={loading}
+              entries={healthEntries}
+              changes={changes}
+              axis={axis}
+              sprints={sprints}
+              lookbackDays={lookbackDays}
+              focusId={focusedEntry?.pipeline.id ?? null}
+              onClearFocus={() => setFocusId(null)}
+              selectedChangeId={activeSelection?.changeId ?? null}
+              onSelectChange={selectChange}
+              details={!loading && activeSelection && selectedEntry && selectedRun ? (
+                <TestRunDetails
+                  key={`${activeSelection.pipelineId}:${activeSelection.runId}`}
+                  entry={selectedEntry}
+                  run={selectedRun}
+                  change={selectedChange}
+                  client={client}
+                  cache={failingCache}
+                  onClose={() => setSelection(null)}
+                />
+              ) : null}
+            />
+          )}
+        </Box>
       </Box>
 
       <TestsSettingsDialog

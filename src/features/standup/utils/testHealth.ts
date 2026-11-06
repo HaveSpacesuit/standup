@@ -316,3 +316,156 @@ export function testHealthStatusTip(health: TestPipelineHealth, options: TestHea
       return `No results for ${pluralizeTests(health.idleDays, 'working day')}. Pipelines are flagged after ${pluralizeTests(options.staleDays, 'working day')} without a run (Test options).`
   }
 }
+
+export type TestChangeType = 'drop' | 'recover' | 'first' | 'fewer' | 'below' | 'stale'
+export type TestChangeTone = 'critical' | 'positive' | 'attention' | 'neutral'
+
+export const TEST_CHANGE_TONES: Record<TestChangeType, TestChangeTone> = {
+  drop: 'critical',
+  recover: 'positive',
+  first: 'attention',
+  fewer: 'attention',
+  below: 'attention',
+  stale: 'neutral',
+}
+
+/** Failures after at least this many clean runs in a row are called out. */
+export const TEST_CLEAN_STREAK_RUNS = 5
+
+/** A detected change in a pipeline's results, worth a look at standup. */
+export type TestChange = {
+  /** Unique across pipelines and stable across refreshes, such as "web:drop:20412". */
+  id: string
+  type: TestChangeType
+  pipelineId: string
+  /** The run the change is about; for no recent runs, the last run. */
+  run: TestRun
+  /** The day it happened; for no recent runs, the day the pipeline was flagged. */
+  day: number
+  /** Its position on the time axis, for ordering and markers. */
+  t: number
+  /** A sharp-drop episode's lowest run, for a recovery. */
+  lowest?: TestRun
+  /** Calendar days since the drop (recovery) or the last failure (first failures). */
+  days?: number
+  /** Clean runs before first failures, or runs in a row with fewer tests. */
+  runCount?: number
+}
+
+/**
+ * Walks a pipeline's runs, oldest first, for the moments that matter: a sharp drop starts (once per episode) and
+ * recovers, failures return after a clean streak, a streak of runs with fewer tests starts, the latest run is below
+ * usual, and the pipeline stops reporting.
+ */
+export function testPipelineChanges(pipelineId: string, health: TestPipelineHealth, axis: TestTimeAxis, options: TestHealthOptions): TestChange[] {
+  const changes: TestChange[] = []
+  const add = (type: TestChangeType, run: TestRun, extra: Partial<TestChange> = {}) => {
+    const change: TestChange = { id: `${pipelineId}:${type}:${run.runId}`, type, pipelineId, run, day: run.day, t: run.t, ...extra }
+    changes.push(change)
+    return change
+  }
+  let episode: { start: TestRun; lowest: TestRun } | null = null
+  let clean = 0
+  let cleanStart: TestRun | null = null
+  let lastFailure: TestRun | null = null
+  let fewerStreak: TestChange | null = null
+  for (const run of health.runs) {
+    if (run.sharp) {
+      if (!episode) {
+        episode = { start: run, lowest: run }
+        add('drop', run)
+      } else if (run.rate < episode.lowest.rate) {
+        episode.lowest = run
+      }
+    } else if (episode) {
+      add('recover', run, { lowest: episode.lowest, days: run.day - episode.start.day })
+      episode = null
+    }
+    if (run.failed > 0) {
+      // A sharp drop already says failures are back.
+      if (clean >= TEST_CLEAN_STREAK_RUNS && cleanStart && !run.sharp) {
+        add('first', run, { days: run.day - (lastFailure ?? cleanStart).day, runCount: clean })
+      }
+      clean = 0
+      cleanStart = null
+      lastFailure = run
+    } else {
+      if (clean === 0) cleanStart = run
+      clean++
+    }
+    if (!run.fewer) {
+      fewerStreak = null
+    } else if (fewerStreak) {
+      fewerStreak.runCount = (fewerStreak.runCount ?? 1) + 1
+    } else {
+      fewerStreak = add('fewer', run, { runCount: 1 })
+    }
+  }
+  if (health.latest.cls === 'below') add('below', health.latest)
+  if (health.status === 'stale') {
+    let day = health.latest.day
+    for (let working = 0; working < options.staleDays && day < axis.todayIndex;) {
+      day++
+      if (!isTestWeekend(axis, day)) working++
+    }
+    changes.push({ id: `${pipelineId}:stale:${health.latest.runId}`, type: 'stale', pipelineId, run: health.latest, day, t: day + 0.99 })
+  }
+  return changes
+}
+
+/** Every pipeline's changes, newest first; on the same run, the most serious first. */
+export function testChanges(entries: readonly TestHealthEntry[], axis: TestTimeAxis, options: TestHealthOptions): TestChange[] {
+  return entries
+    .flatMap(({ pipeline, health }) => testPipelineChanges(pipeline.id, health, axis, options))
+    .sort((left, right) => right.t - left.t || CHANGE_ORDER[left.type] - CHANGE_ORDER[right.type] || left.id.localeCompare(right.id))
+}
+
+const CHANGE_ORDER: Record<TestChangeType, number> = { drop: 0, recover: 1, first: 2, below: 3, fewer: 4, stale: 5 }
+
+/** The changes a run is marked with on the charts, most serious first; no recent runs is about the days after it, so it doesn't count. */
+export function testRunChanges(changes: readonly TestChange[], pipelineId: string, runId: number): TestChange[] {
+  return changes.filter((change) => change.pipelineId === pipelineId && change.run.runId === runId && change.type !== 'stale')
+}
+
+/** The run open in run details, and the change it was opened from, if any. */
+export type TestRunSelection = { pipelineId: string; runId: number; changeId: string | null }
+
+export function testChangeTitle(change: TestChange): string {
+  const { run } = change
+  switch (change.type) {
+    case 'drop':
+      return `Sharp drop to ${formatPassRate(run.rate)}`
+    case 'recover':
+      return change.days ? `Recovered after ${pluralizeTests(change.days, 'day')}` : 'Recovered the same day'
+    case 'first':
+      return change.days
+        ? `First failures in ${pluralizeTests(change.days, 'day')}`
+        : `First failures after ${pluralizeTests(change.runCount ?? TEST_CLEAN_STREAK_RUNS, 'clean run')}`
+    case 'fewer':
+      return 'Fewer tests ran'
+    case 'below':
+      return `Below usual: ${formatPassRate(run.rate)}`
+    case 'stale':
+      return 'No recent runs'
+  }
+}
+
+export function testChangeDetail(change: TestChange, health: Pick<TestPipelineHealth, 'usualLow' | 'usualHigh' | 'usualTotal'>): string {
+  const { run } = change
+  switch (change.type) {
+    case 'drop':
+      return `${formatTestCount(run.failed)} failed of ${formatTestCount(run.total)} · usually ${formatTestUsualRange(health)}`
+    case 'recover':
+      return `back to ${formatPassRate(run.rate)} · lowest was ${formatPassRate((change.lowest ?? run).rate)}`
+    case 'first':
+      return `${formatTestCount(run.failed)} failed of ${formatTestCount(run.total)}`
+    case 'fewer': {
+      const streak = (change.runCount ?? 1) > 1 ? ` · ${formatTestCount(change.runCount!)} runs in a row` : ''
+      return `${formatTestCount(run.total)} of ~${formatTestCount(health.usualTotal)} tests${streak}`
+    }
+    case 'below':
+      return `${formatTestCount(run.failed)} failed · usually ${formatTestUsualRange(health)}`
+    case 'stale':
+      return `last run ${formatRunDay(new Date(run.date))}`
+  }
+}
