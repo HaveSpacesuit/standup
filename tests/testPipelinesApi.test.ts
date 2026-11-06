@@ -105,3 +105,31 @@ test('release points keep their stage instance, so failing tests can be read lat
   const points = await loadTestPoints(client, pipeline('release'), 30)
   assert.deepEqual(points, [{ date: deployed, runId: 88, environmentId: 412, passed: 95, total: 100 }])
 })
+
+test('test counts include only tests that ran: skipped, not-impacted, and unfinished results are left out', async () => {
+  const finished = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const client = fakeClient((options) => {
+    if (options.path.endsWith('/_apis/build/builds')) return { value: [{ id: 2914, finishTime: finished }] }
+    if (options.path.endsWith('/_apis/testresults/metrics')) {
+      return { resultSummary: { resultSummaryByRunState: {
+        Completed: { aggregatedResultDetailsByOutcome: {
+          Passed: { count: 540, outcome: 'Passed' },
+          Failed: { count: 10, outcome: 'Failed' },
+          Blocked: { count: 2 },
+          // A product that runs a shared suite skips everything that doesn't apply to it.
+          NotExecuted: { count: 630, outcome: 'NotExecuted' },
+          NotImpacted: { count: 40 },
+          NotApplicable: { count: 5 },
+          None: { count: 3 },
+          Unspecified: { count: 1 },
+          InProgress: { count: 4 },
+          Paused: { count: 2 },
+        } },
+        InProgress: { aggregatedResultDetailsByOutcome: { Passed: { count: 99 } } },
+      } } }
+    }
+    throw new Error(`Unexpected request: ${options.path}`)
+  })
+  const points = await loadTestPoints(client, pipeline('build'), 30)
+  assert.deepEqual(points, [{ date: finished, runId: 2914, passed: 540, total: 552 }])
+})

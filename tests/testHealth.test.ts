@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  createTestTimeAxis, defaultTestPipelineShortName, formatPassRate, formatRunDay, formatTestHealthDelta, formatTestUsualRange, isTestWeekend,
-  passRateAtPosition, passRatePosition, testChangeDetail, testChangeTitle, testChanges, testDayIndex, testDayTime, testHealthStatusTip,
-  testLinePaths, testMondayIndexes, testPipelineChanges, testPipelineHealth, testPipelineShortName, testRunChanges, testRunUrl,
+  createTestTimeAxis, defaultTestPipelineShortName, fewestTestRunOn, formatPassRate, formatRunDay, formatTestHealthDelta, formatTestUsualRange,
+  isTestWeekend, lowestTestRunOn, passRateAtPosition, passRatePosition, testChangeDetail, testChangeTitle, testChanges, testDayIndex, testDayTime,
+  testHealthStatusTip, testLinePaths, testMondayIndexes, testPipelineChanges, testPipelineHealth, testPipelineShortName, testRunChanges, testRunUrl,
   testSeriesStyle, testWorkingDaysBetween, type TestHealthEntry,
 } from '../src/features/standup/utils/testHealth.ts'
 
@@ -133,6 +133,20 @@ test('a run with fewer than the threshold share of the usual test count is fewer
   assert.equal(health.latest.fewer, true)
   assert.match(testHealthStatusTip(health, options, 60), /executed 500 tests; this pipeline usually runs ~1,000\. Runs with fewer than 80% of the usual count/)
   assert.equal(healthWith(at(30, 500, 500), usualRuns, { ...options, fewerPercent: 50 }).status, 'usual')
+})
+
+test("a day's tests-ran bar is its run with the fewest tests, which may not be its lowest pass rate", () => {
+  const full = { ...at(30, 980), runId: 301 }
+  const short = { ...at(30, 540, 540), date: new Date(2026, 9, 30, 14).toISOString(), runId: 302 }
+  const health = healthWith(null, [...usualRuns, full, short])
+  const today = healthAxis.todayIndex
+  assert.equal(fewestTestRunOn(health, today)!.runId, 302)
+  assert.equal(fewestTestRunOn(health, today)!.fewer, true)
+  assert.equal(lowestTestRunOn(health, today)!.runId, 301)
+
+  const tied = healthWith(null, [...usualRuns, full, { ...full, date: new Date(2026, 9, 30, 14).toISOString(), runId: 303 }])
+  assert.equal(fewestTestRunOn(tied, today)!.runId, 301, 'the earliest run on a tie')
+  assert.equal(fewestTestRunOn(health, 2), null, 'no run on Saturday')
 })
 
 test('usual test counts round to tens from 200 up', () => {

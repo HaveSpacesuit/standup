@@ -22,6 +22,7 @@ function testsHowToLines({ daily, view = 'overlay' }: Pick<TestsIntroProps, 'dai
       "The shaded band is the pipeline's usual range: the middle 80% of its runs, leaving out sharp drops.",
       'Only exceptions get color: amber is below usual, red is a sharp drop (about 4× the usual failures), and hollow amber is a run with fewer tests than usual.',
       'Hatching after the last run means the pipeline has stopped reporting results.',
+      "Bars under each row show how many tests ran each day (the day's smallest run), with a dashed line at the usual count; amber bars ran fewer tests than usual.",
       'Each row stretches the top of the scale, so small drops near 100% stay visible.',
       'Markers above a row flag changes, listed in the Changes panel; click a marker or a day to see that run.',
     ]

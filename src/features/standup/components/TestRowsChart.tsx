@@ -7,17 +7,21 @@ import { ATTENTION_TEXT_COLOR, TEST_HEALTH_STATUS_PRESENTATION, testPointClassNa
 import { useElementSize } from '../hooks/useElementSize'
 import { useSvgId } from '../hooks/useSvgId'
 import {
-  countTestRunsOn, formatAxisDay, formatPassRate, formatRunDay, formatTestCount, isTestWeekend, lowestTestRunOn,
+  countTestRunsOn, fewestTestRunOn, formatAxisDay, formatPassRate, formatRunDay, formatTestCount, isTestWeekend, lowestTestRunOn,
   passRatePosition, pluralizeTests, TEST_CHANGE_TONES, TEST_HEALTH_STATUS_LABELS, testAxisDate, testChangeTitle, testLinePaths,
-  testMondayIndexes, testPipelineShortName, type TestChange, type TestHealthEntry, type TestHealthStatus, type TestRunSelection,
-  type TestTimeAxis,
+  testMondayIndexes, testPipelineShortName, type TestChange, type TestHealthEntry, type TestHealthStatus, type TestPipelineHealth,
+  type TestRun, type TestRunSelection, type TestTimeAxis,
 } from '../utils/testHealth'
 import { testStageLabel } from '../utils/testPipelines'
 import type { TestSprintBand } from '../utils/testSprints'
 
 const LABEL_WIDTH = 150
-const ROW = { left: 40, right: 54, top: 14, height: 92, pad: 8 }
-const ROW_HEIGHT = ROW.top + ROW.height + ROW.pad
+const ROW = { left: 40, right: 54, top: 14, height: 92, lane: 26, pad: 8 }
+const ROW_HEIGHT = ROW.top + ROW.height + ROW.lane + ROW.pad
+// The tests-ran lane sits under the plot; the usual count lands at 1 / LANE_HEADROOM of its height.
+const LANE_TOP = ROW.top + ROW.height + 6
+const LANE_BOTTOM = LANE_TOP + ROW.lane - 8
+const LANE_HEADROOM = 1.15
 const HEAD_HEIGHT = 24
 const AXIS_HEIGHT = 22
 /** Where ResizeObserver is missing, as in tests, the rows take a typical width. */
@@ -61,9 +65,9 @@ type TestRowsChartProps = {
 }
 
 /**
- * Small multiples: one row per pipeline on a shared time axis, each with a neutral line and its usual range. Only
- * exceptions get color. Hovering any row shows a crosshair on every row for that day; markers above a row flag its
- * changes, and clicking a day opens its lowest run in run details.
+ * Small multiples: one row per pipeline on a shared time axis, each with a neutral line, its usual range, and a lane of
+ * tests ran per day. Only exceptions get color. Hovering any row shows a crosshair on every row for that day; markers
+ * above a row flag its changes, and clicking a day opens its lowest run in run details.
  */
 export function TestRowsChart({
   entries, axis, sprints, lookbackDays, focusId, onToggleFocus, changes, selection, onSelectRun, onSelectChange,
@@ -284,7 +288,7 @@ function RowPlot({ entry, axis, sprints, scale, lookbackDays, hoverDay, changes,
     <Box
       component="svg"
       role="img"
-      aria-label={`${testPipelineShortName(pipeline)} ${testStageLabel(pipeline.stageName)} pass rate, last ${lookbackDays} days`}
+      aria-label={`${testPipelineShortName(pipeline)} ${testStageLabel(pipeline.stageName)} pass rate and tests ran, last ${lookbackDays} days`}
       data-row={pipeline.id}
       width={scale.width}
       height={ROW_HEIGHT}
@@ -296,7 +300,7 @@ function RowPlot({ entry, axis, sprints, scale, lookbackDays, hoverDay, changes,
       <RowContent entry={entry} axis={axis} sprints={sprints} scale={scale} />
       {selectedRun && selectedRun.t >= 0 ? (
         <g data-testid="tests-row-selected">
-          <line className="tests-sel-line" x1={scale.x(selectedRun.t)} x2={scale.x(selectedRun.t)} y1={ROW.top} y2={ROW.top + ROW.height} />
+          <line className="tests-sel-line" x1={scale.x(selectedRun.t)} x2={scale.x(selectedRun.t)} y1={ROW.top} y2={LANE_BOTTOM} />
           <circle className="tests-sel-ring" cx={scale.x(selectedRun.t)} cy={rowY(selectedRun.position)} r={6} />
         </g>
       ) : null}
@@ -392,14 +396,51 @@ const RowContent = memo(function RowContent({ entry, axis, sprints, scale }: Pic
         <circle key={run.index} className={testPointClassName(run.cls)} cx={cx} cy={cy} r={run.cls !== 'ok' ? 3.4 : run === health.latest ? 2.8 : 1.6} />
       ))}
       <text className={LATEST_TONE[health.status]} x={right + 6} y={rowY(health.latest.position) + 4}>{formatPassRate(health.latest.rate)}</text>
+      <RanLane health={health} axis={axis} scale={scale} />
     </>
   )
 })
+
+/**
+ * Tests ran per day under the plot: one bar for the day's smallest run, amber when it ran fewer tests than usual, and a
+ * dashed line at the usual count. A pass rate can look fine while half the suite never ran.
+ */
+function RanLane({ health, axis, scale }: { health: TestPipelineHealth; axis: TestTimeAxis; scale: Scale }) {
+  const { x, left, right, dayWidth } = scale
+  const max = health.medianTotal * LANE_HEADROOM
+  const height = LANE_BOTTOM - LANE_TOP
+  const usualY = LANE_BOTTOM - (health.medianTotal / max) * height
+  const bars = Array.from({ length: axis.dayCount }, (_, day) => fewestTestRunOn(health, day))
+
+  return (
+    <g data-testid="tests-ran-lane">
+      <line className="tests-lane-base" x1={left} x2={right} y1={LANE_BOTTOM} y2={LANE_BOTTOM} />
+      <text className="tests-lane-label" x={left - 5} y={LANE_BOTTOM - 2} textAnchor="end">Ran</text>
+      {bars.map((run, day) => {
+        if (!run) return null
+        const barHeight = Math.max(1.5, Math.min(1, run.total / max) * height)
+        return (
+          <rect
+            key={day}
+            className={run.fewer ? 'tests-lane-bar tests-lane-bar-fewer' : 'tests-lane-bar'}
+            x={x(day) + 1}
+            y={LANE_BOTTOM - barHeight}
+            width={Math.max(1, dayWidth - 2)}
+            height={barHeight}
+          />
+        )
+      })}
+      <line className="tests-lane-usual" x1={left} x2={right} y1={usualY} y2={usualY} />
+      <text className="tests-lane-label" x={right + 6} y={usualY + 3}>~{formatTestCount(health.usualTotal)}</text>
+    </g>
+  )
+}
 
 function RowCrosshair({ entry, axis, scale, day }: { entry: TestHealthEntry; axis: TestTimeAxis; scale: Scale; day: number }) {
   const { health } = entry
   const center = scale.x(day + 0.5)
   const lowest = lowestTestRunOn(health, day)
+  const fewest = fewestTestRunOn(health, day)
   const count = countTestRunsOn(health, day)
   let text: string
   let tone: PillTone
@@ -412,9 +453,26 @@ function RowCrosshair({ entry, axis, scale, day }: { entry: TestHealthEntry; axi
   }
   return (
     <g data-testid="tests-row-crosshair">
-      <line className="tests-crosshair" x1={center} x2={center} y1={ROW.top} y2={ROW.top + ROW.height} />
+      <line className="tests-crosshair" x1={center} x2={center} y1={ROW.top} y2={LANE_BOTTOM} />
       {lowest ? <circle className="tests-crosshair-point" cx={scale.x(lowest.t)} cy={rowY(lowest.position)} r={5} /> : null}
       <Pill text={text} x={center} y={ROW.top + 2} min={scale.left} max={scale.right} tone={tone} />
+      {fewest ? <LaneReading run={fewest} x={center} max={scale.right} /> : null}
     </g>
+  )
+}
+
+/** "1,180 tests" beside the crosshair in the lane, flipping left near the right edge like the pills. */
+function LaneReading({ run, x, max }: { run: TestRun; x: number; max: number }) {
+  const text = pluralizeTests(run.total, 'test')
+  const right = x + 5 + text.length * 5.8 <= max
+  return (
+    <text
+      className={run.fewer ? 'tests-lane-reading tests-lane-reading-fewer' : 'tests-lane-reading'}
+      x={right ? x + 5 : x - 5}
+      y={LANE_TOP + 11}
+      textAnchor={right ? 'start' : 'end'}
+    >
+      {text}
+    </text>
   )
 }
