@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, CircularProgress, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import type { Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
+import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgChartLine from '@stratakit/icons/chart-line.svg'
 import svgReport from '@stratakit/icons/report.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
@@ -13,6 +14,7 @@ import type { TeamIterationOption } from '../../../ado/types'
 import { AppTooltip as Tooltip } from '../components/AppTooltip'
 import { PageToolbar } from '../components/PageToolbar'
 import { SyncStatus } from '../components/SyncStatus'
+import { TestCalendarChart } from '../components/TestCalendarChart'
 import { TestChangesPanel } from '../components/TestChangesPanel'
 import { TestHealthStrip } from '../components/TestHealthStrip'
 import { TESTS_PANEL_STACK_QUERY } from '../components/testHealthPresentation'
@@ -63,7 +65,7 @@ type TestsPageProps = {
   rememberLastView?: boolean
 }
 
-const TEST_VIEWS = ['rows', 'overlay'] as const
+const TEST_VIEWS = ['rows', 'overlay', 'calendar'] as const
 type TestsView = (typeof TEST_VIEWS)[number]
 
 export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = [], rememberLastView = false }: TestsPageProps) {
@@ -317,6 +319,9 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
               <ToggleButton value="overlay" render={<Button size="small" startIcon={<Icon href={svgChartLine} />} />}>
                 Overlay
               </ToggleButton>
+              <ToggleButton value="calendar" render={<Button size="small" startIcon={<Icon href={svgCalendar} />} />}>
+                Calendar
+              </ToggleButton>
             </ToggleButtonGroup>
           </Box>
         )}
@@ -395,6 +400,19 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
               <Box sx={{ height: 480, flexShrink: 0 }}>
                 <TestPassChart series={chartSeries} range={range} focus={chartFocus} changes={changes} selection={activeSelection} onSelectRun={selectRun} />
               </Box>
+            )}
+            {!loading && view === 'calendar' && axis && healthEntries.length > 0 && (
+              <TestCalendarChart
+                entries={healthEntries}
+                axis={axis}
+                sprints={sprints}
+                lookbackDays={lookbackDays}
+                focusId={focusedEntry?.pipeline.id ?? null}
+                onToggleFocus={toggleFocus}
+                changes={changes}
+                selection={activeSelection}
+                onSelectRun={selectRun}
+              />
             )}
             {!loading && series.filter(({ points }) => points.length === 0).map(({ pipeline }) => (
               <Alert key={pipeline.id} severity="info">No published results for {pipeline.name} · {testStageLabel(pipeline.stageName)} in the last {lookbackDays} days.</Alert>

@@ -1,21 +1,20 @@
 import { Fragment, memo, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { Box, ButtonBase } from '@mui/material'
+import { Box } from '@mui/material'
 import type { Theme } from '@mui/material/styles'
-import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
-import { CHART_TEXT_PRIMARY, CHART_TEXT_SECONDARY, testChartStyles } from './testChartStyles'
-import { ATTENTION_TEXT_COLOR, TEST_HEALTH_STATUS_PRESENTATION, testPointClassName } from './testHealthPresentation'
+import { testChartStyles } from './testChartStyles'
+import { TEST_ROW_DIMMED_OPACITY, TEST_ROW_LABEL_WIDTH, testPointClassName } from './testHealthPresentation'
+import { TestRowLabel } from './TestRowLabel'
 import { useElementSize } from '../hooks/useElementSize'
 import { useSvgId } from '../hooks/useSvgId'
 import {
   countTestRunsOn, fewestTestRunOn, formatAxisDay, formatPassRate, formatRunDay, formatTestCount, isTestWeekend, lowestTestRunOn,
-  passRatePosition, pluralizeTests, TEST_CHANGE_TONES, TEST_HEALTH_STATUS_LABELS, testAxisDate, testChangeTitle, testLinePaths,
+  passRatePosition, pluralizeTests, TEST_CHANGE_TONES, testAxisDate, testChangeTitle, testLinePaths,
   testMondayIndexes, testPipelineShortName, type TestChange, type TestHealthEntry, type TestHealthStatus, type TestPipelineHealth,
   type TestRun, type TestRunSelection, type TestTimeAxis,
 } from '../utils/testHealth'
 import { testStageLabel } from '../utils/testPipelines'
 import type { TestSprintBand } from '../utils/testSprints'
 
-const LABEL_WIDTH = 150
 const ROW = { left: 40, right: 54, top: 14, height: 92, lane: 26, pad: 8 }
 const ROW_HEIGHT = ROW.top + ROW.height + ROW.lane + ROW.pad
 // The tests-ran lane sits under the plot; the usual count lands at 1 / LANE_HEADROOM of its height.
@@ -31,11 +30,9 @@ const MIN_PLOT_WIDTH = 320
 const Y_TOP = passRatePosition(100) - 0.06
 const Y_BOTTOM = passRatePosition(25)
 const ROW_TICKS = [100, 98, 90, 50]
-const DIMMED_OPACITY = 0.4
 const MIN_SPRINT_LABEL_WIDTH = 56
 const MIN_TICK_LABEL_GAP = 52
 const MIN_STALE_TEXT_WIDTH = 84
-const ACCENT_TINT = 'color-mix(in srgb, var(--stratakit-color-bg-accent-base) 8%, transparent)'
 
 const rowY = (position: number) => ROW.top + ((Math.min(Math.max(position, Y_TOP), Y_BOTTOM) - Y_TOP) / (Y_BOTTOM - Y_TOP)) * ROW.height
 
@@ -74,7 +71,7 @@ export function TestRowsChart({
 }: TestRowsChartProps) {
   const ref = useRef<HTMLDivElement>(null)
   const measured = useElementSize(ref, FALLBACK_SIZE)
-  const width = Math.max(MIN_PLOT_WIDTH, measured.width - LABEL_WIDTH)
+  const width = Math.max(MIN_PLOT_WIDTH, measured.width - TEST_ROW_LABEL_WIDTH)
   const [hoverDay, setHoverDay] = useState<number | null>(null)
 
   const scale = useMemo<Scale>(() => {
@@ -109,7 +106,7 @@ export function TestRowsChart({
       ref={ref}
       onMouseMove={onMouseMove}
       onMouseLeave={() => setHoverDay(null)}
-      sx={{ display: 'grid', gridTemplateColumns: `${LABEL_WIDTH}px minmax(0, 1fr)`, flex: '0 0 auto', minWidth: 0 }}
+      sx={{ display: 'grid', gridTemplateColumns: `${TEST_ROW_LABEL_WIDTH}px minmax(0, 1fr)`, flex: '0 0 auto', minWidth: 0 }}
     >
       <Box />
       <RowsHead axis={axis} sprints={sprints} scale={scale} hoverDay={hoverDay} />
@@ -117,8 +114,8 @@ export function TestRowsChart({
         const dimmed = focusId !== null && focusId !== entry.pipeline.id
         return (
           <Fragment key={entry.pipeline.id}>
-            <RowLabel entry={entry} pressed={focusId === entry.pipeline.id} dimmed={dimmed} onClick={() => onToggleFocus(entry.pipeline.id)} />
-            <Box sx={{ borderTop: 1, borderColor: 'divider', minWidth: 0 }} style={{ opacity: dimmed ? DIMMED_OPACITY : 1 }}>
+            <TestRowLabel entry={entry} pressed={focusId === entry.pipeline.id} dimmed={dimmed} onClick={() => onToggleFocus(entry.pipeline.id)} />
+            <Box sx={{ borderTop: 1, borderColor: 'divider', minWidth: 0 }} style={{ opacity: dimmed ? TEST_ROW_DIMMED_OPACITY : 1 }}>
               <RowPlot
                 entry={entry}
                 axis={axis}
@@ -210,58 +207,6 @@ function RowsAxis({ axis, scale }: { axis: TestTimeAxis; scale: Scale }) {
         </Fragment>
       ))}
     </Box>
-  )
-}
-
-function RowLabel({ entry, pressed, dimmed, onClick }: { entry: TestHealthEntry; pressed: boolean; dimmed: boolean; onClick: () => void }) {
-  const { pipeline, health } = entry
-  const { latest } = health
-  const shortName = testPipelineShortName(pipeline)
-  const stage = testStageLabel(pipeline.stageName)
-  const rate = formatPassRate(latest.rate)
-  const stale = health.status === 'stale'
-  const sub = stale
-    ? `${pluralizeTests(health.idleDays, 'working day')} ago`
-    : latest.fewer ? `${formatTestCount(latest.total)} of ~${formatTestCount(health.usualTotal)} tests` : formatRunDay(new Date(latest.date))
-  const ellipsis = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const
-
-  return (
-    <ButtonBase
-      nativeButton
-      aria-pressed={pressed}
-      aria-label={`${shortName} ${stage}: ${rate}, ${TEST_HEALTH_STATUS_LABELS[health.status]}`}
-      data-pipeline={pipeline.id}
-      onClick={onClick}
-      style={{ opacity: dimmed ? DIMMED_OPACITY : 1, boxShadow: `inset 3px 0 0 ${TEST_HEALTH_STATUS_PRESENTATION[health.status].edge}` }}
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'stretch',
-        justifyContent: 'flex-start',
-        gap: '1px',
-        minWidth: 0,
-        p: '10px 10px 8px 12px',
-        textAlign: 'left',
-        borderTop: 1,
-        borderColor: 'divider',
-        bgcolor: pressed ? ACCENT_TINT : 'transparent',
-        color: CHART_TEXT_SECONDARY,
-        fontSize: 12,
-        transition: 'opacity 120ms ease',
-        '&:hover': { bgcolor: pressed ? ACCENT_TINT : `color-mix(in srgb, transparent, ${CHART_TEXT_PRIMARY} 4%)` },
-        '&:focus-visible': { outline: '2px solid var(--stratakit-color-border-accent-base)', outlineOffset: -2 },
-      }}
-    >
-      <Box component="span" sx={{ fontWeight: 650, fontSize: 13, color: CHART_TEXT_PRIMARY, ...ellipsis }}>{shortName}</Box>
-      <Box component="span" sx={{ fontSize: 11.5, color: TERTIARY_TEXT_COLOR, ...ellipsis }}>{stage}</Box>
-      <Box
-        component="span"
-        sx={{ mt: 0.5, fontSize: 18, fontWeight: 650, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums', color: stale ? TERTIARY_TEXT_COLOR : CHART_TEXT_PRIMARY }}
-      >
-        {rate}
-      </Box>
-      <Box component="span" sx={{ fontSize: 11, color: stale || latest.fewer ? ATTENTION_TEXT_COLOR : TERTIARY_TEXT_COLOR, ...ellipsis }}>{sub}</Box>
-    </ButtonBase>
   )
 }
 
