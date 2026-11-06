@@ -225,6 +225,9 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify Development cards have a leading edge in their column's color, show the state only when
       it differs from the column's usual state, and show the sprint only when it is not the current
       sprint, and that QA board cards follow the same rules and also mark items with no sprint.
+- [ ] Hover over and keyboard-focus Development and QA cards, default and compact; verify the card
+      stays in place (no lift or jump) while its shadow deepens and a dimmed or faded card returns to
+      full strength.
 - [ ] Verify each open PR's next step is the first that applies of: failing checks, rejected, waiting
       for the author, checks unavailable, pending checks (Pipeline), missing approvals (Reviewers),
       and Ready to complete.

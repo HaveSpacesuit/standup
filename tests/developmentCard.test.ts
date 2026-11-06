@@ -547,6 +547,20 @@ test('in-flight cards show aging dots, and only stale Done cards fade', () => {
   assert.match(done, /opacity:0\.68/)
 })
 
+test('hovering or focusing a card brings it to full strength in place, without lifting it', () => {
+  for (const compact of [false, true]) {
+    const html = render({ item: baseItem, emphasis: 'dim', compact, currentIterationName: 'Sprint 42' })
+    for (const state of ['hover', 'focus-within']) {
+      const rule = new RegExp(`:${state}\\{([^}]*shadow-surface-md[^}]*)\\}`).exec(html)
+      assert.ok(rule, `${compact ? 'compact' : 'default'} card has a ${state} rule`)
+      assert.doesNotMatch(rule[1], /transform/, `${state} does not move the card`)
+      assert.match(rule[1], /opacity:1;/)
+      assert.match(rule[1], /filter:none;/)
+    }
+    assert.doesNotMatch(html, /transition:[^;}]*transform/)
+  }
+})
+
 test('PR rows no longer show their own age', () => {
   const text = textOf(render({
     item: {
