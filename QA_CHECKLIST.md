@@ -807,7 +807,7 @@ Prepare data that exercises both populated and empty states:
       and Refresh; Refresh spins while loading and is disabled until a PAT and a pipeline exist.
 - [ ] Verify the intro line names the lookback days, and "How to read this chart" explains the
       executed-tests ratio and the log scale, plus dashed gaps (Overlay) or the usual band, exception
-      colors, and hatching (Rows).
+      colors, hatching, and the tests-ran lane (Rows).
 - [ ] Verify the empty state points to Test options when no pipeline is configured.
 - [ ] Verify the toolbar shows "N pipelines"; hovering or focusing it lists each pipeline's status.
 - [ ] Verify the View toggle appears only once a PAT and a pipeline exist, opens on Rows, and
@@ -839,17 +839,23 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify each row label shows the short name, stage, latest pass rate, and date (or "N working
       days ago" / "N of ~M tests"), with a status-colored left edge.
 - [ ] Verify a pipeline with no recent runs hatches the idle days with "No runs for N working days".
+- [ ] Verify a "Ran" lane under each row has one bar per day with runs, a dashed usual line labelled
+      "~N" at the right edge, and an amber bar on days whose smallest run had fewer tests than usual.
+- [ ] For a pipeline that skips many tests (for example WebView), compare a run's Ran count with
+      its Azure DevOps Tests tab and verify skipped (Not executed) and Not impacted tests are not
+      counted in Ran, the pass rate, or the lane.
 - [ ] Verify the selected team's sprint names run along the top with a line at each sprint start,
       and the current sprint reads "Sprint N · Day X of Y"; with no sprints loaded, no labels show.
 - [ ] Hover a row and verify the crosshair appears on every row with the day in the header, and each
-      pill shows the day's lowest run ("99.2% · lowest of 2"), "no run", or "not run yet" for today.
+      pill shows the day's lowest run ("99.2% · lowest of 2"), "no run", or "not run yet" for today;
+      the lane shows that day's smallest run as "N tests" (amber when fewer).
 - [ ] Click a row and verify run details open for the hovered day's lowest run; click the same day
       again and verify they close.
 - [ ] Verify a triangle marks each run with a change above its row, in the change's color, with its
       title on hover; click one and verify the change is selected in the Changes panel.
 - [ ] Click a row label (or tile) and verify the other rows fade; click again or press Esc to clear.
 - [ ] Verify "Show at most one result per pipeline per day" changes only the Overlay.
-- [ ] Verify the rows, band, pills, and hatching are readable in dark mode.
+- [ ] Verify the rows, band, pills, hatching, and tests-ran lane are readable in dark mode.
 
 ### Overlay chart
 

@@ -59,6 +59,16 @@ export const testChartStyles = (theme: Theme) => ({
   '& .tests-change-ring-neutral': { stroke: 'var(--stratakit-color-border-neutral-base)' },
   '& .tests-sel-line': { stroke: 'var(--stratakit-color-border-accent-strong)', strokeDasharray: '4 3', pointerEvents: 'none' },
   '& .tests-sel-ring': { fill: 'none', stroke: 'var(--stratakit-color-border-accent-strong)', strokeWidth: 2.5, pointerEvents: 'none' },
+  '& .tests-lane-base': { stroke: 'var(--stratakit-color-border-neutral-muted)' },
+  '& .tests-lane-bar': { fill: 'var(--stratakit-color-bg-mono-muted)' },
+  '& .tests-lane-bar-fewer': { fill: ATTENTION },
+  '& .tests-lane-usual': { stroke: TERTIARY_TEXT_COLOR, strokeDasharray: '3 3' },
+  '& .tests-lane-label': { fill: TERTIARY_TEXT_COLOR, fontSize: 10, fontVariantNumeric: 'tabular-nums' },
+  '& .tests-lane-reading': {
+    fill: CHART_TEXT_PRIMARY, fontSize: 10.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
+    stroke: CHART_PAPER, strokeWidth: 3, strokeLinejoin: 'round', paintOrder: 'stroke', pointerEvents: 'none',
+  },
+  '& .tests-lane-reading-fewer': { fill: 'var(--stratakit-color-text-attention-base)', fontWeight: 700 },
   // applyStyles is typed as emotion's CSSObject, which sx doesn't accept as is.
   ...(theme.applyStyles('dark', {
     '& .tests-weekend': { opacity: 0.06 },

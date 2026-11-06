@@ -285,6 +285,15 @@ export function countTestRunsOn(health: Pick<TestPipelineHealth, 'runs'>, day: n
   return health.runs.reduce((count, run) => count + (run.day === day ? 1 : 0), 0)
 }
 
+/** The day's run that ran the fewest tests (the earliest on a tie), so one full run can't hide a short one. */
+export function fewestTestRunOn(health: Pick<TestPipelineHealth, 'runs'>, day: number): TestRun | null {
+  let fewest: TestRun | null = null
+  for (const run of health.runs) {
+    if (run.day === day && (!fewest || run.total < fewest.total)) fewest = run
+  }
+  return fewest
+}
+
 /** "98.6–99.4%" */
 export function formatTestUsualRange(health: Pick<TestPipelineHealth, 'usualLow' | 'usualHigh'>): string {
   const low = formatPassRate(health.usualLow)

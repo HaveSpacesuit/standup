@@ -82,7 +82,7 @@ test('sprint bands clip to the chart, skip undated or out-of-range sprints, and 
 test('one labelled row per pipeline on a shared axis, with its usual band, sprint starts, and a toned latest value', () => {
   const html = renderToStaticMarkup(createElement(Root, null, createElement(TestRowsChart, props)))
   assert.equal(html.match(/<svg[^>]*data-row=/g)?.length, 5)
-  assert.match(html, /aria-label="PWW E2E pass rate, last 30 days"/)
+  assert.match(html, /aria-label="PWW E2E pass rate and tests ran, last 30 days"/)
   assert.match(html, /aria-label="PWW E2E: 99\.3%, Usual"/)
   assert.match(html, /aria-label="WV E2E: 90%, Sharp drop"/)
   assert.match(html, /aria-label="PWE Smoke: 100%, Fewer tests"/)
@@ -154,6 +154,30 @@ test('hovering any row shows a crosshair on every row for that day, with each pi
 
   await hover(host.querySelector('button[data-pipeline="web"]')!, 0)
   assert.equal(host.querySelectorAll('[data-testid="tests-row-crosshair"]').length, 0, 'leaving the plots clears the crosshair')
+})
+
+test('a lane under each row shows the tests ran each day, amber when fewer than usual, with the usual count', async (t) => {
+  const host = await render(t)
+  const bars = (id: string) => [...row(host, id).querySelectorAll('.tests-lane-bar')]
+  const height = (bar: Element) => Number(bar.getAttribute('height'))
+  assert.equal(bars('web').length, 22, 'one bar per day with runs, even when it ran twice')
+  assert.equal(bars('adm').length, 19, 'no bars after the last run')
+  assert.equal(host.querySelectorAll('.tests-lane-bar-fewer').length, 1)
+  const fewer = row(host, 'smoke').querySelector('.tests-lane-bar-fewer')!
+  assert.equal(fewer, bars('smoke').at(-1))
+  assert.ok(height(fewer) < height(bars('smoke')[0]) / 5, '121 of ~1,000 tests is a short bar')
+  assert.deepEqual(
+    [...row(host, 'web').querySelectorAll('[data-testid="tests-ran-lane"] .tests-lane-label')].map((label) => label.textContent),
+    ['Ran', '~1,000'],
+  )
+
+  await hover(row(host, 'smoke'), axis.todayIndex)
+  const reading = (id: string) => row(host, id).querySelector('.tests-lane-reading')
+  assert.equal(reading('smoke')!.textContent, '121 tests')
+  assert.match(reading('smoke')!.getAttribute('class')!, /tests-lane-reading-fewer/)
+  assert.equal(reading('web')!.textContent, '1,000 tests')
+  assert.doesNotMatch(reading('web')!.getAttribute('class')!, /fewer/)
+  assert.equal(reading('adm'), null, 'a day without a run has no count')
 })
 
 test('clicking a row selects that day\'s lowest run', async (t) => {

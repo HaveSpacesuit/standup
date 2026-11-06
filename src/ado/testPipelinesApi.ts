@@ -40,6 +40,8 @@ type ShallowTestResult = { automatedTestName?: string; testCaseTitle?: string; o
 export const FAILING_TESTS_LIMIT = 200
 // Everything that counts as failed on the chart: executed, but not passed.
 const FAILED_OUTCOMES = ['Failed', 'Aborted', 'Error', 'Timeout', 'Blocked', 'Inconclusive', 'Warning']
+// Results for tests that didn't run, or never finished; skipped tests are usually published as NotExecuted.
+const UNRUN_OUTCOMES = new Set(['none', 'unspecified', 'notexecuted', 'notimpacted', 'notapplicable', 'skipped', 'inprogress', 'paused'])
 
 const projectPath = (project: string) => `/${encodeURIComponent(project)}`
 
@@ -180,13 +182,14 @@ export async function listTestStages(
   return [{ name: ALL_TEST_STAGES, resultCount: null }, ...stageOptions]
 }
 
+/** Passed and ran tests; `total` counts only tests that ran, so skipped suites don't inflate it. */
 function outcomeCounts(outcomes: Record<string, OutcomeCount>): { passed: number; total: number } {
   return Object.entries(outcomes).reduce((counts, [key, value]) => {
     if (!Number.isSafeInteger(value.count) || value.count < 0) {
       throw new Error('Azure DevOps returned an invalid test result count.')
     }
     const outcome = (value.outcome ?? key).toLowerCase()
-    if (!['notimpacted', 'notexecuted', 'notapplicable', 'skipped'].includes(outcome)) {
+    if (!UNRUN_OUTCOMES.has(outcome)) {
       counts.total += value.count
       if (outcome === 'passed') counts.passed += value.count
     }

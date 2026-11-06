@@ -15,7 +15,11 @@ const X_TICK_COUNT = 7
 const MAX_TRACES = 4
 const MAX_TILES = 8
 const MAX_ROWS = 6
-const ROW_HEIGHT = 114
+// Matches the Rows view: a 92px plot over a lane of tests ran, inside 14px top and 8px bottom padding.
+const ROW_HEIGHT = 140
+const ROW_PLOT_HEIGHT = 92
+const ROW_LANE_HEIGHT = 18
+const LANE_BAR_HEIGHTS = [86, 84, 87, 85, 86, 83, 87, 86, 84, 85, 87, 86, 85, 84, 86, 87, 85, 86]
 const TILE_NAME_WIDTHS = [44, 60, 36, 52]
 
 // Typical pass-rate shapes so the placeholder hugs the top of the chart like real data.
@@ -109,7 +113,7 @@ const tracePulseSx = {
   '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
 } as const
 
-/** The Rows view: a label column and one short plot per pipeline, each with its usual band and a trace. */
+/** The Rows view: a label column and one short plot per pipeline, each with its usual band, a trace, and a tests-ran lane. */
 function RowsSkeleton({ pipelineCount }: { pipelineCount: number }) {
   const rowCount = Math.min(Math.max(pipelineCount, 1), MAX_ROWS)
   return (
@@ -125,7 +129,7 @@ function RowsSkeleton({ pipelineCount }: { pipelineCount: number }) {
             <Skeleton variant="text" width={52} height={14} />
           </Box>
           <Box sx={{ height: ROW_HEIGHT, borderTop: 1, borderColor: 'divider', position: 'relative', pl: 5, pr: 6.75, pt: 1.75, pb: 1 }}>
-            <Box sx={{ position: 'relative', height: '100%' }}>
+            <Box sx={{ position: 'relative', height: ROW_PLOT_HEIGHT }}>
               <Skeleton variant="rectangular" sx={{ position: 'absolute', left: 0, right: 0, top: '12%', height: '16%', opacity: 0.6 }} />
               <Box
                 component="svg"
@@ -144,6 +148,14 @@ function RowsSkeleton({ pipelineCount }: { pipelineCount: number }) {
                   vectorEffect="non-scaling-stroke"
                 />
               </Box>
+            </Box>
+            <Box
+              data-testid="tests-loading-lane"
+              sx={{ mt: '6px', ml: `${TRACE_START_X[index % TRACE_START_X.length]}%`, height: ROW_LANE_HEIGHT, display: 'flex', alignItems: 'flex-end', gap: '3px' }}
+            >
+              {LANE_BAR_HEIGHTS.map((height, bar) => (
+                <Skeleton key={`tests-loading-lane-${bar}`} variant="rectangular" sx={{ flex: 1, height: `${height}%` }} />
+              ))}
             </Box>
           </Box>
         </Fragment>
