@@ -910,7 +910,9 @@ Prepare data that exercises both populated and empty states:
       Failed / Ran counts, pass rate vs the previous run, usual range, and Open in Azure DevOps
       (new tab).
 - [ ] In the browser network tools, verify loading the page makes no `resultsbypipeline` or
-      `resultsbyrelease` request, and opening a run with failures does.
+      `testresults/runs/{id}/results` request, and opening a run with failures does (a build run
+      reads `resultsbypipeline`; a release run reads `resultdetailsbyrelease` grouped by test run,
+      then each failing test run's results).
 - [ ] Verify failing tests show up to 8 names with New or Again (New first) and "+N more"; hover a
       long name for its full name and test ID; reopen the run and verify no new request is made.
 - [ ] Open a release pipeline's run with failures and verify its failing tests load.
