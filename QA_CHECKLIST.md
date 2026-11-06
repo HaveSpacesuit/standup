@@ -843,7 +843,10 @@ Prepare data that exercises both populated and empty states:
       and the current sprint reads "Sprint N · Day X of Y"; with no sprints loaded, no labels show.
 - [ ] Hover a row and verify the crosshair appears on every row with the day in the header, and each
       pill shows the day's lowest run ("99.2% · lowest of 2"), "no run", or "not run yet" for today.
-- [ ] Click a row and verify the hovered day's lowest run opens in Azure DevOps in a new tab.
+- [ ] Click a row and verify run details open for the hovered day's lowest run; click the same day
+      again and verify they close.
+- [ ] Verify a triangle marks each run with a change above its row, in the change's color, with its
+      title on hover; click one and verify the change is selected in the Changes panel.
 - [ ] Click a row label (or tile) and verify the other rows fade; click again or press Esc to clear.
 - [ ] Verify "Show at most one result per pipeline per day" changes only the Overlay.
 - [ ] Verify the rows, band, pills, and hatching are readable in dark mode.
@@ -854,8 +857,37 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify runs are joined by straight lines and gaps of 4 or more days are dashed.
 - [ ] Verify the x-axis marks Mondays and weekends are shaded.
 - [ ] Hover near (not exactly on) a point and verify the tooltip snaps to it, leads with
-      "N failed of M", and clicking opens the run in Azure DevOps in a new tab.
+      "N failed of M", names any changes on the run, and ends with "Click for run details";
+      clicking opens run details with a dashed line and ring on the run.
+- [ ] Verify runs with changes have a colored ring that fades with its line when another pipeline
+      is focused.
+- [ ] With daily Average results on, verify a multi-run day's tooltip says it has no single run.
 - [ ] Verify the chart is readable in dark mode, including the third (violet) series.
+
+### Changes panel and run details
+
+- [ ] Verify the Changes panel sits beside the chart with a count, and below it when the page is
+      narrower than 900px.
+- [ ] Verify changes are grouped into This sprint (with the sprint label) or Last 2 weeks without
+      sprints, and Earlier, newest first, each with an icon, title, date, and pipeline · stage ·
+      detail line.
+- [ ] Verify a sharp drop is listed once per episode and its recovery names the lowest run; failures
+      after 5+ clean runs read "First failures in N days"; a streak of fewer-tests runs is one change
+      ("N runs in a row"); only the latest run is listed as Below usual; No recent runs appears on
+      the day the pipeline was flagged.
+- [ ] Focus a pipeline and verify only its changes are listed with "Show all"; with none, verify
+      "No changes for … in the last N days".
+- [ ] Select a change and verify run details open at the top of the panel with the change, Passed /
+      Failed / Ran counts, pass rate vs the previous run, usual range, and Open in Azure DevOps
+      (new tab).
+- [ ] In the browser network tools, verify loading the page makes no `resultsbypipeline` or
+      `resultsbyrelease` request, and opening a run with failures does.
+- [ ] Verify failing tests show up to 8 names with New or Again (New first) and "+N more"; hover a
+      long name for its full name and test ID; reopen the run and verify no new request is made.
+- [ ] Open a release pipeline's run with failures and verify its failing tests load.
+- [ ] Press Esc with run details open and verify they close but focus stays; press Esc again and
+      verify focus clears.
+- [ ] Verify the panel, markers, rings, and chips are readable in dark mode.
 
 ## 11. Persistence and data isolation
 

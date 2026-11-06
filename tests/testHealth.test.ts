@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  createTestTimeAxis, defaultTestPipelineShortName, formatPassRate, formatTestHealthDelta, formatTestUsualRange, isTestWeekend,
-  passRateAtPosition, passRatePosition, testDayIndex, testDayTime, testHealthStatusTip, testLinePaths, testMondayIndexes,
-  testPipelineHealth, testPipelineShortName, testRunUrl, testSeriesStyle, testWorkingDaysBetween,
+  createTestTimeAxis, defaultTestPipelineShortName, formatPassRate, formatRunDay, formatTestHealthDelta, formatTestUsualRange, isTestWeekend,
+  passRateAtPosition, passRatePosition, testChangeDetail, testChangeTitle, testChanges, testDayIndex, testDayTime, testHealthStatusTip,
+  testLinePaths, testMondayIndexes, testPipelineChanges, testPipelineHealth, testPipelineShortName, testRunChanges, testRunUrl,
+  testSeriesStyle, testWorkingDaysBetween, type TestHealthEntry,
 } from '../src/features/standup/utils/testHealth.ts'
 
 test('pass rates keep one decimal, drop it for whole numbers, and never round a failing run up to 100%', () => {
@@ -154,4 +155,78 @@ test('a single run is its own median', () => {
   assert.equal(health.status, 'usual')
   assert.equal(health.medianRate, null)
   assert.equal(formatTestHealthDelta(health), 'only run')
+})
+
+const changesOf = (runs: ReturnType<typeof at>[], healthOptions = options) =>
+  testPipelineChanges('web', testPipelineHealth(runs, healthAxis, healthOptions)!, healthAxis, healthOptions)
+const summary = (changes: ReturnType<typeof changesOf>) => changes.map((change) => `${change.type}@${change.run.runId}`)
+const before = (day: number) => usualRuns.filter((run) => run.runId < day)
+const after = (day: number) => usualRuns.filter((run) => run.runId > day)
+const usualHealth = testPipelineHealth(usualRuns, healthAxis, options)!
+
+test('a sharp drop is called out once per episode, and its recovery names the lowest run and how long it took', () => {
+  const changes = changesOf([...before(22), at(22, 900), at(23, 850), at(26, 993), ...after(26), at(30, 992)])
+  assert.deepEqual(summary(changes), ['drop@22', 'recover@26'])
+  const [drop, recover] = changes
+  assert.equal(drop.id, 'web:drop:22')
+  assert.equal(testChangeTitle(drop), 'Sharp drop to 90%')
+  assert.equal(testChangeDetail(drop, usualHealth), '100 failed of 1,000 · usually 99–99.4%')
+  assert.equal(recover.lowest!.runId, 23)
+  assert.equal(recover.days, 4)
+  assert.equal(testChangeTitle(recover), 'Recovered after 4 days')
+  assert.equal(testChangeDetail(recover, usualHealth), 'back to 99.3% · lowest was 85%')
+})
+
+test('failures after five clean runs are called out with the days since the last failure, unless they are a sharp drop', () => {
+  const clean = [12, 13, 14, 15, 16].map((day) => at(day, 1000))
+  const runs = [...before(12), ...clean, at(19, 990), ...after(19)]
+  const [first] = changesOf(runs)
+  assert.deepEqual(summary(changesOf(runs)), ['first@19'])
+  assert.equal(first.days, 10)
+  assert.equal(first.runCount, 5)
+  assert.equal(testChangeTitle(first), 'First failures in 10 days')
+  assert.equal(testChangeDetail(first, usualHealth), '10 failed of 1,000')
+
+  assert.deepEqual(summary(changesOf([...before(12), ...clean.slice(1), at(19, 990), ...after(19)])), [], 'four clean runs are not a streak')
+  assert.deepEqual(summary(changesOf([...before(12), ...clean, at(19, 900), ...after(19)])), ['drop@19', 'recover@20'], 'a sharp drop already says so')
+
+  const sameDay = [6, 7, 8, 9, 10, 11].map((hour, index) => ({ ...at(1, index ? 1000 : 990), runId: 100 + index, date: new Date(2026, 9, 1, hour).toISOString() }))
+  const sameDayFirst = changesOf([...sameDay, { ...at(1, 990), runId: 106, date: new Date(2026, 9, 1, 12).toISOString() }, ...after(1)])
+    .find((change) => change.type === 'first')!
+  assert.equal(testChangeTitle(sameDayFirst), 'First failures after 5 clean runs')
+})
+
+test('a streak of runs with fewer tests is one change that counts the streak; below usual is only the latest run', () => {
+  const changes = changesOf([...before(26), at(26, 500, 500), at(27, 500, 500), at(28, 500, 500), at(29, 992), at(30, 975)])
+  assert.deepEqual(summary(changes), ['fewer@26', 'below@30'])
+  const health = usualHealth
+  assert.equal(changes[0].runCount, 3)
+  assert.equal(testChangeTitle(changes[0]), 'Fewer tests ran')
+  assert.equal(testChangeDetail(changes[0], health), '500 of ~1,000 tests · 3 runs in a row')
+  assert.equal(testChangeDetail({ ...changes[0], runCount: 1 }, health), '500 of ~1,000 tests')
+  assert.equal(testChangeTitle(changes[1]), 'Below usual: 97.5%')
+
+  assert.deepEqual(summary(changesOf([...before(29), at(29, 975), at(30, 993)])), [], 'an earlier run below usual is not a change')
+})
+
+test('no recent runs is placed on the working day the pipeline was flagged, past weekends', () => {
+  const [stale] = changesOf([...before(23), at(23, 993)])
+  assert.equal(stale.type, 'stale')
+  assert.equal(stale.id, 'web:stale:23')
+  assert.equal(stale.day, 26, 'Fri Oct 23 → Mon 26 → Tue 27')
+  assert.equal(stale.t, 26.99)
+  assert.equal(testChangeTitle(stale), 'No recent runs')
+  assert.equal(testChangeDetail(stale, usualHealth), `last run ${formatRunDay(new Date(2026, 9, 23))}`)
+})
+
+test('changes across pipelines are newest first, the most serious first on the same run, and run markers skip no recent runs', () => {
+  const entry = (id: string, runs: ReturnType<typeof at>[]) =>
+    ({ pipeline: { id }, health: testPipelineHealth(runs, healthAxis, options)! }) as TestHealthEntry
+  const changes = testChanges([
+    entry('web', [...before(23), at(23, 993)]),
+    entry('view', [...usualRuns, at(30, 400, 500)]),
+  ], healthAxis, options)
+  assert.deepEqual(changes.map((change) => change.id), ['view:drop:30', 'view:fewer:30', 'web:stale:23'])
+  assert.deepEqual(testRunChanges(changes, 'view', 30).map((change) => change.type), ['drop', 'fewer'])
+  assert.deepEqual(testRunChanges(changes, 'web', 23), [])
 })

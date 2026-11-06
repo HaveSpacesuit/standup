@@ -23,6 +23,7 @@ function testsHowToLines({ daily, view = 'overlay' }: Pick<TestsIntroProps, 'dai
       'Only exceptions get color: amber is below usual, red is a sharp drop (about 4× the usual failures), and hollow amber is a run with fewer tests than usual.',
       'Hatching after the last run means the pipeline has stopped reporting results.',
       'Each row stretches the top of the scale, so small drops near 100% stay visible.',
+      'Markers above a row flag changes, listed in the Changes panel; click a marker or a day to see that run.',
     ]
   }
   return [
@@ -31,6 +32,7 @@ function testsHowToLines({ daily, view = 'overlay' }: Pick<TestsIntroProps, 'dai
       : `Each point is one run: passed ÷ executed tests. ${UNRUN_RESULTS}`,
     'The scale stretches the top: each step from 98% → 95% → 90% → 75% → 50% roughly doubles the failures, so small drops near 100% stay visible.',
     `A dashed line means no results for ${TEST_GAP_DAYS} or more days.`,
+    'A colored ring marks a run listed in the Changes panel; click any run to see its details.',
   ]
 }
 

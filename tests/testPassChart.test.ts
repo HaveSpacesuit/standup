@@ -6,13 +6,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 import { JSDOM } from 'jsdom'
 import type { TestChartFocus, TestSeries } from '../src/features/standup/components/TestPassChart.tsx'
+import type { TestChange, TestRun, TestRunSelection } from '../src/features/standup/utils/testHealth.ts'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>')
-const opened: string[] = []
-dom.window.open = ((url: string) => {
-  opened.push(url)
-  return null
-}) as typeof dom.window.open
 Object.assign(globalThis, {
   window: dom.window,
   document: dom.window.document,
@@ -37,7 +33,6 @@ after(async () => {
 })
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { TestPassChart } = await server.ssrLoadModule('/src/features/standup/components/TestPassChart.tsx')
-const { testRunUrl } = await server.ssrLoadModule('/src/features/standup/utils/testHealth.ts')
 
 const pipeline = (id: string, name: string, stageName: string) => ({
   id, name, stageName, orgName: 'example org', projectName: 'Example', kind: 'build' as const, definitionId: 7,
@@ -62,7 +57,7 @@ const series: TestSeries[] = [
   },
 ]
 
-const markup = () => renderToStaticMarkup(createElement(Root, null, createElement(TestPassChart, { series, range })))
+const markup = () => renderToStaticMarkup(createElement(Root, null, createElement(TestPassChart, { series, range, onSelectRun: () => {} })))
 
 test('the overlay is an SVG with week ticks, shaded weekends, a titled log axis, and shaped markers', () => {
   const html = markup()
@@ -89,7 +84,13 @@ test('the chart has no legend chips; the health tiles above it are the legend', 
   assert.doesNotMatch(html, /tests-focus-band/, 'no band without a focused pipeline')
 })
 
-async function render(t: TestContext, focus: TestChartFocus | null = null) {
+type ChartExtras = {
+  changes?: TestChange[]
+  selection?: TestRunSelection | null
+  onSelectRun?: (pipelineId: string, runId: number) => void
+}
+
+async function render(t: TestContext, focus: TestChartFocus | null = null, extra: ChartExtras = {}) {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -97,7 +98,7 @@ async function render(t: TestContext, focus: TestChartFocus | null = null) {
     await act(async () => root.unmount())
     host.remove()
   })
-  await act(async () => root.render(createElement(Root, null, createElement(TestPassChart, { series, range, focus }))))
+  await act(async () => root.render(createElement(Root, null, createElement(TestPassChart, { series, range, focus, onSelectRun: () => {}, ...extra }))))
   return host
 }
 
@@ -123,8 +124,9 @@ test('focusing a pipeline fades the others, shades its usual range, and limits h
   assert.equal(document.querySelector('[role="tooltip"]'), null, 'faded runs are not hoverable')
 })
 
-test('hovering near a run leads with failures, and clicking opens the run in Azure DevOps', async (t) => {
-  const host = await render(t)
+test('hovering near a run leads with failures, and clicking selects the run', async (t) => {
+  const selected: unknown[][] = []
+  const host = await render(t, null, { onSelectRun: (...args) => selected.push(args) })
   const svg = host.querySelector('svg[role="img"]')!
   const lastRun = [...svg.querySelectorAll('circle')].at(-1)!
   const pointer = { bubbles: true, clientX: Number(lastRun.getAttribute('cx')) + 10, clientY: Number(lastRun.getAttribute('cy')) - 10 }
@@ -134,14 +136,32 @@ test('hovering near a run leads with failures, and clicking opens the run in Azu
   assert.ok(tip, 'the tooltip opens within 24px of a run')
   assert.match(tip.textContent!, /PWW · E2E/)
   assert.match(tip.textContent!, /77 failed of 842 · 90\.9% passed/)
-  assert.match(tip.textContent!, /Click to open in Azure DevOps/)
+  assert.match(tip.textContent!, /Click for run details/)
   assert.ok(svg.querySelector('.tests-hover-ring'))
 
   await act(async () => svg.dispatchEvent(new dom.window.MouseEvent('click', pointer)))
-  assert.deepEqual(opened, [testRunUrl(series[0].pipeline, 13)])
-  assert.match(opened[0], /^https:\/\/dev\.azure\.com\/example%20org\/Example\/_build\/results\?buildId=13&/)
+  assert.deepEqual(selected, [['web', 13]])
 
   // React builds onMouseLeave from mouseout.
   await act(async () => svg.dispatchEvent(new dom.window.MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })))
   assert.equal(svg.querySelector('.tests-hover-ring'), null)
+})
+
+test('runs with changes get a toned ring and list them in the tip; the selected run gets a dashed line', async (t) => {
+  const run = { runId: 13, rate: 765 / 842 * 100, failed: 77, total: 842 } as TestRun
+  const changes: TestChange[] = [{ id: 'web:drop:13', type: 'drop', pipelineId: 'web', run, day: 7, t: 7.25 }]
+  const host = await render(t, null, { changes, selection: { pipelineId: 'web', runId: 13, changeId: 'web:drop:13' } })
+  const svg = host.querySelector('svg[role="img"]')!
+  const ring = svg.querySelector('[data-change="web:drop:13"]')!
+  assert.match(ring.getAttribute('class')!, /tests-change-ring-critical/)
+  assert.equal(ring.closest('g[data-pipeline]')!.getAttribute('data-pipeline'), 'web', 'the ring fades with its line')
+  assert.equal(svg.querySelectorAll('.tests-change-ring').length, 1)
+
+  const selected = svg.querySelector('[data-testid="tests-overlay-selected"]')!
+  const lastRun = [...svg.querySelectorAll('g[data-pipeline="web"] circle:not(.tests-change-ring)')].at(-1)!
+  assert.ok(Math.abs(Number(selected.querySelector('circle')!.getAttribute('cx')) - Number(lastRun.getAttribute('cx'))) < 0.1)
+
+  const pointer = { bubbles: true, clientX: Number(lastRun.getAttribute('cx')), clientY: Number(lastRun.getAttribute('cy')) }
+  await act(async () => svg.dispatchEvent(new dom.window.MouseEvent('mousemove', pointer)))
+  assert.match(document.querySelector('[role="tooltip"]')!.textContent!, /Sharp drop to 90\.9%/)
 })

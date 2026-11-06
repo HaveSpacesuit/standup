@@ -8,8 +8,9 @@ import { useElementSize } from '../hooks/useElementSize'
 import { useSvgId } from '../hooks/useSvgId'
 import {
   countTestRunsOn, formatAxisDay, formatPassRate, formatRunDay, formatTestCount, isTestWeekend, lowestTestRunOn,
-  passRatePosition, pluralizeTests, TEST_HEALTH_STATUS_LABELS, testAxisDate, testLinePaths, testMondayIndexes,
-  testPipelineShortName, testRunUrl, type TestHealthEntry, type TestHealthStatus, type TestTimeAxis,
+  passRatePosition, pluralizeTests, TEST_CHANGE_TONES, TEST_HEALTH_STATUS_LABELS, testAxisDate, testChangeTitle, testLinePaths,
+  testMondayIndexes, testPipelineShortName, type TestChange, type TestHealthEntry, type TestHealthStatus, type TestRunSelection,
+  type TestTimeAxis,
 } from '../utils/testHealth'
 import { testStageLabel } from '../utils/testPipelines'
 import type { TestSprintBand } from '../utils/testSprints'
@@ -44,6 +45,8 @@ const LATEST_TONE: Record<TestHealthStatus, string> = {
 
 type Scale = { width: number; left: number; right: number; dayWidth: number; x: (t: number) => number }
 
+const NO_CHANGES: TestChange[] = []
+
 type TestRowsChartProps = {
   entries: TestHealthEntry[]
   axis: TestTimeAxis
@@ -51,13 +54,20 @@ type TestRowsChartProps = {
   lookbackDays: number
   focusId: string | null
   onToggleFocus: (id: string) => void
+  changes: TestChange[]
+  selection: TestRunSelection | null
+  onSelectRun: (pipelineId: string, runId: number) => void
+  onSelectChange: (change: TestChange) => void
 }
 
 /**
  * Small multiples: one row per pipeline on a shared time axis, each with a neutral line and its usual range. Only
- * exceptions get color. Hovering any row shows a crosshair on every row for that day.
+ * exceptions get color. Hovering any row shows a crosshair on every row for that day; markers above a row flag its
+ * changes, and clicking a day opens its lowest run in run details.
  */
-export function TestRowsChart({ entries, axis, sprints, lookbackDays, focusId, onToggleFocus }: TestRowsChartProps) {
+export function TestRowsChart({
+  entries, axis, sprints, lookbackDays, focusId, onToggleFocus, changes, selection, onSelectRun, onSelectChange,
+}: TestRowsChartProps) {
   const ref = useRef<HTMLDivElement>(null)
   const measured = useElementSize(ref, FALLBACK_SIZE)
   const width = Math.max(MIN_PLOT_WIDTH, measured.width - LABEL_WIDTH)
@@ -68,6 +78,16 @@ export function TestRowsChart({ entries, axis, sprints, lookbackDays, focusId, o
     const right = width - ROW.right
     return { width, left, right, dayWidth: (right - left) / axis.dayCount, x: (t: number) => left + (t / axis.dayCount) * (right - left) }
   }, [axis, width])
+
+  const changesByPipeline = useMemo(() => {
+    const byPipeline = new Map<string, TestChange[]>()
+    for (const change of changes) {
+      const list = byPipeline.get(change.pipelineId)
+      if (list) list.push(change)
+      else byPipeline.set(change.pipelineId, [change])
+    }
+    return byPipeline
+  }, [changes])
 
   const onMouseMove = (event: MouseEvent<HTMLDivElement>) => {
     const svg = (event.target as Element).closest('svg[data-row]')
@@ -95,7 +115,18 @@ export function TestRowsChart({ entries, axis, sprints, lookbackDays, focusId, o
           <Fragment key={entry.pipeline.id}>
             <RowLabel entry={entry} pressed={focusId === entry.pipeline.id} dimmed={dimmed} onClick={() => onToggleFocus(entry.pipeline.id)} />
             <Box sx={{ borderTop: 1, borderColor: 'divider', minWidth: 0 }} style={{ opacity: dimmed ? DIMMED_OPACITY : 1 }}>
-              <RowPlot entry={entry} axis={axis} sprints={sprints} scale={scale} lookbackDays={lookbackDays} hoverDay={hoverDay} />
+              <RowPlot
+                entry={entry}
+                axis={axis}
+                sprints={sprints}
+                scale={scale}
+                lookbackDays={lookbackDays}
+                hoverDay={hoverDay}
+                changes={changesByPipeline.get(entry.pipeline.id) ?? NO_CHANGES}
+                selection={selection?.pipelineId === entry.pipeline.id ? selection : null}
+                onSelectRun={onSelectRun}
+                onSelectChange={onSelectChange}
+              />
             </Box>
           </Fragment>
         )
@@ -230,11 +261,24 @@ function RowLabel({ entry, pressed, dimmed, onClick }: { entry: TestHealthEntry;
   )
 }
 
-type RowPlotProps = { entry: TestHealthEntry; axis: TestTimeAxis; sprints: TestSprintBand[]; scale: Scale; lookbackDays: number; hoverDay: number | null }
+type RowPlotProps = {
+  entry: TestHealthEntry
+  axis: TestTimeAxis
+  sprints: TestSprintBand[]
+  scale: Scale
+  lookbackDays: number
+  hoverDay: number | null
+  changes: TestChange[]
+  /** Only when the selected run is in this row. */
+  selection: TestRunSelection | null
+  onSelectRun: (pipelineId: string, runId: number) => void
+  onSelectChange: (change: TestChange) => void
+}
 
-function RowPlot({ entry, axis, sprints, scale, lookbackDays, hoverDay }: RowPlotProps) {
+function RowPlot({ entry, axis, sprints, scale, lookbackDays, hoverDay, changes, selection, onSelectRun, onSelectChange }: RowPlotProps) {
   const { pipeline, health } = entry
   const hoverRun = hoverDay === null ? null : lowestTestRunOn(health, hoverDay)
+  const selectedRun = selection ? health.runs.find((run) => run.runId === selection.runId) ?? null : null
 
   return (
     <Box
@@ -246,17 +290,61 @@ function RowPlot({ entry, axis, sprints, scale, lookbackDays, hoverDay }: RowPlo
       height={ROW_HEIGHT}
       sx={(theme: Theme) => ({ ...testChartStyles(theme), overflow: 'visible', cursor: hoverRun ? 'pointer' : 'crosshair' })}
       onClick={() => {
-        if (hoverRun) window.open(testRunUrl(pipeline, hoverRun.runId), '_blank', 'noopener,noreferrer')
+        if (hoverRun) onSelectRun(pipeline.id, hoverRun.runId)
       }}
     >
       <RowContent entry={entry} axis={axis} sprints={sprints} scale={scale} />
+      {selectedRun && selectedRun.t >= 0 ? (
+        <g data-testid="tests-row-selected">
+          <line className="tests-sel-line" x1={scale.x(selectedRun.t)} x2={scale.x(selectedRun.t)} y1={ROW.top} y2={ROW.top + ROW.height} />
+          <circle className="tests-sel-ring" cx={scale.x(selectedRun.t)} cy={rowY(selectedRun.position)} r={6} />
+        </g>
+      ) : null}
+      <RowMarkers changes={changes} scale={scale} selectedChangeId={selection?.changeId ?? null} onSelectChange={onSelectChange} />
       {hoverDay !== null ? <RowCrosshair entry={entry} axis={axis} scale={scale} day={hoverDay} /> : null}
     </Box>
   )
 }
 
+/** A downward triangle above the row for each run with changes, in the most serious change's tone. */
+const RowMarkers = memo(function RowMarkers({ changes, scale, selectedChangeId, onSelectChange }: {
+  changes: TestChange[]
+  scale: Scale
+  selectedChangeId: string | null
+  onSelectChange: (change: TestChange) => void
+}) {
+  const groups = new Map<string, TestChange[]>()
+  for (const change of changes) {
+    if (change.t < 0) continue
+    const key = change.type === 'stale' ? change.id : String(change.run.runId)
+    const group = groups.get(key)
+    if (group) group.push(change)
+    else groups.set(key, [change])
+  }
+  // Oldest first, so newer markers draw on top.
+  return [...groups.values()].reverse().map((group) => {
+    const [first] = group
+    const cx = scale.x(first.t)
+    const selected = group.some((change) => change.id === selectedChangeId)
+    return (
+      <polygon
+        key={first.id}
+        data-change={first.id}
+        className={`tests-marker tests-marker-${TEST_CHANGE_TONES[first.type]}${selected ? ' tests-marker-selected' : ''}`}
+        points={`${cx - 5},1 ${cx + 5},1 ${cx},10`}
+        onClick={(event) => {
+          event.stopPropagation()
+          onSelectChange(first)
+        }}
+      >
+        <title>{group.map(testChangeTitle).join(' · ')}</title>
+      </polygon>
+    )
+  })
+})
+
 /** The row's static drawing, kept apart so moving the crosshair doesn't redraw it. */
-const RowContent = memo(function RowContent({ entry, axis, sprints, scale }: Omit<RowPlotProps, 'lookbackDays' | 'hoverDay'>) {
+const RowContent = memo(function RowContent({ entry, axis, sprints, scale }: Pick<RowPlotProps, 'entry' | 'axis' | 'sprints' | 'scale'>) {
   const { health } = entry
   const hatchId = useSvgId('tests-row-hatch')
   const { x, left, right, dayWidth } = scale

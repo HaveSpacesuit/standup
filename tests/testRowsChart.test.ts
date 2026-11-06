@@ -5,7 +5,7 @@ import { act, createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 import { JSDOM } from 'jsdom'
-import { createTestTimeAxis, formatRunDay, testPipelineHealth, type TestHealthEntry } from '../src/features/standup/utils/testHealth.ts'
+import { createTestTimeAxis, formatRunDay, testChanges, testPipelineHealth, type TestChange, type TestHealthEntry, type TestRunSelection } from '../src/features/standup/utils/testHealth.ts'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>')
 Object.assign(globalThis, {
@@ -64,7 +64,11 @@ const iterations = [
   iteration('Sprint 42', '2026-10-06T00:00:00Z', '2026-10-19T00:00:00Z'),
 ]
 const sprints = testSprintBands(iterations, axis)
-const props = { entries, axis, sprints, lookbackDays: 30, focusId: null, onToggleFocus: () => {} }
+const changes = testChanges(entries, axis, options)
+const props = {
+  entries, axis, sprints, lookbackDays: 30, focusId: null, onToggleFocus: () => {},
+  changes, selection: null as TestRunSelection | null, onSelectRun: () => {}, onSelectChange: () => {},
+}
 
 test('sprint bands clip to the chart, skip undated or out-of-range sprints, and count working days in the current one', () => {
   assert.deepEqual(sprints, [
@@ -109,7 +113,7 @@ const document = dom.window.document
 const PLOT_LEFT = 40
 const PLOT_WIDTH = 1110 - 150 - 40 - 54
 
-async function render(t: TestContext, focusId: string | null = null, onToggleFocus: (id: string) => void = () => {}) {
+async function render(t: TestContext, focusId: string | null = null, onToggleFocus: (id: string) => void = () => {}, extra: Partial<typeof props> = {}) {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -117,7 +121,7 @@ async function render(t: TestContext, focusId: string | null = null, onToggleFoc
     await act(async () => root.unmount())
     host.remove()
   })
-  await act(async () => root.render(createElement(Root, null, createElement(TestRowsChart, { ...props, focusId, onToggleFocus }))))
+  await act(async () => root.render(createElement(Root, null, createElement(TestRowsChart, { ...props, focusId, onToggleFocus, ...extra }))))
   return host
 }
 
@@ -152,26 +156,47 @@ test('hovering any row shows a crosshair on every row for that day, with each pi
   assert.equal(host.querySelectorAll('[data-testid="tests-row-crosshair"]').length, 0, 'leaving the plots clears the crosshair')
 })
 
-test('clicking a row opens that day\'s lowest run in Azure DevOps', async (t) => {
-  const opened: unknown[][] = []
-  const originalOpen = dom.window.open
-  dom.window.open = ((...args: unknown[]) => {
-    opened.push(args)
-    return null
-  }) as typeof dom.window.open
-  t.after(() => {
-    dom.window.open = originalOpen
-  })
-  const host = await render(t)
+test('clicking a row selects that day\'s lowest run', async (t) => {
+  const selected: unknown[][] = []
+  const host = await render(t, null, () => {}, { onSelectRun: (...args: unknown[]) => selected.push(args) })
   await hover(row(host, 'web'), axis.todayIndex - 1)
   await act(async () => row(host, 'web').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
-  assert.equal(opened.length, 1)
-  assert.match(String(opened[0][0]), /_build\/results\?buildId=2914&/)
-  assert.equal(opened[0][1], '_blank')
+  assert.deepEqual(selected, [['web', 2914]])
 
   await hover(row(host, 'adm'), axis.todayIndex)
   await act(async () => row(host, 'adm').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
-  assert.equal(opened.length, 1, 'a day without a run has nothing to open')
+  assert.equal(selected.length, 1, 'a day without a run has nothing to select')
+})
+
+test('changes get a toned marker above their row; clicking one selects the change, not the day', async (t) => {
+  assert.deepEqual(changes.map((change) => change.id), ['view:drop:30', 'smoke:fewer:30', 'adm:stale:27'])
+  const picked: TestChange[] = []
+  const days: unknown[] = []
+  const host = await render(t, null, () => {}, {
+    onSelectChange: (change: TestChange) => picked.push(change),
+    onSelectRun: (...args: unknown[]) => days.push(args),
+  })
+  const marker = (id: string) => host.querySelector<SVGPolygonElement>(`polygon[data-change="${id}"]`)!
+  assert.match(marker('view:drop:30').getAttribute('class')!, /tests-marker-critical/)
+  assert.match(marker('smoke:fewer:30').getAttribute('class')!, /tests-marker-attention/)
+  assert.match(marker('adm:stale:27').getAttribute('class')!, /tests-marker-neutral/)
+  assert.equal(marker('view:drop:30').closest('svg')!.getAttribute('data-row'), 'view')
+  assert.equal(marker('view:drop:30').querySelector('title')!.textContent, 'Sharp drop to 90%')
+  assert.equal(row(host, 'web').querySelectorAll('.tests-marker').length, 0, 'a usual pipeline has no markers')
+
+  await hover(row(host, 'view'), axis.todayIndex)
+  await act(async () => marker('view:drop:30').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  assert.deepEqual(picked.map((change) => change.id), ['view:drop:30'])
+  assert.equal(days.length, 0)
+})
+
+test('the selected run gets a dashed line and ring in its own row, and its marker is highlighted', async (t) => {
+  const host = await render(t, null, () => {}, { selection: { pipelineId: 'view', runId: 30, changeId: 'view:drop:30' } })
+  const marked = host.querySelectorAll('[data-testid="tests-row-selected"]')
+  assert.equal(marked.length, 1)
+  assert.equal(marked[0].closest('svg')!.getAttribute('data-row'), 'view')
+  assert.match(host.querySelector('polygon[data-change="view:drop:30"]')!.getAttribute('class')!, /tests-marker-selected/)
+  assert.doesNotMatch(host.querySelector('polygon[data-change="smoke:fewer:30"]')!.getAttribute('class')!, /tests-marker-selected/)
 })
 
 test('clicking a row label toggles focus on its pipeline; the other rows dim', async (t) => {

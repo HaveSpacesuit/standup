@@ -1,4 +1,4 @@
-import type { AdoRequestClient, AdoRequestOptions } from './httpClient'
+import type { AdoRequestClient, AdoRequestOptions, QueryParams } from './httpClient'
 import { mapWithConcurrency } from './concurrency'
 import { ALL_TEST_STAGES, type TestPipeline, type TestPipelineKind } from '../features/standup/utils/testPipelines'
 import { testLookbackStart } from '../features/standup/utils/testPipelines'
@@ -24,8 +24,22 @@ type ReleaseResults = {
   resultsForGroup?: Array<{ resultsCountByOutcome?: Record<string, OutcomeCount> }>
 }
 
-export type TestPoint = { date: string; passed: number; total: number; runId: number }
+export type TestPoint = {
+  date: string; passed: number; total: number; runId: number
+  /** A release's stage instance, for reading its failing tests later. */
+  environmentId?: number
+}
 export type StageOption = { name: string; definitionId?: number; resultCount: number | null }
+/** One failing test in a run; `key` identifies the test across runs. */
+export type FailingTest = { key: string; name: string; outcome: string }
+/** `truncated` means the run has more failing results than one request returns. */
+export type FailingTests = { tests: FailingTest[]; truncated: boolean }
+type ShallowTestResult = { automatedTestName?: string; testCaseTitle?: string; outcome?: string }
+
+/** Failing results read per run; runs with more are listed in Azure DevOps. */
+export const FAILING_TESTS_LIMIT = 200
+// Everything that counts as failed on the chart: executed, but not passed.
+const FAILED_OUTCOMES = ['Failed', 'Aborted', 'Error', 'Timeout', 'Blocked', 'Inconclusive', 'Warning']
 
 const projectPath = (project: string) => `/${encodeURIComponent(project)}`
 
@@ -211,7 +225,7 @@ export async function loadTestPoints(client: AdoRequestClient, pipeline: TestPip
   }
 
   const releases = await listReleases(client, pipeline, since, signal)
-  const results = await mapWithConcurrency(releases, 5, async (release) => {
+  const results = await mapWithConcurrency(releases, 5, async (release): Promise<TestPoint | null> => {
     const detail = await getRelease(client, pipeline.orgName, pipeline.projectName, release.id, signal)
     const environment = detail.environments?.find((entry) =>
       pipeline.stageDefinitionId
@@ -235,10 +249,48 @@ export async function loadTestPoints(client: AdoRequestClient, pipeline: TestPip
     const date = environment.deploySteps?.map((step) => step.lastModifiedOn).filter((value): value is string => Boolean(value)).sort().at(-1)
       ?? release.createdOn
     return date && date >= since && total ? {
-      date, runId: release.id,
+      date, runId: release.id, environmentId: environment.id,
       passed: counts.reduce((sum, value) => sum + value.passed, 0),
       total,
     } : null
   })
   return results.filter((point): point is TestPoint => point !== null).sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/**
+ * Lists one run's failing tests, read only when someone opens the run: by build and stage, or by release and stage
+ * instance. A test that failed in more than one result is listed once.
+ */
+export async function loadFailingTests(
+  client: AdoRequestClient,
+  pipeline: TestPipeline,
+  point: Pick<TestPoint, 'runId' | 'environmentId'>,
+  signal?: AbortSignal,
+): Promise<FailingTests> {
+  const common = { outcomes: FAILED_OUTCOMES.join(','), '$top': FAILING_TESTS_LIMIT, 'api-version': '7.1-preview.1' }
+  let params: QueryParams
+  if (pipeline.kind === 'build') {
+    params = { pipelineId: point.runId, stageName: pipeline.stageName === ALL_TEST_STAGES ? undefined : pipeline.stageName, ...common }
+  } else if (point.environmentId !== undefined) {
+    params = { releaseId: point.runId, releaseEnvid: point.environmentId, ...common }
+  } else {
+    throw new Error('This release run has no stage to read failing tests from.')
+  }
+  const response = await requestTestResults<ShallowTestResult[] | Partial<List<ShallowTestResult>>>(client, {
+    orgName: pipeline.orgName,
+    path: `${projectPath(pipeline.projectName)}/_apis/testresults/${pipeline.kind === 'build' ? 'resultsbypipeline' : 'resultsbyrelease'}`,
+    params,
+    signal,
+  })
+  const results = Array.isArray(response) ? response : response.value ?? []
+  const failed = new Set(FAILED_OUTCOMES.map((outcome) => outcome.toLowerCase()))
+  const tests = new Map<string, FailingTest>()
+  for (const result of results) {
+    const name = result.testCaseTitle?.trim() || result.automatedTestName?.trim()
+    const key = result.automatedTestName?.trim() || name
+    const outcome = result.outcome ?? 'Failed'
+    if (!name || !key || !failed.has(outcome.toLowerCase()) || tests.has(key)) continue
+    tests.set(key, { key, name, outcome })
+  }
+  return { tests: [...tests.values()], truncated: results.length >= FAILING_TESTS_LIMIT }
 }
