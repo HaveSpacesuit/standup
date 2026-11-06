@@ -807,12 +807,28 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify the intro line names the lookback days, and "How to read this chart" explains the
       executed-tests ratio, the log scale, and dashed gaps.
 - [ ] Verify the empty state points to Test options when no pipeline is configured.
+- [ ] Verify the toolbar shows "N pipelines"; hovering or focusing it lists each pipeline's status.
+
+### Health strip
+
+- [ ] Verify one tile per pipeline with runs, at most four per row, each showing its short name,
+      stage, latest pass rate, change vs median, sparkline, and the last run's day and counts.
+- [ ] Verify the status chips: Usual (neutral), Below usual (amber), Sharp drop (red), Fewer tests
+      (amber, with "N of ~M tests"), and No recent runs (amber, "N working days ago" and a hatched
+      sparkline tail). Hover each chip and verify its tooltip explains the status.
+- [ ] Click a tile and verify the other tiles dim, the other lines fade, the chart shades the
+      focused pipeline's usual range, and hover snaps only to its runs. Click again or press Esc to
+      clear focus.
+- [ ] In Test options > Options, change "Flag no recent runs after" and "Flag fewer tests below",
+      tab away, and verify the statuses update and the values persist after reload; invalid values
+      show an error and keep the last valid value.
+- [ ] In Test options > Pipelines, set a Short name and verify the tile and chart tooltip use it;
+      clear it and verify the default returns.
+- [ ] Verify the tiles, chips, and sparklines are readable in dark mode.
 
 ### Overlay chart
 
 - [ ] Verify each pipeline has its own color and marker shape, and no line is green or red.
-- [ ] Verify the chips above the chart show the short name and stage; clicking one hides its line
-      (dashed chip) and clicking again restores it.
 - [ ] Verify runs are joined by straight lines and gaps of 4 or more days are dashed.
 - [ ] Verify the x-axis marks Mondays and weekends are shaded.
 - [ ] Hover near (not exactly on) a point and verify the tooltip snaps to it, leads with

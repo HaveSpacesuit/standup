@@ -5,7 +5,7 @@ import { act, createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 import { JSDOM } from 'jsdom'
-import type { TestSeries } from '../src/features/standup/components/TestPassChart.tsx'
+import type { TestChartFocus, TestSeries } from '../src/features/standup/components/TestPassChart.tsx'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>')
 const opened: string[] = []
@@ -82,16 +82,14 @@ test('a gap of four or more days is dashed, and nearby runs are joined by straig
   assert.doesNotMatch(html, /\sC\d/, 'no curves')
 })
 
-test('legend chips above the chart use the short name and a muted stage', () => {
+test('the chart has no legend chips; the health tiles above it are the legend', () => {
   const html = markup()
-  const legend = html.indexOf('aria-label="Pipelines"')
-  assert.ok(legend >= 0 && legend < html.indexOf('role="img"'), 'chips sit above the chart')
-  assert.match(html, />PWW<\/span>.*?>E2E<\/span>/)
-  assert.match(html, />WV<\/span>.*?>Smoke<\/span>/)
-  assert.match(html, /Click to show or hide/)
+  assert.doesNotMatch(html, /aria-label="Pipelines"/)
+  assert.doesNotMatch(html, /Click to show or hide/)
+  assert.doesNotMatch(html, /tests-focus-band/, 'no band without a focused pipeline')
 })
 
-async function render(t: TestContext) {
+async function render(t: TestContext, focus: TestChartFocus | null = null) {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -99,26 +97,30 @@ async function render(t: TestContext) {
     await act(async () => root.unmount())
     host.remove()
   })
-  await act(async () => root.render(createElement(Root, null, createElement(TestPassChart, { series, range }))))
+  await act(async () => root.render(createElement(Root, null, createElement(TestPassChart, { series, range, focus }))))
   return host
 }
 
 const document = dom.window.document
-const chip = (host: Element, text: string) =>
-  [...host.querySelectorAll<HTMLElement>('[aria-pressed]')].find((candidate) => candidate.textContent?.startsWith(text))!
 
-test('a chip hides and shows its pipeline', async (t) => {
-  const host = await render(t)
-  const markers = () => host.querySelectorAll('svg[role="img"] rect[width]:not(.tests-weekend)').length
-  assert.equal(chip(host, 'WV').getAttribute('aria-pressed'), 'true')
-  assert.equal(markers(), 2)
+test('focusing a pipeline fades the others, shades its usual range, and limits hover to its runs', async (t) => {
+  const host = await render(t, { id: 'view', highPosition: 0, lowPosition: Math.log10(3) })
+  const svg = host.querySelector('svg[role="img"]')!
+  const group = (id: string) => svg.querySelector<SVGGElement>(`g[data-pipeline="${id}"]`)!
+  assert.equal(group('web').style.opacity, '0.18')
+  assert.equal(group('view').style.opacity, '1')
+  assert.ok(group('web').compareDocumentPosition(group('view')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING, 'the focused line draws on top')
 
-  await act(async () => chip(host, 'WV').click())
-  assert.equal(chip(host, 'WV').getAttribute('aria-pressed'), 'false')
-  assert.equal(markers(), 0)
+  const band = svg.querySelector('[data-testid="tests-focus-band"]')!
+  const gridY = (percentIndex: number) => Number(svg.querySelectorAll('.tests-grid line')[percentIndex].getAttribute('y1'))
+  const bandTop = Number(band.getAttribute('y'))
+  assert.ok(Math.abs(bandTop - gridY(6)) < 0.5, 'the band starts at 100%')
+  assert.ok(Math.abs(bandTop + Number(band.getAttribute('height')) - gridY(5)) < 0.5, 'and ends at 98%')
 
-  await act(async () => chip(host, 'WV').click())
-  assert.equal(markers(), 2)
+  const fadedRun = [...group('web').querySelectorAll('circle')].at(-1)!
+  const pointer = { bubbles: true, clientX: Number(fadedRun.getAttribute('cx')), clientY: Number(fadedRun.getAttribute('cy')) }
+  await act(async () => svg.dispatchEvent(new dom.window.MouseEvent('mousemove', pointer)))
+  assert.equal(document.querySelector('[role="tooltip"]'), null, 'faded runs are not hoverable')
 })
 
 test('hovering near a run leads with failures, and clicking opens the run in Azure DevOps', async (t) => {

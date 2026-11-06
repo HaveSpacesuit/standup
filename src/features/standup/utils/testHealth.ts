@@ -1,9 +1,16 @@
-import type { TestPipeline } from './testPipelines'
+import type { TestPoint } from '../../../ado/testPipelinesApi'
+import type { TestHealthOptions, TestPipeline } from './testPipelines'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 /** Consecutive runs this many days apart or more are joined by a dashed line, so outages read as gaps. */
 export const TEST_GAP_DAYS = 4
+
+export const PASS_RATE_TICKS = [0, 50, 75, 90, 95, 98, 100]
+
+/** Log-scales the failure rate so differences near 100% are visible; larger means more failures. */
+export const passRatePosition = (percent: number) => Math.log10(1 + 100 - percent)
+export const passRateAtPosition = (position: number) => 101 - 10 ** position
 
 /** "99.4%", "100%"; never rounds a failing run up to 100%. */
 export function formatPassRate(rate: number): string {
@@ -33,10 +40,15 @@ export const formatRunTime = (date: Date) => RUN_TIME.format(date)
 /** "Nov 5" */
 export const formatAxisDay = (date: Date) => AXIS_DAY.format(date)
 
-/** The pipeline's short label: the parenthetical in its name, as in "ProjectWise Web (PWW)", or the whole name. */
-export function testPipelineShortName(pipeline: Pick<TestPipeline, 'name'>): string {
-  const match = /\(([^)]+)\)/.exec(pipeline.name)
-  return match?.[1].trim() || pipeline.name
+/** The parenthetical in a pipeline name, as in "ProjectWise Web (PWW)", or the whole name. */
+export function defaultTestPipelineShortName(name: string): string {
+  const match = /\(([^)]+)\)/.exec(name)
+  return match?.[1].trim() || name
+}
+
+/** The pipeline's short label: its saved short name, or the default from its name. */
+export function testPipelineShortName(pipeline: Pick<TestPipeline, 'name' | 'shortName'>): string {
+  return pipeline.shortName?.trim() || defaultTestPipelineShortName(pipeline.name)
 }
 
 /** The run's build Tests tab, or its release summary. */
@@ -143,4 +155,151 @@ export function testLinePaths(points: ReadonlyArray<{ t: number; x: number; y: n
     }
   })
   return { solid, dashed }
+}
+
+/** A run with about 4× (10^0.6) the failure rate of the pipeline's median run is a sharp drop. */
+export const TEST_SHARP_DROP = 0.6
+/** "Below usual" must clear the usual range by about 1.26× its failure rate, so noise at the edge isn't flagged. */
+export const TEST_BELOW_MARGIN = 0.1
+/** Sparklines show the last three weeks. */
+export const TEST_SPARKLINE_DAYS = 21
+
+/** How one run compares with its pipeline's usual results; a sharp drop outranks fewer tests, which outranks below usual. */
+export type TestRunClass = 'ok' | 'below' | 'fewer' | 'sharp'
+export type TestHealthStatus = 'usual' | 'below' | 'fewer' | 'sharp' | 'stale'
+
+export type TestRun = TestPoint & {
+  /** The run's order among its pipeline's runs, oldest first. */
+  index: number
+  failed: number
+  rate: number
+  position: number
+  day: number
+  t: number
+  sharp: boolean
+  fewer: boolean
+  below: boolean
+  cls: TestRunClass
+}
+
+export type TestPipelineHealth = {
+  runs: TestRun[]
+  latest: TestRun
+  medianPosition: number
+  /** The usual range: the middle 80% of the runs that weren't sharp drops, as pass rates and as scale positions. */
+  usualLow: number
+  usualHigh: number
+  usualLowPosition: number
+  usualHighPosition: number
+  medianTotal: number
+  /** The median test count, rounded to tens from 200 up, for "~1,180 tests". */
+  usualTotal: number
+  /** The median pass rate of the runs before the latest; null when there is only one run. */
+  medianRate: number | null
+  /** Working days since the day of the latest run. */
+  idleDays: number
+  status: TestHealthStatus
+}
+
+export type TestHealthEntry = { pipeline: TestPipeline; color: string; shape: TestSeriesShape; health: TestPipelineHealth }
+
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((left, right) => left - right)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
+}
+
+function quantile(values: readonly number[], q: number): number {
+  const sorted = [...values].sort((left, right) => left - right)
+  const at = (sorted.length - 1) * q
+  const low = Math.floor(at)
+  const high = Math.ceil(at)
+  return sorted[low] + (sorted[high] - sorted[low]) * (at - low)
+}
+
+/**
+ * Compares every run with the pipeline's own normal, on the failure scale: a sharp drop is far past the median run,
+ * below usual is past the usual range by a margin, and fewer tests means under `fewerPercent` of the median count.
+ * Returns null when there are no runs.
+ */
+export function testPipelineHealth(points: readonly TestPoint[], axis: TestTimeAxis, options: TestHealthOptions): TestPipelineHealth | null {
+  if (points.length === 0) {
+    return null
+  }
+  const measured = [...points]
+    .sort((left, right) => Date.parse(left.date) - Date.parse(right.date) || left.runId - right.runId)
+    .map((point, index) => {
+      const ms = Date.parse(point.date)
+      const rate = (point.passed / point.total) * 100
+      return { ...point, index, failed: point.total - point.passed, rate, position: passRatePosition(rate), day: testDayIndex(axis, ms), t: testDayTime(axis, ms) }
+    })
+  const medianPosition = median(measured.map((run) => run.position))
+  const isSharp = (position: number) => position - medianPosition >= TEST_SHARP_DROP
+  // At least half the runs sit at or under the median, so some runs are always calm.
+  const calm = measured.map((run) => run.position).filter((position) => !isSharp(position))
+  const usualHighPosition = quantile(calm, 0.1)
+  const usualLowPosition = quantile(calm, 0.9)
+  const medianTotal = median(measured.map((run) => run.total))
+  const runs = measured.map((run): TestRun => {
+    const sharp = isSharp(run.position)
+    const fewer = run.total < (options.fewerPercent / 100) * medianTotal
+    const below = !sharp && run.position - usualLowPosition >= TEST_BELOW_MARGIN
+    return { ...run, sharp, fewer, below, cls: sharp ? 'sharp' : fewer ? 'fewer' : below ? 'below' : 'ok' }
+  })
+  const latest = runs[runs.length - 1]
+  const idleDays = testWorkingDaysBetween(axis, latest.day, axis.todayIndex)
+  return {
+    runs,
+    latest,
+    medianPosition,
+    usualLow: passRateAtPosition(usualLowPosition),
+    usualHigh: passRateAtPosition(usualHighPosition),
+    usualLowPosition,
+    usualHighPosition,
+    medianTotal,
+    usualTotal: medianTotal >= 200 ? Math.round(medianTotal / 10) * 10 : Math.round(medianTotal),
+    medianRate: runs.length > 1 ? median(runs.slice(0, -1).map((run) => run.rate)) : null,
+    idleDays,
+    status: idleDays >= options.staleDays ? 'stale' : latest.cls === 'ok' ? 'usual' : latest.cls,
+  }
+}
+
+export const TEST_HEALTH_STATUS_LABELS: Record<TestHealthStatus, string> = {
+  usual: 'Usual',
+  below: 'Below usual',
+  fewer: 'Fewer tests',
+  sharp: 'Sharp drop',
+  stale: 'No recent runs',
+}
+
+/** "98.6–99.4%" */
+export function formatTestUsualRange(health: Pick<TestPipelineHealth, 'usualLow' | 'usualHigh'>): string {
+  const low = formatPassRate(health.usualLow)
+  const high = formatPassRate(health.usualHigh)
+  return low === high ? low : `${low.slice(0, -1)}–${high}`
+}
+
+/** "+0.4 vs median 99.1%"; "last result" when the pipeline is stale, since the number is old news. */
+export function formatTestHealthDelta(health: TestPipelineHealth): string {
+  if (health.status === 'stale') return 'last result'
+  if (health.medianRate === null) return 'only run'
+  const difference = Math.round((health.latest.rate - health.medianRate) * 10) / 10
+  return `${difference < 0 ? '−' : '+'}${Math.abs(difference).toFixed(1)} vs median ${formatPassRate(health.medianRate)}`
+}
+
+/** Why a pipeline has its status, naming the rule and where to tune it. */
+export function testHealthStatusTip(health: TestPipelineHealth, options: TestHealthOptions, lookbackDays: number): string {
+  const { latest } = health
+  switch (health.status) {
+    case 'usual':
+      return `Latest run is within or above this pipeline's usual range, ${formatTestUsualRange(health)} (the middle 80% of its runs in the last ${lookbackDays} days).`
+    case 'below':
+      return `Latest run (${formatPassRate(latest.rate)}) is below this pipeline's usual range of ${formatTestUsualRange(health)} by more than the noise margin.`
+    case 'fewer':
+      return `Latest run executed ${formatTestCount(latest.total)} tests; this pipeline usually runs ~${formatTestCount(health.usualTotal)}. Runs with fewer than ${options.fewerPercent}% of the usual count are flagged (Test options).`
+    case 'sharp':
+      return `Latest run (${formatPassRate(latest.rate)}) failed far more tests than usual, about 4× this pipeline's median failure rate or worse. Its usual range is ${formatTestUsualRange(health)}.`
+    case 'stale':
+      return `No results for ${pluralizeTests(health.idleDays, 'working day')}. Pipelines are flagged after ${pluralizeTests(options.staleDays, 'working day')} without a run (Test options).`
+  }
 }

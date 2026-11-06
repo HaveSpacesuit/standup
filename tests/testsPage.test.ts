@@ -98,3 +98,14 @@ test('Test options opens a dialog and tab list with the same name, and Close dis
   await act(async () => [...opened.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
   await waitFor(() => dialog() === null)
 })
+
+test('Test options sets when a pipeline counts as having no recent runs or fewer tests', async (t) => {
+  const host = await render(t)
+  await act(async () => button(host, 'Test options')!.click())
+  const labels = [...dialog()!.querySelectorAll('label')].map((label) => label.textContent)
+  assert.ok(labels.includes('Flag no recent runs after (working days)'))
+  assert.ok(labels.includes('Flag fewer tests below (% of usual)'))
+  assert.equal(dialog()!.querySelector('h3')?.textContent, 'Pipeline health')
+  await act(async () => [...dialog()!.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
+  await waitFor(() => dialog() === null)
+})

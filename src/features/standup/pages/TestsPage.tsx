@@ -10,18 +10,24 @@ import { loadTestPoints, type TestPoint } from '../../../ado/testPipelinesApi'
 import { AppTooltip as Tooltip } from '../components/AppTooltip'
 import { PageToolbar } from '../components/PageToolbar'
 import { SyncStatus } from '../components/SyncStatus'
-import { TestPassChart, type TestSeries } from '../components/TestPassChart'
+import { TestHealthStrip } from '../components/TestHealthStrip'
+import { TestPassChart, type TestChartFocus, type TestSeries } from '../components/TestPassChart'
 import { TestsIntro } from '../components/TestsIntro'
 import { TestsLoadingState } from '../components/TestsLoadingState'
 import { TestsSettingsDialog } from '../components/TestsSettingsDialog'
+import { TipLines } from '../components/TipLines'
 import {
   DEFAULT_TEST_LOOKBACK_DAYS, loadTestLookbackDays, loadTestPipelines,
-  saveTestLookbackDays, saveTestPipelines, testLookbackStart, testStageLabel, type TestPipeline,
+  saveTestLookbackDays, saveTestPipelines, testLookbackStart, testPipelineSource, testStageLabel, type TestPipeline,
   DEFAULT_TEST_PASS_RATE_FILTER, filterTestPointsByPassRate, loadTestPassRateFilter,
   saveTestPassRateFilter, type TestPassRateFilter,
   DEFAULT_TEST_DAILY_OPTIONS, groupTestPointsByDay, loadTestDailyOptions, saveTestDailyOptions, type TestDailyOptions,
+  DEFAULT_TEST_HEALTH_OPTIONS, loadTestHealthOptions, saveTestHealthOptions, type TestHealthOptions,
 } from '../utils/testPipelines'
-import { testSeriesStyle } from '../utils/testHealth'
+import {
+  createTestTimeAxis, pluralizeTests, TEST_HEALTH_STATUS_LABELS, testPipelineHealth, testPipelineShortName, testSeriesStyle,
+  type TestHealthEntry,
+} from '../utils/testHealth'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
 
 // StrataKit has no categorical palette, so the third series color is a violet tuned for each color scheme.
@@ -71,22 +77,71 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
   })
   const [dailyOptions, setDailyOptions] = useState(storedDailyOptions.options)
   const [dailyStorageError, setDailyStorageError] = useState(storedDailyOptions.error)
+  const [storedHealthOptions] = useState(() => {
+    try {
+      return { options: loadTestHealthOptions(), error: null }
+    } catch (cause) {
+      return { options: DEFAULT_TEST_HEALTH_OPTIONS, error: cause instanceof Error ? cause.message : String(cause) }
+    }
+  })
+  const [healthOptions, setHealthOptions] = useState(storedHealthOptions.options)
+  const [healthStorageError, setHealthStorageError] = useState(storedHealthOptions.error)
   const [error, setError] = useState<string | null>(stored.error)
   const [series, setSeries] = useState<Array<{ pipeline: TestPipeline; points: TestPoint[] }>>([])
   const [range, setRange] = useState<{ start: number; end: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncedAt, setSyncedAt] = useState<number | null>(null)
   const [refreshNonce, setRefreshNonce] = useState(0)
+  const [focusId, setFocusId] = useState<string | null>(null)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
-  const filteredSeries = useMemo<TestSeries[]>(() => {
+  // Only the fields that pick results; renaming a pipeline's short name doesn't refetch.
+  const sourceKey = JSON.stringify(pipelines.map(testPipelineSource))
+  const sources = useMemo(() => JSON.parse(sourceKey) as TestPipeline[], [sourceKey])
+  const filteredSeries = useMemo(() => {
     // Styles follow the pipelines' order, so a pipeline keeps its color when another fails to load.
     const order = new Map(pipelines.map((pipeline, index) => [pipeline.id, index]))
     return series.map((entry) => ({
-      ...entry,
+      pipeline: pipelines.find((pipeline) => pipeline.id === entry.pipeline.id) ?? entry.pipeline,
       ...testSeriesStyle(order.get(entry.pipeline.id) ?? 0),
-      points: groupTestPointsByDay(filterTestPointsByPassRate(entry.points, passRateFilter), dailyOptions),
+      points: filterTestPointsByPassRate(entry.points, passRateFilter),
     }))
-  }, [series, pipelines, passRateFilter, dailyOptions])
+  }, [series, pipelines, passRateFilter])
+  const chartSeries = useMemo<TestSeries[]>(() => filteredSeries.flatMap((entry) => {
+    const points = groupTestPointsByDay(entry.points, dailyOptions)
+    return points.length > 0 ? [{ ...entry, points }] : []
+  }), [filteredSeries, dailyOptions])
+  const axis = useMemo(() => range ? createTestTimeAxis(range) : null, [range])
+  // Health compares each run with the pipeline's own runs, so it uses every run, not the daily lowest.
+  const healthEntries = useMemo<TestHealthEntry[]>(() => axis ? filteredSeries.flatMap(({ pipeline, points, color, shape }) => {
+    const health = testPipelineHealth(points, axis, healthOptions)
+    return health ? [{ pipeline, color, shape, health }] : []
+  }) : [], [axis, filteredSeries, healthOptions])
+  const focusedEntry = healthEntries.find((entry) => entry.pipeline.id === focusId) ?? null
+  const chartFocus = useMemo<TestChartFocus | null>(() => focusedEntry
+    ? { id: focusedEntry.pipeline.id, highPosition: focusedEntry.health.usualHighPosition, lowPosition: focusedEntry.health.usualLowPosition }
+    : null, [focusedEntry])
+
+  useEffect(() => {
+    if (!focusedEntry || settingsOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) setFocusId(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [focusedEntry, settingsOpen])
+
+  const updateHealthOptions = (next: TestHealthOptions) => {
+    try {
+      saveTestHealthOptions(next)
+      setHealthOptions(next)
+      setHealthStorageError(null)
+      return null
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      setHealthStorageError(message)
+      return message
+    }
+  }
 
   const updateDailyOptions = (next: TestDailyOptions) => {
     try {
@@ -142,7 +197,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
   }
 
   useEffect(() => {
-    if (!client || pipelines.length === 0) {
+    if (!client || sources.length === 0) {
       setSeries([])
       setLoading(false)
       return
@@ -151,7 +206,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
     setLoading(true)
     setError(null)
     const fetchedAt = Date.now()
-    Promise.allSettled(pipelines.map(async (pipeline) => ({
+    Promise.allSettled(sources.map(async (pipeline) => ({
       pipeline,
       points: await loadTestPoints(client, pipeline, lookbackDays, controller.signal),
     }))).then((results) => {
@@ -161,20 +216,29 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
       setSyncedAt(Date.now())
       const failures = results.flatMap((result, index) =>
         result.status === 'rejected'
-          ? [`${pipelines[index].name}: ${testPipelineErrorMessage(result.reason)}`]
+          ? [`${sources[index].name}: ${testPipelineErrorMessage(result.reason)}`]
           : [])
       setError(failures.length ? failures.join(' · ') : null)
     }).finally(() => {
       if (!controller.signal.aborted) setLoading(false)
     })
     return () => controller.abort()
-  }, [client, pipelines, lookbackDays, refreshNonce])
+  }, [client, sources, lookbackDays, refreshNonce])
 
   const canLoad = Boolean(pat) && pipelines.length > 0
+  const healthSummary = healthEntries.map(({ pipeline, health }) =>
+    `${testPipelineShortName(pipeline)} · ${testStageLabel(pipeline.stageName)}: ${TEST_HEALTH_STATUS_LABELS[health.status]}`)
 
   return (
     <>
       <PageToolbar iconHref={svgReport} title="Tests" isPageTitle wrap>
+        {!loading && healthEntries.length > 0 && (
+          <Tooltip title={<TipLines lines={healthSummary} />}>
+            <Typography variant="body-sm" color="text.secondary" tabIndex={0} sx={{ whiteSpace: 'nowrap', ml: 0.5 }}>
+              {pluralizeTests(healthEntries.length, 'pipeline')}
+            </Typography>
+          </Tooltip>
+        )}
         <Box sx={{ flex: 1 }} />
         <Tooltip title="Test options">
           <span>
@@ -207,6 +271,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
         {passRateFilterStorageError && <Alert severity="error">{passRateFilterStorageError}</Alert>}
         {dailyStorageError && <Alert severity="error">{dailyStorageError}</Alert>}
+        {healthStorageError && <Alert severity="error">{healthStorageError}</Alert>}
         {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} />}
         {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
         {pipelines.length === 0 && !error && (
@@ -220,9 +285,19 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         {!loading && filteredSeries.some((entry, index) => entry.points.length === 0 && series[index].points.length > 0) && (
           <Alert severity="info">Some pipelines have no chart points above the {passRateFilter.threshold}% pass rate threshold. Lower the threshold or disable the filter in Test options to show more results.</Alert>
         )}
-        {!loading && range && filteredSeries.some(({ points }) => points.length > 0) && (
+        {!loading && axis && healthEntries.length > 0 && (
+          <TestHealthStrip
+            entries={healthEntries}
+            axis={axis}
+            options={healthOptions}
+            lookbackDays={lookbackDays}
+            focusId={focusedEntry?.pipeline.id ?? null}
+            onToggleFocus={(id) => setFocusId((current) => current === id ? null : id)}
+          />
+        )}
+        {!loading && range && chartSeries.length > 0 && (
           <Box sx={{ height: 480, flexShrink: 0 }}>
-            <TestPassChart series={filteredSeries.filter(({ points }) => points.length > 0)} range={range} />
+            <TestPassChart series={chartSeries} range={range} focus={chartFocus} />
           </Box>
         )}
         {!loading && series.filter(({ points }) => points.length === 0).map(({ pipeline }) => (
@@ -237,6 +312,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
         lookbackDays={lookbackDays} onLookbackDaysChange={updateLookbackDays}
         passRateFilter={passRateFilter} onPassRateFilterChange={updatePassRateFilter}
         dailyOptions={dailyOptions} onDailyOptionsChange={updateDailyOptions}
+        healthOptions={healthOptions} onHealthOptionsChange={updateHealthOptions}
       />
     </>
   )
