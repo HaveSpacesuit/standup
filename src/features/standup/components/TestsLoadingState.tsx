@@ -1,6 +1,7 @@
 import { Box, CircularProgress, Skeleton, Typography } from '@mui/material'
 import { keyframes } from '@mui/material/styles'
-import { PASS_RATE_TICKS, passRatePosition } from '../utils/testPipelines'
+import { TEST_TILE_GRID_COLUMNS } from './testHealthPresentation'
+import { PASS_RATE_TICKS, passRatePosition } from '../utils/testHealth'
 
 type TestsLoadingStateProps = {
   pipelineCount: number
@@ -10,8 +11,8 @@ type TestsLoadingStateProps = {
 const CHART_HEIGHT = 480
 const X_TICK_COUNT = 7
 const MAX_TRACES = 4
-const MAX_LEGEND_ITEMS = 8
-const LEGEND_WIDTHS = [148, 176, 132, 196, 160, 120, 184, 140]
+const MAX_TILES = 8
+const TILE_NAME_WIDTHS = [44, 60, 36, 52]
 
 // Typical pass-rate shapes so the placeholder hugs the top of the chart like real data.
 const TRACE_PATTERNS: ReadonlyArray<readonly number[]> = [
@@ -40,33 +41,12 @@ function tracePoints(pattern: readonly number[], startX: number) {
 
 export function TestsLoadingState({ pipelineCount, lookbackDays }: TestsLoadingStateProps) {
   const traceCount = Math.min(Math.max(pipelineCount, 1), MAX_TRACES)
-  const legendCount = Math.min(Math.max(pipelineCount, 1), MAX_LEGEND_ITEMS)
+  const tileCount = Math.min(Math.max(pipelineCount, 1), MAX_TILES)
   const pipelineLabel = pipelineCount === 1 ? '1 pipeline' : `${pipelineCount} pipelines`
 
   return (
-    <Box
-      aria-busy="true"
-      sx={{
-        flexShrink: 0,
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
-        overflow: 'hidden',
-        bgcolor: 'background.paper',
-      }}
-    >
-      <Box
-        role="status"
-        sx={{
-          px: 2,
-          py: 1.25,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
+    <Box aria-busy="true" sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box role="status" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CircularProgress size={18} />
         <Box>
           <Typography variant="body-sm" sx={{ fontWeight: 700 }}>
@@ -80,14 +60,51 @@ export function TestsLoadingState({ pipelineCount, lookbackDays }: TestsLoadingS
 
       <Box
         aria-hidden="true"
+        data-testid="tests-loading-tiles"
+        sx={{ display: 'grid', gridTemplateColumns: TEST_TILE_GRID_COLUMNS, gap: 1.25 }}
+      >
+        {Array.from({ length: tileCount }).map((_, index) => (
+          <Box
+            key={`tests-loading-tile-${index}`}
+            sx={{
+              p: '9px 11px 8px 13px',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+              bgcolor: 'background.paper',
+              boxShadow: 'var(--stratakit-shadow-surface-xs)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.5,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Skeleton variant="rounded" width={18} height={10} />
+              <Skeleton variant="text" width={TILE_NAME_WIDTHS[index % TILE_NAME_WIDTHS.length]} height={18} />
+              <Skeleton variant="text" width={56} height={16} />
+              <Skeleton variant="rounded" width={60} height={20} sx={{ ml: 'auto', borderRadius: 999 }} />
+            </Box>
+            <Skeleton variant="text" width={72} height={32} />
+            <Skeleton variant="rounded" height={34} />
+            <Skeleton variant="text" width={150} height={16} />
+          </Box>
+        ))}
+      </Box>
+
+      <Box
+        aria-hidden="true"
         sx={{
           height: CHART_HEIGHT,
           p: 2,
           display: 'grid',
           gridTemplateColumns: '16px 40px minmax(0, 1fr)',
-          gridTemplateRows: 'minmax(0, 1fr) auto auto',
+          gridTemplateRows: 'minmax(0, 1fr) auto',
           columnGap: 1,
           rowGap: 1,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          bgcolor: 'background.paper',
         }}
       >
         <Box sx={{ gridRow: 1, gridColumn: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -163,26 +180,6 @@ export function TestsLoadingState({ pipelineCount, lookbackDays }: TestsLoadingS
         <Box sx={{ gridRow: 2, gridColumn: 3, display: 'flex', justifyContent: 'space-between' }}>
           {Array.from({ length: X_TICK_COUNT }).map((_, index) => (
             <Skeleton key={`tests-loading-x-tick-${index}`} variant="text" width={64} height={16} />
-          ))}
-        </Box>
-
-        <Box
-          sx={{
-            gridRow: 3,
-            gridColumn: '1 / -1',
-            pt: 1,
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            columnGap: 2,
-            rowGap: 0.5,
-          }}
-        >
-          {Array.from({ length: legendCount }).map((_, index) => (
-            <Box key={`tests-loading-legend-${index}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Skeleton variant="rounded" width={40} height={12} />
-              <Skeleton variant="text" width={LEGEND_WIDTHS[index % LEGEND_WIDTHS.length]} height={18} />
-            </Box>
           ))}
         </Box>
       </Box>

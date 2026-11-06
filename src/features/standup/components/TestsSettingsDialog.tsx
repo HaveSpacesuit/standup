@@ -6,7 +6,11 @@ import {
 } from '@mui/material'
 import { AdoHttpClient } from '../../../ado/httpClient'
 import { listTestPipelineDefinitions, listTestStages, type Definition, type StageOption } from '../../../ado/testPipelinesApi'
-import { testLookbackStart, testStageLabel, validateTestPassRateFilter, type TestDailyOptions, type TestPassRateFilter, type TestPipeline, type TestPipelineKind } from '../utils/testPipelines'
+import {
+  TEST_SHORT_NAME_MAX_LENGTH, testLookbackStart, testStageLabel, validateTestHealthOptions, validateTestPassRateFilter,
+  type TestDailyOptions, type TestHealthOptions, type TestPassRateFilter, type TestPipeline, type TestPipelineKind,
+} from '../utils/testPipelines'
+import { defaultTestPipelineShortName } from '../utils/testHealth'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
 
 type Props = {
@@ -23,12 +27,19 @@ type Props = {
   onPassRateFilterChange: (filter: TestPassRateFilter) => string | null
   dailyOptions: TestDailyOptions
   onDailyOptionsChange: (options: TestDailyOptions) => string | null
+  healthOptions: TestHealthOptions
+  onHealthOptionsChange: (options: TestHealthOptions) => string | null
+}
+
+const blurOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.key === 'Enter') event.currentTarget.blur()
 }
 
 export function TestsSettingsDialog({
   open, onClose, pat, defaultOrg, defaultProject, pipelines, onChange, lookbackDays, onLookbackDaysChange,
   passRateFilter, onPassRateFilterChange,
   dailyOptions, onDailyOptionsChange,
+  healthOptions, onHealthOptionsChange,
 }: Props) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
   const [activeTab, setActiveTab] = useState(0)
@@ -48,11 +59,41 @@ export function TestsSettingsDialog({
   const [thresholdInput, setThresholdInput] = useState(String(passRateFilter.threshold))
   const [thresholdError, setThresholdError] = useState<string | null>(null)
   const [dailyError, setDailyError] = useState<string | null>(null)
+  const [staleInput, setStaleInput] = useState(String(healthOptions.staleDays))
+  const [staleError, setStaleError] = useState<string | null>(null)
+  const [fewerInput, setFewerInput] = useState(String(healthOptions.fewerPercent))
+  const [fewerError, setFewerError] = useState<string | null>(null)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
 
   useEffect(() => {
     if (open) setActiveTab(0)
   }, [open])
+
+  useEffect(() => {
+    if (open) {
+      setStaleInput(String(healthOptions.staleDays))
+      setFewerInput(String(healthOptions.fewerPercent))
+      setStaleError(null)
+      setFewerError(null)
+    }
+  }, [open, healthOptions.staleDays, healthOptions.fewerPercent])
+
+  const saveHealthOption = (field: keyof TestHealthOptions, input: string, setFieldError: (message: string | null) => void) => {
+    const next = { ...healthOptions, [field]: input.trim() ? Number(input) : Number.NaN }
+    if (next[field] === healthOptions[field]) return
+    try {
+      validateTestHealthOptions(next)
+      setFieldError(onHealthOptionsChange(next))
+    } catch (cause) {
+      setFieldError(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
+
+  const saveShortName = (pipeline: TestPipeline, input: string) => {
+    const shortName = input.trim() || undefined
+    if (shortName === pipeline.shortName) return
+    savePipelines(pipelines.map((entry) => entry.id === pipeline.id ? { ...entry, shortName } : entry))
+  }
 
   useEffect(() => {
     if (open) {
@@ -266,6 +307,35 @@ export function TestsSettingsDialog({
             does not represent a specific run and cannot link to a test run.
           </Typography>
           {dailyError && <Alert severity="error">{dailyError}</Alert>}
+          <Typography variant="body-md" render={<h3 />} sx={{ fontWeight: 700, mt: 0, mb: -0.5, pt: 1 }}>Pipeline health</Typography>
+          <TextField
+            label="Flag no recent runs after (working days)"
+            type="number"
+            value={staleInput}
+            onChange={(event) => {
+              setStaleInput(event.target.value)
+              setStaleError(null)
+            }}
+            onBlur={() => saveHealthOption('staleDays', staleInput, setStaleError)}
+            onKeyDown={blurOnEnter}
+            error={Boolean(staleError)}
+            helperText={staleError ?? 'A pipeline with no results for this many working days shows No recent runs (1–30).'}
+            slotProps={{ htmlInput: { min: 1, max: 30, step: 1 } }}
+          />
+          <TextField
+            label="Flag fewer tests below (% of usual)"
+            type="number"
+            value={fewerInput}
+            onChange={(event) => {
+              setFewerInput(event.target.value)
+              setFewerError(null)
+            }}
+            onBlur={() => saveHealthOption('fewerPercent', fewerInput, setFewerError)}
+            onKeyDown={blurOnEnter}
+            error={Boolean(fewerError)}
+            helperText={fewerError ?? "A run that executed fewer than this share of the pipeline's median test count shows Fewer tests."}
+            slotProps={{ htmlInput: { min: 1, max: 100, step: 'any' } }}
+          />
         </Stack>
         )}
         {activeTab === 1 && (
@@ -276,10 +346,20 @@ export function TestsSettingsDialog({
           {error && <Alert severity="error">{error}</Alert>}
           {!pat && <Alert severity="warning">Add a PAT with Test Management (Read), Build (Read), and Release (Read) access in app Settings.</Alert>}
           {pipelines.map((entry) => (
-            <Box key={entry.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, borderBottom: 1, borderColor: 'divider', pb: 1 }}>
-              <Typography variant="body-sm">
+            <Box key={entry.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: 1, borderColor: 'divider', pb: 1 }}>
+              <Typography variant="body-sm" sx={{ flex: 1, minWidth: 0 }}>
                 {entry.name} · {testStageLabel(entry.stageName)} ({entry.kind}, {entry.orgName}/{entry.projectName})
               </Typography>
+              <TextField
+                size="small"
+                label="Short name"
+                defaultValue={entry.shortName ?? ''}
+                placeholder={defaultTestPipelineShortName(entry.name)}
+                onBlur={(event) => saveShortName(entry, event.target.value)}
+                onKeyDown={blurOnEnter}
+                slotProps={{ htmlInput: { maxLength: TEST_SHORT_NAME_MAX_LENGTH, 'aria-label': `Short name for ${entry.name} · ${testStageLabel(entry.stageName)}` }, inputLabel: { shrink: true } }}
+                sx={{ width: 150, flexShrink: 0 }}
+              />
               <Button color="error" size="small" onClick={() => savePipelines(pipelines.filter((item) => item.id !== entry.id))}>Remove</Button>
             </Box>
           ))}
