@@ -48,6 +48,7 @@ const { useRememberedView } = await server.ssrLoadModule('/src/features/standup/
 const DEVELOPMENT_VIEWS = ['people', 'sprint'] as const
 const QA_VIEWS = ['testers', 'flow'] as const
 const BACKLOG_VIEWS = ['list', 'map'] as const
+const TESTS_VIEWS = ['rows', 'overlay'] as const
 
 beforeEach(() => {
   storage.clear()
@@ -68,10 +69,12 @@ test('each page saves its own last view, and unknown saved views are ignored', (
   saveLastView('development', 'sprint')
   saveLastView('qa-activity', 'flow')
   saveLastView('backlog', 'map')
-  assert.equal(new Set(['development', 'qa-activity', 'backlog'].map(lastViewStorageKey)).size, 3)
+  saveLastView('tests', 'overlay')
+  assert.equal(new Set(['development', 'qa-activity', 'backlog', 'tests'].map(lastViewStorageKey)).size, 4)
   assert.equal(loadLastView('development', DEVELOPMENT_VIEWS), 'sprint')
   assert.equal(loadLastView('qa-activity', QA_VIEWS), 'flow')
   assert.equal(loadLastView('backlog', BACKLOG_VIEWS), 'map')
+  assert.equal(loadLastView('tests', TESTS_VIEWS), 'overlay')
 
   storage.set(lastViewStorageKey('development'), 'assignment')
   assert.equal(loadLastView('development', DEVELOPMENT_VIEWS), null)
@@ -85,7 +88,7 @@ test('unavailable storage never breaks loading or saving', () => {
   assert.doesNotThrow(() => saveLastView('qa-activity', 'flow'))
 })
 
-async function renderView(t: { after: (fn: () => unknown) => void }, page: 'development' | 'qa-activity' | 'backlog', views: readonly [string, ...string[]], remember: boolean) {
+async function renderView(t: { after: (fn: () => unknown) => void }, page: 'development' | 'qa-activity' | 'backlog' | 'tests', views: readonly [string, ...string[]], remember: boolean) {
   let state: readonly [string, (next: string) => void]
   function Harness() {
     state = useRememberedView(page, views, remember)
@@ -104,18 +107,22 @@ test('pages open on their first view when remember last view is off', async (t) 
   storage.set(lastViewStorageKey('development'), 'sprint')
   storage.set(lastViewStorageKey('qa-activity'), 'flow')
   storage.set(lastViewStorageKey('backlog'), 'map')
+  storage.set(lastViewStorageKey('tests'), 'overlay')
   assert.equal((await renderView(t, 'development', DEVELOPMENT_VIEWS, false)).view, 'people')
   assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, false)).view, 'testers')
   assert.equal((await renderView(t, 'backlog', BACKLOG_VIEWS, false)).view, 'list')
+  assert.equal((await renderView(t, 'tests', TESTS_VIEWS, false)).view, 'rows')
 })
 
 test('pages reopen on their saved view when remember last view is on', async (t) => {
   storage.set(lastViewStorageKey('development'), 'sprint')
   storage.set(lastViewStorageKey('qa-activity'), 'flow')
   storage.set(lastViewStorageKey('backlog'), 'map')
+  storage.set(lastViewStorageKey('tests'), 'overlay')
   assert.equal((await renderView(t, 'development', DEVELOPMENT_VIEWS, true)).view, 'sprint')
   assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, true)).view, 'flow')
   assert.equal((await renderView(t, 'backlog', BACKLOG_VIEWS, true)).view, 'map')
+  assert.equal((await renderView(t, 'tests', TESTS_VIEWS, true)).view, 'overlay')
 
   storage.set(lastViewStorageKey('qa-activity'), 'retired-view')
   assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, true)).view, 'testers')

@@ -18,10 +18,11 @@ Object.assign(globalThis, {
 })
 
 // The page reads its saved pipelines and options from the bare `localStorage` global; start it empty.
+const storage = new Map<string, string>()
 const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
-  value: { getItem: () => null, setItem: () => {} },
+  value: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) },
 })
 
 const { createRoot } = await import('react-dom/client')
@@ -41,15 +42,16 @@ const { TestsPage } = await server.ssrLoadModule('/src/features/standup/pages/Te
 
 const document = dom.window.document
 
-async function render(t: TestContext) {
+async function render(t: TestContext, props: { pat?: string | null } = {}) {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
   t.after(async () => {
     await act(async () => root.unmount())
     host.remove()
+    storage.clear()
   })
-  const page = createElement(TestsPage, { pat: null, defaultOrg: 'example-org', defaultProject: 'example-project' })
+  const page = createElement(TestsPage, { pat: null, defaultOrg: 'example-org', defaultProject: 'example-project', ...props })
   await act(async () => root.render(createElement(Root, null, page)))
   return host
 }
@@ -81,6 +83,36 @@ test('the toolbar holds the only page heading and a Refresh that waits for a PAT
   assert.equal(button(host, 'Refresh')?.disabled, true)
   assert.equal(button(host, 'Refresh tests'), null)
   assert.doesNotMatch(host.textContent!, /How to read this chart/, 'the intro waits until there is something to read')
+  assert.equal(host.querySelector('[aria-label="Tests view"]'), null, 'there is nothing to view yet')
+})
+
+test('with pipelines to load, Rows is the first view; each view has its own skeleton and the choice is saved', async (t) => {
+  storage.set('standup:test-pipelines', JSON.stringify([
+    { id: 'web', orgName: 'org', projectName: 'Example', kind: 'build', definitionId: 7, name: 'ProjectWise Web (PWW)', stageName: 'E2E' },
+  ]))
+  // Results never arrive, so the page stays on its loading state.
+  const previousFetch = globalThis.fetch
+  globalThis.fetch = ((_url: unknown, init?: RequestInit) => new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+  })) as typeof fetch
+  t.after(() => {
+    globalThis.fetch = previousFetch
+  })
+  const host = await render(t, { pat: 'token' })
+
+  const toggles = [...host.querySelector('[aria-label="Tests view"]')!.querySelectorAll('button')]
+  assert.deepEqual(toggles.map((toggle) => toggle.textContent), ['Rows', 'Overlay'])
+  assert.deepEqual(toggles.map((toggle) => toggle.getAttribute('aria-pressed')), ['true', 'false'])
+  assert.ok(host.querySelector('[data-testid="tests-loading-rows"]'))
+  assert.equal(host.querySelector('[data-testid="tests-loading-overlay"]'), null)
+  assert.match(host.textContent!, /One row per pipeline · the shaded band is its usual range · last 60 days/)
+
+  await act(async () => toggles[1].click())
+  assert.equal(toggles[1].getAttribute('aria-pressed'), 'true')
+  assert.ok(host.querySelector('[data-testid="tests-loading-overlay"]'))
+  assert.equal(host.querySelector('[data-testid="tests-loading-rows"]'), null)
+  assert.match(host.textContent!, /Share of executed tests that passed in each run/)
+  assert.equal(storage.get('standup:last-view:tests'), 'overlay')
 })
 
 test('Test options opens a dialog and tab list with the same name, and Close dismisses it', async (t) => {

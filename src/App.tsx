@@ -207,6 +207,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           pat: storedPatState?.pat ?? null,
           defaultOrg: teamProfiles.find((team) => team.id === selectedTeamId)?.orgName ?? '',
           defaultProject: teamProfiles.find((team) => team.id === selectedTeamId)?.projectName ?? '',
+          teamIterations,
+          rememberLastView,
         }}
         teamAssignmentsPageProps={{
           patConfigured,
