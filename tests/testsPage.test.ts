@@ -101,8 +101,8 @@ test('with pipelines to load, Rows is the first view; each view has its own skel
   const host = await render(t, { pat: 'token' })
 
   const toggles = [...host.querySelector('[aria-label="Tests view"]')!.querySelectorAll('button')]
-  assert.deepEqual(toggles.map((toggle) => toggle.textContent), ['Rows', 'Overlay'])
-  assert.deepEqual(toggles.map((toggle) => toggle.getAttribute('aria-pressed')), ['true', 'false'])
+  assert.deepEqual(toggles.map((toggle) => toggle.textContent), ['Rows', 'Overlay', 'Calendar'])
+  assert.deepEqual(toggles.map((toggle) => toggle.getAttribute('aria-pressed')), ['true', 'false', 'false'])
   assert.ok(host.querySelector('[data-testid="tests-loading-rows"]'))
   assert.equal(host.querySelector('[data-testid="tests-loading-overlay"]'), null)
   assert.match(host.textContent!, /One row per pipeline · the shaded band is its usual range · last 60 days/)
@@ -113,6 +113,13 @@ test('with pipelines to load, Rows is the first view; each view has its own skel
   assert.equal(host.querySelector('[data-testid="tests-loading-rows"]'), null)
   assert.match(host.textContent!, /Share of executed tests that passed in each run/)
   assert.equal(storage.get('standup:last-view:tests'), 'overlay')
+
+  await act(async () => toggles[2].click())
+  assert.ok(host.querySelector('[data-testid="tests-loading-calendar"]'))
+  assert.equal(host.querySelector('[data-testid="tests-loading-overlay"]'), null)
+  assert.equal(host.querySelectorAll('[data-testid="tests-loading-calendar-cell"]').length, 9 * 5, 'about 60 days of weekday cells for the one pipeline')
+  assert.match(host.textContent!, /One cell per day, colored by its worst run · last 60 days/)
+  assert.equal(storage.get('standup:last-view:tests'), 'calendar')
 })
 
 test('Test options opens a dialog and tab list with the same name, and Close dismisses it', async (t) => {

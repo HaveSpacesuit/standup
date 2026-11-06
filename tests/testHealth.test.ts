@@ -4,7 +4,7 @@ import {
   createTestTimeAxis, defaultTestPipelineShortName, fewestTestRunOn, formatPassRate, formatRunDay, formatTestHealthDelta, formatTestUsualRange,
   isTestWeekend, lowestTestRunOn, passRateAtPosition, passRatePosition, testChangeDetail, testChangeTitle, testChanges, testDayIndex, testDayTime,
   testHealthStatusTip, testLinePaths, testMondayIndexes, testPipelineChanges, testPipelineHealth, testPipelineShortName, testRunChanges, testRunUrl,
-  testSeriesStyle, testWorkingDaysBetween, type TestHealthEntry,
+  testSeriesStyle, testWorkingDaysBetween, worstTestRunOn, type TestHealthEntry,
 } from '../src/features/standup/utils/testHealth.ts'
 
 test('pass rates keep one decimal, drop it for whole numbers, and never round a failing run up to 100%', () => {
@@ -147,6 +147,22 @@ test("a day's tests-ran bar is its run with the fewest tests, which may not be i
   const tied = healthWith(null, [...usualRuns, full, { ...full, date: new Date(2026, 9, 30, 14).toISOString(), runId: 303 }])
   assert.equal(fewestTestRunOn(tied, today)!.runId, 301, 'the earliest run on a tie')
   assert.equal(fewestTestRunOn(health, 2), null, 'no run on Saturday')
+})
+
+test("a day's calendar cell is its most serious run: a sharp drop, then fewer tests, then below usual, then the lowest", () => {
+  const today = healthAxis.todayIndex
+  const below = { ...at(30, 980), runId: 301 }
+  const fewer = { ...at(30, 540, 540), date: new Date(2026, 9, 30, 14).toISOString(), runId: 302 }
+  const sharp = { ...at(30, 900), date: new Date(2026, 9, 30, 18).toISOString(), runId: 303 }
+  assert.equal(worstTestRunOn(healthWith(null, [...usualRuns, below, fewer]), today)!.runId, 302, 'fewer tests outranks a lower pass rate')
+  assert.equal(worstTestRunOn(healthWith(null, [...usualRuns, below, fewer, sharp]), today)!.runId, 303)
+
+  const usualLow = { ...at(30, 990), runId: 304 }
+  const usualHigh = { ...at(30, 994), date: new Date(2026, 9, 30, 14).toISOString(), runId: 305 }
+  assert.equal(worstTestRunOn(healthWith(null, [...usualRuns, usualHigh, usualLow]), today)!.runId, 304, 'the lowest of usual runs')
+  const tied = { ...usualLow, date: new Date(2026, 9, 30, 14).toISOString(), runId: 306 }
+  assert.equal(worstTestRunOn(healthWith(null, [...usualRuns, usualLow, tied]), today)!.runId, 304, 'the earliest run on a tie')
+  assert.equal(worstTestRunOn(healthWith(null, usualRuns), 2), null, 'no run on Saturday')
 })
 
 test('usual test counts round to tens from 200 up', () => {

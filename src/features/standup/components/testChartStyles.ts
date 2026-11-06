@@ -69,6 +69,18 @@ export const testChartStyles = (theme: Theme) => ({
     stroke: CHART_PAPER, strokeWidth: 3, strokeLinejoin: 'round', paintOrder: 'stroke', pointerEvents: 'none',
   },
   '& .tests-lane-reading-fewer': { fill: 'var(--stratakit-color-text-attention-base)', fontWeight: 700 },
+  '& .tests-cal-cell': { cursor: 'pointer' },
+  '& .tests-cal-cell:hover': { stroke: CHART_TEXT_PRIMARY, strokeWidth: 1.5 },
+  '& .tests-cal-ok': { fill: 'var(--stratakit-color-bg-mono-muted)' },
+  '& .tests-cal-below': { fill: ATTENTION },
+  '& .tests-cal-sharp': { fill: 'var(--stratakit-color-bg-critical-base)' },
+  // Its hatch is a pattern fill, set on the element.
+  '& .tests-cal-fewer': { stroke: ATTENTION, strokeWidth: 1 },
+  '& .tests-cal-hatch-bg': { fill: 'var(--stratakit-color-bg-attention-muted)' },
+  '& .tests-cal-hatch': { stroke: ATTENTION, strokeWidth: 2 },
+  '& .tests-cal-miss': { fill: 'none', stroke: 'var(--stratakit-color-border-neutral-base)', strokeDasharray: '2 2' },
+  '& .tests-cal-today': { fill: 'none', stroke: 'var(--stratakit-color-border-accent-base)', strokeDasharray: '2 2' },
+  '& .tests-cal-selected, & .tests-cal-selected:hover': { stroke: 'var(--stratakit-color-border-accent-strong)', strokeWidth: 2.5 },
   // applyStyles is typed as emotion's CSSObject, which sx doesn't accept as is.
   ...(theme.applyStyles('dark', {
     '& .tests-weekend': { opacity: 0.06 },

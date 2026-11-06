@@ -14,6 +14,9 @@ export const CRITICAL_TEXT_COLOR = 'var(--stratakit-color-text-critical-base)'
 export const TEST_TILE_GRID_COLUMNS = 'repeat(auto-fill, minmax(max(240px, calc((100% - 30px) / 4)), 1fr))'
 /** Below this page width, the Changes panel moves under the charts. */
 export const TESTS_PANEL_STACK_QUERY = '@container (max-width: 900px)'
+/** The Rows and Calendar views share a label column, and fade the pipelines outside the focus to this opacity. */
+export const TEST_ROW_LABEL_WIDTH = 150
+export const TEST_ROW_DIMMED_OPACITY = 0.4
 
 type StatusPresentation = {
   icon: string

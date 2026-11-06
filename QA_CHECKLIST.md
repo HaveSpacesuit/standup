@@ -807,12 +807,13 @@ Prepare data that exercises both populated and empty states:
       and Refresh; Refresh spins while loading and is disabled until a PAT and a pipeline exist.
 - [ ] Verify the intro line names the lookback days, and "How to read this chart" explains the
       executed-tests ratio and the log scale, plus dashed gaps (Overlay) or the usual band, exception
-      colors, hatching, and the tests-ran lane (Rows).
+      colors, hatching, and the tests-ran lane (Rows); in Calendar it reads "How to read this
+      calendar" and explains the cell colors, hatching, and outlines.
 - [ ] Verify the empty state points to Test options when no pipeline is configured.
 - [ ] Verify the toolbar shows "N pipelines"; hovering or focusing it lists each pipeline's status.
 - [ ] Verify the View toggle appears only once a PAT and a pipeline exist, opens on Rows, and
-      switching to Overlay changes the chart, the intro line, "How to read this chart", and the
-      loading skeleton.
+      switching to Overlay or Calendar changes the chart, the intro line, "How to read this chart",
+      and the loading skeleton.
 
 ### Health strip
 
@@ -869,6 +870,28 @@ Prepare data that exercises both populated and empty states:
       is focused.
 - [ ] With daily Average results on, verify a multi-run day's tooltip says it has no single run.
 - [ ] Verify the chart is readable in dark mode, including the third (violet) series.
+
+### Calendar view
+
+- [ ] Verify one row of day cells per pipeline, with the same row labels as Rows; usual days are
+      neutral, below-usual days amber, sharp drops red, and fewer-tests days hatched amber.
+- [ ] On a day with several runs, verify the cell takes the worst one (a sharp drop outranks fewer
+      tests, which outranks below usual) and its tooltip says "worst of N runs".
+- [ ] Verify weekends are narrower and empty for pipelines that never run on weekends, and get
+      dashed "no run" outlines for one that does.
+- [ ] Verify a weekday without a run has a dashed gray outline, today has a dashed accent outline
+      until the pipeline reports (a pipeline with no recent runs shows today as missed), and the
+      first day of the window never shows a "no run" outline.
+- [ ] Verify the selected team's sprint names and lines run along the top with Mondays dated
+      beneath them, and a sprint that starts midweek doesn't strike through a date.
+- [ ] Hover a cell and verify the tooltip shows the day, pipeline, the run's class, its pass rate and
+      counts ("(usually ~N)" when fewer tests ran), any changes, and "Click for run details".
+- [ ] Click a cell and verify run details open for that day's worst run and the cell is outlined;
+      click it again and verify they close. Select a change and verify its day's cell is outlined.
+- [ ] Click a row label (or tile) and verify the other rows fade; click again or press Esc to clear.
+- [ ] Verify the key below the calendar names every cell, and the loading skeleton matches the
+      calendar's rows, cell sizes, and weekend gaps.
+- [ ] Verify the cells, hatching, and outlines are readable in light and dark mode.
 
 ### Changes panel and run details
 

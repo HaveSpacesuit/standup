@@ -5,16 +5,26 @@ import { AppTooltip as Tooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
 import { TEST_GAP_DAYS } from '../utils/testHealth'
 
-type TestsIntroProps = { lookbackDays: number; daily: boolean; view?: 'rows' | 'overlay' }
+type TestsIntroProps = { lookbackDays: number; daily: boolean; view?: 'rows' | 'overlay' | 'calendar' }
 
 const UNRUN_RESULTS = "Skipped, NotImpacted, and other unrun results don't count."
 
 function testsIntroText({ lookbackDays, daily, view = 'overlay' }: TestsIntroProps): string {
   if (view === 'rows') return `One row per pipeline · the shaded band is its usual range · last ${lookbackDays} days`
+  if (view === 'calendar') return `One cell per day, colored by its worst run · last ${lookbackDays} days`
   return `Share of executed tests that passed ${daily ? 'each day' : 'in each run'} · last ${lookbackDays} days`
 }
 
 function testsHowToLines({ daily, view = 'overlay' }: Pick<TestsIntroProps, 'daily' | 'view'>): string[] {
+  if (view === 'calendar') {
+    return [
+      `Each cell is one pipeline's day (local time), colored by its worst run. Pass rates are passed ÷ executed tests. ${UNRUN_RESULTS}`,
+      'Gray is usual, amber is below usual, red is a sharp drop (about 4× the usual failures), and hatched amber ran fewer tests than usual.',
+      'A dashed gray outline is a day without a run, and an accent one is today before its first run.',
+      'Weekend cells are narrower, and outlined only for pipelines that run on weekends.',
+      "Hover a cell for that day's results; click it to see its worst run in run details.",
+    ]
+  }
   if (view === 'rows') {
     return [
       `Each point is one run: passed ÷ executed tests. ${UNRUN_RESULTS}`,
@@ -37,13 +47,15 @@ function testsHowToLines({ daily, view = 'overlay' }: Pick<TestsIntroProps, 'dai
   ]
 }
 
-/** One line on what the chart shows, with the method behind a "How to read this chart" tip. */
+/** One line on what the view shows, with the method behind a "How to read this chart" (or calendar) tip. */
 export function TestsIntro(props: TestsIntroProps) {
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1, flexShrink: 0 }}>
       <Typography variant="body-sm" color="text.secondary">{testsIntroText(props)}</Typography>
       <Tooltip title={<TipLines lines={testsHowToLines(props)} />} describeChild>
-        <Button size="small" variant="text" startIcon={<Icon href={svgInfo} />}>How to read this chart</Button>
+        <Button size="small" variant="text" startIcon={<Icon href={svgInfo} />}>
+          How to read this {props.view === 'calendar' ? 'calendar' : 'chart'}
+        </Button>
       </Tooltip>
     </Box>
   )

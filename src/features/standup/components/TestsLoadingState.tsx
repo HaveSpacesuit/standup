@@ -7,7 +7,7 @@ import { PASS_RATE_TICKS, passRatePosition } from '../utils/testHealth'
 type TestsLoadingStateProps = {
   pipelineCount: number
   lookbackDays: number
-  view?: 'rows' | 'overlay'
+  view?: 'rows' | 'overlay' | 'calendar'
 }
 
 const CHART_HEIGHT = 480
@@ -20,6 +20,11 @@ const ROW_HEIGHT = 140
 const ROW_PLOT_HEIGHT = 92
 const ROW_LANE_HEIGHT = 18
 const LANE_BAR_HEIGHTS = [86, 84, 87, 85, 86, 83, 87, 86, 84, 85, 87, 86, 85, 84, 86, 87, 85, 86]
+// Matches the Calendar view: rows as tall as their labels, with 40px weekday cells and narrower, empty weekends.
+const CALENDAR_ROW_HEIGHT = 98
+const CALENDAR_CELL_HEIGHT = 40
+const CALENDAR_DAY_WEIGHTS = [1, 1, 1, 1, 1, 0.4, 0.4]
+const CALENDAR_WORKING_DAYS = 5
 const TILE_NAME_WIDTHS = [44, 60, 36, 52]
 
 // Typical pass-rate shapes so the placeholder hugs the top of the chart like real data.
@@ -102,7 +107,9 @@ export function TestsLoadingState({ pipelineCount, lookbackDays, view = 'overlay
         ))}
       </Box>
 
-      {view === 'rows' ? <RowsSkeleton pipelineCount={pipelineCount} /> : <OverlaySkeleton pipelineCount={pipelineCount} />}
+      {view === 'rows' ? <RowsSkeleton pipelineCount={pipelineCount} />
+        : view === 'calendar' ? <CalendarSkeleton pipelineCount={pipelineCount} lookbackDays={lookbackDays} />
+          : <OverlaySkeleton pipelineCount={pipelineCount} />}
     </Box>
   )
 }
@@ -113,6 +120,17 @@ const tracePulseSx = {
   '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
 } as const
 
+function RowLabelSkeleton({ index, height }: { index: number; height: number }) {
+  return (
+    <Box sx={{ height, p: '10px 10px 8px 12px', borderTop: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      <Skeleton variant="text" width={TILE_NAME_WIDTHS[index % TILE_NAME_WIDTHS.length]} height={18} />
+      <Skeleton variant="text" width={64} height={16} />
+      <Skeleton variant="text" width={60} height={28} />
+      <Skeleton variant="text" width={52} height={14} />
+    </Box>
+  )
+}
+
 /** The Rows view: a label column and one short plot per pipeline, each with its usual band, a trace, and a tests-ran lane. */
 function RowsSkeleton({ pipelineCount }: { pipelineCount: number }) {
   const rowCount = Math.min(Math.max(pipelineCount, 1), MAX_ROWS)
@@ -122,12 +140,7 @@ function RowsSkeleton({ pipelineCount }: { pipelineCount: number }) {
       <Box sx={{ height: 24 }} />
       {Array.from({ length: rowCount }).map((_, index) => (
         <Fragment key={`tests-loading-row-${index}`}>
-          <Box sx={{ height: ROW_HEIGHT, p: '10px 10px 8px 12px', borderTop: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-            <Skeleton variant="text" width={TILE_NAME_WIDTHS[index % TILE_NAME_WIDTHS.length]} height={18} />
-            <Skeleton variant="text" width={64} height={16} />
-            <Skeleton variant="text" width={60} height={28} />
-            <Skeleton variant="text" width={52} height={14} />
-          </Box>
+          <RowLabelSkeleton index={index} height={ROW_HEIGHT} />
           <Box sx={{ height: ROW_HEIGHT, borderTop: 1, borderColor: 'divider', position: 'relative', pl: 5, pr: 6.75, pt: 1.75, pb: 1 }}>
             <Box sx={{ position: 'relative', height: ROW_PLOT_HEIGHT }}>
               <Skeleton variant="rectangular" sx={{ position: 'absolute', left: 0, right: 0, top: '12%', height: '16%', opacity: 0.6 }} />
@@ -166,6 +179,37 @@ function RowsSkeleton({ pipelineCount }: { pipelineCount: number }) {
           <Skeleton key={`tests-loading-rows-tick-${index}`} variant="text" width={40} height={16} />
         ))}
       </Box>
+    </Box>
+  )
+}
+
+/** The Calendar view: a label column and a row of pulsing day cells per pipeline, with narrower weekends. */
+function CalendarSkeleton({ pipelineCount, lookbackDays }: { pipelineCount: number; lookbackDays: number }) {
+  const rowCount = Math.min(Math.max(pipelineCount, 1), MAX_ROWS)
+  const weeks = Math.max(1, Math.round(lookbackDays / 7))
+  const days = Array.from({ length: weeks }).flatMap(() => CALENDAR_DAY_WEIGHTS)
+  return (
+    <Box aria-hidden="true" data-testid="tests-loading-calendar" sx={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)' }}>
+      <Box />
+      <Box sx={{ height: 36 }} />
+      {Array.from({ length: rowCount }).map((_, index) => (
+        <Fragment key={`tests-loading-calendar-row-${index}`}>
+          <RowLabelSkeleton index={index} height={CALENDAR_ROW_HEIGHT} />
+          <Box sx={{ height: CALENDAR_ROW_HEIGHT, borderTop: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: '2px', px: '6px' }}>
+            {days.map((weight, day) => (
+              day % CALENDAR_DAY_WEIGHTS.length < CALENDAR_WORKING_DAYS ? (
+                <Skeleton
+                  key={`tests-loading-calendar-cell-${day}`}
+                  data-testid="tests-loading-calendar-cell"
+                  variant="rounded"
+                  height={CALENDAR_CELL_HEIGHT}
+                  sx={{ flex: weight, minWidth: 0, borderRadius: '2px' }}
+                />
+              ) : <Box key={`tests-loading-calendar-cell-${day}`} sx={{ flex: weight, minWidth: 0 }} />
+            ))}
+          </Box>
+        </Fragment>
+      ))}
     </Box>
   )
 }

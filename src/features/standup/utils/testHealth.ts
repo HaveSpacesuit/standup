@@ -294,6 +294,21 @@ export function fewestTestRunOn(health: Pick<TestPipelineHealth, 'runs'>, day: n
   return fewest
 }
 
+const RUN_CLASS_RANK: Record<TestRunClass, number> = { ok: 0, below: 1, fewer: 2, sharp: 3 }
+
+/**
+ * The day's most serious run: a sharp drop, then fewer tests, then below usual, with the lowest pass rate (the earliest)
+ * on a tie. When every run is usual, that's the lowest.
+ */
+export function worstTestRunOn(health: Pick<TestPipelineHealth, 'runs'>, day: number): TestRun | null {
+  let worst: TestRun | null = null
+  for (const run of health.runs) {
+    if (run.day !== day) continue
+    if (!worst || RUN_CLASS_RANK[run.cls] > RUN_CLASS_RANK[worst.cls] || (run.cls === worst.cls && run.rate < worst.rate)) worst = run
+  }
+  return worst
+}
+
 /** "98.6–99.4%" */
 export function formatTestUsualRange(health: Pick<TestPipelineHealth, 'usualLow' | 'usualHigh'>): string {
   const low = formatPassRate(health.usualLow)
