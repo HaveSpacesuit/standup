@@ -32,7 +32,7 @@ const pipeline = (kind: 'build' | 'release', stageName = 'E2E') => ({
   ...(kind === 'release' ? { stageDefinitionId: 31 } : {}),
 })
 
-test('failing tests for a build run are read by pipeline and stage, failed outcomes only, one per test', async () => {
+test('failing tests for a build run are read by pipeline and stage, failed and aborted only, one per test', async () => {
   const client = fakeClient(() => [
     { automatedTestName: 'Suite.opens a folder', testCaseTitle: 'opens a folder', outcome: 'Failed' },
     { automatedTestName: 'Suite.opens a folder', testCaseTitle: 'opens a folder', outcome: 'Failed' },
@@ -55,10 +55,11 @@ test('failing tests for a build run are read by pipeline and stage, failed outco
   const [request] = client.requests
   assert.equal(request.host, 'vstmr.dev.azure.com')
   assert.equal(request.path, '/Example%20Project/_apis/testresults/resultsbypipeline')
+  // Azure DevOps refuses any other outcome here with HTTP 409.
   assert.deepEqual(request.params, {
     pipelineId: 2914,
     stageName: 'E2E',
-    outcomes: 'Failed,Aborted,Error,Timeout,Blocked,Inconclusive,Warning',
+    outcomes: 'Failed,Aborted',
     '$top': FAILING_TESTS_LIMIT,
     'api-version': '7.1-preview.1',
   })
@@ -70,21 +71,79 @@ test('a build pipeline tracking every stage reads failing tests without a stage 
   assert.equal(client.requests[0].params!.stageName, undefined)
 })
 
-test('failing tests for a release run are read by release and stage instance; a full page is marked truncated', async () => {
-  const results = Array.from({ length: FAILING_TESTS_LIMIT }, (_, index) => ({ automatedTestName: `Suite.test ${index}`, outcome: 'Failed' }))
-  const client = fakeClient(() => ({ value: results }))
+const releaseTestRuns = (groups: Array<{ id: number | string; counts: Record<string, number> }>) => ({
+  groupByField: 'TestRun',
+  resultsForGroup: groups.map(({ id, counts }) => ({
+    groupByValue: { id, name: 'E2E tests (QA)' },
+    resultsCountByOutcome: Object.fromEntries(Object.entries(counts).map(([outcome, count]) => [outcome, { outcome: outcome[0].toLowerCase() + outcome.slice(1), count }])),
+    results: [],
+  })),
+})
+
+test('failing tests for a release run are read from the stage instance\'s test runs that have failures', async () => {
+  const client = fakeClient((options) => {
+    if (options.path.endsWith('/_apis/testresults/resultdetailsbyrelease')) {
+      return releaseTestRuns([
+        { id: 501, counts: { Passed: 619, Failed: 2, NotExecuted: 243 } },
+        { id: '502', counts: { Passed: 40, NotExecuted: 3 } },
+        { id: 503, counts: { Passed: 12, Timeout: 1 } },
+      ])
+    }
+    if (options.path.endsWith('/_apis/testresults/runs/501/results')) {
+      return { count: 2, value: [
+        { automatedTestName: 'Suite.opens a folder', testCaseTitle: 'opens a folder', outcome: 'Failed' },
+        { automatedTestName: 'Suite.uploads a file', outcome: 'Failed' },
+      ] }
+    }
+    if (options.path.endsWith('/_apis/testresults/runs/503/results')) {
+      return { count: 1, value: [{ automatedTestName: 'Suite.opens a folder', testCaseTitle: 'opens a folder', outcome: 'Timeout' }] }
+    }
+    throw new Error(`Unexpected request: ${options.path}`)
+  })
+  const failing = await loadFailingTests(client, pipeline('release'), { runId: 88, environmentId: 412 })
+
+  assert.deepEqual(failing, {
+    tests: [
+      { key: 'Suite.opens a folder', name: 'opens a folder', outcome: 'Failed' },
+      { key: 'Suite.uploads a file', name: 'Suite.uploads a file', outcome: 'Failed' },
+    ],
+    truncated: false,
+  })
+  const [summary, first, second] = client.requests
+  assert.ok(client.requests.every((request) => request.host === 'vstmr.dev.azure.com'))
+  assert.equal(summary.path, '/Example%20Project/_apis/testresults/resultdetailsbyrelease')
+  assert.deepEqual(summary.params, {
+    releaseId: 88, releaseEnvId: 412, groupBy: 'TestRun', shouldIncludeResults: false, 'api-version': '7.1-preview.1',
+  })
+  assert.deepEqual(first.params, {
+    outcomes: 'Failed,Aborted,Error,Timeout,Blocked,Inconclusive,Warning', '$top': FAILING_TESTS_LIMIT, 'api-version': '7.1-preview.1',
+  })
+  assert.equal(second.path, '/Example%20Project/_apis/testresults/runs/503/results', 'a run without failures is skipped')
+  assert.equal(second.params!['$top'], FAILING_TESTS_LIMIT - 2, 'later runs read only what is left of the limit')
+  assert.equal(client.requests.length, 3)
+})
+
+test('release test runs stop being read once the limit is reached, and the list is marked truncated', async () => {
+  const client = fakeClient((options) => {
+    if (options.path.endsWith('/_apis/testresults/resultdetailsbyrelease')) {
+      return releaseTestRuns([{ id: 501, counts: { Failed: 250 } }, { id: 502, counts: { Failed: 3 } }])
+    }
+    return { value: Array.from({ length: FAILING_TESTS_LIMIT }, (_, index) => ({ automatedTestName: `Suite.test ${index}`, outcome: 'Failed' })) }
+  })
   const failing = await loadFailingTests(client, pipeline('release'), { runId: 88, environmentId: 412 })
 
   assert.equal(failing.tests.length, FAILING_TESTS_LIMIT)
   assert.equal(failing.truncated, true)
-  const [request] = client.requests
-  assert.equal(request.path, '/Example%20Project/_apis/testresults/resultsbyrelease')
-  assert.equal(request.params!.releaseId, 88)
-  assert.equal(request.params!.releaseEnvid, 412)
-  assert.equal(request.params!.pipelineId, undefined)
+  assert.equal(client.requests.filter((request) => request.path.includes('/_apis/testresults/runs/')).length, 1)
+})
 
+test('a release run without a stage instance or failing test runs reads no results', async () => {
+  const client = fakeClient(() => releaseTestRuns([{ id: 501, counts: { Passed: 10, NotExecuted: 4 } }]))
   await assert.rejects(loadFailingTests(client, pipeline('release'), { runId: 88 }), /no stage to read failing tests from/)
-  assert.equal(client.requests.length, 1, 'nothing is requested without a stage instance')
+  assert.equal(client.requests.length, 0, 'nothing is requested without a stage instance')
+
+  assert.deepEqual(await loadFailingTests(client, pipeline('release'), { runId: 88, environmentId: 412 }), { tests: [], truncated: false })
+  assert.equal(client.requests.length, 1)
 })
 
 test('release points keep their stage instance, so failing tests can be read later', async () => {
