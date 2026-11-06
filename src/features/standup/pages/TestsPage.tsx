@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Box, IconButton, Typography } from '@mui/material'
+import { Alert, Box, CircularProgress, IconButton, Typography } from '@mui/material'
+import type { Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgReport from '@stratakit/icons/report.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import { AdoHttpClient } from '../../../ado/httpClient'
 import { loadTestPoints, type TestPoint } from '../../../ado/testPipelinesApi'
+import { AppTooltip as Tooltip } from '../components/AppTooltip'
 import { PageToolbar } from '../components/PageToolbar'
+import { SyncStatus } from '../components/SyncStatus'
 import { TestPassChart, type TestSeries } from '../components/TestPassChart'
+import { TestsIntro } from '../components/TestsIntro'
 import { TestsLoadingState } from '../components/TestsLoadingState'
 import { TestsSettingsDialog } from '../components/TestsSettingsDialog'
 import {
@@ -17,7 +21,16 @@ import {
   saveTestPassRateFilter, type TestPassRateFilter,
   DEFAULT_TEST_DAILY_OPTIONS, groupTestPointsByDay, loadTestDailyOptions, saveTestDailyOptions, type TestDailyOptions,
 } from '../utils/testPipelines'
+import { testSeriesStyle } from '../utils/testHealth'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
+
+// StrataKit has no categorical palette, so the third series color is a violet tuned for each color scheme.
+const pageSx = (theme: Theme) => ({
+  flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2,
+  '--tests-series-violet': 'oklch(55% 0.16 305)',
+  // applyStyles is typed as emotion's CSSObject, which sx doesn't accept as is.
+  ...(theme.applyStyles('dark', { '--tests-series-violet': 'oklch(72% 0.13 305)' }) as object),
+})
 
 type TestsPageProps = { pat: string | null; defaultOrg: string; defaultProject: string }
 
@@ -62,15 +75,18 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
   const [series, setSeries] = useState<Array<{ pipeline: TestPipeline; points: TestPoint[] }>>([])
   const [range, setRange] = useState<{ start: number; end: number } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [syncedAt, setSyncedAt] = useState<number | null>(null)
   const [refreshNonce, setRefreshNonce] = useState(0)
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
-  const filteredSeries = useMemo<TestSeries[]>(
-    () => series.map((entry) => ({
+  const filteredSeries = useMemo<TestSeries[]>(() => {
+    // Styles follow the pipelines' order, so a pipeline keeps its color when another fails to load.
+    const order = new Map(pipelines.map((pipeline, index) => [pipeline.id, index]))
+    return series.map((entry) => ({
       ...entry,
+      ...testSeriesStyle(order.get(entry.pipeline.id) ?? 0),
       points: groupTestPointsByDay(filterTestPointsByPassRate(entry.points, passRateFilter), dailyOptions),
-    })),
-    [series, passRateFilter, dailyOptions],
-  )
+    }))
+  }, [series, pipelines, passRateFilter, dailyOptions])
 
   const updateDailyOptions = (next: TestDailyOptions) => {
     try {
@@ -142,6 +158,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
       if (controller.signal.aborted) return
       setSeries(results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []))
       setRange({ start: new Date(testLookbackStart(lookbackDays, fetchedAt)).getTime(), end: fetchedAt })
+      setSyncedAt(Date.now())
       const failures = results.flatMap((result, index) =>
         result.status === 'rejected'
           ? [`${pipelines[index].name}: ${testPipelineErrorMessage(result.reason)}`]
@@ -153,24 +170,39 @@ export function TestsPage({ pat, defaultOrg, defaultProject }: TestsPageProps) {
     return () => controller.abort()
   }, [client, pipelines, lookbackDays, refreshNonce])
 
+  const canLoad = Boolean(pat) && pipelines.length > 0
+
   return (
     <>
-      <PageToolbar iconHref={svgReport} title="Tests">
+      <PageToolbar iconHref={svgReport} title="Tests" isPageTitle wrap>
         <Box sx={{ flex: 1 }} />
-        <IconButton size="small" label="Test options" onClick={() => setSettingsOpen(true)}>
-          <Icon href={svgSettings} />
-        </IconButton>
-        <IconButton size="small" aria-label="Refresh tests" disabled={loading || !pat || pipelines.length === 0} onClick={() => setRefreshNonce((value) => value + 1)}>
-          <Icon href={svgCloudSync} />
-        </IconButton>
+        <Tooltip title="Test options">
+          <span>
+            <IconButton size="small" aria-label="Test options" onClick={() => setSettingsOpen(true)}>
+              <Icon href={svgSettings} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <SyncStatus syncedAt={canLoad ? syncedAt : null} isLoading={canLoad && loading} />
+        <Tooltip title="Refresh">
+          <span>
+            <IconButton
+              size="small"
+              aria-label="Refresh"
+              aria-busy={loading || undefined}
+              disabled={loading || !canLoad}
+              onClick={() => setRefreshNonce((value) => value + 1)}
+            >
+              {loading && canLoad
+                ? <CircularProgress size={16} aria-hidden="true" />
+                : <Icon href={svgCloudSync} />}
+            </IconButton>
+          </span>
+        </Tooltip>
       </PageToolbar>
 
-      <Box component="main" sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Typography render={<h1 />} variant="headline-sm">E2E test pass rates</Typography>
-        <Typography variant="body-sm" color="text.secondary">
-          Passed / executed test results (excluding skipped and NotImpacted), per completed build or release stage.
-          {' '}{dailyOptions.enabled ? 'Each point is one daily result per pipeline (local time).' : 'Each point is one run.'} The vertical scale expands differences near 100%.
-        </Typography>
+      <Box component="main" sx={pageSx}>
+        {canLoad && <TestsIntro lookbackDays={lookbackDays} daily={dailyOptions.enabled} />}
         {error && <Alert severity="error">{error}</Alert>}
         {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
         {passRateFilterStorageError && <Alert severity="error">{passRateFilterStorageError}</Alert>}

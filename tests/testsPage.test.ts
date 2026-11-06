@@ -73,6 +73,16 @@ test('the header offers Test options and the empty state points to it', async (t
   assert.match(host.textContent!, /Add a build or release pipeline in Test options to start tracking test pass rates\./)
 })
 
+test('the toolbar holds the only page heading and a Refresh that waits for a PAT and pipelines', async (t) => {
+  const host = await render(t)
+
+  assert.deepEqual([...host.querySelectorAll('h1')].map((heading) => heading.textContent), ['Tests'])
+  assert.doesNotMatch(host.textContent!, /E2E test pass rates/)
+  assert.equal(button(host, 'Refresh')?.disabled, true)
+  assert.equal(button(host, 'Refresh tests'), null)
+  assert.doesNotMatch(host.textContent!, /How to read this chart/, 'the intro waits until there is something to read')
+})
+
 test('Test options opens a dialog and tab list with the same name, and Close dismisses it', async (t) => {
   const host = await render(t)
   assert.equal(dialog(), null)
