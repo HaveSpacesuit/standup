@@ -798,7 +798,28 @@ Prepare data that exercises both populated and empty states:
 - [ ] Switch to another page and back; verify the loaded bugs reappear without a new query until
       Refresh is used.
 
-## 10. Persistence and data isolation
+## 10. Tests page
+
+### Page and header
+
+- [ ] Verify the toolbar shows the Tests title (the page's only heading), Test options, "Synced …",
+      and Refresh; Refresh spins while loading and is disabled until a PAT and a pipeline exist.
+- [ ] Verify the intro line names the lookback days, and "How to read this chart" explains the
+      executed-tests ratio, the log scale, and dashed gaps.
+- [ ] Verify the empty state points to Test options when no pipeline is configured.
+
+### Overlay chart
+
+- [ ] Verify each pipeline has its own color and marker shape, and no line is green or red.
+- [ ] Verify the chips above the chart show the short name and stage; clicking one hides its line
+      (dashed chip) and clicking again restores it.
+- [ ] Verify runs are joined by straight lines and gaps of 4 or more days are dashed.
+- [ ] Verify the x-axis marks Mondays and weekends are shaded.
+- [ ] Hover near (not exactly on) a point and verify the tooltip snaps to it, leads with
+      "N failed of M", and clicking opens the run in Azure DevOps in a new tab.
+- [ ] Verify the chart is readable in dark mode, including the third (violet) series.
+
+## 11. Persistence and data isolation
 
 - [ ] Reload after every major preference change and verify expected restoration.
 - [ ] Verify selected team, view, quick filters, member filter, board view, hidden tags, QA options,
@@ -814,7 +835,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Open the app in two tabs, change settings/team in one, and verify behavior is safe and
       consistent when the other tab is refreshed.
 
-## 11. Error handling and recovery
+## 12. Error handling and recovery
 
 - [ ] Disconnect the network before initial load; verify a clear recoverable error.
 - [ ] Disconnect during a refresh or team switch; verify prior usable data is not silently mislabeled
@@ -831,7 +852,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify aborting or superseding a request does not show a misleading error toast.
 - [ ] Verify errors are visible in dark mode and accessible to screen readers.
 
-## 12. Accessibility and keyboard QA
+## 13. Accessibility and keyboard QA
 
 - [ ] Complete the primary workflow using keyboard only.
 - [ ] Verify logical tab order through navigation, toolbar controls, cards, dialogs, and forms.
@@ -848,7 +869,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Test at 200% zoom and with browser text-size increases without losing critical controls.
 - [ ] Test with a screen reader available in the supported browser.
 
-## 13. Responsive, browser, and visual QA
+## 14. Responsive, browser, and visual QA
 
 - [ ] Test current supported Chromium, Firefox, and Safari/Edge combinations.
 - [ ] Test desktop, tablet, and narrow mobile widths.
@@ -865,7 +886,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Check for visual regressions: clipped text, overlapping controls, incorrect z-index, broken
       focus rings, low contrast, and layout shifts.
 
-## 14. Performance and reliability
+## 15. Performance and reliability
 
 - [ ] Record cold-load time and time to first usable shell.
 - [ ] Record time from PAT/team selection to populated board with representative data.
@@ -877,7 +898,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify browser back/forward and reload do not trigger request loops.
 - [ ] Verify API throttling is handled without an unbounded retry loop.
 
-## 15. Security and privacy
+## 16. Security and privacy
 
 - [ ] Confirm PAT input is always masked.
 - [ ] Confirm PAT is never rendered in DOM text, URLs, downloaded team exports, error messages, or
@@ -893,7 +914,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] Verify a cleared PAT cannot be used by a pending or newly opened request.
 - [ ] Verify browser storage contains only the intended local application data.
 
-## 16. Regression exit criteria
+## 17. Regression exit criteria
 
 - [ ] Release-blocking smoke test passes.
 - [ ] All changed-feature checks pass.
