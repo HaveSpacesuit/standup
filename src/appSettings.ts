@@ -61,10 +61,6 @@ function parseStoredTeamProfile(value: unknown): TeamProfile | null {
   }
 }
 
-export function loadTeamProfiles(): TeamProfile[] {
-  return loadTeamProfilesWithRecovery().profiles
-}
-
 export function loadTeamProfilesWithRecovery(): { profiles: TeamProfile[]; unreadable: boolean } {
   const stored = localStorage.getItem(TEAM_PROFILES_STORAGE_KEY)
   if (stored === null) {

@@ -80,13 +80,3 @@ export async function fetchProjectWorkItemTypeInfo(
     statesByType,
   }
 }
-
-/** @deprecated Use fetchProjectWorkItemTypeInfo instead */
-export async function fetchProjectWorkItemStates(
-  client: AdoRequestClient,
-  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
-  signal?: AbortSignal,
-): Promise<ProjectWorkItemState[]> {
-  const info = await fetchProjectWorkItemTypeInfo(client, team, signal)
-  return info.states
-}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { loadTeamProfiles, loadTeamProfilesWithRecovery, TEAM_PROFILES_STORAGE_KEY } from '../src/appSettings.ts'
+import { loadTeamProfilesWithRecovery, TEAM_PROFILES_STORAGE_KEY } from '../src/appSettings.ts'
 import { parseStoredQaOptions, parseStoredQaOptionsWithRecovery } from '../src/features/standup/utils/qaOptions.ts'
 
 const storage = new Map<string, string>()
@@ -26,7 +26,6 @@ for (const raw of ['{bad', '', 'null', '42', '"settings"']) {
   test(`malformed settings (${JSON.stringify(raw)}) report recovery and retain the original data`, () => {
     storage.set(TEAM_PROFILES_STORAGE_KEY, raw)
     assert.deepEqual(loadTeamProfilesWithRecovery(), { profiles: [], unreadable: true })
-    assert.deepEqual(loadTeamProfiles(), [])
     assert.equal(storage.get(TEAM_PROFILES_STORAGE_KEY), raw)
     assert.deepEqual(parseStoredQaOptionsWithRecovery(raw), { options: parseStoredQaOptions(null), unreadable: true })
   })

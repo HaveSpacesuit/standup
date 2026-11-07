@@ -18,7 +18,7 @@ import {
   isPullRequestClosed,
   REQUIRED_APPROVALS,
 } from './developmentCardDisplay'
-import type { WorkItemCardHighlightState } from './WorkItemCard'
+import type { WorkItemCardHighlightState } from './workItemCardDisplay'
 
 export const IDLE_ATTENTION_DAYS = 3
 
@@ -34,7 +34,7 @@ export type AttentionFacet = {
 }
 
 /** Ordered as the Needs attention bar lists them. */
-export const ATTENTION_FACETS: readonly AttentionFacet[] = [
+const ATTENTION_FACETS: readonly AttentionFacet[] = [
   { key: 'blocked', label: 'Blocked', tone: 'critical', iconHref: svgLock, description: 'Cards in the Blocked column.' },
   {
     key: 'failing',
@@ -95,10 +95,6 @@ const SPRINT_ONLY_FACETS: ReadonlySet<AttentionFacetKey> = new Set(['back', 'add
 
 export const PEOPLE_ATTENTION_FACETS: readonly AttentionFacet[] = ATTENTION_FACETS.filter((facet) => !SPRINT_ONLY_FACETS.has(facet.key))
 export const SPRINT_ATTENTION_FACETS: readonly AttentionFacet[] = ATTENTION_FACETS
-
-export function getAttentionFacet(key: AttentionFacetKey): AttentionFacet {
-  return FACETS_BY_KEY[key]
-}
 
 /** Lane flags, most urgent first; Recently changed is news rather than a problem, and Added mid-sprint has its own lane, so lanes leave them out. */
 export const LANE_FLAG_ORDER: readonly AttentionFacetKey[] = ['blocked', 'failing', 'idle', 'back', 'approval', 'qa', 'ready']

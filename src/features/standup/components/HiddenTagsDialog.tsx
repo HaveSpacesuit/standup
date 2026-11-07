@@ -61,10 +61,9 @@ type HiddenTagsDialogProps = {
   teamIterationsLoading?: boolean
   title?: string
   description?: string
-  actionOptions?: TagRuleAction[]
 }
 
-const DEFAULT_TAG_RULE_ACTION_OPTIONS: TagRuleAction[] = ['Blocked', 'New', 'Active', 'Review', 'Done', 'unlisted']
+const TAG_RULE_ACTION_OPTIONS: TagRuleAction[] = ['Blocked', 'New', 'Active', 'Review', 'Done', 'unlisted']
 
 // Lets assistive technology announce why the stale-done option can be unavailable.
 const STALE_DONE_HELP_ID = 'hide-users-stale-done-help'
@@ -122,7 +121,6 @@ export function HiddenTagsDialog({
   teamIterationsLoading = false,
   title = 'Development options',
   description = 'Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.',
-  actionOptions = DEFAULT_TAG_RULE_ACTION_OPTIONS,
 }: HiddenTagsDialogProps) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
   const orderedRules = useMemo(() => tagRules, [tagRules])
@@ -512,7 +510,7 @@ export function HiddenTagsDialog({
                             onChange(nextRules)
                           }}
                         >
-                          {actionOptions.map((action) => (
+                          {TAG_RULE_ACTION_OPTIONS.map((action) => (
                             <MenuItem key={action} value={action}>
                               {action === 'unlisted' ? 'Unlisted' : action}
                             </MenuItem>

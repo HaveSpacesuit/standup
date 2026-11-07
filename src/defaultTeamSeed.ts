@@ -34,10 +34,6 @@ function seedDefaultTeamProfiles(): TeamProfile[] {
 }
 
 /** Seeds bundled team templates only on first run; any stored value (including an empty list) is left alone. */
-export function loadTeamProfilesWithDefaults(): TeamProfile[] {
-  return loadTeamProfilesWithDefaultsAndRecovery().profiles
-}
-
 export function loadTeamProfilesWithDefaultsAndRecovery(): { profiles: TeamProfile[]; unreadable: boolean } {
   if (localStorage.getItem(TEAM_PROFILES_STORAGE_KEY) !== null) {
     return loadTeamProfilesWithRecovery()

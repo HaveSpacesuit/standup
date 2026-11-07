@@ -28,7 +28,6 @@ const { StandupToolbar } = await server.ssrLoadModule('/src/features/standup/com
 const { QualityAssuranceToolbar } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceToolbar.tsx')
 const { QualityAssurancePage } = await server.ssrLoadModule('/src/features/standup/pages/QualityAssurancePage.tsx')
 const { TeamToolbarControls } = await server.ssrLoadModule('/src/features/standup/components/TeamToolbarControls.tsx')
-const { TeamSelectorCard } = await server.ssrLoadModule('/src/features/standup/components/TeamSelectorCard.tsx')
 const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoardGrid.tsx')
 const { getBoardLayout } = await server.ssrLoadModule('/src/features/standup/utils/boardLayout.ts')
 const { KanbanBoard } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoard.tsx')
@@ -123,13 +122,6 @@ test('team and member selectors have stable accessible names', () => {
     teamManagementUrl: '',
   }
   assert.match(render(createElement(TeamToolbarControls, teamProps)), /aria-label="Team"/)
-  assert.match(render(createElement(TeamSelectorCard, {
-    teams: [],
-    selectedTeamId: '',
-    onTeamChange: () => {},
-    onRefresh: () => {},
-    refreshDisabled: false,
-  })), /aria-label="Team"/)
   const developmentToolbar = render(createElement(StandupToolbar, {
     patConfigured: false,
     quickFilterInput: '',
@@ -390,21 +382,12 @@ test('team selectors show only the selected display name in the input', () => {
   ]
 
   for (const selectedTeamId of ['first', 'second']) {
-    const selectors = [
-      createElement(TeamToolbarControls, {
-        teamOptions: teams, selectedTeamId, onTeamChange: () => {}, teamManagementUrl: '',
-      }),
-      createElement(TeamSelectorCard, {
-        teams, selectedTeamId, onTeamChange: () => {}, onRefresh: () => {}, refreshDisabled: false,
-      }),
-    ]
-
-    for (const selector of selectors) {
-      const html = render(selector)
-      assert.match(html, /role="combobox"[^>]*>Shared Team<\/div>/)
-      assert.doesNotMatch(html, /first-org|first-project|second-org|second-project/)
-      assert.match(html, new RegExp(`<input[^>]*value="${selectedTeamId}"`))
-    }
+    const html = render(createElement(TeamToolbarControls, {
+      teamOptions: teams, selectedTeamId, onTeamChange: () => {}, teamManagementUrl: '',
+    }))
+    assert.match(html, /role="combobox"[^>]*>Shared Team<\/div>/)
+    assert.doesNotMatch(html, /first-org|first-project|second-org|second-project/)
+    assert.match(html, new RegExp(`<input[^>]*value="${selectedTeamId}"`))
   }
 })
 

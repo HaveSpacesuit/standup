@@ -1,13 +1,8 @@
-import { Typography } from '@mui/material'
 import Box from '@mui/material/Box'
-import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 import { AppTooltip } from './AppTooltip'
 
 type WorkItemTagsProps = {
   tags: string[]
-  sprintName?: string
-  showRolloverIndicator?: boolean
-  rolloverIndicatorColor?: string
 }
 
 type BoardTagBadgeProps = {
@@ -58,8 +53,8 @@ function BoardTagBadge({ label }: BoardTagBadgeProps) {
   )
 }
 
-export function WorkItemTags({ tags, sprintName, showRolloverIndicator = false, rolloverIndicatorColor }: WorkItemTagsProps) {
-  if (tags.length === 0 && !sprintName) {
+export function WorkItemTags({ tags }: WorkItemTagsProps) {
+  if (tags.length === 0) {
     return null
   }
 
@@ -90,32 +85,6 @@ export function WorkItemTags({ tags, sprintName, showRolloverIndicator = false, 
           <BoardTagBadge key={tag} label={tag} />
         ))}
       </Box>
-
-      {sprintName ? (
-        <Box sx={{ ml: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.35, flex: '0 0 auto', color: 'text.secondary', opacity: 0.85 }}>
-          {showRolloverIndicator ? <RolloverSprintIndicator color={rolloverIndicatorColor} /> : null}
-          <Typography
-            variant="body-sm"
-            sx={{
-              fontSize: 10,
-              lineHeight: 1.1,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Box
-              component="span"
-              sx={{
-                '@container (max-width: 210px)': {
-                  display: 'none',
-                },
-              }}
-            >
-              Sprint{' '}
-            </Box>
-            {sprintName}
-          </Typography>
-        </Box>
-      ) : null}
     </Box>
   )
 }
