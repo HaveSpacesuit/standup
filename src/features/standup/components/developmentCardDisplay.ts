@@ -14,8 +14,7 @@ import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getJourneyCaption, type JourneyCaption, type SprintJourney } from '../utils/sprintJourney'
 import { formatDayCount } from '../utils/sprintDates'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
-import { abbreviateState } from './workItemCardDisplay'
-import type { WorkItemCardHighlightState } from './WorkItemCard'
+import { abbreviateState, type WorkItemCardHighlightState } from './workItemCardDisplay'
 
 export const REQUIRED_APPROVALS = 2
 export const TERTIARY_TEXT_COLOR = 'var(--stratakit-color-text-neutral-tertiary)'

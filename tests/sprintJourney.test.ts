@@ -16,7 +16,6 @@ const {
   getSprintDeparture,
   hasMovedBack,
   isBackwardMove,
-  journeyStatusAt,
 } = await server.ssrLoadModule('/src/features/standup/utils/sprintJourney.ts')
 const {
   getRemovedCardStatus,
@@ -155,13 +154,6 @@ test('the hover ghost marks where the card started, or else the farthest column 
     { status: 'Done', label: `In Done · ${short(2)}–${short(3)}` },
   )
   assert.equal(getJourneyGhost(journey([['Active', sprintStart]])), null)
-})
-
-test('a journey answers which column the card was in on any day of the sprint', () => {
-  const value = journey([['New', day(1)], ['Active', day(3)]], day(1))
-  assert.equal(journeyStatusAt(value, day(0)), null)
-  assert.equal(journeyStatusAt(value, day(2)), 'New')
-  assert.equal(journeyStatusAt(value, day(3)), 'Active')
 })
 
 test('sprint lanes put the current sprint first and open, later sprints collapsed, and No sprint last', () => {

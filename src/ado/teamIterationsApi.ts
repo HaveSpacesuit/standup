@@ -210,15 +210,6 @@ export async function fetchIterationWindowInfo(
   }
 }
 
-export async function fetchCurrentIterationInfo(
-  client: AdoRequestClient,
-  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'teamName' | 'iterationPath'>,
-  signal?: AbortSignal,
-): Promise<CurrentIterationInfo | null> {
-  const iterationWindow = await fetchIterationWindowInfo(client, team, signal)
-  return iterationWindow.current
-}
-
 function normalizeTimeFrame(value: string | undefined): IterationTimeFrame {
   const normalized = value?.trim().toLowerCase()
   if (normalized === 'current') {

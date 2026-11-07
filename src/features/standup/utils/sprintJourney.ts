@@ -182,22 +182,6 @@ export function getLastBackMove(journey: SprintJourney): { from: StatusColumn; t
   return isBackwardMove(previous.status, last.status) ? { from: previous.status, to: last.status, at: last.at } : null
 }
 
-/** The column a card was in at `at`, or null before it joined the sprint. */
-export function journeyStatusAt(journey: SprintJourney, at: number): StatusColumn | null {
-  if (journey.addedAt !== null && at < journey.addedAt) {
-    return null
-  }
-
-  let status: StatusColumn = journey.steps[0].status
-  for (const step of journey.steps) {
-    if (step.at > at) {
-      break
-    }
-    status = step.status
-  }
-  return status
-}
-
 function startOfDay(at: number): number {
   const date = new Date(at)
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()

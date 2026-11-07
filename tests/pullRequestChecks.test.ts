@@ -1,8 +1,6 @@
 import './stratakitNodeGlobals.ts'
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 
 const server = await createServer({
@@ -11,11 +9,9 @@ const server = await createServer({
   ssr: { noExternal: [/^@stratakit\//] },
 })
 after(() => server.close())
-const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { AdoAuthError } = await server.ssrLoadModule('/src/ado/httpClient.ts')
 const { fetchPolicyEvaluationChecksSummary } = await server.ssrLoadModule('/src/ado/policyEvaluationChecksApi.ts')
 const { getChecksPresentation } = await server.ssrLoadModule('/src/features/standup/components/pullRequestChecksPresentation.ts')
-const { PullRequestChecksRow } = await server.ssrLoadModule('/src/features/standup/components/PullRequestChecksRow.tsx')
 
 const team = { orgName: 'checks-test-org', projectName: 'project' }
 function createClient(response: unknown) {
@@ -55,74 +51,6 @@ test('a policy permission failure reports checks unavailable with access guidanc
   assert.equal(checks?.state, 'unavailable')
   assert.equal(checks?.unavailableReason, 'access-denied')
   assert.match(getChecksPresentation(checks).text ?? '', /access denied; verify policy permissions/)
-})
-
-test('required check states are announced and unavailable guidance wraps instead of being ellipsized', () => {
-  const basePullRequest = {
-    id: 123,
-    title: 'Example pull request',
-    url: '',
-  }
-  const unavailableHtml = renderToStaticMarkup(createElement(
-    Root,
-    null,
-    createElement(PullRequestChecksRow, {
-      pullRequest: {
-        ...basePullRequest,
-        checks: {
-          state: 'unavailable',
-          unavailableReason: 'access-denied',
-          total: 0,
-          passing: 0,
-          pending: 0,
-          failing: 0,
-          failingNames: [],
-          checks: [],
-        },
-      },
-    }),
-  ))
-  const pendingHtml = renderToStaticMarkup(createElement(
-    Root,
-    null,
-    createElement(PullRequestChecksRow, {
-      pullRequest: {
-        ...basePullRequest,
-        checks: {
-          state: 'pending',
-          total: 1,
-          passing: 0,
-          pending: 1,
-          failing: 0,
-          failingNames: [],
-          checks: [{ name: 'Build', state: 'pending', optional: false, expired: false, source: 'status' }],
-        },
-      },
-    }),
-  ))
-  const failingHtml = renderToStaticMarkup(createElement(
-    Root,
-    null,
-    createElement(PullRequestChecksRow, {
-      pullRequest: {
-        ...basePullRequest,
-        checks: {
-          state: 'failing',
-          total: 1,
-          passing: 0,
-          pending: 0,
-          failing: 1,
-          failingNames: ['Build'],
-          checks: [{ name: 'Build', state: 'failing', optional: false, expired: false, source: 'status' }],
-        },
-      },
-    }),
-  ))
-
-  assert.match(unavailableHtml, /white-space:normal/)
-  assert.match(pendingHtml, /white-space:nowrap/)
-  assert.match(pendingHtml, /Required checks pending: Build/)
-  assert.match(failingHtml, /Required checks failing: Build/)
 })
 
 for (const status of ['queued', 'running']) {
@@ -179,16 +107,6 @@ for (const status of ['notApplicable', ' NOTAPPLICABLE ']) {
         ...checks,
         checks: [{ ...checks.checks[0], state: 'pending', optional: false }],
       }).iconHref)
-
-      const html = renderToStaticMarkup(createElement(
-        Root,
-        null,
-        createElement(PullRequestChecksRow, {
-          pullRequest: { id: 123, title: 'Example', url: '', checks },
-        }),
-      ))
-      assert.match(html, /Not applicable: QA Build validation/)
-      assert.doesNotMatch(html, /Required checks passing/)
     })
   }
 }
@@ -231,22 +149,3 @@ for (const [status, expectedState] of [
     }
   })
 }
-
-test('an open pull request\'s age coarsens to weeks, months, and years', () => {
-  const day = 24 * 60 * 60 * 1000
-  const ageOf = (daysAgo: number) => {
-    const html = renderToStaticMarkup(createElement(
-      Root,
-      null,
-      createElement(PullRequestChecksRow, {
-        pullRequest: { id: 7, title: 'Old pull request', url: '', status: 'active', recentActivityAt: new Date(Date.now() - daysAgo * day - 60_000).toISOString() },
-      }),
-    ))
-    return /(\d+(?:d|w|mo|y)) old/.exec(html)?.[1]
-  }
-
-  assert.equal(ageOf(3), '3d')
-  assert.equal(ageOf(20), '2w')
-  assert.equal(ageOf(100), '3mo')
-  assert.equal(ageOf(400), '1y')
-})

@@ -18,12 +18,11 @@ import { AgingDots } from './AgingDots'
 import { AppTooltip, SuppressTooltips } from './AppTooltip'
 import { AdoAvatar } from './AdoAvatar'
 import { JourneyCaptionLabel, JourneyTrailBar } from './SprintJourneyParts'
-import type { WorkItemCardHighlightState } from './WorkItemCard'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getJourneyTrail, type SprintJourney } from '../utils/sprintJourney'
 import { formatSprintDate } from '../utils/sprintDates'
 import type { SprintRemoval } from '../utils/sprintLens'
-import { getStatusPaletteKey } from './workItemCardDisplay'
+import { getStatusPaletteKey, type WorkItemCardHighlightState } from './workItemCardDisplay'
 import {
   getDevelopmentCardModel,
   TERTIARY_TEXT_COLOR,

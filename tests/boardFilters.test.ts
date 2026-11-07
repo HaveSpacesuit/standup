@@ -154,8 +154,8 @@ test('client filtering keeps typing responsive and avoids rerendering unchanged 
   const items = [...workItems, ...pullRequestItems]
 
   const cardRenderCounts = new Map<number, number>()
-  const cardSource = readFileSync(new URL('../src/features/standup/components/WorkItemCard.tsx', import.meta.url), 'utf8')
-  assert.match(cardSource, /export const WorkItemCard = memo\(/)
+  const cardSource = readFileSync(new URL('../src/features/standup/components/DevelopmentCard.tsx', import.meta.url), 'utf8')
+  assert.match(cardSource, /export const DevelopmentCard = memo\(/)
   const MemoizedCard = memo(function CountedCard({ item }: { item: WorkItemSummary }) {
     cardRenderCounts.set(item.id, (cardRenderCounts.get(item.id) ?? 0) + 1)
     return createElement('div', { 'data-card-id': item.id })
