@@ -1,5 +1,5 @@
 import { Alert, Box } from '@mui/material'
-import type { ComponentProps } from 'react'
+import { useEffect, useState, type ComponentProps } from 'react'
 import type { AppView } from '../hooks/useAppNavigation'
 import { BacklogPage } from '../pages/BacklogPage'
 import { QualityAssurancePage } from '../pages/QualityAssurancePage'
@@ -27,6 +27,11 @@ export function StandupContent({
   backlogPageProps,
   testsPageProps,
 }: StandupContentProps) {
+  const [testsVisited, setTestsVisited] = useState(activeView === 'tests')
+  useEffect(() => {
+    if (activeView === 'tests') setTestsVisited(true)
+  }, [activeView])
+
   return (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {teamProfilesUnreadable ? (
@@ -43,10 +48,18 @@ export function StandupContent({
           <QualityAssurancePage {...qualityAssurancePageProps} />
         ) : activeView === 'backlog' ? (
           <BacklogPage {...backlogPageProps} />
-        ) : (
-          <TestsPage {...testsPageProps} />
-        )}
+        ) : null}
       </ContentErrorBoundary>
+      {(testsVisited || activeView === 'tests') && (
+        <Box
+          hidden={activeView !== 'tests'}
+          sx={{ flex: 1, minHeight: 0, display: activeView === 'tests' ? 'flex' : 'none', flexDirection: 'column' }}
+        >
+          <ContentErrorBoundary resetKey={activeView}>
+            <TestsPage {...testsPageProps} isActive={activeView === 'tests'} />
+          </ContentErrorBoundary>
+        </Box>
+      )}
     </Box>
   )
 }

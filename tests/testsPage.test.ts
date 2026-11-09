@@ -51,9 +51,12 @@ async function render(t: TestContext, props: { pat?: string | null } = {}) {
     host.remove()
     storage.clear()
   })
-  const page = createElement(TestsPage, { pat: null, defaultOrg: 'example-org', defaultProject: 'example-project', ...props })
-  await act(async () => root.render(createElement(Root, null, page)))
-  return host
+  const setActive = async (isActive: boolean) => {
+    const page = createElement(TestsPage, { pat: null, defaultOrg: 'example-org', defaultProject: 'example-project', ...props, isActive })
+    await act(async () => root.render(createElement(Root, null, page)))
+  }
+  await setActive(true)
+  return Object.assign(host, { setActive })
 }
 
 async function waitFor(condition: () => boolean) {
@@ -202,6 +205,12 @@ test('failing tests load only when a change is opened, labelled against the prev
   assert.deepEqual(rows, ['Suite.uploads a fileNew', 'Suite.opens a folderAgain'], 'tests new since the previous run come first')
   assert.match(details()!.textContent!, /Sharp drop to 70%/)
   assert.equal(details()!.querySelector('a[href*="buildId=15"]')?.getAttribute('target'), '_blank')
+
+  await host.setActive(false)
+  await act(async () => dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' })))
+  assert.ok(details(), 'Escape on another page leaves the hidden run selection alone')
+  assert.equal(focusButton().getAttribute('aria-pressed'), 'true')
+  await host.setActive(true)
 
   await act(async () => dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' })))
   assert.equal(details(), null)

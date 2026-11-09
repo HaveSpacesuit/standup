@@ -63,12 +63,13 @@ type TestsPageProps = {
   /** The selected team's sprints; projects share sprint dates, so these label every pipeline's timeline. */
   teamIterations?: TeamIterationOption[]
   rememberLastView?: boolean
+  isActive?: boolean
 }
 
 const TEST_VIEWS = ['rows', 'overlay', 'calendar'] as const
 type TestsView = (typeof TEST_VIEWS)[number]
 
-export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = [], rememberLastView = false }: TestsPageProps) {
+export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = [], rememberLastView = false, isActive = true }: TestsPageProps) {
   const [view, setView] = useRememberedView('tests', TEST_VIEWS, rememberLastView)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [stored] = useState(() => {
@@ -179,7 +180,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
   }
 
   useEffect(() => {
-    if ((!activeSelection && !focusedEntry) || settingsOpen) return
+    if (!isActive || (!activeSelection && !focusedEntry) || settingsOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
       if (activeSelection) setSelection(null)
@@ -187,7 +188,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activeSelection, focusedEntry, settingsOpen])
+  }, [activeSelection, focusedEntry, settingsOpen, isActive])
 
   const updateHealthOptions = (next: TestHealthOptions) => {
     try {
