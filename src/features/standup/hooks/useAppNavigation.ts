@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
+import { loadLastPage, loadRememberLastView, saveLastPage } from '../utils/lastViews'
 
 export type AppView = 'development' | 'qa-activity' | 'backlog' | 'tests'
 
@@ -16,6 +17,10 @@ type UseAppNavigationResult = {
 }
 
 function getViewFromHash(hash: string): AppView {
+  if (!hash && loadRememberLastView()) {
+    return loadLastPage() ?? 'development'
+  }
+
   if (hash === '#tests') {
     return 'tests'
   }
@@ -42,7 +47,13 @@ export function useActiveAppView(): AppView {
 
   useEffect(() => {
     const handleHashChange = () => {
-      setActiveView(getViewFromHash(window.location.hash))
+      const view = getViewFromHash(window.location.hash)
+      // Give both navigation readers the same explicit route after restoring a saved page.
+      if (!window.location.hash && loadRememberLastView() && loadLastPage()) {
+        window.history.replaceState(window.history.state, '', `#${view}`)
+      }
+      setActiveView(view)
+      saveLastPage(view)
     }
 
     handleHashChange()

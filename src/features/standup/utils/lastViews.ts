@@ -1,6 +1,7 @@
 import type { AppView } from '../hooks/useAppNavigation'
 
 export const REMEMBER_LAST_VIEW_STORAGE_KEY = 'standup:remember-last-view'
+export const LAST_PAGE_STORAGE_KEY = 'standup:last-page'
 const LAST_VIEW_STORAGE_KEY_PREFIX = 'standup:last-view'
 
 /** Pages with a View toggle: Developers or Sprint, Testers or Flow, List or Map, and Rows, Overlay, or Calendar. */
@@ -33,6 +34,17 @@ export function loadRememberLastView(): boolean {
 
 export function saveRememberLastView(rememberLastView: boolean): void {
   writeStoredValue(REMEMBER_LAST_VIEW_STORAGE_KEY, String(rememberLastView))
+}
+
+export function loadLastPage(): AppView | null {
+  const stored = readStoredValue(LAST_PAGE_STORAGE_KEY)
+  return stored === 'development' || stored === 'qa-activity' || stored === 'backlog' || stored === 'tests'
+    ? stored
+    : null
+}
+
+export function saveLastPage(page: AppView): void {
+  writeStoredValue(LAST_PAGE_STORAGE_KEY, page)
 }
 
 /** The page's saved view, or null when none is saved or it is no longer one of `views`. */

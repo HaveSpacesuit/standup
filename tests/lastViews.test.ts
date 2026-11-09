@@ -37,6 +37,9 @@ after(async () => {
 })
 const {
   REMEMBER_LAST_VIEW_STORAGE_KEY,
+  LAST_PAGE_STORAGE_KEY,
+  loadLastPage,
+  saveLastPage,
   lastViewStorageKey,
   loadLastView,
   loadRememberLastView,
@@ -44,6 +47,7 @@ const {
   saveRememberLastView,
 } = await server.ssrLoadModule('/src/features/standup/utils/lastViews.ts')
 const { useRememberedView } = await server.ssrLoadModule('/src/features/standup/hooks/useRememberedView.ts')
+const { useActiveAppView } = await server.ssrLoadModule('/src/features/standup/hooks/useAppNavigation.ts')
 
 const DEVELOPMENT_VIEWS = ['people', 'sprint'] as const
 const QA_VIEWS = ['testers', 'flow'] as const
@@ -53,6 +57,7 @@ const TESTS_VIEWS = ['rows', 'overlay'] as const
 beforeEach(() => {
   storage.clear()
   storageThrows = false
+  dom.window.history.replaceState(null, '', '/')
 })
 
 test('remember last view is off until it is turned on, and the choice persists', () => {
@@ -84,8 +89,92 @@ test('unavailable storage never breaks loading or saving', () => {
   storageThrows = true
   assert.equal(loadRememberLastView(), false)
   assert.equal(loadLastView('qa-activity', QA_VIEWS), null)
+  assert.equal(loadLastPage(), null)
   assert.doesNotThrow(() => saveRememberLastView(true))
   assert.doesNotThrow(() => saveLastView('qa-activity', 'flow'))
+  assert.doesNotThrow(() => saveLastPage('tests'))
+})
+
+test('last page validates saved routes and round-trips independently of each page view', () => {
+  assert.equal(loadLastPage(), null)
+  for (const page of ['development', 'qa-activity', 'backlog', 'tests']) {
+    saveLastPage(page)
+    assert.equal(loadLastPage(), page)
+  }
+  storage.set(LAST_PAGE_STORAGE_KEY, 'retired-page')
+  assert.equal(loadLastPage(), null)
+})
+
+async function renderPages(t: { after: (fn: () => unknown) => void }) {
+  let pages: string[] = []
+  function Harness() {
+    pages = [useActiveAppView(), useActiveAppView()]
+    return null
+  }
+  const root = createRoot(document.createElement('div'))
+  t.after(() => act(() => root.unmount()))
+  await act(async () => root.render(createElement(Harness)))
+  return {
+    get pages() { return pages },
+    navigate: async (hash: string) => {
+      dom.window.history.replaceState(null, '', `/${hash}`)
+      await act(async () => dom.window.dispatchEvent(new dom.window.HashChangeEvent('hashchange')))
+    },
+  }
+}
+
+for (const page of ['development', 'qa-activity', 'backlog', 'tests']) {
+  test(`opening without a route restores ${page} for both navigation readers when enabled`, async (t) => {
+    saveRememberLastView(true)
+    saveLastPage(page)
+    const navigation = await renderPages(t)
+    assert.deepEqual(navigation.pages, [page, page])
+    assert.equal(dom.window.location.hash, `#${page}`)
+    assert.equal(loadLastPage(), page)
+  })
+
+  test(`explicit #${page} takes precedence over the saved page`, async (t) => {
+    saveRememberLastView(true)
+    saveLastPage(page === 'tests' ? 'backlog' : 'tests')
+    dom.window.history.replaceState(null, '', `/#${page}`)
+    assert.deepEqual((await renderPages(t)).pages, [page, page])
+    assert.equal(loadLastPage(), page)
+  })
+}
+
+test('disabled page restoration defaults to Development but still remembers later navigation', async (t) => {
+  saveLastPage('tests')
+  const navigation = await renderPages(t)
+  assert.deepEqual(navigation.pages, ['development', 'development'])
+  assert.equal(dom.window.location.hash, '')
+  await navigation.navigate('#backlog')
+  assert.deepEqual(navigation.pages, ['backlog', 'backlog'])
+  assert.equal(loadLastPage(), 'backlog')
+  saveRememberLastView(true)
+  assert.equal(loadLastPage(), 'backlog', 'enabling does not discard the latest page')
+})
+
+for (const saved of [null, 'retired-page']) {
+  test(`missing or invalid saved page (${saved}) defaults to Development`, async (t) => {
+    saveRememberLastView(true)
+    if (saved) storage.set(LAST_PAGE_STORAGE_KEY, saved)
+    assert.deepEqual((await renderPages(t)).pages, ['development', 'development'])
+  })
+}
+
+test('an unknown explicit route keeps the existing Development fallback instead of restoring', async (t) => {
+  saveRememberLastView(true)
+  saveLastPage('tests')
+  dom.window.history.replaceState(null, '', '/#unknown')
+  assert.deepEqual((await renderPages(t)).pages, ['development', 'development'])
+})
+
+test('unavailable storage does not prevent navigation', async (t) => {
+  storageThrows = true
+  const navigation = await renderPages(t)
+  assert.deepEqual(navigation.pages, ['development', 'development'])
+  await navigation.navigate('#tests')
+  assert.deepEqual(navigation.pages, ['tests', 'tests'])
 })
 
 async function renderView(t: { after: (fn: () => unknown) => void }, page: 'development' | 'qa-activity' | 'backlog' | 'tests', views: readonly [string, ...string[]], remember: boolean) {

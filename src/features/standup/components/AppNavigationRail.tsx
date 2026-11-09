@@ -839,10 +839,10 @@ export function AppNavigationRail({
                         slotProps={{ input: { 'aria-describedby': REMEMBER_LAST_VIEW_HELP_ID } }}
                       />
                     )}
-                    label={<Typography variant="body-sm">Remember last view</Typography>}
+                    label={<Typography variant="body-sm">Remember last page and view</Typography>}
                   />
                   <Typography id={REMEMBER_LAST_VIEW_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Reopen Development, Quality Assurance, Backlog, and Tests on the view you used last, such as Sprint, Flow, Map, or Overlay. When off, they open on Developers, Testers, List, and Rows.
+                    When opening the site without a page route, return to your last page. Also reopen each page on its last view, such as Sprint, Flow, Map, or Overlay. Explicit page routes take precedence. When off, the site defaults to Development and pages open on Developers, Testers, List, and Rows.
                   </Typography>
                 </Box>
                 <AutoRefreshSettings options={autoRefresh} error={autoRefreshError} onChange={onAutoRefreshChange} />

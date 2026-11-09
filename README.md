@@ -115,8 +115,10 @@ during standup, load QA data only while the option is on, and don't count toward
 attention bar. The setting is saved per team and included in team exports.
 
 Development opens on the Developers board, Quality Assurance on Testers, Backlog on List, and Tests on Rows.
-Turn on Settings > Display > "Remember last view" to reopen each page on the view you used last instead, such as
-Sprint, Flow, Map, or Overlay. The setting and each page's last view are saved in this browser, not in team exports.
+Turn on Settings > Display > "Remember last page and view" to return to your last page when opening the site
+without a page route, and reopen each page on its last view, such as Sprint, Flow, Map, or Overlay.
+An explicit page route always takes precedence. When off, the site opens on Development unless a route specifies
+another page. The setting, last page, and each page's last view are saved in this browser, not in team exports.
 
 Settings > Display > **Auto-refresh current page** is off by default. When enabled, its interval defaults to
 15 minutes and accepts positive whole minutes. Both choices are saved in local storage (`standup:auto-refresh`),
@@ -356,7 +358,7 @@ The map keeps the rest of the page in step:
 - The summary ribbon, Needs attention, and the Plan a sprint strip stay above the map. While planning, a bubble holding a pick is ringed and the panel marks its picks; picking by hand is done in the list.
 - Below about 900 px wide, the panel moves under the plot.
 - The selected bubble survives a refresh and is cleared when you switch teams.
-- Backlog opens on List, or on the view used last when Settings > Display > "Remember last view" is on.
+- Backlog opens on List, or on the view used last when Settings > Display > "Remember last page and view" is on.
 
 Backlog options > Display has **Compact rows**, the same setting as Compact cards on Development and Quality Assurance, so turning it on in one place turns it on in all three. Compact rows keep each bug to one line: a long title ends in an ellipsis with the full title in its tooltip, only the first tag shows, followed by "+N" whose tooltip lists the rest, and Assigned to shows only the avatar, with the name in its tooltip.
 
