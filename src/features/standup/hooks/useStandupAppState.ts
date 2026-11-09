@@ -21,6 +21,7 @@ import {
 import type { BacklogOptions } from '../utils/backlogOptions'
 import { backlogOptionsStorageKey, parseStoredBacklogOptions, serializeBacklogOptions } from '../utils/backlogOptions'
 import { loadRememberLastView, saveRememberLastView } from '../utils/lastViews'
+import { DEFAULT_AUTO_REFRESH, loadAutoRefresh, saveAutoRefresh, type AutoRefreshOptions } from '../utils/autoRefresh'
 import type { QaOptions } from '../utils/qaOptions'
 import { parseStoredQaOptionsWithRecovery, qaOptionsStorageKey, serializeQaOptions } from '../utils/qaOptions'
 import { SELECTED_TEAM_STORAGE_KEY, tagRulesStorageKey } from './useBoardPreferences'
@@ -37,6 +38,9 @@ type UseStandupAppStateResult = {
   assignmentOptionsByTeam: Record<string, AssignmentOptions>
   backlogOptionsByTeam: Record<string, BacklogOptions>
   rememberLastView: boolean
+  autoRefresh: AutoRefreshOptions
+  autoRefreshError: string | null
+  setAutoRefreshPersisted: (next: AutoRefreshOptions) => void
   handleTeamProfilesChange: (nextTeamProfiles: TeamProfile[]) => void
   replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => void
   handlePatSave: (pat: string) => void
@@ -129,6 +133,25 @@ export function useStandupAppState(): UseStandupAppStateResult {
     buildBacklogOptionsByTeam(teamProfiles),
   )
   const [rememberLastView, setRememberLastView] = useState(loadRememberLastView)
+  const [storedAutoRefresh] = useState(() => {
+    try {
+      return { options: loadAutoRefresh(), error: null }
+    } catch (cause) {
+      return { options: { ...DEFAULT_AUTO_REFRESH }, error: `Unable to load auto-refresh settings: ${cause instanceof Error ? cause.message : String(cause)}` }
+    }
+  })
+  const [autoRefresh, setAutoRefresh] = useState(storedAutoRefresh.options)
+  const [autoRefreshError, setAutoRefreshError] = useState<string | null>(storedAutoRefresh.error)
+
+  const setAutoRefreshPersisted = (next: AutoRefreshOptions) => {
+    try {
+      saveAutoRefresh(next)
+      setAutoRefresh(next)
+      setAutoRefreshError(null)
+    } catch (cause) {
+      setAutoRefreshError(`Unable to save auto-refresh settings: ${cause instanceof Error ? cause.message : String(cause)}`)
+    }
+  }
 
   const persistTeamProfiles = (nextTeamProfiles: TeamProfile[]) => {
     saveTeamProfiles(nextTeamProfiles)
@@ -217,6 +240,9 @@ export function useStandupAppState(): UseStandupAppStateResult {
     assignmentOptionsByTeam,
     backlogOptionsByTeam,
     rememberLastView,
+    autoRefresh,
+    autoRefreshError,
+    setAutoRefreshPersisted,
     handleTeamProfilesChange,
     replaceTeamProfiles: persistTeamProfiles,
     handlePatSave,

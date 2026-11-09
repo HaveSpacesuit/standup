@@ -118,6 +118,14 @@ Development opens on the Developers board, Quality Assurance on Testers, Backlog
 Turn on Settings > Display > "Remember last view" to reopen each page on the view you used last instead, such as
 Sprint, Flow, Map, or Overlay. The setting and each page's last view are saved in this browser, not in team exports.
 
+Settings > Display > **Auto-refresh current page** is off by default. When enabled, its interval defaults to
+15 minutes and accepts positive whole minutes. Both choices are saved in local storage (`standup:auto-refresh`),
+not in team exports. Development, Quality Assurance, Backlog, and Tests each use their own last-refresh time
+(per team where applicable). Only the current page refreshes when its data reaches that age; navigating to a
+page with older data refreshes it on entry. Manual refresh resets that page's clock, and an in-progress load
+is never overlapped. Failed automatic refreshes retain the normal error display and wait an interval before
+retrying. The browser also checks elapsed time when focus or visibility changes, so a suspended tab catches up.
+
 The toolbar's View toggle switches between the Developers board and the Sprint view. The Sprint view is
 the same board with one lane per sprint instead of per person: the current sprint first and open,
 other sprints collapsed beneath it (with their dates), and items without a sprint last. It uses the
@@ -367,7 +375,7 @@ A missing Severity or Priority counts as 4. AdjustedEffort is the Effort field w
 
 The Tests page charts e2e pass percentages across a configurable lookback window (60 days by default) for each configured Azure DevOps build/YAML pipeline or classic release pipeline. Use Test options to set the number of days, enter the organization and project, type to search pipelines and stages, choose a test-publishing stage (or the whole build pipeline), and add it to the chart. The lookback window is saved in browser local storage and applies to all configured pipelines. Build history is filtered by finish time; release history is queried by creation time, then charted by the selected stage's completion time when available. Each point is passed tests divided by the tests that ran: `NotExecuted` (how skipped tests are usually published), `Skipped`, `NotApplicable`, `NotImpacted`, `None`, `Unspecified`, `InProgress`, and `Paused` results are left out of every test count, so a pipeline that skips most of a shared suite is measured by the tests it actually ran. Tests must be published to Azure DevOps for the chart to find them; stages without executed test results are shown as missing data, not 0% passed. If test results cannot be loaded, the page or options dialog reminds you to ensure your PAT has Test Management (Read) access. The refresh button reloads the latest results, and "Synced 3m ago" beside it shows when they last loaded. Tests has no filter or team controls; pipeline selections are saved in browser local storage.
 
-After the first visit, Tests keeps its loaded results and page state when navigating away, including when switching teams on another page. Team sprint labels can update without reloading pipeline results. Use Refresh to fetch fresh results; changing pipeline sources, the lookback window, or the PAT also reloads them.
+After the first visit, Tests keeps its loaded results and page state when navigating away, including when switching teams on another page. Team sprint labels can update without reloading pipeline results. Use Refresh to fetch fresh results; changing pipeline sources, the lookback window, or the PAT also reloads them. If global auto-refresh is enabled, Tests reloads only while it is the current page and its results are old enough, including when returning to stale results.
 
 The toolbar's View toggle switches between Rows (the default), Overlay, and Calendar. Rows and Overlay use a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages so differences near 100% stay visible; "How to read this chart" (or "How to read this calendar") beside the intro line explains the view.
 

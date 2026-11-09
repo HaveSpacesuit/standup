@@ -39,6 +39,8 @@ import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
 import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
 import { validateTeamProfile, type TeamProfileFormField } from '../utils/teamProfileValidation'
 import type { AppView } from '../hooks/useAppNavigation'
+import { AutoRefreshSettings } from './AutoRefreshSettings'
+import { DEFAULT_AUTO_REFRESH, type AutoRefreshOptions } from '../utils/autoRefresh'
 
 function FieldHint({ tip }: { tip: string }) {
   return (
@@ -61,6 +63,9 @@ type AppNavigationRailProps = {
   onToggleColorScheme: () => void
   rememberLastView: boolean
   onRememberLastViewChange: (next: boolean) => void
+  autoRefresh?: AutoRefreshOptions
+  autoRefreshError?: string | null
+  onAutoRefreshChange: (next: AutoRefreshOptions) => void
   patConfigured: boolean
   patValue: string
   onPatSave: (pat: string) => void
@@ -114,6 +119,9 @@ export function AppNavigationRail({
   onToggleColorScheme,
   rememberLastView,
   onRememberLastViewChange,
+  autoRefresh = DEFAULT_AUTO_REFRESH,
+  autoRefreshError = null,
+  onAutoRefreshChange,
   patConfigured,
   patValue,
   onPatSave,
@@ -837,6 +845,7 @@ export function AppNavigationRail({
                     Reopen Development, Quality Assurance, Backlog, and Tests on the view you used last, such as Sprint, Flow, Map, or Overlay. When off, they open on Developers, Testers, List, and Rows.
                   </Typography>
                 </Box>
+                <AutoRefreshSettings options={autoRefresh} error={autoRefreshError} onChange={onAutoRefreshChange} />
               </Stack>
             ) : null}
           </Box>

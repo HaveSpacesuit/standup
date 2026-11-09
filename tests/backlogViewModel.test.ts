@@ -21,6 +21,7 @@ after(async () => {
   dom.window.close()
 })
 const { useBoardViewModel } = await server.ssrLoadModule('/src/features/standup/hooks/useBoardViewModel.ts')
+const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 const { createDefaultAssignmentOptions } = await server.ssrLoadModule('/src/features/standup/utils/standupOptionDefaults.ts')
 
 const team = {
@@ -104,11 +105,11 @@ function mockAzureDevOps(
   }
 }
 
-async function renderBoard(t: TestContext, view: string) {
+async function renderBoard(t: TestContext, view: string, autoRefresh = { enabled: false, minutes: 15 }) {
   dom.window.history.replaceState(null, '', `/#${view}`)
   const holder: { result?: ReturnType<typeof useBoardViewModel> } = {}
   function Board() {
-    holder.result = useBoardViewModel({ pat: 'test-pat', teamProfiles, assignmentOptionsByTeam })
+    holder.result = useBoardViewModel({ pat: 'test-pat', teamProfiles, assignmentOptionsByTeam, autoRefresh })
     return null
   }
   const root = createRoot(document.createElement('div'))
@@ -188,6 +189,77 @@ test('the backlog loads when the page is opened from another view', async (t) =>
 
   assert.equal(api.backlogQueries().length, 1, 'returning to the page reuses the cached bugs until Refresh')
   assert.deepEqual(ids(result().backlogBugs), [102, 103])
+})
+
+test('auto-refresh reloads only the active backlog and rechecks its cached age when returning', async (t) => {
+  let now = Date.now()
+  t.mock.method(Date, 'now', () => now)
+  const state = { bugs: [minorGlitch] }
+  const api = mockAzureDevOps(t, state)
+  const result = await renderBoard(t, 'backlog', { enabled: true, minutes: 15 })
+  assert.equal(api.backlogQueries().length, 1)
+
+  now += 15 * 60_000 - 1
+  await act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')))
+  assert.equal(api.backlogQueries().length, 1)
+  now++
+  state.bugs = [dataLoss]
+  await act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')))
+  assert.equal(api.backlogQueries().length, 2)
+  assert.deepEqual(ids(result().backlogBugs), [102])
+  assert.equal(api.metadataRequests().length, 1, 'automatic refresh leaves shared metadata alone')
+  assert.equal(result().backlogSyncedAt, now)
+
+  dom.window.history.replaceState(null, '', '/#tests')
+  await act(async () => dom.window.dispatchEvent(new dom.window.HashChangeEvent('hashchange')))
+  now += 20 * 60_000
+  await act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')))
+  assert.equal(api.backlogQueries().length, 2, 'inactive Backlog is not refreshed')
+
+  dom.window.history.replaceState(null, '', '/#backlog')
+  await act(async () => dom.window.dispatchEvent(new dom.window.HashChangeEvent('hashchange')))
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+  assert.equal(api.backlogQueries().length, 3, 'stale cached Backlog reloads on entry')
+  assert.equal(api.metadataRequests().length, 1)
+})
+
+for (const view of ['development', 'qa-activity']) {
+  test(`auto-refresh on ${view} refreshes its data without reloading the other views`, async (t) => {
+    let now = Date.now()
+    t.mock.method(Date, 'now', () => now)
+    const development = t.mock.method(AdoQueryEngine.prototype, 'getWorkItemsForCurrentAndNextIteration')
+    const qa = t.mock.method(AdoQueryEngine.prototype, 'getQualityAssuranceRawData')
+    const iterations = t.mock.method(AdoQueryEngine.prototype, 'getTeamIterations')
+    const api = mockAzureDevOps(t, { bugs: [] })
+    const result = await renderBoard(t, view, { enabled: true, minutes: 15 })
+    assert.ok(result().teamDataSyncedAt)
+    const before = { development: development.mock.callCount(), qa: qa.mock.callCount(), iterations: iterations.mock.callCount() }
+    now += 15 * 60_000
+    await act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')))
+    assert.equal(development.mock.callCount(), before.development + (view === 'development' ? 1 : 0))
+    assert.equal(qa.mock.callCount(), before.qa + (view === 'qa-activity' ? 1 : 0))
+    assert.equal(iterations.mock.callCount(), before.iterations, 'shared iterations do not restart other pages')
+    assert.equal(api.backlogQueries().length, 0)
+    assert.equal(api.metadataRequests().length, 1)
+
+    now += 15 * 60_000
+    await act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')))
+    assert.equal(development.mock.callCount(), before.development + (view === 'development' ? 2 : 0))
+    assert.equal(qa.mock.callCount(), before.qa + (view === 'qa-activity' ? 2 : 0), 'the page tracks its own successful refresh time')
+  })
+}
+
+test('a manual refresh of overdue data resets the age without a second automatic request', async (t) => {
+  let now = Date.now()
+  t.mock.method(Date, 'now', () => now)
+  const api = mockAzureDevOps(t, { bugs: [minorGlitch] })
+  const result = await renderBoard(t, 'backlog', { enabled: true, minutes: 15 })
+  assert.equal(api.backlogQueries().length, 1)
+  now += 20 * 60_000
+  await act(async () => result().onRefresh())
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+  assert.equal(api.backlogQueries().length, 2)
+  assert.equal(result().backlogSyncedAt, now)
 })
 
 test('a failed backlog query is reported as an error and cleared by a successful Refresh', async (t) => {

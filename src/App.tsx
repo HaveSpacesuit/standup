@@ -37,6 +37,9 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     assignmentOptionsByTeam,
     backlogOptionsByTeam,
     rememberLastView,
+    autoRefresh,
+    autoRefreshError,
+    setAutoRefreshPersisted,
     handleTeamProfilesChange,
     replaceTeamProfiles,
     handlePatSave,
@@ -109,6 +112,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     teamIterationsError,
   } = useBoardViewModel({
     pat: storedPatState?.pat ?? null,
+    autoRefresh,
     teamProfiles,
     qaOptionsByTeam,
     assignmentOptionsByTeam,
@@ -187,6 +191,9 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
         colorScheme={colorScheme}
         onToggleColorScheme={onToggleColorScheme}
         rememberLastView={rememberLastView}
+        autoRefresh={autoRefresh}
+        autoRefreshError={autoRefreshError}
+        onAutoRefreshChange={setAutoRefreshPersisted}
         onRememberLastViewChange={setRememberLastViewPersisted}
         patConfigured={patConfigured}
         patValue={storedPatState?.pat ?? ''}
@@ -205,6 +212,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
         teamProfilesUnreadable={teamProfilesUnreadable}
         testsPageProps={{
           pat: storedPatState?.pat ?? null,
+          autoRefresh,
           defaultOrg: teamProfiles.find((team) => team.id === selectedTeamId)?.orgName ?? '',
           defaultProject: teamProfiles.find((team) => team.id === selectedTeamId)?.projectName ?? '',
           teamIterations,

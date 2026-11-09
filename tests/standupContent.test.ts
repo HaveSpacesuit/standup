@@ -48,7 +48,10 @@ after(async () => {
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { StandupContent } = await server.ssrLoadModule('/src/features/standup/components/StandupContent.tsx')
 
-test('Tests loads lazily and retains results across navigation and team changes, but Refresh and PAT changes reload', async (t) => {
+test('Tests retains data across team changes, honors active-page auto-refresh, and supports Refresh and PAT changes', async (t) => {
+  let now = Date.now()
+  t.mock.method(Date, 'now', () => now)
+  let autoRefresh = { enabled: false, minutes: 15 }
   storage.set('standup:test-pipelines', JSON.stringify([
     { id: 'web', orgName: 'org', projectName: 'Example', kind: 'build', definitionId: 7, name: 'Web', stageName: 'E2E' },
   ]))
@@ -82,6 +85,7 @@ test('Tests loads lazily and retains results across navigation and team changes,
       backlogPageProps: {},
       testsPageProps: {
         pat, defaultOrg: team, defaultProject: team,
+        autoRefresh,
         teamIterations: [{ name: `Sprint ${team}`, path: `Project\\${team}`, timeFrame: 'current', startDate: '2026-11-02', finishDate: '2026-11-13' }],
       },
     }))))
@@ -130,8 +134,27 @@ test('Tests loads lazily and retains results across navigation and team changes,
   await render('tests', 'b', 'replacement-token')
   assert.equal(requests.length, 3)
 
+  autoRefresh = { enabled: true, minutes: 15 }
+  await render('tests', 'b', 'replacement-token')
+  now += 15 * 60_000
+  await act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')))
+  assert.equal(requests.length, 4, 'active Tests auto-refreshes when its results reach the threshold')
+  now += 20 * 60_000
+  await act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')))
+  assert.equal(requests.length, 4, 'an in-flight request is not overlapped')
+  await complete()
+
+  await render('backlog', 'b', 'replacement-token')
+  now += 20 * 60_000
+  await act(async () => dom.window.dispatchEvent(new dom.window.Event('focus')))
+  assert.equal(requests.length, 4, 'hidden Tests does not auto-refresh')
+  await render('tests', 'b', 'replacement-token')
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+  assert.equal(requests.length, 5, 'returning to stale Tests auto-refreshes')
+  await complete()
+
   await render('backlog', 'b', null)
   await render('tests', 'b', null)
   assert.equal(refresh().disabled, true, 'clearing the PAT disables loading')
-  assert.equal(requests.length, 3)
+  assert.equal(requests.length, 5)
 })

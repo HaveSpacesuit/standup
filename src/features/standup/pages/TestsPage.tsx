@@ -27,6 +27,8 @@ import { TestsSettingsDialog } from '../components/TestsSettingsDialog'
 import { TipLines } from '../components/TipLines'
 import type { FailingTestsCache } from '../hooks/useFailingTests'
 import { useRememberedView } from '../hooks/useRememberedView'
+import { useAutoRefresh } from '../hooks/useAutoRefresh'
+import { DEFAULT_AUTO_REFRESH, type AutoRefreshOptions } from '../utils/autoRefresh'
 import {
   DEFAULT_TEST_LOOKBACK_DAYS, loadTestLookbackDays, loadTestPipelines,
   saveTestLookbackDays, saveTestPipelines, testLookbackStart, testPipelineSource, testStageLabel, type TestPipeline,
@@ -64,12 +66,13 @@ type TestsPageProps = {
   teamIterations?: TeamIterationOption[]
   rememberLastView?: boolean
   isActive?: boolean
+  autoRefresh?: AutoRefreshOptions
 }
 
 const TEST_VIEWS = ['rows', 'overlay', 'calendar'] as const
 type TestsView = (typeof TEST_VIEWS)[number]
 
-export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = [], rememberLastView = false, isActive = true }: TestsPageProps) {
+export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = [], rememberLastView = false, isActive = true, autoRefresh = DEFAULT_AUTO_REFRESH }: TestsPageProps) {
   const [view, setView] = useRememberedView('tests', TEST_VIEWS, rememberLastView)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [stored] = useState(() => {
@@ -286,6 +289,14 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
   }, [client, sources, lookbackDays, refreshNonce])
 
   const canLoad = Boolean(pat) && pipelines.length > 0
+  useAutoRefresh({
+    options: autoRefresh,
+    active: isActive && canLoad,
+    scope: sourceKey,
+    syncedAt,
+    isLoading: loading,
+    onRefresh: () => setRefreshNonce((value) => value + 1),
+  })
   const healthSummary = healthEntries.map(({ pipeline, health }) =>
     `${testPipelineShortName(pipeline)} · ${testStageLabel(pipeline.stageName)}: ${TEST_HEALTH_STATUS_LABELS[health.status]}`)
 

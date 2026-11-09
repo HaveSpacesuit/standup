@@ -20,6 +20,8 @@ import { useTeamIterations } from './useTeamIterations'
 import { useAssignmentQueryFilters } from './useAssignmentQueryFilters'
 import { useIterationRolloverFlags } from './useIterationRolloverFlags'
 import { useTeamDataSyncedAt } from './useTeamDataSyncedAt'
+import { useAutoRefresh } from './useAutoRefresh'
+import { DEFAULT_AUTO_REFRESH, type AutoRefreshOptions } from '../utils/autoRefresh'
 import { applyTagRulesToItem } from '../utils/boardFilters'
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { QaOptions } from '../utils/qaOptions'
@@ -35,6 +37,7 @@ import type { SprintForecast } from '../utils/sprintForecast'
 
 type UseBoardViewModelArgs = {
   pat: string | null
+  autoRefresh?: AutoRefreshOptions
   teamProfiles: TeamProfile[]
   qaOptionsByTeam?: Record<string, QaOptions>
   assignmentOptionsByTeam?: Record<string, AssignmentOptions>
@@ -119,6 +122,7 @@ const EMPTY_TEAM_PROFILE: TeamProfile = {
 
 export function useBoardViewModel({
   pat,
+  autoRefresh = DEFAULT_AUTO_REFRESH,
   teamProfiles,
   qaOptionsByTeam,
   assignmentOptionsByTeam,
@@ -127,6 +131,7 @@ export function useBoardViewModel({
   const [developmentReloadNonce, setDevelopmentReloadNonce] = useState(0)
   const [qaReloadNonce, setQaReloadNonce] = useState(0)
   const [backlogReloadNonce, setBacklogReloadNonce] = useState(0)
+  const [iterationsReloadNonce, setIterationsReloadNonce] = useState(0)
 
   const {
     selectedTeamId,
@@ -166,7 +171,7 @@ export function useBoardViewModel({
   } = useTeamIterations({
     adoQueryEngine: dataQueryEngine,
     selectedTeam: effectiveTeam,
-    reloadNonce: developmentReloadNonce + qaReloadNonce,
+    reloadNonce: iterationsReloadNonce,
   })
   const scopedQueryEngine = teamIterationsLoading || teamMetadataIterationsError ? null : dataQueryEngine
 
@@ -367,17 +372,21 @@ export function useBoardViewModel({
     teamIterations,
   })
 
-  const onRefresh = () => {
+  const refreshCurrentView = (refreshMetadata: boolean) => {
     if (!selectedTeam || !adoQueryEngine) {
       return
     }
 
-    retryProjectWorkItemStates()
+    if (refreshMetadata) retryProjectWorkItemStates()
 
     if (activeView === 'qa-activity') {
       adoQueryEngine.clearQualityAssuranceDataCache(selectedTeam.id)
-      adoQueryEngine.clearTeamIterationsCache(selectedTeam.id)
+      if (refreshMetadata) {
+        adoQueryEngine.clearTeamIterationsCache(selectedTeam.id)
+        setIterationsReloadNonce((current) => current + 1)
+      }
       adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, qaBuckets.flatMap((bucket) => bucket.items.map((item) => item.id)))
+      markQaRefreshRequested()
       setQaReloadNonce((current) => current + 1)
       return
     }
@@ -389,6 +398,8 @@ export function useBoardViewModel({
       return
     }
 
+    if (activeView === 'tests') return
+
     if (assignmentOptionsByTeam?.[selectedTeam.id]?.includeQaTestersInStandup) {
       adoQueryEngine.clearQualityAssuranceDataCache(selectedTeam.id)
       adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, qaBuckets.flatMap((bucket) => bucket.items.map((item) => item.id)))
@@ -396,7 +407,10 @@ export function useBoardViewModel({
     }
 
     adoQueryEngine.clearDevelopmentDataCache(selectedTeam.id)
-    adoQueryEngine.clearTeamMetadataCaches(selectedTeam)
+    if (refreshMetadata) {
+      adoQueryEngine.clearTeamMetadataCaches(selectedTeam)
+      setIterationsReloadNonce((current) => current + 1)
+    }
     adoQueryEngine.clearWorkItemUpdatesCache(selectedTeam, [
       ...boardItems.map((item) => item.id),
       ...(sprintScope.status === 'ready' ? sprintScope.removedItems.map((item) => item.id) : []),
@@ -405,6 +419,7 @@ export function useBoardViewModel({
     markTeamDataRefreshRequested()
     setDevelopmentReloadNonce((current) => current + 1)
   }
+  const onRefresh = () => refreshCurrentView(true)
 
   const teamManagementUrl = useTeamManagementUrl({
     adoQueryEngine: dataQueryEngine,
@@ -420,9 +435,23 @@ export function useBoardViewModel({
     failed: Boolean(teamIterationsError || membersError || workItemsError),
   })
   const { syncedAt: backlogSyncedAt, markRefreshRequested: markBacklogRefreshRequested } = useTeamDataSyncedAt({
-    teamId: selectedTeam?.id ?? '',
+    teamId: activeView === 'backlog' ? selectedTeam?.id ?? '' : '',
     isLoading: backlogBugsLoading,
     failed: Boolean(backlogBugsError),
+  })
+  const { syncedAt: qaSyncedAt, markRefreshRequested: markQaRefreshRequested } = useTeamDataSyncedAt({
+    teamId: activeView === 'qa-activity' ? selectedTeam?.id ?? '' : '',
+    isLoading: qaBucketsLoading,
+    failed: Boolean(teamIterationsError || qaBucketsError),
+  })
+
+  useAutoRefresh({
+    options: autoRefresh,
+    active: activeView !== 'tests' && Boolean(pat && selectedTeam),
+    scope: `${activeView}:${selectedTeamId}`,
+    syncedAt: activeView === 'backlog' ? backlogSyncedAt : activeView === 'qa-activity' ? qaSyncedAt : teamDataSyncedAt,
+    isLoading: activeView === 'backlog' ? backlogBugsLoading : activeView === 'qa-activity' ? teamIterationsLoading || qaBucketsLoading : isTeamDataLoading,
+    onRefresh: () => refreshCurrentView(false),
   })
 
   return {
