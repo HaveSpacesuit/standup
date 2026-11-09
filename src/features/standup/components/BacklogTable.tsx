@@ -3,7 +3,6 @@ import { Badge, Box, Button, Checkbox, IconButton, Link, Table, TableBody, Table
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
-import svgChevronDown from '@stratakit/icons/chevron-down.svg'
 import svgChevronRight from '@stratakit/icons/chevron-right.svg'
 import svgFlag from '@stratakit/icons/flag.svg'
 import svgSortDescending from '@stratakit/icons/sort-descending.svg'
@@ -72,9 +71,12 @@ const visuallyHiddenSx: SxProps<Theme> = {
 
 const TRACK_COLOR = 'var(--stratakit-color-bg-glow-on-surface-neutral-pressed)'
 
-const COLUMNS: ReadonlyArray<{ key: string; label: ReactNode; align?: 'right'; tip?: string }> = [
+const BUG_COLUMN_MIN_WIDTH = 300
+
+const COLUMNS: ReadonlyArray<{ key: string; label: ReactNode; width?: number; align?: 'right'; tip?: string }> = [
   {
     key: 'rank',
+    width: 80,
     label: (
       <>
         <span aria-hidden="true">#</span>
@@ -85,6 +87,7 @@ const COLUMNS: ReadonlyArray<{ key: string; label: ReactNode; align?: 'right'; t
   },
   {
     key: 'value',
+    width: 128,
     label: (
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
         Value
@@ -94,21 +97,21 @@ const COLUMNS: ReadonlyArray<{ key: string; label: ReactNode; align?: 'right'; t
     tip: `Highest Value first. Value = Severity × Impact ÷ Effort × 10, with Effort counted as at least ${MIN_ADJUSTED_EFFORT}.`,
   },
   { key: 'bug', label: 'Bug' },
-  { key: 'severity', label: 'Severity' },
-  { key: 'impact', label: 'Impact', tip: 'The Priority field: how many users hit the bug, from 1 (most) to 4 (few).' },
-  { key: 'effort', label: 'Effort', align: 'right' },
-  { key: 'age', label: 'Age', align: 'right', tip: 'Time since the bug was created.' },
-  { key: 'sprint', label: 'Sprint' },
-  { key: 'state', label: 'State' },
-  { key: 'assignee', label: 'Assigned to' },
+  { key: 'severity', label: 'Severity', width: 128 },
+  { key: 'impact', label: 'Impact', width: 88, tip: 'The Priority field: how many users hit the bug, from 1 (most) to 4 (few).' },
+  { key: 'effort', label: 'Effort', width: 80, align: 'right' },
+  { key: 'age', label: 'Age', width: 72, align: 'right', tip: 'Time since the bug was created.' },
+  { key: 'sprint', label: 'Sprint', width: 176 },
+  { key: 'state', label: 'State', width: 128 },
+  { key: 'assignee', label: 'Assigned to', width: 200 },
 ]
 
 // Plan a sprint leads with the pick checkboxes and follows Effort with the running total of the picks.
 const EFFORT_COLUMN_INDEX = COLUMNS.findIndex((column) => column.key === 'effort')
 const PLAN_COLUMNS: typeof COLUMNS = [
-  { key: 'pick', label: <Box component="span" sx={visuallyHiddenSx}>Pick</Box> },
+  { key: 'pick', label: <Box component="span" sx={visuallyHiddenSx}>Pick</Box>, width: 36 },
   ...COLUMNS.slice(0, EFFORT_COLUMN_INDEX + 1),
-  { key: 'running', label: 'Running', align: 'right', tip: 'The effort picked so far, counting down the list.' },
+  { key: 'running', label: 'Running', width: 112, align: 'right', tip: 'The effort picked so far, counting down the list.' },
   ...COLUMNS.slice(EFFORT_COLUMN_INDEX + 1),
 ]
 
@@ -129,7 +132,8 @@ const runningCellSx: SxProps<Theme> = { whiteSpace: 'nowrap', fontVariantNumeric
 
 // The id sits before the title like on the cards. Plain class names styled from the cell keep each row to one sx.
 const bugCellSx: SxProps<Theme> = {
-  minWidth: 300,
+  minWidth: BUG_COLUMN_MIN_WIDTH,
+  overflowWrap: 'anywhere',
   '& .backlog-bug-id': {
     mr: 0.5,
     fontWeight: 650,
@@ -500,14 +504,24 @@ function BugState({ state }: { state: string | undefined }) {
   }
 
   const shortState = abbreviateState(state)
-  const badge = <Badge variant="inline" type="outlined" size="small" max={Infinity} badgeContent={shortState} />
+  const badge = (
+    <Badge
+      variant="inline"
+      type="outlined"
+      size="small"
+      max={Infinity}
+      style={{ maxWidth: '100%' }}
+      slotProps={{ badge: { style: { maxWidth: '100%' } } }}
+      badgeContent={<span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortState}</span>}
+    />
+  )
   if (shortState === state) {
-    return badge
+    return <Tooltip title={state} describeChild>{badge}</Tooltip>
   }
 
   return (
     <Tooltip title={state} describeChild>
-      <span>
+      <span style={{ display: 'inline-flex', maxWidth: '100%' }}>
         <span aria-hidden="true">{badge}</span>
         <Box component="span" sx={visuallyHiddenSx}>{state}</Box>
       </span>
@@ -545,19 +559,22 @@ export function BugSprint({ sprint, iterationPath }: { sprint: BacklogSprint; it
         sx={{
           display: 'inline-flex',
           alignItems: 'center',
+          maxWidth: '100%',
           gap: 0.5,
           color: SPRINT_COLORS[sprint.kind],
           fontWeight: sprint.kind === 'current' ? 600 : undefined,
         }}
       >
-        {icon ? <Icon href={icon.href} alt="" style={{ color: icon.color }} /> : null}
-        {sprint.label}
+        {icon ? <Icon href={icon.href} alt="" style={{ color: icon.color, flexShrink: 0 }} /> : null}
+        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {sprint.label}
+        </Box>
       </Box>
     </Tooltip>
   )
 }
 
-const personSx: SxProps<Theme> = { display: 'inline-flex', alignItems: 'center', gap: 0.75, whiteSpace: 'nowrap' }
+const personSx: SxProps<Theme> = { display: 'inline-flex', alignItems: 'center', gap: 0.75, overflowWrap: 'anywhere' }
 const avatarSx: SxProps<Theme> = { width: 16, height: 16, fontSize: 9, flex: '0 0 auto' }
 
 /** The assignee's avatar and name; compact rows show only the avatar, with the name in its tooltip. */
@@ -671,7 +688,7 @@ const TierHeader = memo(function TierHeader({
             aria-expanded={!collapsed}
             onClick={() => onToggle(key)}
           >
-            <Icon href={collapsed ? svgChevronRight : svgChevronDown} />
+            <Icon href={svgChevronRight} style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)' }} />
           </IconButton>
           <span className="backlog-tier-bar" aria-hidden="true" />
           <span className="backlog-tier-name">{name}</span>
@@ -865,6 +882,8 @@ function CutLine({ used, budget, count, columnCount }: { used: number; budget: n
 
 // Like the dimmed cards on the boards: rows a Needs attention facet leaves out fade, and come back on hover or focus.
 const tableSx: SxProps<Theme> = {
+  // Rows leave the DOM when their tier collapses; only the Bug column should absorb spare width.
+  tableLayout: 'fixed',
   '& tr[data-emphasis="dim"] > td': {
     opacity: 0.35,
     filter: 'grayscale(0.6)',
@@ -893,6 +912,8 @@ export const BacklogTable = memo(function BacklogTable({
   const containerRef = useRef<HTMLDivElement>(null)
   const groups = groupBacklogBugsByTier(bugs, tierThresholds)
   const columns = plan ? PLAN_COLUMNS : COLUMNS
+  const columnWidths = columns.map((column) => column.key === 'assignee' && compact ? 112 : column.width)
+  const minWidth = columnWidths.reduce<number>((total, width) => total + (width ?? BUG_COLUMN_MIN_WIDTH), 0)
   const lastPick = plan?.plan.picks.at(-1)
 
   // The tier headers stick just below the column header, whose height changes with the theme's font size.
@@ -922,8 +943,11 @@ export const BacklogTable = memo(function BacklogTable({
       }}
     >
       {/* Relative so the absolutely positioned visually hidden text is contained by this scroller, not the page. */}
-      <TableContainer ref={containerRef} sx={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <Table size="small" stickyHeader aria-label="Open bugs ranked by value" sx={tableSx}>
+      <TableContainer ref={containerRef} sx={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'auto', scrollbarGutter: 'stable' }}>
+        <Table size="small" stickyHeader aria-label="Open bugs ranked by value" sx={[tableSx, { minWidth }]}>
+          <colgroup>
+            {columns.map((column, index) => <col key={column.key} style={{ width: columnWidths[index] }} />)}
+          </colgroup>
           <TableHead>
             <TableRow>
               {columns.map((column) => (

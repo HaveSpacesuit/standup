@@ -867,6 +867,56 @@ test('the Low tier starts collapsed by default, and its chevron or Show button e
   assert.deepEqual(listedIds(host), [102])
 })
 
+for (const compactRows of [false, true]) {
+  for (const planning of [false, true]) {
+    test(`tier toggles preserve the column layout (${compactRows ? 'compact' : 'comfortable'}, ${planning ? 'planning' : 'list'})`, async (t) => {
+      const host = await render(t, { compactRows })
+      if (planning) await startPlanning(host)
+      const table = host.querySelector('table')!
+      const columns = [...table.querySelectorAll<HTMLTableColElement>('colgroup col')]
+      const widths = columns.map((column) => column.style.width)
+      assert.equal(columns.length, planning ? 12 : 10)
+      assert.equal(widths.filter((width) => !width).length, 1, 'only the Bug column flexes')
+      assert.equal(widths[planning ? 3 : 2], '')
+      assert.equal(widths.at(-1), compactRows ? '112px' : '200px')
+      assert.equal(declaredStyle(table)('table-layout'), 'fixed')
+      assert.equal(
+        Number.parseFloat(declaredStyle(table)('min-width')),
+        widths.reduce((total, width) => total + (Number.parseFloat(width) || 300), 0),
+        'the table scrolls rather than squeezing columns below their allocated widths',
+      )
+      assert.equal(declaredStyle(host.querySelector('.MuiTableContainer-root')!)('scrollbar-gutter'), 'stable')
+
+      for (const label of ['Collapse Low', 'Collapse Top', 'Expand Low', 'Expand Top']) {
+        await act(async () => button(host, label).click())
+        assert.deepEqual([...table.querySelectorAll<HTMLTableColElement>('col')].map((column) => column.style.width), widths)
+        assert.equal(declaredStyle(table)('table-layout'), 'fixed')
+      }
+      assert.deepEqual(listedIds(host), [102, 103, 101])
+    })
+  }
+}
+
+test('long sprint and state labels stay within their columns without losing their text', async (t) => {
+  const state = 'Awaiting deployment'
+  const sprint = 'An unusually long sprint name'
+  const host = await render(t, {
+    compactRows: true,
+    bugs: rankBacklogBugs([{
+      id: 501, title: 'Ready', state, iterationPath: `Project\\${sprint}`, workItemUrl: workItemUrl(501),
+    }]),
+  })
+  const cells = rowFor(host, 501).querySelectorAll('td')
+  const sprintLabel = cells[7].querySelector('.MuiBox-root')!.lastElementChild!
+  assert.equal(sprintLabel.textContent, sprint)
+  assert.equal(declaredStyle(sprintLabel)('text-overflow'), 'ellipsis')
+  assert.equal(declaredStyle(sprintLabel)('white-space'), 'nowrap')
+  const badge = cells[8].querySelector<HTMLElement>('.MuiBadge-badge')!
+  assert.equal(badge.textContent, state)
+  assert.equal(badge.style.maxWidth, '100%')
+  assert.equal((badge.firstElementChild as HTMLElement).style.textOverflow, 'ellipsis')
+})
+
 test('a quick filter match in a collapsed tier waits behind its Show button', async (t) => {
   const host = await render(t, { backlogOptions: createDefaultBacklogOptions(), bugs: filterBacklogBugs(bugs, 'slow'), totalBugCount: bugs.length })
 

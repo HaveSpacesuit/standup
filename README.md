@@ -92,6 +92,8 @@ per attention signal present; select the chevron or any of the lane's cells to e
 The Team member header shows how many people have lanes, and collapses or expands every lane at
 once. Collapsed lanes are not saved.
 
+Row chevrons on Development, QA, and Backlog point right when collapsed and down when expanded.
+
 Start standup in the toolbar walks the team one person at a time. The speaker's lane is outlined,
 expanded with every card shown, and scrolled into view; every other lane collapses to one line. A
 Standup bar above the board shows a turn timer (amber after two minutes), the speaker with their
@@ -284,6 +286,10 @@ The table has no sorting, column filtering, or selection, and bug rows highlight
 When Impact or Effort is empty, the cell shows a dashed **?** whose tooltip says what the Value assumes in its place.
 
 The ranked bugs are grouped into four Value tiers: **Top** (Value 80+), **High** (30–80), **Medium** (12–30), and **Low** (under 12), so the bugs worth discussing stand apart from the many small ones. Each tier starts with a header row that stays pinned under the column header while its bugs scroll by. The header shows the tier's name, how many bugs it holds, its Value range, and the total Effort entered on them, such as "Σ 81 pts + 2 unestimated", where bugs without an Effort are counted rather than summed. A tier with no bugs is left out. Each bug row has a stripe in its tier's color beside the rank, and the Value meters in Low are neutral rather than the accent color. A bug sits in the tier its Value reaches as displayed, so one showing 80.0 is in Top; ranks still run down the page across tiers. The chevron on a tier header collapses or expands it, and a collapsed tier shows a **Show N** button that expands it too. Low starts collapsed by default, since it usually holds most of the backlog. Collapsed tiers stay collapsed through a refresh and reset when you leave the page. The quick filter does not open a collapsed tier, so its matches there are counted on the header behind **Show N**.
+
+Table columns keep their widths when tiers expand or collapse, including when every tier is collapsed.
+The Bug column takes the remaining space; narrow windows scroll horizontally. Long sprint and state labels end in an
+ellipsis, with their full text available in tooltips.
 
 Backlog options > Value tiers sets the lowest Value of Top, High, and Medium; anything below Medium is Low. Each threshold must be above 0 and lower than the one above it. Until all three are valid, the fields that conflict are marked with a message and the tiers keep the last valid thresholds; a valid change applies straight away. **Start with the Low tier collapsed** (on by default) sets whether Low opens collapsed, and turning it on or off collapses or expands Low at once. These Backlog options are saved per team in this browser and included in team exports; importing an export made before they existed uses the defaults.
 

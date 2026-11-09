@@ -1,7 +1,6 @@
 import { Avatar, Badge, Box, IconButton, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
-import svgChevronDown from '@stratakit/icons/chevron-down.svg'
 import svgChevronRight from '@stratakit/icons/chevron-right.svg'
 import type { ReactNode } from 'react'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
@@ -142,7 +141,7 @@ export function LaneHead({
           onClick={onToggleCollapsed}
           sx={{ ml: -0.75, flex: '0 0 auto' }}
         >
-          <Icon href={collapsed ? svgChevronRight : svgChevronDown} />
+          <Icon href={svgChevronRight} style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)' }} />
         </IconButton>
       ) : null}
       {row.iconHref ? (
