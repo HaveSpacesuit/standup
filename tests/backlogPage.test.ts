@@ -118,7 +118,7 @@ const defaultProps: PageProps = {
   totalBugCount: bugs.length,
   isLoading: false,
   error: null,
-  // Two of the three bugs are Low, which starts collapsed by default; the tier tests turn that back on.
+  // Two of the three bugs are Minimal, which starts collapsed by default; the tier tests turn that back on.
   backlogOptions: { ...createDefaultBacklogOptions(), startLowCollapsed: false },
 }
 
@@ -457,7 +457,7 @@ test('the table has no sorting, filtering, or selection controls', async (t) => 
   const controls = [...table.querySelectorAll('button, input, select, textarea, [role="button"], [role="checkbox"], [aria-sort], [aria-selected], [tabindex]')]
   assert.deepEqual(
     controls.map((control) => control.getAttribute('aria-label')),
-    ['Collapse Top', 'Collapse Low'],
+    ['Collapse Top', 'Collapse Minimal'],
     'the only buttons collapse the Value tiers',
   )
   assert.ok(controls.every((control) => control.closest('.backlog-tier-header')))
@@ -812,7 +812,7 @@ test('the bugs are grouped into Value tiers, each under a header with its size, 
   assert.equal(visibleText(top.querySelector('.backlog-tier-effort')!), '4 pts')
   assert.equal(top.querySelector('.backlog-tier-effort [aria-hidden="true"]')!.textContent, 'Σ ')
 
-  const low = tierHeader(host, 'Low')
+  const low = tierHeader(host, 'Minimal')
   assert.equal(visibleText(low.querySelector('.backlog-tier-count')!), '2 bugs')
   assert.equal(low.querySelector('.backlog-tier-range')!.textContent, 'Value under 12')
   assert.equal(visibleText(low.querySelector('.backlog-tier-effort')!), '8 pts + 1 unestimated', 'a bug without Effort is counted, not summed')
@@ -820,7 +820,7 @@ test('the bugs are grouped into Value tiers, each under a header with its size, 
   const [topBody, lowBody] = [...host.querySelectorAll<HTMLElement>('tbody')]
   assert.equal(topBody.style.getPropertyValue('--backlog-tier'), BACKLOG_TIER_COLORS.top, 'the tier color stripes its rows')
   assert.equal(lowBody.style.getPropertyValue('--backlog-tier'), BACKLOG_TIER_COLORS.low)
-  assert.equal(lowBody.style.getPropertyValue('--backlog-tier-meter'), 'var(--stratakit-color-bg-mono-base)', 'Low meters are neutral')
+  assert.equal(lowBody.style.getPropertyValue('--backlog-tier-meter'), 'var(--stratakit-color-bg-mono-base)', 'Minimal meters are neutral')
   assert.equal(topBody.style.getPropertyValue('--backlog-tier-meter'), '')
 
   const style = declaredStyle(cell)
@@ -834,27 +834,27 @@ test('the tiers follow the thresholds in the Backlog options', async (t) => {
   })
 
   assert.deepEqual(tierBugIds(host), { high: [102], medium: [103], low: [101] })
-  assert.equal(tierHeader(host, 'High').querySelector('.backlog-tier-range')!.textContent, 'Value 100–300')
-  assert.equal(tierHeader(host, 'Medium').querySelector('.backlog-tier-range')!.textContent, 'Value 5–100')
+  assert.equal(tierHeader(host, 'Substantial').querySelector('.backlog-tier-range')!.textContent, 'Value 100–300')
+  assert.equal(tierHeader(host, 'Moderate').querySelector('.backlog-tier-range')!.textContent, 'Value 5–100')
 })
 
-test('the Low tier starts collapsed by default, and its chevron or Show button expands it', async (t) => {
+test('the Minimal tier starts collapsed by default, and its chevron or Show button expands it', async (t) => {
   const host = await render(t, { backlogOptions: createDefaultBacklogOptions() })
 
-  assert.deepEqual(listedIds(host), [102], 'only the bugs above Low are listed')
-  const low = tierHeader(host, 'Low')
+  assert.deepEqual(listedIds(host), [102], 'only the bugs above Minimal are listed')
+  const low = tierHeader(host, 'Minimal')
   assert.equal(visibleText(low.querySelector('.backlog-tier-count')!), '2 bugs', 'a collapsed tier still says how many it holds')
-  const expand = button(host, 'Expand Low')
+  const expand = button(host, 'Expand Minimal')
   assert.equal(expand.getAttribute('aria-expanded'), 'false')
-  const show = button(host, 'Show 2 bugs in Low')
+  const show = button(host, 'Show 2 bugs in Minimal')
   assert.equal(show.textContent, 'Show 2')
   assert.equal(button(host, 'Collapse Top').getAttribute('aria-expanded'), 'true')
   assert.equal(host.querySelector('button[aria-label="Show 1 bug in Top"]'), null, 'an open tier has no Show button')
 
   await act(async () => show.click())
   assert.deepEqual(listedIds(host), [102, 103, 101])
-  assert.equal(host.querySelector('button[aria-label="Show 2 bugs in Low"]'), null)
-  const collapse = button(host, 'Collapse Low')
+  assert.equal(host.querySelector('button[aria-label="Show 2 bugs in Minimal"]'), null)
+  const collapse = button(host, 'Collapse Minimal')
   assert.equal(document.activeElement, collapse, 'focus moves to the chevron rather than being lost with the Show button')
   assert.equal(collapse.getAttribute('aria-expanded'), 'true')
 
@@ -887,7 +887,7 @@ for (const compactRows of [false, true]) {
       )
       assert.equal(declaredStyle(host.querySelector('.MuiTableContainer-root')!)('scrollbar-gutter'), 'stable')
 
-      for (const label of ['Collapse Low', 'Collapse Top', 'Expand Low', 'Expand Top']) {
+      for (const label of ['Collapse Minimal', 'Collapse Top', 'Expand Minimal', 'Expand Top']) {
         await act(async () => button(host, label).click())
         assert.deepEqual([...table.querySelectorAll<HTMLTableColElement>('col')].map((column) => column.style.width), widths)
         assert.equal(declaredStyle(table)('table-layout'), 'fixed')
@@ -921,8 +921,8 @@ test('a quick filter match in a collapsed tier waits behind its Show button', as
   const host = await render(t, { backlogOptions: createDefaultBacklogOptions(), bugs: filterBacklogBugs(bugs, 'slow'), totalBugCount: bugs.length })
 
   assert.deepEqual(listedIds(host), [])
-  assert.equal(button(host, 'Show 1 bug in Low').textContent, 'Show 1', 'the header counts the matching bugs')
-  await act(async () => button(host, 'Show 1 bug in Low').click())
+  assert.equal(button(host, 'Show 1 bug in Minimal').textContent, 'Show 1', 'the header counts the matching bugs')
+  await act(async () => button(host, 'Show 1 bug in Minimal').click())
   assert.deepEqual(listedIds(host), [103])
 })
 
@@ -934,12 +934,12 @@ test('the options dialog sets the tier thresholds, applying them once all three 
   const section = opened.querySelector('section[aria-labelledby="backlog-options-tiers"]')!
   assert.equal(section.querySelector('h3')!.textContent, 'Value tiers')
   const top = thresholdInput(opened, 'Top from Value')
-  const high = thresholdInput(opened, 'High from Value')
-  const medium = thresholdInput(opened, 'Medium from Value')
+  const high = thresholdInput(opened, 'Substantial from Value')
+  const medium = thresholdInput(opened, 'Moderate from Value')
   assert.deepEqual([top.value, high.value, medium.value], ['80', '30', '12'])
   assert.deepEqual([top.type, top.min], ['number', '1'])
   assert.match(document.getElementById(top.getAttribute('aria-describedby')!)!.textContent!, /groups bugs by Value/)
-  assert.match(section.textContent!, /Low: everything below Medium/)
+  assert.match(section.textContent!, /Minimal: everything below Moderate/)
   assert.equal(opened.querySelector('[role="alert"]'), null)
 
   await typeInto(high, '90')
@@ -958,15 +958,15 @@ test('the options dialog sets the tier thresholds, applying them once all three 
   assert.equal(opened.querySelector('[role="alert"]'), null)
   assert.deepEqual(changes.map((change) => change.tierThresholds), [{ top: 80, high: 30, medium: 12 }, { top: 80, high: 30, medium: 10 }])
   assert.deepEqual(tierBugIds(host), { top: [102], medium: [103], low: [101] }, 'the list regroups straight away')
-  assert.equal(tierHeader(host, 'Medium').querySelector('.backlog-tier-range')!.textContent, 'Value 10–30')
+  assert.equal(tierHeader(host, 'Moderate').querySelector('.backlog-tier-range')!.textContent, 'Value 10–30')
 })
 
-test('turning "Start with the Low tier collapsed" on or off applies to the list straight away', async (t) => {
+test('turning "Start with the Minimal tier collapsed" on or off applies to the list straight away', async (t) => {
   const host = await renderWithOptions(t)
   assert.deepEqual(listedIds(host), [102, 103, 101])
   const opened = await openOptions(host)
   const checkbox = [...opened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
-    .find((input) => input.closest('label')?.textContent === 'Start with the Low tier collapsed')!
+    .find((input) => input.closest('label')?.textContent === 'Start with the Minimal tier collapsed')!
   assert.equal(checkbox.checked, false)
 
   await act(async () => checkbox.click())
@@ -1037,7 +1037,7 @@ test('the summary ribbon sums up the backlog: its size, effort, Value and severi
 
   assert.match(text, /^3 open bugs/)
   assert.match(text, /Total effort 12 pts \+ 1 unestimated/, 'the Σ is read as "Total effort"')
-  assert.match(text, /Value1 top0 high0 medium2 low/)
+  assert.match(text, /Value1 top0 substantial0 moderate2 minimal/)
   assert.match(text, /Severity1 S10 S21 S30 S41 not set/)
   assert.match(text, /Planned1 this · 0 next · 1 ended/)
   assert.match(text, /\+0 new this sprint/)
@@ -1133,8 +1133,8 @@ test('a match in a collapsed tier is counted on its header', async (t) => {
   const host = await render(t, { bugs: attentionBugs, teamIterations: futureIterations, backlogOptions: createDefaultBacklogOptions() })
 
   await act(async () => facetToggle(host, 'old').click())
-  assert.ok(!listedIds(host).includes(203), 'the old bug is in the collapsed Low tier')
-  assert.equal(tierHeader(host, 'Low').querySelector('.backlog-tier-matches')!.textContent, ' · 1 match')
+  assert.ok(!listedIds(host).includes(203), 'the old bug is in the collapsed Minimal tier')
+  assert.equal(tierHeader(host, 'Minimal').querySelector('.backlog-tier-matches')!.textContent, ' · 1 match')
 })
 
 test('dimmed rows fade but come back on hover or focus', async (t) => {
@@ -1519,7 +1519,7 @@ test('the View toggle switches the list for the Value map, which groups bugs wit
 
   assert.equal(panelHeading(host), 'Reading the map')
   assert.deepEqual([...mapPanel(host).querySelectorAll('ul[aria-label="Key"] li')].map((item) => item.textContent), [
-    'Top · Value 80+', 'High · Value 30–80', 'Medium · Value 12–30', 'Low · Value under 12', 'Uses an assumed default',
+    'Top · Value 80+', 'Substantial · Value 30–80', 'Moderate · Value 12–30', 'Minimal · Value under 12', 'Uses an assumed default',
   ])
   assert.equal(mapPanel(host).querySelector('h3')!.textContent, 'Top 4 by Value')
   assert.deepEqual(panelIds(host), mapBugs.map((bug) => bug.id))

@@ -106,7 +106,7 @@ function ValueMix({ summary, thresholds }: { summary: BacklogSummary; thresholds
       <b>Value</b>
       <Box
         aria-hidden="true"
-        // No track behind the segments: they always fill the bar, and the faint Low segment must not read as empty space.
+        // No track behind the segments: they always fill the bar, and the faint Minimal segment must not read as empty space.
         sx={{ display: 'flex', gap: '1px', width: 96, height: 8, borderRadius: 999, overflow: 'hidden', ...hideBelow(760) }}
       >
         {BACKLOG_TIERS.map(({ key }) => tierCounts[key] > 0 ? (

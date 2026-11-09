@@ -1,4 +1,4 @@
-/** The lowest Value of each named tier; anything under Medium is Low. */
+/** The lowest Value of Top, Substantial, and Moderate; anything under Moderate is Minimal. Stored keys stay stable. */
 export type BacklogTierThresholds = {
   top: number
   high: number
@@ -7,7 +7,7 @@ export type BacklogTierThresholds = {
 
 export type BacklogOptions = {
   tierThresholds: BacklogTierThresholds
-  /** Low usually holds most of the backlog, so it can start collapsed to keep the list on the bugs worth discussing. */
+  /** Minimal usually holds most of the backlog, so it can start collapsed to keep the list on the bugs worth discussing. */
   startLowCollapsed: boolean
   /** How many months a bug can stay New before Needs attention flags it as old. */
   agingMonths: number

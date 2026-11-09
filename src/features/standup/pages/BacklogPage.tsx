@@ -50,7 +50,7 @@ type BacklogPageProps = {
   /** One-line rows; the team's compact density, shared with the Development and QA cards. */
   compactRows?: boolean
   onCompactRowsChange?: (compactRows: boolean) => void
-  /** The team's Backlog options: the Value tier thresholds, whether Low starts collapsed, and when a New bug is old. */
+  /** The team's Backlog options: the Value tier thresholds, whether Minimal starts collapsed, and when a New bug is old. */
   backlogOptions?: BacklogOptions
   onBacklogOptionsChange?: (next: BacklogOptions) => void
   /** Reopen the view used last, List or Map; otherwise the page opens on List. */
@@ -68,7 +68,7 @@ const initialCollapsedTiers = (startLowCollapsed: boolean): ReadonlySet<BacklogT
 
 /**
  * Which tiers are collapsed. The page owns it, not the table, so it outlasts a refresh, which swaps the table for the
- * loading skeleton. Turning "Start with the Low tier collapsed" on or off applies to the Low tier straight away.
+ * loading skeleton. Turning "Start with the Minimal tier collapsed" on or off applies to the Minimal tier straight away.
  */
 function useCollapsedTiers(startLowCollapsed: boolean) {
   const [collapsedTiers, setCollapsedTiers] = useState(() => initialCollapsedTiers(startLowCollapsed))

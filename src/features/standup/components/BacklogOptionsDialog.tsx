@@ -18,7 +18,7 @@ import {
   type BacklogOptions,
   type BacklogTierThresholds,
 } from '../utils/backlogOptions'
-import { BACKLOG_TIER_COLORS, type BacklogTierKey } from '../utils/backlogTiers'
+import { BACKLOG_TIER_COLORS, BACKLOG_TIERS, type BacklogTierKey } from '../utils/backlogTiers'
 import { MIN_ADJUSTED_EFFORT } from '../utils/backlogValue'
 
 const COMPACT_ROWS_HELP_ID = 'backlog-compact-rows-help'
@@ -31,11 +31,9 @@ const PLAN_ERROR_ID = 'backlog-plan-error'
 
 type ThresholdKey = keyof BacklogTierThresholds
 
-const THRESHOLD_FIELDS: ReadonlyArray<{ key: ThresholdKey; name: string }> = [
-  { key: 'top', name: 'Top' },
-  { key: 'high', name: 'High' },
-  { key: 'medium', name: 'Medium' },
-]
+const THRESHOLD_FIELDS = BACKLOG_TIERS.filter(
+  (tier): tier is { key: ThresholdKey; name: string } => tier.key !== 'low',
+)
 
 type BacklogOptionsDialogProps = {
   open: boolean
@@ -139,7 +137,7 @@ function TierThresholdFields({
                     'aria-describedby': invalid ? `${TIERS_HELP_ID} ${TIERS_ERROR_ID}` : TIERS_HELP_ID,
                   },
                 }}
-                sx={{ width: 150 }}
+                sx={{ width: 200 }}
               />
             </Box>
           )
@@ -148,8 +146,8 @@ function TierThresholdFields({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <TierSwatch tier="low" />
         <Typography variant="body-sm">
-          <Box component="span" sx={{ fontWeight: 700 }}>Low</Box>
-          <Box component="span" sx={{ color: 'text.secondary' }}>: everything below Medium</Box>
+          <Box component="span" sx={{ fontWeight: 700 }}>{BACKLOG_TIERS[3].name}</Box>
+          <Box component="span" sx={{ color: 'text.secondary' }}>: everything below {BACKLOG_TIERS[2].name}</Box>
         </Typography>
       </Box>
       {problem ? (
@@ -268,7 +266,7 @@ export function BacklogOptionsDialog({
             onChange={(tierThresholds) => onBacklogOptionsChange({ ...backlogOptions, tierThresholds })}
           />
           <FormControlLabel
-            label="Start with the Low tier collapsed"
+            label={`Start with the ${BACKLOG_TIERS[3].name} tier collapsed`}
             control={(
               <Checkbox
                 checked={backlogOptions.startLowCollapsed}

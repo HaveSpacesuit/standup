@@ -14,7 +14,7 @@ const {
   parseStoredBacklogOptions,
   serializeBacklogOptions,
 } = await server.ssrLoadModule('/src/features/standup/utils/backlogOptions.ts')
-const { formatBacklogTierRange, getBacklogTier, groupBacklogBugsByTier } =
+const { BACKLOG_TIERS, formatBacklogTierRange, getBacklogTier, groupBacklogBugsByTier } =
   await server.ssrLoadModule('/src/features/standup/utils/backlogTiers.ts')
 const { rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
 const { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } =
@@ -33,7 +33,16 @@ function createBug(overrides: Partial<BacklogBug> & { id: number }): BacklogBug 
   }
 }
 
-test('the default tiers start at Value 80, 30, and 12, with Low collapsed, New bugs flagged after a year, and a 10 pt plan', () => {
+test('Value tier names are distinct from Severity while preserving stored keys', () => {
+  assert.deepEqual(BACKLOG_TIERS, [
+    { key: 'top', name: 'Top' },
+    { key: 'high', name: 'Substantial' },
+    { key: 'medium', name: 'Moderate' },
+    { key: 'low', name: 'Minimal' },
+  ])
+})
+
+test('the default tiers start at Value 80, 30, and 12, with Minimal collapsed, New bugs flagged after a year, and a 10 pt plan', () => {
   assert.deepEqual(createDefaultBacklogOptions(), {
     tierThresholds: thresholds,
     startLowCollapsed: true,
@@ -83,10 +92,10 @@ test('ranked bugs are grouped by tier in ranked order, with the effort entered a
     }) => ({ key, name, range, ids: bugs.map((bug) => bug.id), effortTotal, unestimatedCount })),
     [
       { key: 'top', name: 'Top', range: 'Value 80+', ids: [1, 2], effortTotal: 12, unestimatedCount: 0 },
-      { key: 'medium', name: 'Medium', range: 'Value 12–30', ids: [3], effortTotal: 0, unestimatedCount: 1 },
-      { key: 'low', name: 'Low', range: 'Value under 12', ids: [4, 5], effortTotal: 8, unestimatedCount: 1 },
+      { key: 'medium', name: 'Moderate', range: 'Value 12–30', ids: [3], effortTotal: 0, unestimatedCount: 1 },
+      { key: 'low', name: 'Minimal', range: 'Value under 12', ids: [4, 5], effortTotal: 8, unestimatedCount: 1 },
     ],
-    'High has no bugs, so it is left out',
+    'Substantial has no bugs, so it is left out',
   )
   assert.deepEqual(groupBacklogBugsByTier([], thresholds), [])
 })
@@ -181,7 +190,7 @@ test('team exports carry the Backlog options, and older exports import the defau
   assert.equal(
     parseImportedTeamData(JSON.stringify(exportWith({ skipPlannedBugs: 'yes' }))).backlogOptions.skipPlannedBugs,
     true,
-    'a flag that is not true or false takes its default, like Start with the Low tier collapsed',
+    'a flag that is not true or false takes its default, like Start with the Minimal tier collapsed',
   )
 })
 

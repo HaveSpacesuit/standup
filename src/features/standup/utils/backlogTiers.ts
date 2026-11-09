@@ -6,9 +6,9 @@ export type BacklogTierKey = 'top' | 'high' | 'medium' | 'low'
 
 export const BACKLOG_TIERS: ReadonlyArray<{ key: BacklogTierKey; name: string }> = [
   { key: 'top', name: 'Top' },
-  { key: 'high', name: 'High' },
-  { key: 'medium', name: 'Medium' },
-  { key: 'low', name: 'Low' },
+  { key: 'high', name: 'Substantial' },
+  { key: 'medium', name: 'Moderate' },
+  { key: 'low', name: 'Minimal' },
 ]
 
 const SURFACE = 'var(--stratakit-mui-palette-background-paper)'
@@ -25,7 +25,7 @@ export const BACKLOG_TIER_COLORS: Readonly<Record<BacklogTierKey, string>> = {
 export function getBacklogTierStyle(key: BacklogTierKey): CSSProperties {
   return {
     '--backlog-tier': BACKLOG_TIER_COLORS[key],
-    // The Low tier's own color is too faint for a meter, so its meters take the neutral fill instead of the accent.
+    // The Minimal tier's own color is too faint for a meter, so its meters take the neutral fill instead of the accent.
     ...(key === 'low' ? { '--backlog-tier-meter': 'var(--stratakit-color-bg-mono-base)' } : {}),
   } as CSSProperties
 }
