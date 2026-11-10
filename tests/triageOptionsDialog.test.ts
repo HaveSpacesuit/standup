@@ -21,6 +21,7 @@ Object.assign(globalThis, {
   window: dom.window,
   document: dom.window.document,
   Document: dom.window.Document,
+  Element: dom.window.Element,
   HTMLElement: dom.window.HTMLElement,
   Node: dom.window.Node,
   ShadowRoot: dom.window.ShadowRoot,
@@ -45,6 +46,7 @@ const item: TriageItem = {
   workItemUrl: 'https://dev.azure.com/org/Project/_workitems/edit/42',
 }
 const noop = () => {}
+const readinessChecks: TriageOptions['readinessChecks'] = { bug: ['severity', 'impact', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria'] }
 
 async function renderPage(t: TestContext, options: TriageOptions, onOptionsChange: (options: TriageOptions) => void = noop) {
   const host = document.createElement('div')
@@ -93,7 +95,7 @@ const newBugsCheckbox = (opened: Element) => opened.querySelector<HTMLInputEleme
 
 test('Triage tags are pills edited with one input and an Add button, like QA tag filters', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 }, (options) => saved.push(options))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }, (options) => saved.push(options))
   const opened = await openOptions(host)
 
   const group = tagGroup(opened)
@@ -122,25 +124,25 @@ test('Triage tags are pills edited with one input and an Add button, like QA tag
 
   await typeInto(tagInput(opened), 'Escalated')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Bug bash', 'Escalated', 'Needs review'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 }],
+  assert.deepEqual(saved, [{ tags: ['Bug bash', 'Escalated', 'Needs review'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }],
     'Save includes a tag typed but not yet added')
   assert.equal(dialog(), null)
 })
 
 test('removing every tag shows the empty text, and saving with no tags keeps tag matching off', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2 }, (options) => saved.push(options))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }, (options) => saved.push(options))
   const opened = await openOptions(host)
   await click(tagGroup(opened).querySelector<HTMLButtonElement>('.MuiChip-root button')!)
   assert.deepEqual(tagChips(opened), [])
   assert.match(tagGroup(opened).textContent ?? '', /No Triage tags\. Tag matching is off\./)
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: [], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2 }])
+  assert.deepEqual(saved, [{ tags: [], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }])
 })
 
 test('excluded iteration paths are disabled while new bugs is off, and kept when saved', async (t) => {
   const saved: TriageOptions[] = []
-  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2 }
+  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks }
   const host = await renderPage(t, options, (next) => saved.push(next))
   const opened = await openOptions(host)
 
@@ -148,7 +150,7 @@ test('excluded iteration paths are disabled while new bugs is off, and kept when
   assert.equal(pathInput(opened).disabled, true)
   assert.match(opened.textContent ?? '', /Turn on new bugs to use excluded iteration paths\. Saved paths are kept\./)
   assert.match(opened.textContent ?? '', /Project\\Refine/, 'the saved path is still shown')
-  const pathRemoveButtons = () => opened.querySelectorAll('.MuiAutocomplete-tag button')
+  const pathRemoveButtons = () => pathInput(opened).closest('.MuiAutocomplete-root')!.querySelectorAll('.MuiAutocomplete-tag button')
   assert.equal(pathRemoveButtons().length, 0, 'a saved path cannot be removed while the field is disabled')
 
   await click(newBugsCheckbox(opened))
@@ -165,17 +167,17 @@ test('excluded iteration paths are disabled while new bugs is off, and kept when
 
 test('turning new bugs on saves the excluded paths, including one still being typed', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2 }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks }, (next) => saved.push(next))
   const opened = await openOptions(host)
   await click(newBugsCheckbox(opened))
   await typeInto(pathInput(opened), 'Project\\Later')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Later', 'Project\\Refine'], ageFlagDays: 2 }])
+  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Later', 'Project\\Refine'], ageFlagDays: 2, readinessChecks }])
 })
 
 test('the age flag is a whole number of working days, saved with the rules and rejected when out of range', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }, (next) => saved.push(next))
   const opened = await openOptions(host)
   const label = [...opened.querySelectorAll('label')].find((candidate) => candidate.textContent === 'Flag age after (working days)')!
   const input = document.getElementById(label.htmlFor) as HTMLInputElement
@@ -192,18 +194,48 @@ test('the age flag is a whole number of working days, saved with the rules and r
 
   await typeInto(input, '5')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 5 }])
+  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 5, readinessChecks }])
+})
+
+test('readiness checks are picked per type from the known fields and saved with the rules', async (t) => {
+  const saved: TriageOptions[] = []
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }, (next) => saved.push(next))
+  const opened = await openOptions(host)
+  const group = [...opened.querySelectorAll('[role="group"]')].find((candidate) =>
+    document.getElementById(candidate.getAttribute('aria-labelledby')!)?.textContent === 'Readiness checks')!
+  assert.match(group.textContent ?? '', /Leave both empty to hide the Readiness column/)
+  const field = (name: string) => {
+    const label = [...group.querySelectorAll('label')].find((candidate) => candidate.textContent === name)!
+    return document.getElementById(label.htmlFor)!.closest('.MuiAutocomplete-root')!
+  }
+  const chips = (name: string) => [...field(name).querySelectorAll('.MuiChip-label')].map((chip) => chip.textContent)
+  assert.deepEqual(chips('Required on bugs'), ['Severity', 'Impact', 'Effort', 'Repro steps'])
+  assert.deepEqual(chips('Required on other types'), ['Effort', 'Acceptance criteria'])
+
+  const impact = [...field('Required on bugs').querySelectorAll('.MuiChip-root')].find((chip) => chip.textContent?.startsWith('Impact'))!
+  await click(impact.querySelector<HTMLButtonElement>('button')!)
+  assert.deepEqual(chips('Required on bugs'), ['Severity', 'Effort', 'Repro steps'])
+
+  // MUI clears the text of an Autocomplete that is not focused, so it is focused first, as a click would.
+  const otherInput = field('Required on other types').querySelector('input')!
+  await act(async () => otherInput.focus())
+  await typeInto(otherInput, 'desc')
+  const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+  assert.deepEqual(options.map((option) => option.textContent), ['Description'], 'already chosen checks are not offered again')
+  await click(options[0])
+  await click(buttonNamed(opened, 'Save'))
+  assert.deepEqual(saved.map((options) => options.readinessChecks), [{ bug: ['severity', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria', 'description'] }])
 })
 
 test('the no-rules card opens Triage options', async (t) => {
-  const host = await renderPage(t, { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 })
+  const host = await renderPage(t, { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks })
   assert.equal(host.querySelector('main h2')?.textContent, 'No Triage rules')
   await click(buttonNamed(host, 'Open Triage options'))
   assert.equal(dialog()?.querySelector('h2')?.textContent, 'Triage options')
 })
 
 test('a quick filter that hides every item says so as muted status text, not the empty-queue card', async (t) => {
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 })
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks })
   const count = () => host.querySelector('p[aria-live="polite"]')?.textContent
   assert.ok(host.querySelector('table'))
   assert.equal(count(), '1 item', 'like Backlog, the count names the total alone while nothing is filtered out')

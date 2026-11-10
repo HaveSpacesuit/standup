@@ -25,6 +25,9 @@ const { TriagePage } = await server.ssrLoadModule('/src/features/standup/pages/T
 const { StandupContent } = await server.ssrLoadModule('/src/features/standup/components/StandupContent.tsx')
 const { describeEmptyTriage, filterTriageItems, formatTriageCount, getTriageAge, getTriageTitleTags, getTriageVisibleText } = await server.ssrLoadModule('/src/features/standup/utils/triageDisplay.ts')
 const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
+const { describeTriageClearing, getTriageReadiness } = await server.ssrLoadModule('/src/features/standup/utils/triageRules.ts')
+const readinessChecks = { bug: ['severity', 'impact', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria'] }
+const noChecks = { bug: [], other: [] }
 const item: TriageItem = {
   id: 42, title: 'Crash on save', workItemType: 'Bug', state: 'Reported', createdAt: '2026-02-01T00:00:00Z',
   assignedTo: { displayName: 'Developer' }, createdBy: { displayName: 'Reporter' }, priority: 1, severity: '2 - High',
@@ -47,7 +50,7 @@ function props() {
     teamOptions: [{ id: 'a', displayName: 'Team A', orgName: 'org', projectName: 'Project', teamName: 'A', areaPath: 'Project\\A', iterationPath: 'Project', repoName: 'repo' }],
     selectedTeamId: 'a', onTeamChange: noop, teamManagementUrl: '',
     result: { items: [item], warnings: [] }, isLoading: false, error: null, syncedAt: null, onRefresh: noop,
-    options: { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 },
+    options: { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks },
     settingsError: null, onOptionsChange: noop, quickFilterInputRef: { current: null },
     iterations: [], iterationsLoading: false, iterationsError: null,
   }
@@ -61,7 +64,7 @@ function renderDocument(overrides: Record<string, unknown> = {}) {
   for (const style of dom.window.document.querySelectorAll('style')) style.remove()
   return dom
 }
-const COLUMN_HEADERS = ['Work item', 'Why', 'Severity', 'Impact', 'Effort', 'Age', 'Sprint', 'State', 'Assigned to', 'Created by', 'Parent']
+const COLUMN_HEADERS = ['Work item', 'Why', 'Readiness', 'Severity', 'Impact', 'Effort', 'Age', 'Sprint', 'State', 'Assigned to', 'Created by', 'Parent']
 const headersOf = (table: Element) => [...table.querySelectorAll('thead th')].map((cell) => cell.textContent!)
 /** The row's data cells by the table's own headers, after the Work item cell. */
 function cellsOf(row: Element) {
@@ -128,7 +131,7 @@ test('Triage cells share Backlog formatting: severity chip, impact bars, age, sp
   } finally { withSprints.window.close() }
 })
 
-test('empty Severity, Impact and Effort are flagged on bugs and dashed on other types; Unassigned and New are muted', () => {
+test('empty Severity, Impact and Effort are flagged when the type checks them, otherwise dashed; Unassigned and New are muted', () => {
   const dom = renderDocument({ result: { items: [item, emptyBug, emptyStory], warnings: [] } })
   try {
     const [, bug, story] = [...dom.window.document.querySelectorAll('tbody tr')].map(cellsOf)
@@ -141,10 +144,70 @@ test('empty Severity, Impact and Effort are flagged on bugs and dashed on other 
     assert.equal(bug['Assigned to'].textContent, 'Unassigned')
     assert.equal(bug['Created by'].textContent, 'Unknown')
     assert.equal(bug.Parent.textContent, '—Not set')
-    for (const field of ['Severity', 'Impact', 'Effort']) assert.equal(story[field].textContent, '—Not set', field)
+    for (const field of ['Severity', 'Impact']) assert.equal(story[field].textContent, '—Not set', field)
+    assert.equal(story.Effort.textContent, '?Not set', 'Effort is one of the default checks for other types')
     assert.equal(story.State.querySelector('.MuiBadge-badge')?.textContent, 'RFR', 'long states are abbreviated like Backlog')
     assert.match(story.State.textContent!, /Ready for Review/, 'the full state stays available to screen readers')
   } finally { dom.window.close() }
+
+  const unchecked = renderDocument({
+    result: { items: [emptyBug, emptyStory], warnings: [] },
+    options: { ...props().options, readinessChecks: { bug: ['reproSteps'], other: [] } },
+  })
+  try {
+    for (const row of [...unchecked.window.document.querySelectorAll('tbody tr')].map(cellsOf)) {
+      for (const field of ['Severity', 'Impact', 'Effort']) assert.equal(row[field].textContent, '—Not set', `${field} is not checked`)
+    }
+  } finally { unchecked.window.close() }
+})
+
+test('Readiness lists what each item still needs, or says it is ready to clear', () => {
+  const readyBug = { ...item, filledText: { reproSteps: true } }
+  const readyStory = { ...emptyStory, effort: 3, filledText: { acceptanceCriteria: true, description: false } }
+  const task = { ...emptyStory, id: 45, workItemType: 'Task' }
+  const dom = renderDocument({ result: { items: [readyBug, emptyBug, emptyStory, readyStory], warnings: [] } })
+  try {
+    const rows = [...dom.window.document.querySelectorAll('tbody tr')].map(cellsOf)
+    const missing = (cell: Element) => [...cell.querySelectorAll('ul[aria-label="Missing"] li')].map((entry) => readableText(entry))
+    assert.equal(rows[0].Readiness.textContent, 'Ready to clear')
+    assert.ok(rows[0].Readiness.querySelector('svg'), 'the ready chip has the success icon')
+    assert.deepEqual(missing(rows[1].Readiness), ['Severity', 'Impact', 'Effort', 'Repro steps'])
+    assert.deepEqual(missing(rows[2].Readiness), ['Effort', 'Acceptance criteria'], 'other types use their own list')
+    assert.equal(rows[3].Readiness.textContent, 'Ready to clear')
+  } finally { dom.window.close() }
+
+  assert.deepEqual(getTriageReadiness(emptyBug, readinessChecks).checks.map(({ check, filled }) => [check, filled]),
+    [['severity', false], ['impact', false], ['effort', false], ['reproSteps', false]])
+  assert.deepEqual(getTriageReadiness(readyBug, readinessChecks), {
+    checks: [
+      { check: 'severity', label: 'Severity', filled: true }, { check: 'impact', label: 'Impact', filled: true },
+      { check: 'effort', label: 'Effort', filled: true }, { check: 'reproSteps', label: 'Repro steps', filled: true },
+    ],
+    missing: [],
+    ready: true,
+  }, 'zero effort counts as set')
+  assert.deepEqual(getTriageReadiness(task, { bug: ['severity'], other: [] }), { checks: [], missing: [], ready: true },
+    'a type with no checks is ready')
+
+  const hidden = renderDocument({ options: { ...props().options, readinessChecks: noChecks } })
+  try {
+    const table = hidden.window.document.querySelector('table')!
+    assert.deepEqual(headersOf(table), COLUMN_HEADERS.filter((header) => header !== 'Readiness'), 'no checks hides the column')
+    assert.equal(table.querySelectorAll('col').length, COLUMN_HEADERS.length - 1)
+  } finally { hidden.window.close() }
+})
+
+test('Clears when names what takes the item off the queue: its matched tags, and leaving the first state for a new bug', () => {
+  assert.equal(describeTriageClearing(item, []), 'Clears when you remove the “Triage” tag and move it out of Reported.')
+  assert.equal(describeTriageClearing(emptyStory, ['Project\\Backlog']), 'Clears when you remove the “Triage” tag.',
+    'excluded iteration paths only clear new bugs')
+  assert.equal(describeTriageClearing({ ...emptyStory, reasons: ['Tag: Triage', 'Tag: Needs Info'] }, []),
+    'Clears when you remove the “Triage” and “Needs Info” tags.')
+  assert.equal(describeTriageClearing(emptyBug, ['Project\\Backlog']), 'Clears when you move it out of New or into “Backlog”.',
+    'an excluded iteration path is named by its last segment')
+  assert.equal(describeTriageClearing(emptyBug, ['Project\\Backlog', 'Project\\Icebox', 'Project\\Later']),
+    'Clears when you move it out of New or into “Backlog”, “Icebox”, or “Later”.')
+  assert.equal(describeTriageClearing({ ...emptyBug, reasons: [] }, []), '')
 })
 
 test('Assigned to and Parent are hidden while no item in the queue has one, even if the quick filter hides that item', () => {
@@ -201,20 +264,26 @@ test('Triage age counts working days and turns amber once an item has waited the
 
 test('quick filter searches the text the table displays, including why items are listed, and not paths or raw field values', () => {
   const resolveSprint = createBacklogSprintResolver([])
-  const visible = getTriageVisibleText(item, resolveSprint(item.iterationPath)).filter(Boolean)
-  for (const query of ['42', 'Crash', 'Bug', 'Frontend', 'Triage tag', 'New bug', 'S2 · High', 'Sprint 1', 'Reported', 'Developer', 'Reporter', '99: Parent feature', ...visible]) {
-    assert.equal(filterTriageItems([item], String(query), resolveSprint).length, 1, String(query))
+  const visible = getTriageVisibleText(item, resolveSprint(item.iterationPath), readinessChecks).filter(Boolean)
+  for (const query of ['42', 'Crash', 'Bug', 'Frontend', 'Triage tag', 'New bug', 'Repro steps', 'S2 · High', 'Sprint 1', 'Reported', 'Developer', 'Reporter', '99: Parent feature', ...visible]) {
+    assert.equal(filterTriageItems([item], String(query), resolveSprint, readinessChecks).length, 1, String(query))
   }
-  for (const query of ['Tag: Triage', 'Project\\Sprint', '2 - High', 'not in this row']) {
-    assert.deepEqual(filterTriageItems([item], query, resolveSprint), [], query)
+  for (const query of ['Tag: Triage', 'Project\\Sprint', '2 - High', 'Ready to clear', 'not in this row']) {
+    assert.deepEqual(filterTriageItems([item], query, resolveSprint, readinessChecks), [], query)
   }
   const items = [item, emptyBug, emptyStory]
-  assert.equal(filterTriageItems(items, '   ', resolveSprint), items, 'an empty filter returns the same list')
-  assert.deepEqual(filterTriageItems(items, 'unassigned', resolveSprint).map(({ id }) => id), [43, 44])
-  assert.deepEqual(filterTriageItems(items, 'ready for review', resolveSprint).map(({ id }) => id), [44])
-  assert.deepEqual(filterTriageItems(items, 'RFR', resolveSprint).map(({ id }) => id), [44])
+  assert.equal(filterTriageItems(items, '   ', resolveSprint, readinessChecks), items, 'an empty filter returns the same list')
+  assert.deepEqual(filterTriageItems(items, 'unassigned', resolveSprint, readinessChecks).map(({ id }) => id), [43, 44])
+  assert.deepEqual(filterTriageItems(items, 'ready for review', resolveSprint, readinessChecks).map(({ id }) => id), [44])
+  assert.deepEqual(filterTriageItems(items, 'RFR', resolveSprint, readinessChecks).map(({ id }) => id), [44])
   const current = createBacklogSprintResolver([{ name: 'Sprint 1', path: 'Project\\Sprint 1', timeFrame: 'current' }])
-  assert.deepEqual(filterTriageItems(items, 'this sprint', current).map(({ id }) => id), [42])
+  assert.deepEqual(filterTriageItems(items, 'this sprint', current, readinessChecks).map(({ id }) => id), [42])
+
+  const ready = [{ ...item, filledText: { reproSteps: true } }, emptyBug, emptyStory]
+  assert.deepEqual(filterTriageItems(ready, 'ready to clear', resolveSprint, readinessChecks).map(({ id }) => id), [42])
+  assert.deepEqual(filterTriageItems(ready, 'acceptance criteria', resolveSprint, readinessChecks).map(({ id }) => id), [44])
+  assert.deepEqual(filterTriageItems(ready, 'repro steps', resolveSprint, readinessChecks).map(({ id }) => id), [43])
+  assert.deepEqual(filterTriageItems(ready, 'ready to clear', resolveSprint, noChecks), [], 'no Readiness column, nothing to match')
 })
 test('page distinguishes configuration, auth, loading, errors, empty rules, empty queue and parent warnings', () => {
   const cases: Array<[Record<string, unknown>, RegExp]> = [
@@ -223,7 +292,7 @@ test('page distinguishes configuration, auth, loading, errors, empty rules, empt
     [{ isLoading: true }, /Loading triage\.\.\./],
     [{ error: 'query failed (HTTP 503)' }, /query failed \(HTTP 503\)/],
     [{ settingsError: 'Unable to read Triage options' }, /Unable to read Triage options/],
-    [{ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 } }, /No Triage rules/],
+    [{ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks } }, /No Triage rules/],
     [{ result: { items: [], warnings: [] } }, /Triage is clear/],
     [{ result: { items: [item], warnings: ['Some parent details are unavailable'] } }, /Some parent details are unavailable/],
   ]
@@ -245,7 +314,7 @@ test('loading shows a status line over skeleton rows instead of the table', () =
 
 test('a clear queue says so with when it was checked and the rules it was checked against; no rules opens Triage options', () => {
   const emptyCard = (options: Record<string, unknown>, syncedAt: number | null = null) => {
-    const dom = renderDocument({ result: { items: [], warnings: [] }, options: { ageFlagDays: 2, ...options }, syncedAt })
+    const dom = renderDocument({ result: { items: [], warnings: [] }, options: { ageFlagDays: 2, readinessChecks, ...options }, syncedAt })
     try {
       const card = dom.window.document.querySelector('main .MuiCard-root')!
       assert.ok(card.querySelector('svg'), 'a success icon sits beside the heading')
@@ -271,7 +340,7 @@ test('a clear queue says so with when it was checked and the rules it was checke
   assert.deepEqual([[0, 0], [1, 1], [5, 5], [0, 1], [2, 5]].map(([shown, total]) => formatTriageCount(shown, total)),
     ['0 items', '1 item', '5 items', '0 of 1 item', '2 of 5 items'])
 
-  const dom = renderDocument({ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 } })
+  const dom = renderDocument({ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks } })
   try {
     const card = dom.window.document.querySelector('main .MuiCard-root')!
     assert.equal(card.querySelector('h2')?.textContent, 'No Triage rules')

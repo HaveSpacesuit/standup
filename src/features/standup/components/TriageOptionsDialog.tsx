@@ -1,8 +1,27 @@
 import { useId, useState } from 'react'
 import { Alert, Autocomplete, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, TextField, Typography } from '@mui/material'
 import type { TeamIterationOption } from '../../../ado/types'
-import { addTriageTags, MAX_TRIAGE_AGE_FLAG_DAYS, parseTriageOptions, type TriageOptions } from '../utils/triageOptions'
+import {
+  addTriageTags, MAX_TRIAGE_AGE_FLAG_DAYS, parseTriageOptions, TRIAGE_CHECK_LABELS, TRIAGE_CHECKS, type TriageCheck, type TriageOptions,
+} from '../utils/triageOptions'
 import { ChipListEditor } from './ChipListEditor'
+
+const CHECK_OPTIONS: TriageCheck[] = [...TRIAGE_CHECKS]
+
+function ReadinessField({ label, value, onChange }: { label: string; value: TriageCheck[]; onChange: (value: TriageCheck[]) => void }) {
+  return (
+    <Autocomplete
+      multiple
+      disableCloseOnSelect
+      filterSelectedOptions
+      options={CHECK_OPTIONS}
+      getOptionLabel={(check) => TRIAGE_CHECK_LABELS[check]}
+      value={value}
+      onChange={(_event, next) => onChange(next)}
+      renderInput={(params) => <TextField {...params} label={label} />}
+    />
+  )
+}
 
 type Props = {
   options: TriageOptions
@@ -15,12 +34,15 @@ type Props = {
 
 export function TriageOptionsDialog({ options, onSave, onClose, iterations, iterationsLoading, iterationsError }: Props) {
   const newBugsHeadingId = useId()
+  const readinessHeadingId = useId()
   const [tags, setTags] = useState(options.tags)
   const [tagDraft, setTagDraft] = useState('')
   const [includeNewBugs, setIncludeNewBugs] = useState(options.includeNewBugs)
   const [paths, setPaths] = useState(options.excludedIterationPaths)
   const [pathInput, setPathInput] = useState('')
   const [ageFlagInput, setAgeFlagInput] = useState(String(options.ageFlagDays))
+  const [bugChecks, setBugChecks] = useState(options.readinessChecks.bug)
+  const [otherChecks, setOtherChecks] = useState(options.readinessChecks.other)
   const [error, setError] = useState<string | null>(null)
 
   const addTags = () => {
@@ -36,6 +58,7 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
         // Paths are kept while the new-bug rule is off, but text typed into the disabled field is not.
         excludedIterationPaths: includeNewBugs ? [...paths, pathInput] : paths,
         ageFlagDays: ageFlagInput.trim() ? Number(ageFlagInput) : Number.NaN,
+        readinessChecks: { bug: bugChecks, other: otherChecks },
       })
       onSave(next)
       onClose()
@@ -100,6 +123,18 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
             />
           </Box>
           {includeNewBugs && iterationsError ? <Alert severity="warning">Unable to load sprint choices: {iterationsError} You can still enter full paths.</Alert> : null}
+          <Box role="group" aria-labelledby={readinessHeadingId} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box>
+              <Typography id={readinessHeadingId} variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
+                Readiness checks
+              </Typography>
+              <Typography variant="body-sm" color="text.secondary">
+                Fields to fill in before an item is ready to clear. Leave both empty to hide the Readiness column.
+              </Typography>
+            </Box>
+            <ReadinessField label="Required on bugs" value={bugChecks} onChange={setBugChecks} />
+            <ReadinessField label="Required on other types" value={otherChecks} onChange={setOtherChecks} />
+          </Box>
           <TextField
             label="Flag age after (working days)"
             type="number"

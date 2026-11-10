@@ -49,7 +49,10 @@ export function TriagePage(props: Props) {
   const { result, options, isLoading, error, settingsError, iterations } = props
   // Sprints are placed against the team's iterations, like Backlog; until they load, the path's last segment is shown.
   const resolveSprint = useMemo(() => createBacklogSprintResolver(iterations), [iterations])
-  const items = useMemo(() => filterTriageItems(result.items, filter, resolveSprint), [result.items, filter, resolveSprint])
+  const items = useMemo(
+    () => filterTriageItems(result.items, filter, resolveSprint, options.readinessChecks),
+    [result.items, filter, resolveSprint, options.readinessChecks],
+  )
   // From the whole queue, not the filtered rows, so the columns hold still while typing in the quick filter.
   const showAssignee = result.items.some((item) => item.assignedTo)
   const showParent = result.items.some((item) => item.parent)
@@ -87,6 +90,7 @@ export function TriagePage(props: Props) {
           <TriageTable
             items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays}
             showAssignee={showAssignee} showParent={showParent}
+            readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
           />
         ) : result.items.length ? (
           <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
