@@ -169,7 +169,12 @@ export type TriageItem = {
   parent?: { id: number; title?: string; workItemUrl: string; unavailable: boolean }
 }
 
-export type TriageResult = { items: TriageItem[]; warnings: string[] }
+export type TriageResult = {
+  items: TriageItem[]
+  warnings: string[]
+  /** Opens the same rules as an Azure DevOps query, for edits the page cannot make. */
+  queryUrl?: string
+}
 
 export type WorkItemFieldUpdate = {
   oldValue?: unknown

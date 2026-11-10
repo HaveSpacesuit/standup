@@ -2,10 +2,18 @@ export type TriageOptions = {
   tags: string[]
   includeNewBugs: boolean
   excludedIterationPaths: string[]
+  /** Working days an item can wait in triage before its age is flagged. */
+  ageFlagDays: number
 }
 
+/** The options that decide which items the queue holds; the rest only change how they are shown. */
+export type TriageQueryOptions = Pick<TriageOptions, 'tags' | 'includeNewBugs' | 'excludedIterationPaths'>
+
+export const DEFAULT_TRIAGE_AGE_FLAG_DAYS = 2
+export const MAX_TRIAGE_AGE_FLAG_DAYS = 30
+
 export function createDefaultTriageOptions(): TriageOptions {
-  return { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [] }
+  return { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: DEFAULT_TRIAGE_AGE_FLAG_DAYS }
 }
 
 export function triageOptionsStorageKey(teamId: string): string {
@@ -38,6 +46,10 @@ export function parseTriageOptions(value: unknown): TriageOptions {
   if (candidate.includeNewBugs !== undefined && typeof candidate.includeNewBugs !== 'boolean') {
     throw new Error('Triage includeNewBugs must be true or false.')
   }
+  const ageFlagDays = candidate.ageFlagDays === undefined ? defaults.ageFlagDays : candidate.ageFlagDays
+  if (typeof ageFlagDays !== 'number' || !Number.isInteger(ageFlagDays) || ageFlagDays < 1 || ageFlagDays > MAX_TRIAGE_AGE_FLAG_DAYS) {
+    throw new Error(`Triage age flag must be a whole number of working days from 1 to ${MAX_TRIAGE_AGE_FLAG_DAYS}.`)
+  }
   return {
     tags,
     includeNewBugs: candidate.includeNewBugs ?? defaults.includeNewBugs,
@@ -46,6 +58,7 @@ export function parseTriageOptions(value: unknown): TriageOptions {
       'excluded iteration paths',
       (path) => path.replace(/\\+$/, ''),
     ),
+    ageFlagDays,
   }
 }
 
@@ -63,7 +76,7 @@ export function loadTriageSettings(teamId: string): TriageSettings {
   }
 }
 
-export function hasTriageRules(options: TriageOptions): boolean {
+export function hasTriageRules(options: TriageQueryOptions): boolean {
   return options.tags.length > 0 || options.includeNewBugs
 }
 
@@ -86,8 +99,14 @@ export function addTriageTags(tags: readonly string[], draft: string): string[] 
  * The options a query uses: excluded iteration paths apply only to the new-bug rule, so they are dropped while it is off.
  * The saved options keep them, so turning new bugs back on restores them.
  */
-export function getActiveTriageOptions(options: TriageOptions): TriageOptions {
+export function getActiveTriageOptions<T extends TriageQueryOptions>(options: T): T {
   return options.includeNewBugs || options.excludedIterationPaths.length === 0
     ? options
     : { ...options, excludedIterationPaths: [] }
+}
+
+/** Just the active options that pick the queue's items, so changing how they are shown does not reload them. */
+export function getTriageQueryOptions(options: TriageQueryOptions): TriageQueryOptions {
+  const { tags, includeNewBugs, excludedIterationPaths } = getActiveTriageOptions(options)
+  return { tags, includeNewBugs, excludedIterationPaths }
 }

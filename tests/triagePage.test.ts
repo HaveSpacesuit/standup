@@ -23,7 +23,7 @@ after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { TriagePage } = await server.ssrLoadModule('/src/features/standup/pages/TriagePage.tsx')
 const { StandupContent } = await server.ssrLoadModule('/src/features/standup/components/StandupContent.tsx')
-const { describeEmptyTriage, filterTriageItems, formatTriageCount, getTriageVisibleText } = await server.ssrLoadModule('/src/features/standup/utils/triageDisplay.ts')
+const { describeEmptyTriage, filterTriageItems, formatTriageCount, getTriageAge, getTriageTitleTags, getTriageVisibleText } = await server.ssrLoadModule('/src/features/standup/utils/triageDisplay.ts')
 const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
 const item: TriageItem = {
   id: 42, title: 'Crash on save', workItemType: 'Bug', state: 'Reported', createdAt: '2026-02-01T00:00:00Z',
@@ -47,7 +47,7 @@ function props() {
     teamOptions: [{ id: 'a', displayName: 'Team A', orgName: 'org', projectName: 'Project', teamName: 'A', areaPath: 'Project\\A', iterationPath: 'Project', repoName: 'repo' }],
     selectedTeamId: 'a', onTeamChange: noop, teamManagementUrl: '',
     result: { items: [item], warnings: [] }, isLoading: false, error: null, syncedAt: null, onRefresh: noop,
-    options: { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [] },
+    options: { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 },
     settingsError: null, onOptionsChange: noop, quickFilterInputRef: { current: null },
     iterations: [], iterationsLoading: false, iterationsError: null,
   }
@@ -61,10 +61,12 @@ function renderDocument(overrides: Record<string, unknown> = {}) {
   for (const style of dom.window.document.querySelectorAll('style')) style.remove()
   return dom
 }
-const COLUMN_HEADERS = ['Work item', 'Severity', 'Impact', 'Effort', 'Age', 'Sprint', 'State', 'Assigned to', 'Created by', 'Parent']
-/** The row's data cells by header, after the Work item cell. */
+const COLUMN_HEADERS = ['Work item', 'Why', 'Severity', 'Impact', 'Effort', 'Age', 'Sprint', 'State', 'Assigned to', 'Created by', 'Parent']
+const headersOf = (table: Element) => [...table.querySelectorAll('thead th')].map((cell) => cell.textContent!)
+/** The row's data cells by the table's own headers, after the Work item cell. */
 function cellsOf(row: Element) {
-  return Object.fromEntries([...row.querySelectorAll('td')].map((cell, index) => [COLUMN_HEADERS[index + 1], cell]))
+  const headers = headersOf(row.closest('table')!)
+  return Object.fromEntries([...row.querySelectorAll('td')].map((cell, index) => [headers[index + 1], cell]))
 }
 /** Text a screen reader announces, skipping decorative aria-hidden content such as avatar initials. */
 function readableText(element: Element) {
@@ -84,9 +86,12 @@ test('Triage table renders all requested fields, accessible type indicator and s
     const titleLink = titleCell.querySelector<HTMLAnchorElement>('a[href$="/42"]')!
     assert.equal(titleLink.querySelector('.work-item-title')?.textContent, 'Crash on save')
     assert.match(titleLink.textContent!, /opens in a new tab/)
-    assert.deepEqual([...titleCell.querySelectorAll('ul[aria-label="Tags"] li')].map((tag) => tag.textContent), ['Triage', 'Frontend'])
+    assert.deepEqual([...titleCell.querySelectorAll('ul[aria-label="Tags"] li')].map((tag) => tag.textContent), ['Frontend'],
+      'the Triage tag the item matched moves to the Why column; other tags stay')
     assert.ok(![...doc.querySelectorAll('tbody td')].some((cell) => /Frontend/.test(cell.textContent!)), 'tags only appear in the title cell')
-    assert.doesNotMatch(doc.querySelector('tbody')!.textContent!, /Tag: Triage|New bug/, 'why an item qualified is not shown')
+    const why = cellsOf(doc.querySelector('tbody tr')!).Why
+    assert.deepEqual([...why.querySelectorAll('ul[aria-label="Why it is listed"] li')].map((reason) => reason.textContent), ['Triage tag', 'New bug'])
+    assert.doesNotMatch(doc.querySelector('tbody')!.textContent!, /Tag: Triage/, 'the raw reason is not shown')
     for (const id of [42, 99]) {
       const link = doc.querySelector<HTMLAnchorElement>(`a[href$="/${id}"]`)!
       assert.equal(link.target, '_blank')
@@ -106,7 +111,7 @@ test('Triage cells share Backlog formatting: severity chip, impact bars, age, sp
     assert.equal(cells.Impact.textContent, '1')
     assert.equal(cells.Effort.textContent, '0', 'zero effort is a value, not missing')
     assert.equal(cells.Age.querySelector('time')?.getAttribute('datetime'), '2026-02-01T00:00:00Z')
-    assert.match(cells.Age.textContent!, /Created /)
+    assert.match(cells.Age.textContent!, /Created .* working days\. Waiting longer than 2 working days/)
     assert.equal(cells.Sprint.textContent, 'Sprint 1', 'without team sprints the path is named by its last segment')
     assert.equal(cells.State.querySelector('.MuiBadge-badge')?.textContent, 'Reported', 'states other than New are badges')
     for (const [column, name] of [['Assigned to', 'Developer'], ['Created by', 'Reporter']]) {
@@ -124,9 +129,9 @@ test('Triage cells share Backlog formatting: severity chip, impact bars, age, sp
 })
 
 test('empty Severity, Impact and Effort are flagged on bugs and dashed on other types; Unassigned and New are muted', () => {
-  const dom = renderDocument({ result: { items: [emptyBug, emptyStory], warnings: [] } })
+  const dom = renderDocument({ result: { items: [item, emptyBug, emptyStory], warnings: [] } })
   try {
-    const [bug, story] = [...dom.window.document.querySelectorAll('tbody tr')].map(cellsOf)
+    const [, bug, story] = [...dom.window.document.querySelectorAll('tbody tr')].map(cellsOf)
     assert.equal(bug.Severity.textContent, 'Not set')
     assert.equal(bug.Impact.textContent, '?Not set')
     assert.equal(bug.Effort.textContent, '?Not set')
@@ -142,13 +147,65 @@ test('empty Severity, Impact and Effort are flagged on bugs and dashed on other 
   } finally { dom.window.close() }
 })
 
-test('quick filter searches the text the table displays, and not reasons, paths or raw field values', () => {
+test('Assigned to and Parent are hidden while no item in the queue has one, even if the quick filter hides that item', () => {
+  const empty = renderDocument({ result: { items: [emptyBug, emptyStory], warnings: [] } })
+  try {
+    const table = empty.window.document.querySelector('table')!
+    assert.deepEqual(headersOf(table), COLUMN_HEADERS.filter((header) => header !== 'Assigned to' && header !== 'Parent'))
+    assert.equal(table.querySelectorAll('col').length, COLUMN_HEADERS.length - 2)
+    assert.equal(table.querySelector('tbody tr')!.querySelectorAll('td').length, COLUMN_HEADERS.length - 3)
+  } finally { empty.window.close() }
+
+  const assignedOnly = renderDocument({ result: { items: [{ ...emptyBug, assignedTo: { displayName: 'Developer' } }], warnings: [] } })
+  try {
+    assert.deepEqual(headersOf(assignedOnly.window.document.querySelector('table')!), COLUMN_HEADERS.filter((header) => header !== 'Parent'))
+  } finally { assignedOnly.window.close() }
+})
+
+test('Why names each rule an item meets, and only the matched Triage tags leave the title', () => {
+  const emptyCase = { ...emptyBug, tags: ['triage', 'Needs Info', 'UI'], reasons: ['Tag: Triage', 'Tag: Needs Info'] }
+  assert.deepEqual(getTriageTitleTags(emptyCase), ['UI'], 'matching ignores case, like the query')
+  assert.deepEqual(getTriageTitleTags({ tags: ['Triage'], reasons: ['New bug'] }), ['Triage'], 'a tag kept when the rule did not match it')
+  const dom = renderDocument({ result: { items: [emptyCase, emptyBug], warnings: [] } })
+  try {
+    const [tagged, newBug] = [...dom.window.document.querySelectorAll('tbody tr')].map(cellsOf)
+    const reasons = (cell: Element) => [...cell.querySelectorAll('li')].map((reason) => reason.textContent)
+    assert.deepEqual(reasons(tagged.Why), ['Triage tag', 'Needs Info tag'])
+    assert.deepEqual(reasons(newBug.Why), ['New bug'])
+    assert.ok(tagged.Why.querySelector('svg'), 'each reason has an icon')
+  } finally { dom.window.close() }
+})
+
+test('Triage age counts working days and turns amber once an item has waited the configured days', () => {
+  // Local times, as the age is counted in the viewer's days: Friday 6 February 2026 to the following days.
+  const friday = new Date(2026, 1, 6, 10).toISOString()
+  const at = (day: number, hour = 9) => new Date(2026, 1, day, hour)
+  assert.deepEqual(getTriageAge(friday, 2, at(6, 17)), { label: 'Today', workingDays: 0, flagged: false })
+  assert.deepEqual(getTriageAge(friday, 2, at(7)), { label: '0d', workingDays: 0, flagged: false }, 'Saturday adds no working day')
+  assert.deepEqual(getTriageAge(friday, 2, at(9)), { label: '1d', workingDays: 1, flagged: false }, 'Monday is one working day later')
+  assert.deepEqual(getTriageAge(friday, 2, at(10)), { label: '2d', workingDays: 2, flagged: true })
+  assert.deepEqual(getTriageAge(friday, 3, at(10)), { label: '2d', workingDays: 2, flagged: false }, 'the flag follows the option')
+  assert.deepEqual(getTriageAge(new Date(2026, 1, 7, 10).toISOString(), 1, at(9)), { label: '1d', workingDays: 1, flagged: true },
+    'an item filed on Saturday is one working day old on Monday')
+  assert.deepEqual(getTriageAge(friday, 2, at(27)), { label: '3w', workingDays: 15, flagged: true }, 'after two weeks, calendar time')
+  assert.equal(getTriageAge(undefined, 2), undefined)
+  assert.equal(getTriageAge('not a date', 2), undefined)
+
+  const today = renderDocument({ result: { items: [{ ...emptyBug, createdAt: new Date().toISOString() }], warnings: [] } })
+  try {
+    const age = cellsOf(today.window.document.querySelector('tbody tr')!).Age
+    assert.equal(age.querySelector('[aria-hidden="true"]')?.textContent, 'Today')
+    assert.doesNotMatch(age.textContent!, /Waiting longer/, 'an item within the flag is not called out')
+  } finally { today.window.close() }
+})
+
+test('quick filter searches the text the table displays, including why items are listed, and not paths or raw field values', () => {
   const resolveSprint = createBacklogSprintResolver([])
   const visible = getTriageVisibleText(item, resolveSprint(item.iterationPath)).filter(Boolean)
-  for (const query of ['42', 'Crash', 'Bug', 'Frontend', 'S2 · High', 'Sprint 1', 'Reported', 'Developer', 'Reporter', '99: Parent feature', ...visible]) {
+  for (const query of ['42', 'Crash', 'Bug', 'Frontend', 'Triage tag', 'New bug', 'S2 · High', 'Sprint 1', 'Reported', 'Developer', 'Reporter', '99: Parent feature', ...visible]) {
     assert.equal(filterTriageItems([item], String(query), resolveSprint).length, 1, String(query))
   }
-  for (const query of ['New bug', 'Tag: Triage', 'Project\\Sprint', '2 - High', 'not in this row']) {
+  for (const query of ['Tag: Triage', 'Project\\Sprint', '2 - High', 'not in this row']) {
     assert.deepEqual(filterTriageItems([item], query, resolveSprint), [], query)
   }
   const items = [item, emptyBug, emptyStory]
@@ -166,8 +223,8 @@ test('page distinguishes configuration, auth, loading, errors, empty rules, empt
     [{ isLoading: true }, /Loading triage\.\.\./],
     [{ error: 'query failed (HTTP 503)' }, /query failed \(HTTP 503\)/],
     [{ settingsError: 'Unable to read Triage options' }, /Unable to read Triage options/],
-    [{ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [] } }, /No Triage rules/],
-    [{ result: { items: [], warnings: [] } }, /Nothing to triage/],
+    [{ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 } }, /No Triage rules/],
+    [{ result: { items: [], warnings: [] } }, /Triage is clear/],
     [{ result: { items: [item], warnings: ['Some parent details are unavailable'] } }, /Some parent details are unavailable/],
   ]
   for (const [overrides, message] of cases) assert.match(render(overrides), message)
@@ -186,37 +243,61 @@ test('loading shows a status line over skeleton rows instead of the table', () =
   }
 })
 
-test('empty queues use a centered card that names the rules, and the no-rules card opens Triage options', () => {
-  const emptyCard = (options: Record<string, unknown>) => {
-    const dom = renderDocument({ result: { items: [], warnings: [] }, options })
+test('a clear queue says so with when it was checked and the rules it was checked against; no rules opens Triage options', () => {
+  const emptyCard = (options: Record<string, unknown>, syncedAt: number | null = null) => {
+    const dom = renderDocument({ result: { items: [], warnings: [] }, options: { ageFlagDays: 2, ...options }, syncedAt })
     try {
       const card = dom.window.document.querySelector('main .MuiCard-root')!
-      return [card.querySelector('h2')?.textContent, card.querySelector('h2 + *')?.textContent]
+      assert.ok(card.querySelector('svg'), 'a success icon sits beside the heading')
+      return [card.querySelector('h2')?.textContent, ...[...card.querySelectorAll('h2 ~ *')].map((line) => line.textContent)]
     } finally {
       dom.window.close()
     }
   }
   assert.deepEqual(emptyCard({ tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Ignored'] }), [
-    'Nothing to triage', "No unfinished work items in this team's area are tagged “Triage”.",
+    'Triage is clear', 'Nothing needs triage.', "No unfinished work items in this team's area are tagged “Triage”.",
   ])
   assert.deepEqual(emptyCard({ tags: ['Triage', 'Bug bash', 'Escalated'], includeNewBugs: true, excludedIterationPaths: [] }), [
-    'Nothing to triage',
+    'Triage is clear', 'Nothing needs triage.',
     "No unfinished work items in this team's area are tagged “Triage”, “Bug bash”, or “Escalated”, and no bugs are waiting in their initial state.",
   ])
   assert.deepEqual(emptyCard({ tags: [], includeNewBugs: true, excludedIterationPaths: ['Project\\Refine'] }), [
-    'Nothing to triage', "No bugs in this team's area are waiting in their initial state outside the excluded iteration paths.",
+    'Triage is clear', 'Nothing needs triage.', "No bugs in this team's area are waiting in their initial state outside the excluded iteration paths.",
   ])
+  const synced = new Date(2026, 1, 9, 8, 5).getTime()
+  const time = new Date(synced).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  assert.equal(emptyCard({ tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [] }, synced)[1], `Nothing needs triage as of ${time}.`)
   assert.equal(describeEmptyTriage({ tags: [], includeNewBugs: true, excludedIterationPaths: [] }), "No bugs in this team's area are waiting in their initial state.")
   assert.deepEqual([[0, 0], [1, 1], [5, 5], [0, 1], [2, 5]].map(([shown, total]) => formatTriageCount(shown, total)),
     ['0 items', '1 item', '5 items', '0 of 1 item', '2 of 5 items'])
 
-  const dom = renderDocument({ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [] } })
+  const dom = renderDocument({ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 } })
   try {
     const card = dom.window.document.querySelector('main .MuiCard-root')!
     assert.equal(card.querySelector('h2')?.textContent, 'No Triage rules')
     assert.equal(card.querySelector('button')?.textContent, 'Open Triage options')
   } finally {
     dom.window.close()
+  }
+})
+
+test('Open in ADO opens the Triage rules as a query in a new tab, and is disabled until the queue has loaded', () => {
+  const queryUrl = 'https://dev.azure.com/org/Project/_queries/query/?wiql=SELECT'
+  const loaded = renderDocument({ result: { items: [item], warnings: [], queryUrl } })
+  try {
+    const link = [...loaded.window.document.querySelectorAll<HTMLAnchorElement>('a')].find((anchor) => /Open in ADO/.test(anchor.textContent!))!
+    assert.equal(link.href, queryUrl)
+    assert.equal(link.target, '_blank')
+    assert.ok(link.relList.contains('noopener') && link.relList.contains('noreferrer'))
+    assert.equal(link.textContent, 'Open in ADO (opens in a new tab)')
+  } finally { loaded.window.close() }
+
+  for (const overrides of [{}, { isLoading: true, result: { items: [], warnings: [], queryUrl } }, { error: 'failed', result: { items: [], warnings: [], queryUrl } }]) {
+    const dom = renderDocument(overrides)
+    try {
+      const button = [...dom.window.document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent === 'Open in ADO')!
+      assert.equal(button.disabled, true, JSON.stringify(overrides))
+    } finally { dom.window.close() }
   }
 })
 

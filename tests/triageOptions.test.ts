@@ -11,7 +11,7 @@ Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value:
 const { createRoot } = await import('react-dom/client')
 const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
 after(async () => { await server.close(); dom.window.close() })
-const { addTriageTags, createDefaultTriageOptions, getActiveTriageOptions, parseTriageOptions, triageOptionsStorageKey, loadTriageSettings } =
+const { addTriageTags, createDefaultTriageOptions, getActiveTriageOptions, getTriageQueryOptions, parseTriageOptions, triageOptionsStorageKey, loadTriageSettings } =
   await server.ssrLoadModule('/src/features/standup/utils/triageOptions.ts')
 const { useStandupAppState } = await server.ssrLoadModule('/src/features/standup/hooks/useStandupAppState.ts')
 const { buildTeamDataExport, parseImportedTeamData } = await server.ssrLoadModule('/src/teamDataTransfer.ts')
@@ -22,19 +22,22 @@ const profile = {
   id: 'triage-a', orgName: 'org', projectName: 'Project', displayName: 'Team A',
   areaPath: 'Project\\A', iterationPath: 'Project', teamName: 'A', repoName: 'repo',
 }
-const custom = { tags: ['Needs triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Refine'] }
+const custom = { tags: ['Needs triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 3 }
 
 test('Triage defaults to its tag only; explicit empty rules are preserved and lists normalize', () => {
-  assert.deepEqual(createDefaultTriageOptions(), { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [] })
-  assert.deepEqual(parseTriageOptions({ tags: [], includeNewBugs: false, excludedIterationPaths: [] }), { tags: [], includeNewBugs: false, excludedIterationPaths: [] })
-  assert.deepEqual(parseTriageOptions({ tags: [' triage ', '', 'TRIAGE', 'Other'], excludedIterationPaths: [' Project\\Refine '] }), {
-    tags: ['Other', 'TRIAGE'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'],
+  assert.deepEqual(createDefaultTriageOptions(), { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 })
+  assert.deepEqual(parseTriageOptions({ tags: [], includeNewBugs: false, excludedIterationPaths: [] }), { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2 })
+  assert.deepEqual(parseTriageOptions({ tags: [' triage ', '', 'TRIAGE', 'Other'], excludedIterationPaths: [' Project\\Refine '], ageFlagDays: 30 }), {
+    tags: ['Other', 'TRIAGE'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 30,
   })
   for (const value of [null, [], { tags: null }, { tags: [1] }, { tags: ['one;two'] }, { includeNewBugs: 'true' }, { excludedIterationPaths: false }]) {
     assert.throws(() => parseTriageOptions(value))
   }
   assert.deepEqual(parseTriageOptions({ excludedIterationPaths: ['Project\\Refine\\', 'Project\\Refine'] }).excludedIterationPaths, ['Project\\Refine'])
   assert.throws(() => parseTriageOptions({ excludedIterationPaths: ['\\'] }), /empty paths/)
+  for (const ageFlagDays of [0, 31, 1.5, '2', null, Number.NaN]) {
+    assert.throws(() => parseTriageOptions({ ageFlagDays }), /age flag must be a whole number of working days from 1 to 30/)
+  }
 })
 
 test('adding tags splits on the Azure DevOps separator and keeps the first spelling of a duplicate', () => {
@@ -48,10 +51,15 @@ test('adding tags splits on the Azure DevOps separator and keeps the first spell
 test('excluded iteration paths are inactive while the new-bug rule is off, without being discarded', () => {
   assert.equal(getActiveTriageOptions(custom), custom, 'options in use are returned as-is')
   const off = { ...custom, includeNewBugs: false }
-  assert.deepEqual(getActiveTriageOptions(off), { tags: ['Needs triage'], includeNewBugs: false, excludedIterationPaths: [] })
+  assert.deepEqual(getActiveTriageOptions(off), { tags: ['Needs triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 3 })
   assert.deepEqual(off.excludedIterationPaths, ['Project\\Refine'])
   const none = { ...off, excludedIterationPaths: [] }
   assert.equal(getActiveTriageOptions(none), none)
+})
+
+test('the queue is loaded with only the options that pick its items, so display options do not reload it', () => {
+  assert.deepEqual(getTriageQueryOptions(custom), { tags: ['Needs triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Refine'] })
+  assert.deepEqual(getTriageQueryOptions({ ...custom, includeNewBugs: false, ageFlagDays: 9 }), { tags: ['Needs triage'], includeNewBugs: false, excludedIterationPaths: [] })
 })
 
 test('unreadable saved options remain intact with an explicit error', () => {
@@ -70,7 +78,7 @@ test('team data round-trips Triage options, defaults old exports and rejects sup
   assert.deepEqual(parseImportedTeamData(JSON.stringify(payload)).triageOptions, custom)
   const { triageOptions: _omitted, ...legacy } = payload
   assert.deepEqual(parseImportedTeamData(JSON.stringify(legacy)).triageOptions, createDefaultTriageOptions())
-  for (const triageOptions of [null, [], { tags: [42] }, { includeNewBugs: 'yes' }]) {
+  for (const triageOptions of [null, [], { tags: [42] }, { includeNewBugs: 'yes' }, { ageFlagDays: 0 }]) {
     assert.throws(() => parseImportedTeamData(JSON.stringify({ ...payload, triageOptions })), /Triage/)
   }
 })
