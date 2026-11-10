@@ -8,7 +8,7 @@ import type { TriageOptions } from '../src/features/standup/utils/triageOptions.
 const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
 after(() => server.close())
 const { buildAdoQueryUrl, buildTriageQueryWiql, buildTriageWiql } = await server.ssrLoadModule('/src/ado/wiql.ts')
-const { fetchTriageItems, getTriageReasons, isUnderIteration } = await server.ssrLoadModule('/src/ado/triageApi.ts')
+const { fetchTriageItems, getTriageReasons, hasRichTextContent, isUnderIteration } = await server.ssrLoadModule('/src/ado/triageApi.ts')
 const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 const metadata: ProjectWorkItemTypeInfo = {
   states: [], workItemTypes: ['Bug', 'Task'],
@@ -20,7 +20,9 @@ const metadata: ProjectWorkItemTypeInfo = {
     task: [{ name: 'Done', category: 'InProgress' }, { name: 'Finished', category: 'Completed' }],
   },
 }
-const options: TriageOptions = { tags: ['Triage', "Team's queue"], includeNewBugs: true, excludedIterationPaths: ['Project\\To Refine'], ageFlagDays: 2 }
+const options: TriageOptions = { tags: ['Triage', "Team's queue"], includeNewBugs: true, excludedIterationPaths: ['Project\\To Refine'], ageFlagDays: 2,
+  readinessChecks: { bug: ['reproSteps'], other: [] },
+}
 const team = { id: 'a', orgName: 'triage-fixture-org', projectName: 'Project', areaPath: 'Project\\Team' }
 
 test('WIQL scopes both branches, escapes values, uses per-type categories and orders oldest first', () => {
@@ -137,6 +139,28 @@ test('API maps creator, zero effort, parent summaries and reasons; deduplicates 
   const parentRequests = fixture.requests.filter((request) => (request.body as { fields?: string[] })?.fields?.length === 1)
   assert.equal(parentRequests.length, 1)
   assert.deepEqual((parentRequests[0].body as { ids: number[] }).ids, [99])
+})
+
+test('API keeps only whether each readiness text field has content, counting a pasted screenshot but not empty markup', async () => {
+  assert.equal(hasRichTextContent('<div>Open the file, then save.</div>'), true)
+  assert.equal(hasRichTextContent('<div><img src="https://dev.azure.com/org/_apis/wit/attachments/1"></div>'), true)
+  for (const empty of [undefined, null, 42, '', '   ', '<div><br></div>', '<p>&nbsp;</p>', '<div>&#160;</div>']) {
+    assert.equal(hasRichTextContent(empty), false, String(empty))
+  }
+  const fixture = clientFor([
+    raw(1, { 'Microsoft.VSTS.TCM.ReproSteps': '<ol><li>Open a file</li></ol>', 'System.Description': '<div><br></div>' }),
+    raw(2, { 'Microsoft.VSTS.Common.AcceptanceCriteria': '<img src="x.png">' }),
+  ])
+  const result = await fetchTriageItems(fixture.client, team, options, metadata)
+  assert.deepEqual(result.items.map((item: { filledText: unknown }) => item.filledText), [
+    { reproSteps: true, acceptanceCriteria: false, description: false },
+    { reproSteps: false, acceptanceCriteria: true, description: false },
+  ])
+  assert.ok(!JSON.stringify(result.items).includes('Open a file'), 'the field text itself is not kept')
+  const fields = (fixture.requests.find((request) => (request.body as { fields?: string[] })?.fields?.includes('System.State'))!.body as { fields: string[] }).fields
+  for (const field of ['Microsoft.VSTS.TCM.ReproSteps', 'Microsoft.VSTS.Common.AcceptanceCriteria', 'System.Description']) {
+    assert.ok(fields.includes(field), field)
+  }
 })
 
 test('API batches work items and parent IDs at 200, and does not load off-rule parent details', async () => {

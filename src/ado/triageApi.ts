@@ -3,7 +3,7 @@ import { hasTriageRules, type TriageQueryOptions } from '../features/standup/uti
 import { mapWithConcurrency } from './concurrency'
 import type { AdoRequestClient } from './httpClient'
 import { parseAssignedTo } from './identity'
-import type { TriageItem, TriageResult } from './types'
+import type { TriageItem, TriageResult, TriageTextField } from './types'
 import { buildAdoQueryUrl, buildTriageQueryWiql, buildTriageWiql } from './wiql'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
 import { getInitialState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
@@ -17,6 +17,20 @@ type Team = Pick<TeamProfile, 'orgName' | 'projectName' | 'areaPath'>
 
 const text = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined
+
+/** The rich-text fields readiness checks look at; only whether each has content is kept. */
+const TEXT_FIELDS: Record<TriageTextField, string> = {
+  reproSteps: 'Microsoft.VSTS.TCM.ReproSteps',
+  acceptanceCriteria: 'Microsoft.VSTS.Common.AcceptanceCriteria',
+  description: 'System.Description',
+}
+
+/** Whether an HTML field has anything in it: text, or an image such as a pasted screenshot. Empty markup does not count. */
+export function hasRichTextContent(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  if (/<img\b/i.test(value)) return true
+  return value.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;|&#xa0;/gi, ' ').trim().length > 0
+}
 
 export function isUnderIteration(path: string, root: string): boolean {
   const normalizedPath = path.toLowerCase().replace(/\\+$/, '')
@@ -67,7 +81,7 @@ export async function fetchTriageItems(
     mapWithConcurrency(chunkArray(ids, WORK_ITEM_BATCH_LIMIT), 4, (chunk) => batch(chunk, [
       'System.Title', 'System.WorkItemType', 'System.State', 'System.CreatedDate', 'System.AssignedTo',
       'System.CreatedBy', 'System.IterationPath', 'System.Tags', 'System.Parent', 'Microsoft.VSTS.Common.Severity',
-      'Microsoft.VSTS.Common.Priority', ...EFFORT_FIELD_NAMES,
+      'Microsoft.VSTS.Common.Priority', ...EFFORT_FIELD_NAMES, ...Object.values(TEXT_FIELDS),
     ])),
     fetchWorkItemIconMap(client, team.orgName),
   ])
@@ -93,6 +107,7 @@ export async function fetchTriageItems(
       effort: resolveEffort(fields),
       iterationPath: text(fields['System.IterationPath']),
       tags: resolveTags(fields).sort((a, b) => a.localeCompare(b)),
+      filledText: Object.fromEntries(Object.entries(TEXT_FIELDS).map(([key, field]) => [key, hasRichTextContent(fields[field])])),
       reasons: [],
       workItemUrl: itemUrl(raw.id),
     }

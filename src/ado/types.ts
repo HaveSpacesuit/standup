@@ -150,6 +150,8 @@ export type ResolvedWorkItemAssignee = {
   kind: 'team-member' | 'unassigned' | 'history-unavailable'
 }
 
+export type TriageTextField = 'reproSteps' | 'acceptanceCriteria' | 'description'
+
 export type TriageItem = {
   id: number
   title: string
@@ -164,6 +166,8 @@ export type TriageItem = {
   effort?: number
   iterationPath?: string
   tags: string[]
+  /** Whether each rich-text field has content; a field left out is treated as empty. */
+  filledText?: Partial<Record<TriageTextField, boolean>>
   reasons: string[]
   workItemUrl: string
   parent?: { id: number; title?: string; workItemUrl: string; unavailable: boolean }

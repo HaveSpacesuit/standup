@@ -5,26 +5,20 @@ import type { BacklogSprint, BacklogSprintResolver } from './backlogSprint'
 import { formatAssignee, formatCreatedDate, getSeverityDisplay } from './backlogValue'
 import { normalizeQuickFilterText } from './boardFilters'
 import { countWorkingDays, formatDayCount } from './sprintDates'
-import type { TriageQueryOptions } from './triageOptions'
+import type { TriageQueryOptions, TriageReadinessChecks } from './triageOptions'
+import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks } from './triageRules'
 
 /** Shown in muted text in place of an unknown creator. */
 export const UNKNOWN_CREATOR_LABEL = 'Unknown'
 
-/** The prefix `getTriageReasons` gives a matching tag's reason, as in "Tag: Triage". */
-const TAG_REASON_PREFIX = 'Tag: '
-export const NEW_BUG_REASON = 'New bug'
+/** The Readiness column's label for an item whose checks all pass. */
+export const READY_TO_CLEAR_LABEL = 'Ready to clear'
 
-export type TriageReason = { kind: 'tag'; tag: string; label: string } | { kind: 'new-bug'; label: string }
-
-/** Why the item is listed, one entry per rule it meets: each Triage tag it has ("Triage tag"), then "New bug". */
-export function getTriageReasonDetails(item: Pick<TriageItem, 'reasons'>): TriageReason[] {
-  return item.reasons.flatMap((reason): TriageReason[] => {
-    if (reason.startsWith(TAG_REASON_PREFIX)) {
-      const tag = reason.slice(TAG_REASON_PREFIX.length)
-      return [{ kind: 'tag', tag, label: `${tag} tag` }]
-    }
-    return reason === NEW_BUG_REASON ? [{ kind: 'new-bug', label: NEW_BUG_REASON }] : []
-  })
+/** The Readiness column's text: "Ready to clear", or the checks still missing. Empty while no type has checks. */
+export function getTriageReadinessText(item: TriageItem, checks: TriageReadinessChecks): string[] {
+  if (!hasTriageChecks(checks)) return []
+  const readiness = getTriageReadiness(item, checks)
+  return readiness.ready ? [READY_TO_CLEAR_LABEL] : readiness.missing
 }
 
 /** The item's tags without the Triage tags it matched, which the Why column names instead. */
@@ -76,11 +70,11 @@ function shown(value: string | number | undefined): string {
 
 /**
  * The text each Triage column shows for an item, like Backlog's visible text: the type (the icon's name), the id, the
- * title, each tag, why the item is listed, then the other columns as displayed. The quick filter searches exactly these
- * strings, so it never matches hidden detail such as the iteration path. Age is left out, as on Backlog: it grows as
- * items get older, so a filter on it would stop matching.
+ * title, each tag, why the item is listed, its readiness, then the other columns as displayed. The quick filter searches
+ * exactly these strings, so it never matches hidden detail such as the iteration path. Age is left out, as on Backlog: it
+ * grows as items get older, so a filter on it would stop matching.
  */
-export function getTriageVisibleText(item: TriageItem, sprint: BacklogSprint): string[] {
+export function getTriageVisibleText(item: TriageItem, sprint: BacklogSprint, checks: TriageReadinessChecks): string[] {
   const shortState = abbreviateState(item.state)
   return [
     item.workItemType,
@@ -88,6 +82,7 @@ export function getTriageVisibleText(item: TriageItem, sprint: BacklogSprint): s
     item.title,
     ...item.tags,
     ...getTriageReasonDetails(item).map((reason) => reason.label),
+    ...getTriageReadinessText(item, checks),
     getSeverityDisplay(item.severity)?.label ?? '',
     shown(item.priority),
     shown(item.effort),
@@ -101,10 +96,15 @@ export function getTriageVisibleText(item: TriageItem, sprint: BacklogSprint): s
 }
 
 /** Keeps the items whose visible text contains the quick filter text; returns `items` itself when none are excluded. */
-export function filterTriageItems(items: TriageItem[], input: string, resolveSprint: BacklogSprintResolver): TriageItem[] {
+export function filterTriageItems(
+  items: TriageItem[],
+  input: string,
+  resolveSprint: BacklogSprintResolver,
+  checks: TriageReadinessChecks,
+): TriageItem[] {
   const query = normalizeQuickFilterText(input)
   if (!query) return items
-  const matches = items.filter((item) => getTriageVisibleText(item, resolveSprint(item.iterationPath))
+  const matches = items.filter((item) => getTriageVisibleText(item, resolveSprint(item.iterationPath), checks)
     .some((text) => text.toLowerCase().includes(query)))
   return matches.length === items.length ? items : matches
 }

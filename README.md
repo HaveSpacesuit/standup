@@ -309,6 +309,11 @@ areas), separate from Backlog's bug ranking and sprint planning.
   area qualify.
 - **Flag age after (working days)** defaults to 2 (1–30). An item that has waited this many working
   days shows its age in amber. Changing it only redraws the table; it does not reload the queue.
+- **Readiness checks** lists the fields an item needs before it is ready to clear: **Required on
+  bugs** (default Severity, Impact, Effort, and Repro steps) and **Required on other types** (default
+  Effort and Acceptance criteria). Choose from Severity, Impact, Effort, Repro steps, Acceptance
+  criteria, and Description. Leave both empty to hide the Readiness column. Like the age flag, the
+  checks only redraw the table.
 
 Both sources exclude **Completed** and **Removed** state categories, using each work item's own
 type metadata. Resolved-category items remain eligible. With no tags and the new-bug rule off,
@@ -322,6 +327,13 @@ Backlog's table in order and formatting. The Work item column shows an accessibl
 the title linking to Azure DevOps, and the tags as pills after it. **Why** follows it, with a chip for
 each rule the item meets: a tag chip such as **Triage tag**, or **New bug**. A Triage tag the item
 matched appears only there, so it does not repeat on every title; its other tags stay on the title.
+**Readiness** comes next: a green **Ready to clear** chip once every check for the item's type passes,
+or the fields still missing, each with a dashed `?`. Repro steps, Acceptance criteria, and
+Description count as filled when they hold text or an image, such as a pasted screenshot; empty
+markup does not count. Only whether each field has content is kept, not the text. The Readiness and
+Why tooltips both say what clears the item: removing each matched tag, and for a new bug, moving it
+out of its first state or into one of the excluded iteration paths (named by their last segment).
+An item that meets both rules leaves only once neither applies.
 Then come colored Severity chips, Impact signal bars (the Priority field), Effort, Age, Sprint,
 State, and Assigned to, followed by Created by and the immediate Parent's ID/title. Age counts
 working days since the item was created (**Today**, then `1d`, `2d`, and so on, with weekends
@@ -330,11 +342,13 @@ the created date and the working-day count. Assigned to and Parent are hidden wh
 queue has one, since new items rarely do; the choice is made from the whole queue, so the columns
 stay put while the quick filter changes. Sprint places the iteration against the team's sprints as
 Backlog does (This sprint, Next sprint, a sprint name, or Backlog). Missing Severity, Impact, and
-Effort are flagged on Bugs as on Backlog, and shown as a dash for other types; unassigned items show
-a muted Unassigned. Triage has no Value score or raised-effort marker. Item and parent links open
+Effort are flagged with a dashed `?`, as on Backlog, when they are one of the item type's readiness
+checks, and otherwise shown as a dash; unassigned items show a muted Unassigned. Triage has no Value
+score or raised-effort marker. Item and parent links open
 Azure DevOps for edits. An unavailable parent's known ID/link is retained with an explicit warning.
-Quick filtering searches the displayed text, including tags, why items are listed, creator, type,
-sprint label, and parent; `/` and Ctrl/Cmd+F focus it.
+Quick filtering searches the displayed text, including tags, why items are listed, readiness
+(**Ready to clear** or the missing field names), creator, type, sprint label, and parent; `/` and
+Ctrl/Cmd+F focus it.
 
 **Open in ADO** opens the same rules as an unsaved Azure DevOps query in a new tab, for bulk edits the
 page cannot make. The query is passed in the link's `wiql` parameter, so it needs no write access. It

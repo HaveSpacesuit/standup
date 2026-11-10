@@ -1,9 +1,24 @@
+export const TRIAGE_CHECKS = ['severity', 'impact', 'effort', 'reproSteps', 'acceptanceCriteria', 'description'] as const
+export type TriageCheck = (typeof TRIAGE_CHECKS)[number]
+export const TRIAGE_CHECK_LABELS: Record<TriageCheck, string> = {
+  severity: 'Severity',
+  impact: 'Impact',
+  effort: 'Effort',
+  reproSteps: 'Repro steps',
+  acceptanceCriteria: 'Acceptance criteria',
+  description: 'Description',
+}
+
+/** The fields an item must have filled in before it counts as ready to clear: one list for bugs, one for other types. */
+export type TriageReadinessChecks = { bug: TriageCheck[]; other: TriageCheck[] }
+
 export type TriageOptions = {
   tags: string[]
   includeNewBugs: boolean
   excludedIterationPaths: string[]
   /** Working days an item can wait in triage before its age is flagged. */
   ageFlagDays: number
+  readinessChecks: TriageReadinessChecks
 }
 
 /** The options that decide which items the queue holds; the rest only change how they are shown. */
@@ -12,8 +27,15 @@ export type TriageQueryOptions = Pick<TriageOptions, 'tags' | 'includeNewBugs' |
 export const DEFAULT_TRIAGE_AGE_FLAG_DAYS = 2
 export const MAX_TRIAGE_AGE_FLAG_DAYS = 30
 
+export function createDefaultTriageReadinessChecks(): TriageReadinessChecks {
+  return { bug: ['severity', 'impact', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria'] }
+}
+
 export function createDefaultTriageOptions(): TriageOptions {
-  return { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: DEFAULT_TRIAGE_AGE_FLAG_DAYS }
+  return {
+    tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: DEFAULT_TRIAGE_AGE_FLAG_DAYS,
+    readinessChecks: createDefaultTriageReadinessChecks(),
+  }
 }
 
 export function triageOptionsStorageKey(teamId: string): string {
@@ -59,7 +81,23 @@ export function parseTriageOptions(value: unknown): TriageOptions {
       (path) => path.replace(/\\+$/, ''),
     ),
     ageFlagDays,
+    readinessChecks: candidate.readinessChecks === undefined ? defaults.readinessChecks : readReadinessChecks(candidate.readinessChecks),
   }
+}
+
+function readReadinessChecks(value: unknown): TriageReadinessChecks {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Triage readiness checks must be an object with bug and other lists.')
+  }
+  const lists = value as Record<string, unknown>
+  const read = (list: unknown): TriageCheck[] => {
+    if (!Array.isArray(list) || list.some((check) => !TRIAGE_CHECKS.includes(check))) {
+      throw new Error(`Triage readiness checks must be lists of: ${TRIAGE_CHECKS.join(', ')}.`)
+    }
+    // Kept in one order, so the checks read the same on every item whichever order they were picked in.
+    return TRIAGE_CHECKS.filter((check) => list.includes(check))
+  }
+  return { bug: read(lists.bug), other: read(lists.other) }
 }
 
 export type TriageSettings = { options: TriageOptions; error: string | null }
