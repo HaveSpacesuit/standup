@@ -18,6 +18,7 @@ const { buildTeamDataExport, parseImportedTeamData } = await server.ssrLoadModul
 const { createDefaultAssignmentOptions, createDefaultQaOptions } = await server.ssrLoadModule('/src/features/standup/utils/standupOptionDefaults.ts')
 const { createDefaultBacklogOptions } = await server.ssrLoadModule('/src/features/standup/utils/backlogOptions.ts')
 const { loadTeamProfilesWithDefaultsAndRecovery } = await server.ssrLoadModule('/src/defaultTeamSeed.ts')
+const { recordTriageVisit, triageVisitStorageKey } = await server.ssrLoadModule('/src/features/standup/utils/triageVisits.ts')
 const profile = {
   id: 'triage-a', orgName: 'org', projectName: 'Project', displayName: 'Team A',
   areaPath: 'Project\\A', iterationPath: 'Project', teamName: 'A', repoName: 'repo',
@@ -25,16 +26,19 @@ const profile = {
 const defaultChecks = { bug: ['severity', 'impact', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria'] }
 const custom = {
   tags: ['Needs triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 3,
-  readinessChecks: { bug: ['severity', 'reproSteps'], other: [] },
+  readinessChecks: { bug: ['severity', 'reproSteps'], other: [] }, waitingTags: ['Awaiting QA', 'Needs Info'],
 }
 
 test('Triage defaults to its tag only; explicit empty rules are preserved and lists normalize', () => {
-  assert.deepEqual(createDefaultTriageOptions(), { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks: defaultChecks })
+  assert.deepEqual(createDefaultTriageOptions(), {
+    tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks: defaultChecks, waitingTags: ['Needs Info'],
+  })
   assert.deepEqual(parseTriageOptions({ tags: [], includeNewBugs: false, excludedIterationPaths: [] }), {
-    tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks: defaultChecks,
+    tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks: defaultChecks, waitingTags: ['Needs Info'],
   })
   assert.deepEqual(parseTriageOptions({ tags: [' triage ', '', 'TRIAGE', 'Other'], excludedIterationPaths: [' Project\\Refine '], ageFlagDays: 30 }), {
     tags: ['Other', 'TRIAGE'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 30, readinessChecks: defaultChecks,
+    waitingTags: ['Needs Info'],
   })
   for (const value of [null, [], { tags: null }, { tags: [1] }, { tags: ['one;two'] }, { includeNewBugs: 'true' }, { excludedIterationPaths: false }]) {
     assert.throws(() => parseTriageOptions(value))
@@ -44,6 +48,36 @@ test('Triage defaults to its tag only; explicit empty rules are preserved and li
   for (const ageFlagDays of [0, 31, 1.5, '2', null, Number.NaN]) {
     assert.throws(() => parseTriageOptions({ ageFlagDays }), /age flag must be a whole number of working days from 1 to 30/)
   }
+})
+
+test('waiting tags normalize like Triage tags, may be empty, and reject lists and separators', () => {
+  assert.deepEqual(parseTriageOptions({ waitingTags: [' needs info ', 'NEEDS INFO', 'Blocked', ''] }).waitingTags, ['Blocked', 'NEEDS INFO'])
+  assert.deepEqual(parseTriageOptions({ waitingTags: [] }).waitingTags, [])
+  assert.throws(() => parseTriageOptions({ waitingTags: 'Needs Info' }), /waiting tags must be a list of strings/)
+  assert.throws(() => parseTriageOptions({ waitingTags: ['Needs; Info'] }), /without semicolons/)
+})
+
+test('a visit returns the last time Triage was open on an earlier day, the same answer all day, per team', () => {
+  localStorage.clear()
+  const at = (day: number, hour: number, minute = 0) => new Date(2026, 3, day, hour, minute).getTime()
+  assert.equal(recordTriageVisit('a', at(6, 9)), null, 'nothing is new on the first visit')
+  assert.equal(recordTriageVisit('a', at(6, 16, 12)), null, 'or again that day')
+  assert.equal(recordTriageVisit('a', at(7, 9, 5)), at(6, 16, 12), 'the next day counts from the last visit the day before')
+  assert.equal(recordTriageVisit('a', at(7, 13)), at(6, 16, 12), 'reloading later that day keeps the same answer')
+  assert.equal(recordTriageVisit('a', at(10, 8)), at(7, 13), 'after a weekend, from the last visit before it')
+  assert.equal(recordTriageVisit('b', at(10, 8)), null, 'each team has its own visits')
+  for (const raw of ['{broken', '{"day":1}', '[]']) {
+    localStorage.setItem(triageVisitStorageKey('c'), raw)
+    assert.equal(recordTriageVisit('c', at(10, 9)), null, raw)
+  }
+  const originalSet = dom.window.Storage.prototype.setItem
+  dom.window.Storage.prototype.setItem = () => { throw new Error('quota exceeded') }
+  try {
+    assert.equal(recordTriageVisit('a', at(11, 9)), at(10, 8), 'storage that cannot be written does not break the page')
+  } finally {
+    dom.window.Storage.prototype.setItem = originalSet
+  }
+  localStorage.clear()
 })
 
 test('readiness checks keep one order per list, may be empty, and reject unknown checks', () => {
@@ -124,8 +158,10 @@ test('per-team options persist, reload, report save failures, recover explicitly
   assert.equal(localStorage.getItem(triageOptionsStorageKey('triage-a')), saved)
   await act(async () => state.setTriageOptionsForTeam('triage-a', custom))
   assert.equal(state!.triageSettingsByTeam['triage-a'].error, null)
+  recordTriageVisit('triage-a')
   await act(async () => state.handleTeamProfilesChange([{ ...profile, id: 'triage-b' }]))
   assert.equal(localStorage.getItem(triageOptionsStorageKey('triage-a')), null)
+  assert.equal(localStorage.getItem(triageVisitStorageKey('triage-a')), null, 'the team’s Triage visits go with it')
   assert.equal(state!.triageSettingsByTeam['triage-a'], undefined)
   await act(async () => root.unmount())
   t.after(() => localStorage.clear())

@@ -41,6 +41,8 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
   const [paths, setPaths] = useState(options.excludedIterationPaths)
   const [pathInput, setPathInput] = useState('')
   const [ageFlagInput, setAgeFlagInput] = useState(String(options.ageFlagDays))
+  const [waitingTags, setWaitingTags] = useState(options.waitingTags)
+  const [waitingDraft, setWaitingDraft] = useState('')
   const [bugChecks, setBugChecks] = useState(options.readinessChecks.bug)
   const [otherChecks, setOtherChecks] = useState(options.readinessChecks.other)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +50,11 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
   const addTags = () => {
     setTags((current) => addTriageTags(current, tagDraft))
     setTagDraft('')
+  }
+
+  const addWaitingTags = () => {
+    setWaitingTags((current) => addTriageTags(current, waitingDraft))
+    setWaitingDraft('')
   }
 
   const save = () => {
@@ -59,6 +66,7 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
         excludedIterationPaths: includeNewBugs ? [...paths, pathInput] : paths,
         ageFlagDays: ageFlagInput.trim() ? Number(ageFlagInput) : Number.NaN,
         readinessChecks: { bug: bugChecks, other: otherChecks },
+        waitingTags: addTriageTags(waitingTags, waitingDraft),
       })
       onSave(next)
       onClose()
@@ -140,8 +148,20 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
             type="number"
             value={ageFlagInput}
             onChange={(event) => setAgeFlagInput(event.target.value)}
-            helperText={`An item that has waited this many working days shows its age in amber (1–${MAX_TRIAGE_AGE_FLAG_DAYS}).`}
+            helperText={`An item in triage this many working days shows its age in amber (1–${MAX_TRIAGE_AGE_FLAG_DAYS}).`}
             slotProps={{ htmlInput: { min: 1, max: MAX_TRIAGE_AGE_FLAG_DAYS, step: 1 } }}
+          />
+          <ChipListEditor
+            heading="Waiting tags"
+            description="Items in triage with any of these tags are waiting on someone else; the tags do not add items. The Inbox groups them under Waiting on others with any reply since, and their age is never flagged."
+            values={waitingTags}
+            onRemove={(tag) => setWaitingTags((current) => current.filter((entry) => entry !== tag))}
+            draft={waitingDraft}
+            onDraftChange={setWaitingDraft}
+            onAdd={addWaitingTags}
+            placeholder="Add tag (for example: Needs Info)"
+            inputLabel="Add waiting tag"
+            emptyText="No waiting tags. Every item counts as still to triage."
           />
           {error ? <Alert severity="error">{error}</Alert> : null}
         </Box>

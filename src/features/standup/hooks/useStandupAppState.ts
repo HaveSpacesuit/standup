@@ -26,6 +26,7 @@ import type { QaOptions } from '../utils/qaOptions'
 import { parseStoredQaOptionsWithRecovery, qaOptionsStorageKey, serializeQaOptions } from '../utils/qaOptions'
 import { SELECTED_TEAM_STORAGE_KEY, tagRulesStorageKey } from './useBoardPreferences'
 import { loadTriageSettings, parseTriageOptions, triageOptionsStorageKey, type TriageOptions, type TriageSettings } from '../utils/triageOptions'
+import { triageVisitStorageKey } from '../utils/triageVisits'
 
 type UseStandupAppStateResult = {
   teamProfiles: TeamProfile[]
@@ -174,6 +175,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
         localStorage.removeItem(assignmentOptionsStorageKey(team.id))
         localStorage.removeItem(backlogOptionsStorageKey(team.id))
         localStorage.removeItem(triageOptionsStorageKey(team.id))
+        localStorage.removeItem(triageVisitStorageKey(team.id))
         localStorage.removeItem(tagRulesStorageKey(team.id))
       }
     }

@@ -114,9 +114,9 @@ same testers as the QA page), holding the QA page's items assigned to them. Thes
 during standup, load QA data only while the option is on, and don't count toward the Needs
 attention bar. The setting is saved per team and included in team exports.
 
-Development opens on the Developers board, Quality Assurance on Testers, Backlog on List, and Tests on Rows.
-Turn on Settings > Display > "Remember last page and view" to return to your last page when opening the site
-without a page route, and reopen each page on its last view, such as Sprint, Flow, Map, or Calendar.
+Development opens on the Developers board, Quality Assurance on Testers, Triage on Table, Backlog on List, and Tests
+on Rows. Turn on Settings > Display > "Remember last page and view" to return to your last page when opening the site
+without a page route, and reopen each page on its last view, such as Sprint, Flow, Inbox, Map, or Calendar.
 An explicit page route always takes precedence. When off, the site opens on Development unless a route specifies
 another page. The setting, last page, and each page's last view are saved in this browser, not in team exports.
 
@@ -307,8 +307,14 @@ areas), separate from Backlog's bug ranking and sprint planning.
   team sprint or enter a full path, such as `Project\To Refine`. That path and its descendants are
   excluded, but a matching tag still includes an item there. No exclusions means all new bugs in the
   area qualify.
-- **Flag age after (working days)** defaults to 2 (1–30). An item that has waited this many working
-  days shows its age in amber. Changing it only redraws the table; it does not reload the queue.
+- **Flag age after (working days)** defaults to 2 (1–30). An item in triage this many working days
+  shows its age in amber, unless it is waiting on others. Changing it only redraws the page; it does
+  not reload the queue.
+- **Waiting tags** defaults to `Needs Info`, edited like Triage tags. An item carrying one is waiting
+  on someone else, such as QA or the reporter: the Inbox lists it under **Waiting on others**, and its
+  age is never flagged. Waiting tags do not add items to the queue, so an item also needs a Triage tag
+  or the new-bug rule to appear. With none, every item counts as still to triage. Like the age flag,
+  they only redraw the page.
 - **Readiness checks** lists the fields an item needs before it is ready to clear: **Required on
   bugs** (default Severity, Impact, Effort, and Repro steps) and **Required on other types** (default
   Effort and Acceptance criteria). Choose from Severity, Impact, Effort, Repro steps, Acceptance
@@ -336,9 +342,12 @@ out of its first state or into one of the excluded iteration paths (named by the
 An item that meets both rules leaves only once neither applies.
 Then come colored Severity chips, Impact signal bars (the Priority field), Effort, Age, Sprint,
 State, and Assigned to, followed by Created by and the immediate Parent's ID/title. Age counts
-working days since the item was created (**Today**, then `1d`, `2d`, and so on, with weekends
-skipped); after two weeks it switches to calendar time such as `3w`, as on Backlog. Its tooltip gives
-the created date and the working-day count. Assigned to and Parent are hidden while no item in the
+working days since the item entered triage (**Today**, then `1d`, `2d`, and so on, with weekends
+skipped); after two weeks it switches to calendar time such as `3w`, as on Backlog. An item entered
+triage when it was created, or later if it qualified later: when its matched tag was last added, or
+when a new bug last moved back into its first state. A rule that began within an hour of creation
+counts from creation. Its tooltip gives the date the item entered triage and the working-day count.
+Assigned to and Parent are hidden while no item in the
 queue has one, since new items rarely do; the choice is made from the whole queue, so the columns
 stay put while the quick filter changes. Sprint places the iteration against the team's sprints as
 Backlog does (This sprint, Next sprint, a sprint name, or Backlog). Missing Severity, Impact, and
@@ -349,6 +358,38 @@ Azure DevOps for edits. An unavailable parent's known ID/link is retained with a
 Quick filtering searches the displayed text, including tags, why items are listed, readiness
 (**Ready to clear** or the missing field names), creator, type, sprint label, and parent; `/` and
 Ctrl/Cmd+F focus it.
+
+#### Table and Inbox
+
+The **View** toggle in the toolbar switches between **Table**, the default, and **Inbox**, which shows
+the same items, after the quick filter, as a daily to-do list. A summary line counts the items in
+triage, those new since your last visit, those ready to clear (when there are readiness checks), those
+waiting on others, and, in amber, those in triage at least the age flag's working days without
+waiting. The items follow in up to three groups, each longest in triage first:
+
+- **New since your last visit**: items that entered triage after you last had the team's Triage page
+  open on an earlier day. Reloading or refreshing later the same day keeps the same group, so it
+  holds the day's new arrivals. On the first visit nothing counts as new, and the next group is
+  titled **To triage**.
+- **Still to triage**: everything else not waiting on others.
+- **Waiting on others**: items carrying a waiting tag.
+
+Each card shows the type icon, ID, linked title, and the item's other tags, then how it arrived:
+**Filed** with when and by whom, or **Tagged “Triage”** or **Moved to New** with when, by whom, and
+the created date. The Why chips follow, then only what differs from a fresh item: a state other
+than the type's first, the assignee, and the parent link. A waiting item says which tag it carries
+and since when; once someone other than whoever added the tag comments after it was added, the card
+shows **replied** with the comment's start in a tooltip. An item past the age flag says how many
+working days it has been in triage. Below, a checklist marks each readiness check filled or missing
+(or shows **Ready to clear**, with a green edge on the card) beside what clears the item. Severity,
+Impact, Effort, and the sprint (unless Backlog) sit to the right, folding under the title when the
+page is narrow.
+
+To tell when each item entered triage and whether anyone replied, the page reads each item's update
+history and, when it has comments, its newest comment. History loads for up to 100 items; beyond
+that, ages count from creation, replies are not shown, and a warning says so. An item whose history
+fails to load falls back the same way, with a warning. Your last visit is kept in this browser per
+team (`standup:triage-visit:<team id>`), not in team exports, and is removed with the team.
 
 **Open in ADO** opens the same rules as an unsaved Azure DevOps query in a new tab, for bulk edits the
 page cannot make. The query is passed in the link's `wiql` parameter, so it needs no write access. It

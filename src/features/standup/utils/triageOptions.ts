@@ -19,6 +19,8 @@ export type TriageOptions = {
   /** Working days an item can wait in triage before its age is flagged. */
   ageFlagDays: number
   readinessChecks: TriageReadinessChecks
+  /** Tags that mean the item is waiting on someone else, such as QA; the Inbox groups these items apart. */
+  waitingTags: string[]
 }
 
 /** The options that decide which items the queue holds; the rest only change how they are shown. */
@@ -34,7 +36,7 @@ export function createDefaultTriageReadinessChecks(): TriageReadinessChecks {
 export function createDefaultTriageOptions(): TriageOptions {
   return {
     tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: DEFAULT_TRIAGE_AGE_FLAG_DAYS,
-    readinessChecks: createDefaultTriageReadinessChecks(),
+    readinessChecks: createDefaultTriageReadinessChecks(), waitingTags: ['Needs Info'],
   }
 }
 
@@ -62,7 +64,8 @@ export function parseTriageOptions(value: unknown): TriageOptions {
   const candidate = value as Record<string, unknown>
   const defaults = createDefaultTriageOptions()
   const tags = readList(candidate.tags === undefined ? defaults.tags : candidate.tags, 'tags')
-  if (tags.some((tag) => /[;\r\n]/.test(tag))) {
+  const waitingTags = readList(candidate.waitingTags === undefined ? defaults.waitingTags : candidate.waitingTags, 'waiting tags')
+  if ([...tags, ...waitingTags].some((tag) => /[;\r\n]/.test(tag))) {
     throw new Error('Enter each Triage tag separately, without semicolons.')
   }
   if (candidate.includeNewBugs !== undefined && typeof candidate.includeNewBugs !== 'boolean') {
@@ -82,6 +85,7 @@ export function parseTriageOptions(value: unknown): TriageOptions {
     ),
     ageFlagDays,
     readinessChecks: candidate.readinessChecks === undefined ? defaults.readinessChecks : readReadinessChecks(candidate.readinessChecks),
+    waitingTags,
   }
 }
 

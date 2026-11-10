@@ -4,8 +4,8 @@ export const REMEMBER_LAST_VIEW_STORAGE_KEY = 'standup:remember-last-view'
 export const LAST_PAGE_STORAGE_KEY = 'standup:last-page'
 const LAST_VIEW_STORAGE_KEY_PREFIX = 'standup:last-view'
 
-/** Pages with a View toggle: Developers or Sprint, Testers or Flow, List or Map, and Rows or Calendar. */
-export type RememberedViewPage = Extract<AppView, 'development' | 'qa-activity' | 'backlog' | 'tests'>
+/** Pages with a View toggle: Developers or Sprint, Testers or Flow, Table or Inbox, List or Map, and Rows or Calendar. */
+export type RememberedViewPage = Extract<AppView, 'development' | 'qa-activity' | 'triage' | 'backlog' | 'tests'>
 
 export function lastViewStorageKey(page: RememberedViewPage): string {
   return `${LAST_VIEW_STORAGE_KEY_PREFIX}:${page}`
