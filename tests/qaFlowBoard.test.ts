@@ -33,6 +33,8 @@ const { QualityAssuranceLoadingState } = await server.ssrLoadModule('/src/featur
 const { QaColumnHeader } = await server.ssrLoadModule('/src/features/standup/components/QaColumnHeader.tsx')
 const { default: checkmarkIcon } = await server.ssrLoadModule('@stratakit/icons/checkmark.svg')
 const { getItemHistory, getQaLaneFlags, getQaStandupOrder } = await server.ssrLoadModule('/src/features/standup/components/qaBoardModel.ts')
+const { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } =
+  await server.ssrLoadModule('/src/features/standup/utils/qualityAssuranceBuckets.ts')
 
 const ago = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 const tester = { displayName: 'Taylor Reed', uniqueName: 'taylor@example.test' }
@@ -153,6 +155,24 @@ function withDocument<T>(html: string, read: (document: Document) => T): T {
   } finally {
     dom.window.close()
   }
+}
+
+for (const view of ['flow', 'testers'] as const) {
+  test(`QA ${view} preserves the attention ranking of Newly added cards within a lane`, () => {
+    const config = resolveQualityAssuranceProjectConfig({ id: 'team', projectName: 'project' })
+    const candidates = [
+      { ...filed, id: 501, title: 'Older minor report', createdAt: ago(20), sprintName: 'Sprint 1' },
+      { ...filed, id: 506, title: 'Fresh report', createdAt: ago(0), sprintName: 'Sprint 99' },
+      { ...filed, id: 507, title: 'Fresh urgent triage', createdAt: ago(0), tags: ['Triage'], severity: '1 - Critical', priority: 1 },
+    ].map((item) => ({ ...item, createdBy: tester }))
+    const buckets = bucketQualityAssuranceItems(candidates, {}, config)
+    withDocument(render(view, false, { buckets, boardItems: [] }), (document) => {
+      const text = document.body.textContent!
+      assert.ok(text.includes('Fresh urgent triage'))
+      assert.ok(text.indexOf('Fresh urgent triage') < text.indexOf('Fresh report'))
+      assert.ok(text.indexOf('Fresh report') < text.indexOf('Older minor report'))
+    })
+  })
 }
 
 test('QA history distinguishes assignment changes and still gives state changes priority', () => {

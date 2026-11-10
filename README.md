@@ -239,6 +239,15 @@ rail that runs the board's full height, headed like the Development board's empt
 its color over a checked 0; select a rail to expand it. Coming up can always be collapsed, and its
 rail then shows its count without the check. Column and lane toggles are not saved.
 
+**Newly added** ranks cards by attention rather than sprint or oldest ID, in both Testers and Flow.
+Creation freshness contributes up to 100 points, halving every seven days. A tag configured for Newly added
+(such as Triage) adds 25 points. No state, assignee, or sprint change in the last three days adds 20 points;
+the creation revision itself and unrelated edits do not count as follow-up. Unavailable history earns no
+untouched bonus. Severity 1/2/3 adds 20/12/4 points, and Priority 1/2/3 adds 15/8/3; level 4 or missing/unknown
+values add nothing. Equal scores show newer creation dates first, then higher IDs. This lets recent reports
+lead while still surfacing important, untriaged work. Column membership, filters, tester lanes, and the ordering
+of other columns are unchanged.
+
 Each card shows the person its column follows: who filed it, its owner (Coming up), its tester, who
 sent it back, or who verified it. A caption says where it stands: "Filed 3d ago", "2d in AFT",
 "Failed testing · 1d" or "Sent back · 1d", "Verified Nov 2", or "Likely today" for a Coming up card

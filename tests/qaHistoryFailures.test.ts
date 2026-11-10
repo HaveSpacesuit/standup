@@ -30,7 +30,7 @@ const recentDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 test('failed work-item history remains visible as unclassified while successful history is bucketed', async () => {
   let historyAvailable = false
   const client = {
-    async request({ method, path }: { method?: string; path: string }) {
+    async request({ method, path, body }: { method?: string; path: string; body?: { fields?: string[] } }) {
       if (path.endsWith('/_apis/wit/wiql')) {
         return { workItems: [{ id: 1 }, { id: 2 }] }
       }
@@ -38,6 +38,8 @@ test('failed work-item history remains visible as unclassified while successful 
         return { value: [] }
       }
       if (path === '/_apis/wit/workitemsbatch') {
+        assert.ok(body?.fields?.includes('Microsoft.VSTS.Common.Severity'))
+        assert.ok(body?.fields?.includes('Microsoft.VSTS.Common.Priority'))
         return {
           value: [1, 2].map((id) => ({
             id,
@@ -46,6 +48,8 @@ test('failed work-item history remains visible as unclassified while successful 
               'System.CreatedDate': oldDate,
               'System.ChangedDate': oldDate,
               'System.State': 'Done',
+              'Microsoft.VSTS.Common.Severity': id === 1 ? '1 - Critical' : undefined,
+              'Microsoft.VSTS.Common.Priority': id === 1 ? '2' : undefined,
             },
           })),
         }
@@ -85,6 +89,10 @@ test('failed work-item history remains visible as unclassified while successful 
   )
 
   assert.deepEqual(rawData.candidates.map((item: { id: number }) => item.id), [1, 2])
+  assert.equal(rawData.candidates[0].severity, '1 - Critical')
+  assert.equal(rawData.candidates[0].priority, 2)
+  assert.equal(rawData.candidates[1].severity, undefined)
+  assert.equal(rawData.candidates[1].priority, undefined)
   assert.deepEqual(rawData.failedUpdateItemIds, [1])
   assert.deepEqual(buckets.find((bucket: { id: string }) => bucket.id === 'history-unavailable')?.items.map((item: { id: number }) => item.id), [1])
   assert.deepEqual(buckets.find((bucket: { id: string }) => bucket.id === 'done')?.items.map((item: { id: number }) => item.id), [2])

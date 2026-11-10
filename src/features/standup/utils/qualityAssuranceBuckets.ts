@@ -354,6 +354,53 @@ export function classifyQualityAssuranceItem(
   return null
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+const TRIAGE_PROGRESS_FIELDS = ['System.State', 'System.AssignedTo', 'System.IterationPath'] as const
+const SEVERITY_ATTENTION = [0, 20, 12, 4, 0] as const
+const PRIORITY_ATTENTION = [0, 15, 8, 3, 0] as const
+
+function attentionLevel(value: string | number | undefined): 1 | 2 | 3 | 4 | 0 {
+  const match = /^([1-4])(?:\s*-\s*.+)?$/.exec(String(value ?? '').trim())
+  switch (match?.[1]) {
+    case '1': return 1
+    case '2': return 2
+    case '3': return 3
+    case '4': return 4
+    default: return 0
+  }
+}
+
+/** Freshness leads; triage tags, lack of follow-up, and severity/priority boost items needing discussion. */
+export function getNewQaItemAttentionScore(
+  item: WorkItemSummary,
+  updates: WorkItemUpdate[],
+  config: QualityAssuranceProjectConfig,
+  historyAvailable = true,
+  now = Date.now(),
+): number {
+  const createdAt = toTimestamp(item.createdAt)
+  const validCreation = createdAt !== null && createdAt <= now
+  // Seven-day half-life: old items cannot stay above fresh reports just because of a sprint or ID.
+  const freshness = validCreation ? 100 * 2 ** (-(now - createdAt) / (7 * DAY_MS)) : 0
+  const tags = new Set(collectTags(item))
+  const triage = config.tagGroups.new.some((tag) => tags.has(normalizeText(tag))) ? 25 : 0
+  const followedUp = updates.some((update) => {
+    if (update.fields?.['System.Rev']?.newValue === 1) return false
+    const changedAt = update.fields?.['System.ChangedDate']?.newValue
+    const time = toTimestamp(typeof changedAt === 'string' ? changedAt : undefined)
+      ?? toTimestamp(resolveFreshnessTimestamp(update.revisedDate, item.recentActivityAt, now))
+    if (time === null || time > now || time < now - 3 * DAY_MS || (validCreation && time <= createdAt)) return false
+    return TRIAGE_PROGRESS_FIELDS.some((field) => {
+      const change = update.fields?.[field]
+      return change !== undefined && change.oldValue !== change.newValue
+    })
+  })
+  const unattended = historyAvailable && !followedUp ? 20 : 0
+  return freshness + triage + unattended
+    + SEVERITY_ATTENTION[attentionLevel(item.severity)]
+    + PRIORITY_ATTENTION[attentionLevel(item.priority)]
+}
+
 export function bucketQualityAssuranceItems(
   items: WorkItemSummary[],
   updatesByItemId: Record<number, WorkItemUpdate[]>,
@@ -396,8 +443,17 @@ export function bucketQualityAssuranceItems(
     buckets[bucketId].push(item)
   }
 
+  const now = Date.now()
+  const attentionById = new Map(buckets.new.map((item) => [
+    item.id,
+    getNewQaItemAttentionScore(item, updatesByItemId[item.id] ?? [], config, !failedUpdateIds.has(item.id), now),
+  ]))
   for (const key of Object.keys(buckets) as QualityAssuranceBucketId[]) {
-    buckets[key] = buckets[key].sort(sortWorkItemsBySprintAndId)
+    buckets[key].sort(key === 'new'
+      ? (left, right) => attentionById.get(right.id)! - attentionById.get(left.id)!
+        || (toTimestamp(right.createdAt) ?? 0) - (toTimestamp(left.createdAt) ?? 0)
+        || right.id - left.id
+      : sortWorkItemsBySprintAndId)
   }
 
   const result: QualityAssuranceBucket[] = [

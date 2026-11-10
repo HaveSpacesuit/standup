@@ -107,6 +107,9 @@ export type WorkItemSummary = {
   createdAt?: string
   state?: string
   recentActivityAt?: string
+  /** Raw Severity picklist text, e.g. "2 - High", used by QA attention ranking. */
+  severity?: string
+  priority?: number
   tags?: string[]
   sprintName?: string
   iterationPath?: string

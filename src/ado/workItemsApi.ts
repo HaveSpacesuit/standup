@@ -60,6 +60,8 @@ type WorkItemApiItem = {
     'System.CreatedBy'?: unknown
     'System.State'?: unknown
     'System.Tags'?: unknown
+    'Microsoft.VSTS.Common.Severity'?: unknown
+    'Microsoft.VSTS.Common.Priority'?: unknown
     'Microsoft.VSTS.Scheduling.Effort'?: unknown
     'Microsoft.VSTS.Scheduling.StoryPoints'?: unknown
     'Microsoft.VSTS.Scheduling.Size'?: unknown
@@ -442,6 +444,8 @@ async function fetchWorkItemSummariesByIds(
           'System.CreatedBy',
           'System.State',
           'System.Tags',
+          'Microsoft.VSTS.Common.Severity',
+          'Microsoft.VSTS.Common.Priority',
           'Microsoft.VSTS.Scheduling.Effort',
           'Microsoft.VSTS.Scheduling.StoryPoints',
           'Microsoft.VSTS.Scheduling.Size',
@@ -501,6 +505,10 @@ async function fetchWorkItemSummariesByIds(
         createdAt: resolveCreatedAt(item.fields),
         state: typeof item.fields?.['System.State'] === 'string' ? item.fields?.['System.State'] : undefined,
         recentActivityAt: resolveRecentActivityAt(item.fields),
+        severity: typeof item.fields?.['Microsoft.VSTS.Common.Severity'] === 'string'
+          ? item.fields['Microsoft.VSTS.Common.Severity']
+          : undefined,
+        priority: parseEffort(item.fields?.['Microsoft.VSTS.Common.Priority']),
         tags: resolveTags(item.fields),
         sprintName: resolveSprintName(item.fields),
         iterationPath: resolveIterationPath(item.fields),
