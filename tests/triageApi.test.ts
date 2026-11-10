@@ -8,7 +8,9 @@ import type { TriageOptions } from '../src/features/standup/utils/triageOptions.
 const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
 after(() => server.close())
 const { buildAdoQueryUrl, buildTriageQueryWiql, buildTriageWiql } = await server.ssrLoadModule('/src/ado/wiql.ts')
-const { fetchTriageItems, getTriageReasons, hasRichTextContent, isUnderIteration } = await server.ssrLoadModule('/src/ado/triageApi.ts')
+const {
+  fetchTriageItems, getTriageReasons, hasRichTextContent, isUnderIteration, summarizeTriageHistory, toPlainText, TRIAGE_HISTORY_LIMIT,
+} = await server.ssrLoadModule('/src/ado/triageApi.ts')
 const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 const metadata: ProjectWorkItemTypeInfo = {
   states: [], workItemTypes: ['Bug', 'Task'],
@@ -21,7 +23,7 @@ const metadata: ProjectWorkItemTypeInfo = {
   },
 }
 const options: TriageOptions = { tags: ['Triage', "Team's queue"], includeNewBugs: true, excludedIterationPaths: ['Project\\To Refine'], ageFlagDays: 2,
-  readinessChecks: { bug: ['reproSteps'], other: [] },
+  readinessChecks: { bug: ['reproSteps'], other: [] }, waitingTags: ['Needs Info'],
 }
 const team = { id: 'a', orgName: 'triage-fixture-org', projectName: 'Project', areaPath: 'Project\\Team' }
 
@@ -69,11 +71,21 @@ function raw(id: number, fields: Record<string, unknown> = {}, parent?: number):
   }
 }
 
-function clientFor(rows: Raw[], parentMode: 'ok' | 'missing' | 'failure' = 'ok') {
+type History = { updates?: Record<number, unknown[] | Error>; comments?: Record<number, unknown[]> }
+
+function clientFor(rows: Raw[], parentMode: 'ok' | 'missing' | 'failure' = 'ok', history: History = {}) {
   const requests: AdoRequestOptions[] = []
   const client: AdoRequestClient = {
     request: async <T>(request: AdoRequestOptions): Promise<T> => {
       requests.push(request)
+      const id = Number(request.path.match(/\/workItems\/(\d+)\//)?.[1])
+      if (request.path.endsWith('/updates')) {
+        const updates = history.updates?.[id] ?? []
+        if (updates instanceof Error) throw updates
+        const skip = Number(request.params?.$skip ?? 0)
+        return { value: updates.slice(skip, skip + Number(request.params?.$top)) } as T
+      }
+      if (request.path.endsWith('/comments')) return { comments: history.comments?.[id] ?? [] } as T
       const body = request.body as { query?: string; ids?: number[]; fields?: string[]; $expand?: string }
       if (body?.fields && body.$expand) throw new Error('The expand parameter can not be used with the fields parameter. (HTTP 400)')
       let response: unknown
@@ -169,6 +181,78 @@ test('API batches work items and parent IDs at 200, and does not load off-rule p
   assert.equal(result.items.length, 450)
   const batches = fixture.requests.filter((request) => request.path.endsWith('/workitemsbatch'))
   assert.deepEqual(batches.map((request) => (request.body as { ids: number[] }).ids.length), [200, 200, 50, 200, 200, 50])
+  assert.ok(!fixture.requests.some((request) => request.path.endsWith('/updates')), `no history past ${TRIAGE_HISTORY_LIMIT} items`)
+  assert.deepEqual(result.warnings, [`History loads for up to ${TRIAGE_HISTORY_LIMIT} items, so ages count from when each item was created and replies are not shown.`])
+})
+
+const update = (at: string, fields: Record<string, unknown>, by = 'Ana') => ({
+  revisedDate: '9999-01-01T00:00:00Z',
+  revisedBy: { displayName: by, uniqueName: `${by.toLowerCase()}@example.com` },
+  fields: { 'System.ChangedDate': { newValue: at }, ...Object.fromEntries(Object.entries(fields).map(([field, newValue]) => [field, { newValue }])) },
+})
+
+test('history replays when each current tag was last added and when the state last changed', () => {
+  const history = summarizeTriageHistory([
+    update('2026-04-01T09:00:00Z', { 'System.State': 'Reported', 'System.Tags': 'frontend' }),
+    update('2026-04-02T09:00:00Z', { 'System.Tags': 'frontend; Triage' }, 'Ben'),
+    update('2026-04-03T09:00:00Z', { 'System.Tags': 'frontend' }),
+    update('2026-04-04T09:00:00Z', { 'System.Tags': 'Frontend; TRIAGE; Needs Info' }, 'Cy'),
+    update('2026-04-05T09:00:00Z', { 'System.Title': 'Renamed' }),
+    update('2026-04-06T09:00:00Z', { 'System.State': 'Active' }, 'Dee'),
+    update('2026-04-07T09:00:00Z', { 'System.State': 'Reported' }, 'Eve'),
+  ])
+  assert.deepEqual(Object.keys(history.tagsAdded).sort(), ['frontend', 'needs info', 'triage'])
+  assert.equal(history.tagsAdded.frontend.at, '2026-04-01T09:00:00Z', 'a change in case is not a new tag')
+  assert.equal(history.tagsAdded.triage.at, '2026-04-04T09:00:00Z', 'a tag removed and added again counts from the second time')
+  assert.equal(history.tagsAdded.triage.by.displayName, 'Cy')
+  assert.equal(history.stateSince.at, '2026-04-07T09:00:00Z')
+  assert.equal(history.stateSince.by.displayName, 'Eve')
+  assert.deepEqual(summarizeTriageHistory([]), { tagsAdded: {}, stateSince: undefined })
+})
+
+test('comment text becomes one short line for a tooltip, naming images and decoding entities', () => {
+  assert.equal(toPlainText('<div>Can&#39;t repro on&nbsp;<b>v2</b></div>\n<div><img src="x.png"></div><p>&lt;tag&gt; &amp; &#x1F600; &bogus;</p>'),
+    "Can't repro on v2 (image) <tag> & 😀 &bogus;")
+  assert.equal(toPlainText(`<p>${'word '.repeat(20)}</p>`, 24), 'word word word word wor…')
+  assert.equal(toPlainText('<div><br></div>'), '')
+})
+
+test('API loads each item history, paging past 200 updates, and the newest comment only when there are comments', async () => {
+  const many = Array.from({ length: 250 }, (_, index) => update(`2026-04-02T${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}:00Z`, { 'System.Title': `Title ${index}` }))
+  many[0] = update('2026-04-01T09:00:00Z', { 'System.State': 'Reported', 'System.Tags': 'frontend' })
+  many[249] = update('2026-04-03T09:00:00Z', { 'System.Tags': 'frontend; Triage; Needs Info' }, 'Ben')
+  const fixture = clientFor([
+    raw(1, { 'System.CommentCount': 2 }),
+    raw(2, { 'System.CommentCount': 0 }),
+  ], 'ok', {
+    updates: { 1: many },
+    comments: { 1: [{ text: '<div>Still happens on <b>main</b></div>', createdDate: '2026-04-04T10:00:00Z', createdBy: { displayName: 'Cy' } }] },
+  })
+  const result = await fetchTriageItems(fixture.client, team, options, metadata)
+  assert.deepEqual(result.warnings, [])
+  const [first, second] = result.items
+  assert.equal(first.history.tagsAdded.triage.at, '2026-04-03T09:00:00Z')
+  assert.equal(first.history.tagsAdded['needs info'].by.displayName, 'Ben')
+  assert.equal(first.history.stateSince.at, '2026-04-01T09:00:00Z')
+  assert.equal(first.latestComment.at, '2026-04-04T10:00:00Z')
+  assert.equal(first.latestComment.by.displayName, 'Cy')
+  assert.equal(first.latestComment.text, 'Still happens on main')
+  assert.equal(first.inInitialState, true)
+  assert.deepEqual(second.history, { tagsAdded: {}, stateSince: undefined })
+  assert.equal(second.latestComment, undefined)
+  const pages = fixture.requests.filter((request) => request.path.endsWith('/workItems/1/updates'))
+  assert.deepEqual(pages.map((request) => [request.method, request.params?.$skip, request.params?.$top]), [['GET', 0, 200], ['GET', 200, 200]])
+  const comments = fixture.requests.filter((request) => request.path.endsWith('/comments'))
+  assert.deepEqual(comments.map((request) => [request.path, request.params?.order, request.params?.$top]), [['/Project/_apis/wit/workItems/1/comments', 'desc', 1]])
+})
+
+test('history that fails to load keeps the item, counting from creation, with an explicit warning', async () => {
+  const fixture = clientFor([raw(1), raw(2)], 'ok', { updates: { 1: new Error('HTTP 500') } })
+  const result = await fetchTriageItems(fixture.client, team, options, metadata)
+  assert.deepEqual(result.items.map((item: { id: number }) => item.id), [1, 2])
+  assert.equal(result.items[0].history, undefined)
+  assert.ok(result.items[1].history)
+  assert.deepEqual(result.warnings, ['Some item history could not be loaded, so those ages count from when the item was created and replies may be missing.'])
 })
 
 for (const mode of ['missing', 'failure'] as const) {

@@ -47,6 +47,7 @@ const item: TriageItem = {
 }
 const noop = () => {}
 const readinessChecks: TriageOptions['readinessChecks'] = { bug: ['severity', 'impact', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria'] }
+const waitingTags = ['Needs Info']
 
 async function renderPage(t: TestContext, options: TriageOptions, onOptionsChange: (options: TriageOptions) => void = noop) {
   const host = document.createElement('div')
@@ -95,7 +96,7 @@ const newBugsCheckbox = (opened: Element) => opened.querySelector<HTMLInputEleme
 
 test('Triage tags are pills edited with one input and an Add button, like QA tag filters', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }, (options) => saved.push(options))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (options) => saved.push(options))
   const opened = await openOptions(host)
 
   const group = tagGroup(opened)
@@ -124,25 +125,25 @@ test('Triage tags are pills edited with one input and an Add button, like QA tag
 
   await typeInto(tagInput(opened), 'Escalated')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Bug bash', 'Escalated', 'Needs review'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }],
+  assert.deepEqual(saved, [{ tags: ['Bug bash', 'Escalated', 'Needs review'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }],
     'Save includes a tag typed but not yet added')
   assert.equal(dialog(), null)
 })
 
 test('removing every tag shows the empty text, and saving with no tags keeps tag matching off', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }, (options) => saved.push(options))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (options) => saved.push(options))
   const opened = await openOptions(host)
   await click(tagGroup(opened).querySelector<HTMLButtonElement>('.MuiChip-root button')!)
   assert.deepEqual(tagChips(opened), [])
   assert.match(tagGroup(opened).textContent ?? '', /No Triage tags\. Tag matching is off\./)
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: [], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }])
+  assert.deepEqual(saved, [{ tags: [], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }])
 })
 
 test('excluded iteration paths are disabled while new bugs is off, and kept when saved', async (t) => {
   const saved: TriageOptions[] = []
-  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks }
+  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags }
   const host = await renderPage(t, options, (next) => saved.push(next))
   const opened = await openOptions(host)
 
@@ -167,17 +168,17 @@ test('excluded iteration paths are disabled while new bugs is off, and kept when
 
 test('turning new bugs on saves the excluded paths, including one still being typed', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags }, (next) => saved.push(next))
   const opened = await openOptions(host)
   await click(newBugsCheckbox(opened))
   await typeInto(pathInput(opened), 'Project\\Later')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Later', 'Project\\Refine'], ageFlagDays: 2, readinessChecks }])
+  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Later', 'Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags }])
 })
 
 test('the age flag is a whole number of working days, saved with the rules and rejected when out of range', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (next) => saved.push(next))
   const opened = await openOptions(host)
   const label = [...opened.querySelectorAll('label')].find((candidate) => candidate.textContent === 'Flag age after (working days)')!
   const input = document.getElementById(label.htmlFor) as HTMLInputElement
@@ -194,12 +195,32 @@ test('the age flag is a whole number of working days, saved with the rules and r
 
   await typeInto(input, '5')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 5, readinessChecks }])
+  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 5, readinessChecks, waitingTags }])
+})
+
+test('waiting tags are edited like Triage tags and saved with the rules, including one still being typed', async (t) => {
+  const saved: TriageOptions[] = []
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (next) => saved.push(next))
+  const opened = await openOptions(host)
+  const group = [...opened.querySelectorAll('[role="group"]')].find((candidate) =>
+    document.getElementById(candidate.getAttribute('aria-labelledby')!)?.textContent === 'Waiting tags')!
+  assert.match(group.textContent ?? '', /the tags do not add items/)
+  const chips = () => [...group.querySelectorAll('.MuiChip-label')].map((chip) => chip.textContent)
+  assert.deepEqual(chips(), ['Needs Info'])
+  const input = group.querySelector<HTMLInputElement>('input[aria-label="Add waiting tag"]')!
+  await typeInto(input, 'Awaiting QA')
+  await click(buttonNamed(group, 'Add'))
+  assert.deepEqual(chips(), ['Needs Info', 'Awaiting QA'])
+  await click(group.querySelector<HTMLButtonElement>('.MuiChip-root button')!)
+  assert.deepEqual(chips(), ['Awaiting QA'])
+  await typeInto(input, 'On hold')
+  await click(buttonNamed(opened, 'Save'))
+  assert.deepEqual(saved.map((options) => options.waitingTags), [['Awaiting QA', 'On hold']])
 })
 
 test('readiness checks are picked per type from the known fields and saved with the rules', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (next) => saved.push(next))
   const opened = await openOptions(host)
   const group = [...opened.querySelectorAll('[role="group"]')].find((candidate) =>
     document.getElementById(candidate.getAttribute('aria-labelledby')!)?.textContent === 'Readiness checks')!
@@ -228,14 +249,14 @@ test('readiness checks are picked per type from the known fields and saved with 
 })
 
 test('the no-rules card opens Triage options', async (t) => {
-  const host = await renderPage(t, { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks })
+  const host = await renderPage(t, { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags })
   assert.equal(host.querySelector('main h2')?.textContent, 'No Triage rules')
   await click(buttonNamed(host, 'Open Triage options'))
   assert.equal(dialog()?.querySelector('h2')?.textContent, 'Triage options')
 })
 
 test('a quick filter that hides every item says so as muted status text, not the empty-queue card', async (t) => {
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks })
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags })
   const count = () => host.querySelector('p[aria-live="polite"]')?.textContent
   assert.ok(host.querySelector('table'))
   assert.equal(count(), '1 item', 'like Backlog, the count names the total alone while nothing is filtered out')
@@ -244,4 +265,22 @@ test('a quick filter that hides every item says so as muted status text, not the
   assert.equal(host.querySelector('table'), null)
   assert.equal(host.querySelector('main [role="status"]')?.textContent, 'No items match the quick filter. Clear it to see the triage queue.')
   assert.equal(host.querySelector('.MuiCard-root'), null)
+})
+
+test('the View toggle switches between the table and the Inbox, which the quick filter narrows too', async (t) => {
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags })
+  const toggle = (name: string) => [...host.querySelectorAll<HTMLButtonElement>('[aria-label="Triage view"] button')].find((button) => button.textContent === name)!
+  const filter = host.querySelector<HTMLInputElement>('input[aria-label="Quick filter triage items"]')!
+  assert.ok(host.querySelector('table'))
+  await click(toggle('Inbox'))
+  assert.equal(toggle('Inbox').getAttribute('aria-pressed'), 'true')
+  assert.equal(host.querySelector('table'), null)
+  assert.ok(host.querySelector('[data-triage-card="42"]'))
+  await typeInto(filter, 'no such item')
+  assert.equal(host.querySelector('[data-triage-card]'), null)
+  assert.equal(host.querySelector('main [role="status"]')?.textContent, 'No items match the quick filter. Clear it to see the triage queue.')
+  await typeInto(filter, 'crash')
+  assert.ok(host.querySelector('[data-triage-card="42"]'))
+  await click(toggle('Table'))
+  assert.ok(host.querySelector('table tbody tr'))
 })

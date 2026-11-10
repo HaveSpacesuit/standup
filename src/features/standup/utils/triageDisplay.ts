@@ -54,9 +54,9 @@ export function getTriageAge(since: string | undefined, flagDays: number, now = 
   return { label, workingDays, flagged: workingDays >= flagDays }
 }
 
-/** "Created Feb 2, 2026 · 3 working days". */
-export function describeTriageAge(createdAt: string, age: TriageAge): string {
-  return `Created ${formatCreatedDate(createdAt)} · ${age.workingDays} working ${age.workingDays === 1 ? 'day' : 'days'}`
+/** "In triage since Feb 2, 2026 · 3 working days". */
+export function describeTriageAge(since: string, age: TriageAge): string {
+  return `In triage since ${formatCreatedDate(since)} · ${age.workingDays} working ${age.workingDays === 1 ? 'day' : 'days'}`
 }
 
 /** The Parent column's text, such as "99: Parent feature". */

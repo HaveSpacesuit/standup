@@ -353,6 +353,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           iterations: teamIterations,
           iterationsLoading: teamIterationsLoading,
           iterationsError: teamIterationsError,
+          rememberLastView,
         }}
         backlogPageProps={{
           patConfigured,

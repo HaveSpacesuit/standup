@@ -1,15 +1,19 @@
-import { useMemo, useState, type RefObject } from 'react'
-import { Alert, Box, Button, CircularProgress, IconButton, Typography } from '@mui/material'
+import { useEffect, useMemo, useState, type RefObject } from 'react'
+import { Alert, Box, Button, CircularProgress, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgCategory from '@stratakit/icons/category.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
+import svgInbox from '@stratakit/icons/inbox.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgStatusSuccess from '@stratakit/icons/status-success.svg'
+import svgTable from '@stratakit/icons/table.svg'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
 import type { TeamIterationOption, TriageResult } from '../../../ado/types'
+import { useRememberedView } from '../hooks/useRememberedView'
 import { createBacklogSprintResolver } from '../utils/backlogSprint'
 import { getTriageQueryOptions, hasTriageRules, type TriageOptions } from '../utils/triageOptions'
 import { describeEmptyTriage, filterTriageItems, formatTriageCount } from '../utils/triageDisplay'
+import { recordTriageVisit } from '../utils/triageVisits'
 import { AppTooltip } from '../components/AppTooltip'
 import { AdoErrorNotice } from '../components/AdoErrorNotice'
 import { visuallyHiddenSx } from '../components/developmentCardDisplay'
@@ -19,6 +23,7 @@ import { SyncStatus } from '../components/SyncStatus'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import { TeamToolbarControls, type TeamOption } from '../components/TeamToolbarControls'
 import { TriageEmptyState } from '../components/TriageEmptyState'
+import { TriageInbox } from '../components/TriageInbox'
 import { TriageLoadingState } from '../components/TriageLoadingState'
 import { TriageOptionsDialog } from '../components/TriageOptionsDialog'
 import { TriageTable } from '../components/TriageTable'
@@ -41,11 +46,34 @@ type Props = {
   iterations: TeamIterationOption[]
   iterationsLoading: boolean
   iterationsError: string | null
+  /** Whether to reopen the view used last time rather than the Table. */
+  rememberLastView: boolean
+}
+
+const TRIAGE_VIEWS = ['table', 'inbox'] as const
+type TriageView = (typeof TRIAGE_VIEWS)[number]
+
+/**
+ * Notes the visit as the page opens, and again whenever it syncs and as it closes, and returns the earlier visit the
+ * Inbox's "New since your last visit" counts from. The page is keyed by team, so a team change is a new visit.
+ */
+function useTriageVisit(teamId: string, syncedAt: number | null): number | null {
+  const [lastVisit] = useState(() => (teamId ? recordTriageVisit(teamId) : null))
+  useEffect(() => {
+    if (!teamId) return undefined
+    if (syncedAt !== null) recordTriageVisit(teamId)
+    return () => {
+      recordTriageVisit(teamId)
+    }
+  }, [teamId, syncedAt])
+  return lastVisit
 }
 
 export function TriagePage(props: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [filter, setFilter] = useState('')
+  const [view, setView] = useRememberedView<TriageView>('triage', TRIAGE_VIEWS, props.rememberLastView)
+  const lastVisit = useTriageVisit(props.selectedTeamId, props.syncedAt)
   const { result, options, isLoading, error, settingsError, iterations } = props
   // Sprints are placed against the team's iterations, like Backlog; until they load, the path's last segment is shown.
   const resolveSprint = useMemo(() => createBacklogSprintResolver(iterations), [iterations])
@@ -86,11 +114,18 @@ export function TriagePage(props: Props) {
     return (
       <>
         {result.warnings.map((warning) => <Alert key={warning} severity="warning">{warning}</Alert>)}
-        {items.length ? (
+        {items.length ? view === 'inbox' ? (
+          <TriageInbox
+            items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays} lastVisit={lastVisit}
+            readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
+            waitingTags={options.waitingTags}
+          />
+        ) : (
           <TriageTable
             items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays}
             showAssignee={showAssignee} showParent={showParent}
             readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
+            waitingTags={options.waitingTags}
           />
         ) : result.items.length ? (
           <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
@@ -141,6 +176,22 @@ export function TriagePage(props: Props) {
         <TeamToolbarControls
           teamOptions={props.teamOptions} selectedTeamId={props.selectedTeamId}
           onTeamChange={props.onTeamChange} teamManagementUrl={props.teamManagementUrl}
+          beforeChildren={(
+            <>
+              <Typography variant="body-sm" sx={{ fontWeight: 700, whiteSpace: 'nowrap', '@container (max-width: 960px)': { display: 'none' } }}>
+                View
+              </Typography>
+              <ToggleButtonGroup
+                size="small" exclusive value={view} aria-label="Triage view"
+                onChange={(_event, value: TriageView | null) => {
+                  if (value) setView(value)
+                }}
+              >
+                <ToggleButton value="table" render={<Button size="small" startIcon={<Icon href={svgTable} />} />}>Table</ToggleButton>
+                <ToggleButton value="inbox" render={<Button size="small" startIcon={<Icon href={svgInbox} />} />}>Inbox</ToggleButton>
+              </ToggleButtonGroup>
+            </>
+          )}
         >
           <AppTooltip title="Triage options">
             <span><IconButton aria-label="Triage options" onClick={() => setSettingsOpen(true)} disabled={!props.selectedTeamId}>

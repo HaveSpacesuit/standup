@@ -50,9 +50,9 @@ function props() {
     teamOptions: [{ id: 'a', displayName: 'Team A', orgName: 'org', projectName: 'Project', teamName: 'A', areaPath: 'Project\\A', iterationPath: 'Project', repoName: 'repo' }],
     selectedTeamId: 'a', onTeamChange: noop, teamManagementUrl: '',
     result: { items: [item], warnings: [] }, isLoading: false, error: null, syncedAt: null, onRefresh: noop,
-    options: { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks },
+    options: { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags: ['Needs Info'] },
     settingsError: null, onOptionsChange: noop, quickFilterInputRef: { current: null },
-    iterations: [], iterationsLoading: false, iterationsError: null,
+    iterations: [], iterationsLoading: false, iterationsError: null, rememberLastView: false,
   }
 }
 function render(overrides: Record<string, unknown> = {}) {
@@ -114,7 +114,7 @@ test('Triage cells share Backlog formatting: severity chip, impact bars, age, sp
     assert.equal(cells.Impact.textContent, '1')
     assert.equal(cells.Effort.textContent, '0', 'zero effort is a value, not missing')
     assert.equal(cells.Age.querySelector('time')?.getAttribute('datetime'), '2026-02-01T00:00:00Z')
-    assert.match(cells.Age.textContent!, /Created .* working days\. Waiting longer than 2 working days/)
+    assert.match(cells.Age.textContent!, /In triage since .* working days\. Waiting longer than 2 working days/)
     assert.equal(cells.Sprint.textContent, 'Sprint 1', 'without team sprints the path is named by its last segment')
     assert.equal(cells.State.querySelector('.MuiBadge-badge')?.textContent, 'Reported', 'states other than New are badges')
     for (const [column, name] of [['Assigned to', 'Developer'], ['Created by', 'Reporter']]) {
@@ -292,7 +292,7 @@ test('page distinguishes configuration, auth, loading, errors, empty rules, empt
     [{ isLoading: true }, /Loading triage\.\.\./],
     [{ error: 'query failed (HTTP 503)' }, /query failed \(HTTP 503\)/],
     [{ settingsError: 'Unable to read Triage options' }, /Unable to read Triage options/],
-    [{ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks } }, /No Triage rules/],
+    [{ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags: [] } }, /No Triage rules/],
     [{ result: { items: [], warnings: [] } }, /Triage is clear/],
     [{ result: { items: [item], warnings: ['Some parent details are unavailable'] } }, /Some parent details are unavailable/],
   ]
@@ -314,7 +314,7 @@ test('loading shows a status line over skeleton rows instead of the table', () =
 
 test('a clear queue says so with when it was checked and the rules it was checked against; no rules opens Triage options', () => {
   const emptyCard = (options: Record<string, unknown>, syncedAt: number | null = null) => {
-    const dom = renderDocument({ result: { items: [], warnings: [] }, options: { ageFlagDays: 2, readinessChecks, ...options }, syncedAt })
+    const dom = renderDocument({ result: { items: [], warnings: [] }, options: { ageFlagDays: 2, readinessChecks, waitingTags: [], ...options }, syncedAt })
     try {
       const card = dom.window.document.querySelector('main .MuiCard-root')!
       assert.ok(card.querySelector('svg'), 'a success icon sits beside the heading')
@@ -340,7 +340,7 @@ test('a clear queue says so with when it was checked and the rules it was checke
   assert.deepEqual([[0, 0], [1, 1], [5, 5], [0, 1], [2, 5]].map(([shown, total]) => formatTriageCount(shown, total)),
     ['0 items', '1 item', '5 items', '0 of 1 item', '2 of 5 items'])
 
-  const dom = renderDocument({ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks } })
+  const dom = renderDocument({ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags: [] } })
   try {
     const card = dom.window.document.querySelector('main .MuiCard-root')!
     assert.equal(card.querySelector('h2')?.textContent, 'No Triage rules')
@@ -368,6 +368,37 @@ test('Open in ADO opens the Triage rules as a query in a new tab, and is disable
       assert.equal(button.disabled, true, JSON.stringify(overrides))
     } finally { dom.window.close() }
   }
+})
+
+test('the View toggle lists Table before Inbox and opens on Table, or on the Inbox when it is the remembered view', () => {
+  const toggles = (doc: Document) => [...doc.querySelectorAll('[aria-label="Triage view"] button')]
+    .map((button) => [button.textContent, button.getAttribute('aria-pressed')])
+  const dom = renderDocument()
+  try {
+    const doc = dom.window.document
+    assert.deepEqual(toggles(doc), [['Table', 'true'], ['Inbox', 'false']])
+    assert.ok(doc.querySelector('table'))
+    assert.equal(doc.querySelector('ul[aria-label="Triage summary"]'), null)
+  } finally { dom.window.close() }
+
+  const stub = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')!
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true, value: { getItem: (key: string) => (key === 'standup:last-view:triage' ? 'inbox' : null) },
+  })
+  try {
+    const ignored = renderDocument()
+    try {
+      assert.ok(ignored.window.document.querySelector('table'), 'a saved view is ignored while Remember last view is off')
+    } finally { ignored.window.close() }
+    const remembered = renderDocument({ rememberLastView: true })
+    try {
+      const doc = remembered.window.document
+      assert.deepEqual(toggles(doc), [['Table', 'false'], ['Inbox', 'true']])
+      assert.equal(doc.querySelector('table'), null)
+      assert.match(doc.querySelector('ul[aria-label="Triage summary"]')!.textContent!, /1 in triage/)
+      assert.ok(doc.querySelector('[data-triage-card="42"]'))
+    } finally { remembered.window.close() }
+  } finally { Object.defineProperty(globalThis, 'localStorage', stub) }
 })
 
 test('the triage route renders Triage through StandupContent rather than Backlog', () => {

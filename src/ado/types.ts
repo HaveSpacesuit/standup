@@ -152,12 +152,25 @@ export type ResolvedWorkItemAssignee = {
 
 export type TriageTextField = 'reproSteps' | 'acceptanceCriteria' | 'description'
 
+/** Something that happened to a work item: when, and who did it. */
+export type TriageEvent = { at: string; by?: IdentityRef }
+
+/** What the item's revision history says about how it arrived in triage. */
+export type TriageHistory = {
+  /** When each tag the item has now, lower-cased, was last added. */
+  tagsAdded: Record<string, TriageEvent>
+  /** When the item last moved into its current state; its creation if it never moved. */
+  stateSince?: TriageEvent
+}
+
 export type TriageItem = {
   id: number
   title: string
   workItemType: string
   workItemIconUrl?: string
   state: string
+  /** Whether the state is the first one its type is filed in, such as New. */
+  inInitialState?: boolean
   createdAt?: string
   assignedTo?: IdentityRef
   createdBy?: IdentityRef
@@ -171,6 +184,10 @@ export type TriageItem = {
   reasons: string[]
   workItemUrl: string
   parent?: { id: number; title?: string; workItemUrl: string; unavailable: boolean }
+  /** Missing when the history could not be loaded; ages then count from the item's creation. */
+  history?: TriageHistory
+  /** The newest comment, as plain text, for spotting replies on items waiting on others. */
+  latestComment?: TriageEvent & { text: string }
 }
 
 export type TriageResult = {
