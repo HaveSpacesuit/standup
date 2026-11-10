@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { TriageResult } from '../../../ado/types'
 import type { TeamProfile } from '../../../appSettings'
-import { hasTriageRules, type TriageOptions } from '../utils/triageOptions'
+import { hasTriageRules, type TriageQueryOptions } from '../utils/triageOptions'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
 type Args = {
   adoQueryEngine: AdoQueryEngine | null
   selectedTeam: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>
-  options: TriageOptions
+  options: TriageQueryOptions
   enabled: boolean
   reloadNonce: number
 }

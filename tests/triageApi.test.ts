@@ -7,7 +7,7 @@ import type { TriageOptions } from '../src/features/standup/utils/triageOptions.
 
 const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
 after(() => server.close())
-const { buildTriageWiql } = await server.ssrLoadModule('/src/ado/wiql.ts')
+const { buildAdoQueryUrl, buildTriageQueryWiql, buildTriageWiql } = await server.ssrLoadModule('/src/ado/wiql.ts')
 const { fetchTriageItems, getTriageReasons, isUnderIteration } = await server.ssrLoadModule('/src/ado/triageApi.ts')
 const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 const metadata: ProjectWorkItemTypeInfo = {
@@ -20,7 +20,7 @@ const metadata: ProjectWorkItemTypeInfo = {
     task: [{ name: 'Done', category: 'InProgress' }, { name: 'Finished', category: 'Completed' }],
   },
 }
-const options: TriageOptions = { tags: ['Triage', "Team's queue"], includeNewBugs: true, excludedIterationPaths: ['Project\\To Refine'] }
+const options: TriageOptions = { tags: ['Triage', "Team's queue"], includeNewBugs: true, excludedIterationPaths: ['Project\\To Refine'], ageFlagDays: 2 }
 const team = { id: 'a', orgName: 'triage-fixture-org', projectName: 'Project', areaPath: 'Project\\Team' }
 
 test('WIQL scopes both branches, escapes values, uses per-type categories and orders oldest first', () => {
@@ -88,8 +88,29 @@ function clientFor(rows: Raw[], parentMode: 'ok' | 'missing' | 'failure' = 'ok')
   return { client, requests }
 }
 
-test('API maps creator, zero effort, parent summaries and reasons; deduplicates and sorts by created date then ID', async () => {
-  const fixture = clientFor([
+test('Open in ADO WIQL keeps the same rules on one line, listing finished states once unless a type reuses a name', () => {
+  const distinct: ProjectWorkItemTypeInfo = {
+    ...metadata,
+    statesByType: { ...metadata.statesByType, task: [{ name: 'To Do', category: 'Proposed' }, { name: 'Done', category: 'Completed' }] },
+  }
+  const query = buildTriageQueryWiql("Project's", "Project's\\Team", options, distinct)
+  assert.doesNotMatch(query, /\n/)
+  assert.match(query, /^SELECT \[System.Id\], \[System.WorkItemType\], \[System.Title\], \[System.State\], \[System.AssignedTo\], \[System.Tags\], \[System.CreatedDate\] FROM WorkItems /)
+  assert.match(query, /WHERE \[System.TeamProject\] = 'Project''s' AND \[System.AreaPath\] UNDER 'Project''s\\Team' AND \(\[System.Tags\] CONTAINS 'Triage' OR /)
+  assert.match(query, /AND \[System.IterationPath\] NOT UNDER 'Project\\To Refine'\)\) AND \[System.State\] NOT IN \('Done', 'Cut'\) ORDER BY/)
+  assert.match(query, /ORDER BY \[System.CreatedDate\] ASC, \[System.Id\] ASC$/)
+
+  const reused = buildTriageQueryWiql('Project', 'Project\\Team', options, metadata)
+  assert.match(reused, /AND \(\(\[System.WorkItemType\] = 'bug' AND \[System.State\] NOT IN \('Done', 'Cut'\)\) OR \(\[System.WorkItemType\] = 'task' AND \[System.State\] NOT IN \('Finished'\)\)\) ORDER BY/,
+    "the task type's Done is unfinished, so each type lists its own finished states")
+  assert.throws(() => buildTriageQueryWiql('P', 'P', { ...options, tags: [], includeNewBugs: false }, metadata), /at least one/)
+
+  const url = new URL(buildAdoQueryUrl('my org', "Project's", reused))
+  assert.equal(url.origin + url.pathname, "https://dev.azure.com/my%20org/Project's/_queries/query/")
+  assert.equal(url.searchParams.get('wiql'), reused)
+})
+
+test('API maps creator, zero effort, parent summaries and reasons; deduplicates and sorts by created date then ID', async () => {  const fixture = clientFor([
     raw(4, { 'System.CreatedDate': undefined }),
     raw(3, { 'System.CreatedDate': '2026-01-02T00:00:00Z' }, 99),
     raw(2, { 'System.CreatedBy': { displayName: 'Reporter' }, 'Microsoft.VSTS.Scheduling.Effort': 0 }, 99),
@@ -105,6 +126,7 @@ test('API maps creator, zero effort, parent summaries and reasons; deduplicates 
   assert.equal(result.items[1].parent.unavailable, false)
   assert.match(result.items[1].parent.workItemUrl, /\/99$/)
   assert.deepEqual(result.warnings, [])
+  assert.equal(result.queryUrl, buildAdoQueryUrl(team.orgName, team.projectName, buildTriageQueryWiql(team.projectName, team.areaPath, { ...options, includeNewBugs: false }, metadata)))
   const itemRequests = fixture.requests.filter((request) => (request.body as { fields?: string[] })?.fields?.includes('System.State'))
   assert.ok(itemRequests.length > 0)
   for (const request of itemRequests) {

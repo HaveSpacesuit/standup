@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { Alert, Autocomplete, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, TextField, Typography } from '@mui/material'
 import type { TeamIterationOption } from '../../../ado/types'
-import { addTriageTags, parseTriageOptions, type TriageOptions } from '../utils/triageOptions'
+import { addTriageTags, MAX_TRIAGE_AGE_FLAG_DAYS, parseTriageOptions, type TriageOptions } from '../utils/triageOptions'
 import { ChipListEditor } from './ChipListEditor'
 
 type Props = {
@@ -20,6 +20,7 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
   const [includeNewBugs, setIncludeNewBugs] = useState(options.includeNewBugs)
   const [paths, setPaths] = useState(options.excludedIterationPaths)
   const [pathInput, setPathInput] = useState('')
+  const [ageFlagInput, setAgeFlagInput] = useState(String(options.ageFlagDays))
   const [error, setError] = useState<string | null>(null)
 
   const addTags = () => {
@@ -34,6 +35,7 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
         includeNewBugs,
         // Paths are kept while the new-bug rule is off, but text typed into the disabled field is not.
         excludedIterationPaths: includeNewBugs ? [...paths, pathInput] : paths,
+        ageFlagDays: ageFlagInput.trim() ? Number(ageFlagInput) : Number.NaN,
       })
       onSave(next)
       onClose()
@@ -98,6 +100,14 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
             />
           </Box>
           {includeNewBugs && iterationsError ? <Alert severity="warning">Unable to load sprint choices: {iterationsError} You can still enter full paths.</Alert> : null}
+          <TextField
+            label="Flag age after (working days)"
+            type="number"
+            value={ageFlagInput}
+            onChange={(event) => setAgeFlagInput(event.target.value)}
+            helperText={`An item that has waited this many working days shows its age in amber (1–${MAX_TRIAGE_AGE_FLAG_DAYS}).`}
+            slotProps={{ htmlInput: { min: 1, max: MAX_TRIAGE_AGE_FLAG_DAYS, step: 1 } }}
+          />
           {error ? <Alert severity="error">{error}</Alert> : null}
         </Box>
       </DialogContent>

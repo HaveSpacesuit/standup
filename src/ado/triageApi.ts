@@ -1,10 +1,10 @@
 import type { TeamProfile } from '../appSettings'
-import { hasTriageRules, type TriageOptions } from '../features/standup/utils/triageOptions'
+import { hasTriageRules, type TriageQueryOptions } from '../features/standup/utils/triageOptions'
 import { mapWithConcurrency } from './concurrency'
 import type { AdoRequestClient } from './httpClient'
 import { parseAssignedTo } from './identity'
 import type { TriageItem, TriageResult } from './types'
-import { buildTriageWiql } from './wiql'
+import { buildAdoQueryUrl, buildTriageQueryWiql, buildTriageWiql } from './wiql'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
 import { getInitialState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
 import { chunkArray, EFFORT_FIELD_NAMES, fetchWorkItemIdsByWiql, getIconIdForWorkItemType, parseEffort, resolveEffort, resolveTags, WORK_ITEM_BATCH_LIMIT } from './workItemsApi'
@@ -26,7 +26,7 @@ export function isUnderIteration(path: string, root: string): boolean {
 
 export function getTriageReasons(
   item: Pick<TriageItem, 'tags' | 'workItemType' | 'state' | 'iterationPath'>,
-  options: TriageOptions,
+  options: TriageQueryOptions,
   metadata: ProjectWorkItemTypeInfo,
 ): string[] {
   const states = metadata.statesByType[item.workItemType.toLowerCase()]
@@ -47,12 +47,13 @@ export function getTriageReasons(
 export async function fetchTriageItems(
   client: AdoRequestClient,
   team: Team,
-  options: TriageOptions,
+  options: TriageQueryOptions,
   metadata: ProjectWorkItemTypeInfo,
 ): Promise<TriageResult> {
   if (!hasTriageRules(options)) return { items: [], warnings: [] }
   const ids = [...new Set(await fetchWorkItemIdsByWiql(client, team, buildTriageWiql(team.projectName, team.areaPath, options, metadata)))]
-  if (!ids.length) return { items: [], warnings: [] }
+  const queryUrl = buildAdoQueryUrl(team.orgName, team.projectName, buildTriageQueryWiql(team.projectName, team.areaPath, options, metadata))
+  if (!ids.length) return { items: [], warnings: [], queryUrl }
   // workitemsbatch rejects `$expand` alongside `fields`, so the immediate parent comes from System.Parent.
   const batch = (batchIds: number[], fields: string[], omit = false) =>
     client.request<{ value?: ApiItem[] }>({
@@ -133,5 +134,5 @@ export async function fetchTriageItems(
     return Number.isFinite(time) ? time : Infinity
   }
   items.sort((a, b) => (createdTime(a) - createdTime(b)) || a.id - b.id)
-  return { items, warnings: [...new Set(warnings)] }
+  return { items, warnings: [...new Set(warnings)], queryUrl }
 }

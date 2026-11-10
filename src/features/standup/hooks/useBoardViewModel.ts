@@ -35,7 +35,7 @@ import type { AssignmentOptions } from '../utils/assignmentOptions'
 import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import type { SprintForecast } from '../utils/sprintForecast'
 import type { TriageResult } from '../../../ado/types'
-import { createDefaultTriageOptions, getActiveTriageOptions, hasTriageRules, type TriageSettings } from '../utils/triageOptions'
+import { createDefaultTriageOptions, getTriageQueryOptions, hasTriageRules, type TriageQueryOptions, type TriageSettings } from '../utils/triageOptions'
 import { useTriageItems } from './useTriageItems'
 
 type UseBoardViewModelArgs = {
@@ -310,11 +310,10 @@ export function useBoardViewModel({
   })
 
   const triageSettings = triageSettingsByTeam?.[effectiveTeam.id]
-  // Memoized so the loader's options keep their identity; excluded paths that are off do not reload the queue.
-  const triageOptions = useMemo(
-    () => getActiveTriageOptions(triageSettings?.options ?? DEFAULT_TRIAGE_OPTIONS),
-    [triageSettings?.options],
-  )
+  // Only the options that pick the queue's items reach the loader, keyed by value, so excluded paths that are off and
+  // display options such as the age flag do not reload the queue.
+  const triageQueryKey = JSON.stringify(getTriageQueryOptions(triageSettings?.options ?? DEFAULT_TRIAGE_OPTIONS))
+  const triageOptions = useMemo(() => JSON.parse(triageQueryKey) as TriageQueryOptions, [triageQueryKey])
   const triageScope = JSON.stringify([selectedTeam, triageOptions])
   const { triageResult, triageLoading, triageError } = useTriageItems({
     adoQueryEngine: dataQueryEngine,

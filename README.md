@@ -307,24 +307,38 @@ areas), separate from Backlog's bug ranking and sprint planning.
   team sprint or enter a full path, such as `Project\To Refine`. That path and its descendants are
   excluded, but a matching tag still includes an item there. No exclusions means all new bugs in the
   area qualify.
+- **Flag age after (working days)** defaults to 2 (1–30). An item that has waited this many working
+  days shows its age in amber. Changing it only redraws the table; it does not reload the queue.
 
 Both sources exclude **Completed** and **Removed** state categories, using each work item's own
 type metadata. Resolved-category items remain eligible. With no tags and the new-bug rule off,
 the page shows a **No Triage rules** card with an **Open Triage options** button rather than
 querying all work items. While the queue loads, skeleton rows stand in for the table, as on
-Backlog. An empty queue shows a **Nothing to triage** card naming the rules that found nothing.
+Backlog. An empty queue shows a **Triage is clear** card with a success icon, the time it was
+checked, and the rules that found nothing.
 
 Items appear once, oldest created first (ID breaks ties; missing dates sort last). Columns follow
 Backlog's table in order and formatting. The Work item column shows an accessible type icon, the ID,
-the title linking to Azure DevOps, and the tags as pills after it. Then come colored Severity chips,
-Impact signal bars (the Priority field), Effort, Age, Sprint, State, and Assigned to, followed by
-Created by and the immediate Parent's ID/title. Sprint places the iteration against the team's
-sprints as Backlog does (This sprint, Next sprint, a sprint name, or Backlog). Missing Severity,
-Impact, and Effort are flagged on Bugs as on Backlog, and shown as a dash for other types; unassigned
-items show a muted Unassigned. Triage has no Value score, raised-effort marker, or matching-reason
-column. Item and parent links open Azure DevOps for edits. An unavailable parent's known ID/link is
-retained with an explicit warning. Quick filtering searches the displayed text, including tags,
-creator, type, sprint label, and parent; `/` and Ctrl/Cmd+F focus it.
+the title linking to Azure DevOps, and the tags as pills after it. **Why** follows it, with a chip for
+each rule the item meets: a tag chip such as **Triage tag**, or **New bug**. A Triage tag the item
+matched appears only there, so it does not repeat on every title; its other tags stay on the title.
+Then come colored Severity chips, Impact signal bars (the Priority field), Effort, Age, Sprint,
+State, and Assigned to, followed by Created by and the immediate Parent's ID/title. Age counts
+working days since the item was created (**Today**, then `1d`, `2d`, and so on, with weekends
+skipped); after two weeks it switches to calendar time such as `3w`, as on Backlog. Its tooltip gives
+the created date and the working-day count. Assigned to and Parent are hidden while no item in the
+queue has one, since new items rarely do; the choice is made from the whole queue, so the columns
+stay put while the quick filter changes. Sprint places the iteration against the team's sprints as
+Backlog does (This sprint, Next sprint, a sprint name, or Backlog). Missing Severity, Impact, and
+Effort are flagged on Bugs as on Backlog, and shown as a dash for other types; unassigned items show
+a muted Unassigned. Triage has no Value score or raised-effort marker. Item and parent links open
+Azure DevOps for edits. An unavailable parent's known ID/link is retained with an explicit warning.
+Quick filtering searches the displayed text, including tags, why items are listed, creator, type,
+sprint label, and parent; `/` and Ctrl/Cmd+F focus it.
+
+**Open in ADO** opens the same rules as an unsaved Azure DevOps query in a new tab, for bulk edits the
+page cannot make. The query is passed in the link's `wiql` parameter, so it needs no write access. It
+is available once the queue has loaded.
 
 Refresh and automatic refresh load the active team's queue using its own sync time. Changing team
 or options never shows the prior query's results as current. Older team exports without Triage

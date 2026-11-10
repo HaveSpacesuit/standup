@@ -2,12 +2,68 @@ import type { TriageItem } from '../../../ado/types'
 import { abbreviateState } from '../components/workItemCardDisplay'
 import { UNASSIGNED_LABEL } from './backlogFilter'
 import type { BacklogSprint, BacklogSprintResolver } from './backlogSprint'
-import { formatAssignee, getSeverityDisplay } from './backlogValue'
+import { formatAssignee, formatCreatedDate, getSeverityDisplay } from './backlogValue'
 import { normalizeQuickFilterText } from './boardFilters'
-import type { TriageOptions } from './triageOptions'
+import { countWorkingDays, formatDayCount } from './sprintDates'
+import type { TriageQueryOptions } from './triageOptions'
 
 /** Shown in muted text in place of an unknown creator. */
 export const UNKNOWN_CREATOR_LABEL = 'Unknown'
+
+/** The prefix `getTriageReasons` gives a matching tag's reason, as in "Tag: Triage". */
+const TAG_REASON_PREFIX = 'Tag: '
+export const NEW_BUG_REASON = 'New bug'
+
+export type TriageReason = { kind: 'tag'; tag: string; label: string } | { kind: 'new-bug'; label: string }
+
+/** Why the item is listed, one entry per rule it meets: each Triage tag it has ("Triage tag"), then "New bug". */
+export function getTriageReasonDetails(item: Pick<TriageItem, 'reasons'>): TriageReason[] {
+  return item.reasons.flatMap((reason): TriageReason[] => {
+    if (reason.startsWith(TAG_REASON_PREFIX)) {
+      const tag = reason.slice(TAG_REASON_PREFIX.length)
+      return [{ kind: 'tag', tag, label: `${tag} tag` }]
+    }
+    return reason === NEW_BUG_REASON ? [{ kind: 'new-bug', label: NEW_BUG_REASON }] : []
+  })
+}
+
+/** The item's tags without the Triage tags it matched, which the Why column names instead. */
+export function getTriageTitleTags(item: Pick<TriageItem, 'reasons' | 'tags'>): string[] {
+  const matched = new Set(getTriageReasonDetails(item).flatMap((reason) => reason.kind === 'tag' ? [reason.tag.toLowerCase()] : []))
+  return matched.size ? item.tags.filter((tag) => !matched.has(tag.toLowerCase())) : item.tags
+}
+
+const DAY_MS = 86_400_000
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
+const isWeekday = (date: Date) => date.getDay() !== 0 && date.getDay() !== 6
+
+export type TriageAge = {
+  /** "Today", working days such as "3d" for the first two weeks, then "2w", "3mo" and so on. */
+  label: string
+  workingDays: number
+  /** Whether the item has waited `flagDays` working days or more. */
+  flagged: boolean
+}
+
+/**
+ * How long an item has waited, in working days after the day it arrived: 0 that day, 1 the next weekday. Weekends do
+ * not count, so a bug filed on Friday is 1d on Monday. After two weeks the count switches to calendar time, as on
+ * Backlog, since exact days stop mattering.
+ */
+export function getTriageAge(since: string | undefined, flagDays: number, now = new Date()): TriageAge | undefined {
+  const time = since ? Date.parse(since) : Number.NaN
+  if (Number.isNaN(time)) return undefined
+  const start = new Date(time)
+  const calendarDays = Math.max(Math.round((startOfDay(now).getTime() - startOfDay(start).getTime()) / DAY_MS), 0)
+  const workingDays = Math.max(countWorkingDays(start, now) - (isWeekday(start) ? 1 : 0), 0)
+  const label = calendarDays === 0 ? 'Today' : calendarDays < 14 ? `${workingDays}d` : formatDayCount(calendarDays)
+  return { label, workingDays, flagged: workingDays >= flagDays }
+}
+
+/** "Created Feb 2, 2026 · 3 working days". */
+export function describeTriageAge(createdAt: string, age: TriageAge): string {
+  return `Created ${formatCreatedDate(createdAt)} · ${age.workingDays} working ${age.workingDays === 1 ? 'day' : 'days'}`
+}
 
 /** The Parent column's text, such as "99: Parent feature". */
 export function formatTriageParent(parent: NonNullable<TriageItem['parent']>): string {
@@ -20,9 +76,9 @@ function shown(value: string | number | undefined): string {
 
 /**
  * The text each Triage column shows for an item, like Backlog's visible text: the type (the icon's name), the id, the
- * title, each tag, then the other columns as displayed. The quick filter searches exactly these strings, so it never
- * matches hidden detail such as the iteration path or why the item qualified. Age is left out, as on Backlog: it grows
- * as items get older, so a filter on it would stop matching.
+ * title, each tag, why the item is listed, then the other columns as displayed. The quick filter searches exactly these
+ * strings, so it never matches hidden detail such as the iteration path. Age is left out, as on Backlog: it grows as
+ * items get older, so a filter on it would stop matching.
  */
 export function getTriageVisibleText(item: TriageItem, sprint: BacklogSprint): string[] {
   const shortState = abbreviateState(item.state)
@@ -31,6 +87,7 @@ export function getTriageVisibleText(item: TriageItem, sprint: BacklogSprint): s
     String(item.id),
     item.title,
     ...item.tags,
+    ...getTriageReasonDetails(item).map((reason) => reason.label),
     getSeverityDisplay(item.severity)?.label ?? '',
     shown(item.priority),
     shown(item.effort),
@@ -61,7 +118,7 @@ export function formatTriageCount(shownCount: number, totalCount: number): strin
 }
 
 /** The empty queue's message, naming each enabled rule that found nothing. */
-export function describeEmptyTriage(options: TriageOptions): string {
+export function describeEmptyTriage(options: TriageQueryOptions): string {
   const waiting = `waiting in their initial state${options.excludedIterationPaths.length ? ' outside the excluded iteration paths' : ''}`
   if (!options.tags.length) return `No bugs in this team's area are ${waiting}.`
   const tagged = `No unfinished work items in this team's area are tagged ${TAG_LIST_FORMAT.format(options.tags.map((tag) => `“${tag}”`))}`

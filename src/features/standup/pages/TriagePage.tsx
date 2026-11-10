@@ -4,12 +4,15 @@ import { Icon } from '@stratakit/mui'
 import svgCategory from '@stratakit/icons/category.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
+import svgStatusSuccess from '@stratakit/icons/status-success.svg'
+import svgWindowPopout from '@stratakit/icons/window-popout.svg'
 import type { TeamIterationOption, TriageResult } from '../../../ado/types'
 import { createBacklogSprintResolver } from '../utils/backlogSprint'
-import { getActiveTriageOptions, hasTriageRules, type TriageOptions } from '../utils/triageOptions'
+import { getTriageQueryOptions, hasTriageRules, type TriageOptions } from '../utils/triageOptions'
 import { describeEmptyTriage, filterTriageItems, formatTriageCount } from '../utils/triageDisplay'
 import { AppTooltip } from '../components/AppTooltip'
 import { AdoErrorNotice } from '../components/AdoErrorNotice'
+import { visuallyHiddenSx } from '../components/developmentCardDisplay'
 import { PageToolbar } from '../components/PageToolbar'
 import { QuickFilterField } from '../components/QuickFilterField'
 import { SyncStatus } from '../components/SyncStatus'
@@ -47,9 +50,13 @@ export function TriagePage(props: Props) {
   // Sprints are placed against the team's iterations, like Backlog; until they load, the path's last segment is shown.
   const resolveSprint = useMemo(() => createBacklogSprintResolver(iterations), [iterations])
   const items = useMemo(() => filterTriageItems(result.items, filter, resolveSprint), [result.items, filter, resolveSprint])
+  // From the whole queue, not the filtered rows, so the columns hold still while typing in the quick filter.
+  const showAssignee = result.items.some((item) => item.assignedTo)
+  const showParent = result.items.some((item) => item.parent)
   const canLoad = props.patConfigured && props.teamOptions.length > 0
   const rulesEnabled = hasTriageRules(options)
   const showCount = canLoad && rulesEnabled && !isLoading && !error && !settingsError
+  const canOpenQuery = showCount && Boolean(result.queryUrl)
 
   const renderContent = () => {
     if (!props.teamOptions.length) return <TeamConfigurationEmptyState pageLabel="Triage" />
@@ -76,14 +83,28 @@ export function TriagePage(props: Props) {
     return (
       <>
         {result.warnings.map((warning) => <Alert key={warning} severity="warning">{warning}</Alert>)}
-        {items.length ? <TriageTable items={items} resolveSprint={resolveSprint} />
-          : result.items.length ? (
-            <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
-              <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
-                No items match the quick filter. Clear it to see the triage queue.
-              </Typography>
-            </Box>
-          ) : <TriageEmptyState heading="Nothing to triage" message={describeEmptyTriage(getActiveTriageOptions(options))} />}
+        {items.length ? (
+          <TriageTable
+            items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays}
+            showAssignee={showAssignee} showParent={showParent}
+          />
+        ) : result.items.length ? (
+          <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
+            <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
+              No items match the quick filter. Clear it to see the triage queue.
+            </Typography>
+          </Box>
+        ) : (
+          <TriageEmptyState
+            heading="Triage is clear"
+            message={props.syncedAt === null
+              ? 'Nothing needs triage.'
+              : `Nothing needs triage as of ${new Date(props.syncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`}
+            detail={describeEmptyTriage(getTriageQueryOptions(options))}
+            iconHref={svgStatusSuccess}
+            iconColor="var(--stratakit-color-icon-positive-base)"
+          />
+        )}
       </>
     )
   }
@@ -98,6 +119,21 @@ export function TriagePage(props: Props) {
           label="Quick filter triage items" value={filter} onChange={setFilter} onClear={() => setFilter('')}
           inputRef={props.quickFilterInputRef} disabled={!canLoad}
         />
+        <AppTooltip title="Open the Triage rules as an Azure DevOps query, for bulk edits" describeChild>
+          <span>
+            {canOpenQuery && result.queryUrl ? (
+              <Button
+                size="small" variant="outlined" href={result.queryUrl} target="_blank" rel="noopener noreferrer"
+                startIcon={<Icon href={svgWindowPopout} alt="" />}
+              >
+                Open in ADO
+                <Box component="span" sx={visuallyHiddenSx}> (opens in a new tab)</Box>
+              </Button>
+            ) : (
+              <Button size="small" variant="outlined" disabled startIcon={<Icon href={svgWindowPopout} alt="" />}>Open in ADO</Button>
+            )}
+          </span>
+        </AppTooltip>
         <TeamToolbarControls
           teamOptions={props.teamOptions} selectedTeamId={props.selectedTeamId}
           onTeamChange={props.onTeamChange} teamManagementUrl={props.teamManagementUrl}

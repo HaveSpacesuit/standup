@@ -13,7 +13,7 @@ import type { BacklogBug, CurrentIterationInfo, IterationWindowInfo, ResolvedWor
 import type { QualityAssuranceRawData } from './workItemsApi'
 import { fetchTriageItems } from './triageApi'
 import type { TriageResult } from './types'
-import { getActiveTriageOptions, hasTriageRules, parseTriageOptions, type TriageOptions } from '../features/standup/utils/triageOptions'
+import { getTriageQueryOptions, hasTriageRules, parseTriageOptions, type TriageQueryOptions } from '../features/standup/utils/triageOptions'
 
 export type { BacklogBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
@@ -262,9 +262,9 @@ export class AdoQueryEngine {
 
   async getTriageItems(
     team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
-    options: TriageOptions,
+    options: TriageQueryOptions,
   ): Promise<TriageResult> {
-    const normalized = getActiveTriageOptions(parseTriageOptions(options))
+    const normalized = getTriageQueryOptions(parseTriageOptions(options))
     if (!hasTriageRules(normalized)) return { items: [], warnings: [] }
     const key = `${backlogBugsCacheKey(team)}:${JSON.stringify({
       tags: normalized.tags.map((tag) => tag.toLowerCase()).sort(),

@@ -448,7 +448,7 @@ export function AppNavigationRail({
               <strong>Quality Assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.
             </Typography>
             <Typography component="li" variant="body-sm">
-              <strong>Triage</strong> lists unfinished tagged work items and, optionally, Proposed-state bugs outside excluded iterations. Open items in Azure DevOps to triage them.
+              <strong>Triage</strong> lists unfinished tagged work items and, optionally, Proposed-state bugs outside excluded iterations, with why each is listed and how many working days it has waited. Open items in Azure DevOps to triage them, or open the whole queue there as a query for bulk edits.
             </Typography>
             <Typography variant="body-md">
               <strong>Backlog</strong> ranks the team&apos;s open bugs, across all sprints, by development value: severity and impact (the Priority field) weighed against effort.
