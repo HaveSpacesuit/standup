@@ -7,12 +7,15 @@ import { createDefaultBacklogOptions, type BacklogOptions } from '../utils/backl
 import type { QaOptions } from '../utils/qaOptions'
 import { createDefaultAssignmentOptions, createDefaultQaOptions } from '../utils/standupOptionDefaults'
 import { loadStoredTagRulesForTeam } from './useBoardPreferences'
+import { createDefaultTriageOptions, type TriageOptions, type TriageSettings } from '../utils/triageOptions'
 
 type UseTeamDataTransferActionsArgs = {
   teamProfiles: TeamProfile[]
   qaOptionsByTeam: Record<string, QaOptions>
   assignmentOptionsByTeam: Record<string, AssignmentOptions>
   backlogOptionsByTeam: Record<string, BacklogOptions>
+  triageSettingsByTeam: Record<string, TriageSettings>
+  setTriageOptionsForTeam: (teamId: string, options: TriageOptions) => void
   tagRulesByTeam: Record<string, TagRule[]>
   replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => void
   setAssignmentOptionsForTeam: (teamId: string, options: AssignmentOptions) => void
@@ -36,6 +39,8 @@ export function useTeamDataTransferActions({
   qaOptionsByTeam,
   assignmentOptionsByTeam,
   backlogOptionsByTeam,
+  triageSettingsByTeam,
+  setTriageOptionsForTeam,
   tagRulesByTeam,
   replaceTeamProfiles,
   setAssignmentOptionsForTeam,
@@ -49,6 +54,9 @@ export function useTeamDataTransferActions({
     if (!teamProfile) {
       throw new Error('Select a team before exporting team data.')
     }
+    if (triageSettingsByTeam[teamId]?.error) {
+      throw new Error('Resolve the saved Triage options error before exporting this team.')
+    }
 
     const exportPayload = buildTeamDataExport({
       teamProfile,
@@ -56,6 +64,7 @@ export function useTeamDataTransferActions({
       assignmentTagRules: tagRulesByTeam[teamId] ?? loadStoredTagRulesForTeam(teamId),
       qaOptions: qaOptionsByTeam[teamId] ?? createDefaultQaOptions(),
       backlogOptions: backlogOptionsByTeam[teamId] ?? createDefaultBacklogOptions(),
+      triageOptions: triageSettingsByTeam[teamId]?.options ?? createDefaultTriageOptions(),
     })
     const exportText = serializeTeamDataExport(exportPayload)
     const blob = new Blob([exportText], { type: 'application/json' })
@@ -65,7 +74,7 @@ export function useTeamDataTransferActions({
     link.download = toDownloadFileName(teamProfile.displayName)
     link.click()
     URL.revokeObjectURL(downloadUrl)
-  }, [assignmentOptionsByTeam, backlogOptionsByTeam, qaOptionsByTeam, tagRulesByTeam, teamProfiles])
+  }, [assignmentOptionsByTeam, backlogOptionsByTeam, qaOptionsByTeam, tagRulesByTeam, teamProfiles, triageSettingsByTeam])
 
   const handleImportTeamData = useCallback((jsonText: string) => {
     const importedData = parseImportedTeamData(jsonText)
@@ -78,6 +87,7 @@ export function useTeamDataTransferActions({
     setAssignmentOptionsForTeam(importedTeamId, importedData.assignmentOptions)
     setQaOptionsForTeam(importedTeamId, importedData.qaOptions)
     setBacklogOptionsForTeam(importedTeamId, importedData.backlogOptions)
+    setTriageOptionsForTeam(importedTeamId, importedData.triageOptions)
     setTagRulesForTeam(importedTeamId, importedData.assignmentTagRules)
     onTeamChange(importedTeamId)
   }, [
@@ -85,6 +95,7 @@ export function useTeamDataTransferActions({
     replaceTeamProfiles,
     setAssignmentOptionsForTeam,
     setBacklogOptionsForTeam,
+    setTriageOptionsForTeam,
     setQaOptionsForTeam,
     setTagRulesForTeam,
     teamProfiles,

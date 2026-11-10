@@ -27,6 +27,7 @@ import { Icon } from '@stratakit/mui'
 import { unstable_NavigationRail as NavigationRail } from '@stratakit/structures'
 import svgDeveloper from '@stratakit/icons/developer.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
+import svgCategory from '@stratakit/icons/category.svg'
 import svgIssueReport from '@stratakit/icons/issue-report.svg'
 import svgReport from '@stratakit/icons/report.svg'
 import svgBinder from '@stratakit/icons/binder.svg'
@@ -378,6 +379,15 @@ export function AppNavigationRail({
           </NavigationRail.ListItem>
           <NavigationRail.ListItem>
             <NavigationRail.Anchor
+              href="#triage"
+              label="Triage"
+              icon={`${svgCategory}#icon-large`}
+              active={activeView === 'triage'}
+              style={{inlineSize: 'unset'}}
+            />
+          </NavigationRail.ListItem>
+          <NavigationRail.ListItem>
+            <NavigationRail.Anchor
               href="#backlog"
               label="Backlog"
               icon={`${svgIssueReport}#icon-large`}
@@ -438,6 +448,9 @@ export function AppNavigationRail({
               <strong>Quality Assurance</strong> focuses on sprint and work item health, including QA filters, state groups, tag groups, sprint lookback, and board highlights.
             </Typography>
             <Typography component="li" variant="body-sm">
+              <strong>Triage</strong> lists unfinished tagged work items and, optionally, Proposed-state bugs outside excluded iterations. Open items in Azure DevOps to triage them.
+            </Typography>
+            <Typography variant="body-md">
               <strong>Backlog</strong> ranks the team&apos;s open bugs, across all sprints, by development value: severity and impact (the Priority field) weighed against effort.
             </Typography>
             <Typography component="li" variant="body-sm">
@@ -842,7 +855,7 @@ export function AppNavigationRail({
                     label={<Typography variant="body-sm">Remember last page and view</Typography>}
                   />
                   <Typography id={REMEMBER_LAST_VIEW_HELP_ID} variant="body-sm" color="text.secondary" sx={{ mt: 0.5 }}>
-                    When opening the site without a page route, return to your last page. Also reopen each page on its last view, such as Sprint, Flow, Map, or Overlay. Explicit page routes take precedence. When off, the site defaults to Development and pages open on Developers, Testers, List, and Rows.
+                    When opening the site without a page route, return to your last page. Also reopen each page on its last view, such as Sprint, Flow, Map, or Calendar. Explicit page routes take precedence. When off, the site defaults to Development and pages open on Developers, Testers, List, and Rows.
                   </Typography>
                 </Box>
                 <AutoRefreshSettings options={autoRefresh} error={autoRefreshError} onChange={onAutoRefreshChange} />

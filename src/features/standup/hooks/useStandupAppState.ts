@@ -25,6 +25,7 @@ import { DEFAULT_AUTO_REFRESH, loadAutoRefresh, saveAutoRefresh, type AutoRefres
 import type { QaOptions } from '../utils/qaOptions'
 import { parseStoredQaOptionsWithRecovery, qaOptionsStorageKey, serializeQaOptions } from '../utils/qaOptions'
 import { SELECTED_TEAM_STORAGE_KEY, tagRulesStorageKey } from './useBoardPreferences'
+import { loadTriageSettings, parseTriageOptions, triageOptionsStorageKey, type TriageOptions, type TriageSettings } from '../utils/triageOptions'
 
 type UseStandupAppStateResult = {
   teamProfiles: TeamProfile[]
@@ -37,6 +38,8 @@ type UseStandupAppStateResult = {
   assignmentCardHighlightOptions: CardHighlightOptions
   assignmentOptionsByTeam: Record<string, AssignmentOptions>
   backlogOptionsByTeam: Record<string, BacklogOptions>
+  triageSettingsByTeam: Record<string, TriageSettings>
+  setTriageOptionsForTeam: (teamId: string, next: TriageOptions) => void
   rememberLastView: boolean
   autoRefresh: AutoRefreshOptions
   autoRefreshError: string | null
@@ -132,6 +135,9 @@ export function useStandupAppState(): UseStandupAppStateResult {
   const [backlogOptionsByTeam, setBacklogOptionsByTeam] = useState<Record<string, BacklogOptions>>(() =>
     buildBacklogOptionsByTeam(teamProfiles),
   )
+  const [triageSettingsByTeam, setTriageSettingsByTeam] = useState<Record<string, TriageSettings>>(() =>
+    Object.fromEntries(teamProfiles.map((team) => [team.id, loadTriageSettings(team.id)])),
+  )
   const [rememberLastView, setRememberLastView] = useState(loadRememberLastView)
   const [storedAutoRefresh] = useState(() => {
     try {
@@ -167,6 +173,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
         localStorage.removeItem(qaCardHighlightOptionsStorageKey(team.id))
         localStorage.removeItem(assignmentOptionsStorageKey(team.id))
         localStorage.removeItem(backlogOptionsStorageKey(team.id))
+        localStorage.removeItem(triageOptionsStorageKey(team.id))
         localStorage.removeItem(tagRulesStorageKey(team.id))
       }
     }
@@ -182,6 +189,9 @@ export function useStandupAppState(): UseStandupAppStateResult {
       Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
     ))
     setBacklogOptionsByTeam((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
+    ))
+    setTriageSettingsByTeam((previous) => Object.fromEntries(
       Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
     ))
   }
@@ -228,6 +238,21 @@ export function useStandupAppState(): UseStandupAppStateResult {
     saveRememberLastView(next)
   }
 
+  const setTriageOptionsForTeam = (teamId: string, next: TriageOptions) => {
+    try {
+      const options = parseTriageOptions(next)
+      localStorage.setItem(triageOptionsStorageKey(teamId), JSON.stringify(options))
+      setTriageSettingsByTeam((previous) => ({ ...previous, [teamId]: { options, error: null } }))
+    } catch (cause) {
+      const error = `Unable to save Triage options: ${cause instanceof Error ? cause.message : String(cause)}`
+      setTriageSettingsByTeam((previous) => ({
+        ...previous,
+        [teamId]: { options: previous[teamId]?.options ?? loadTriageSettings(teamId).options, error },
+      }))
+      throw new Error(error)
+    }
+  }
+
   return {
     teamProfiles,
     teamProfilesUnreadable,
@@ -239,6 +264,8 @@ export function useStandupAppState(): UseStandupAppStateResult {
     assignmentCardHighlightOptions,
     assignmentOptionsByTeam,
     backlogOptionsByTeam,
+    triageSettingsByTeam,
+    setTriageOptionsForTeam,
     rememberLastView,
     autoRefresh,
     autoRefreshError,

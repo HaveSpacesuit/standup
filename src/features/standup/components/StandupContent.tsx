@@ -5,6 +5,7 @@ import { BacklogPage } from '../pages/BacklogPage'
 import { QualityAssurancePage } from '../pages/QualityAssurancePage'
 import { TeamAssignmentsPage } from '../pages/TeamAssignmentsPage'
 import { TestsPage } from '../pages/TestsPage'
+import { TriagePage } from '../pages/TriagePage'
 import { ContentErrorBoundary } from './ContentErrorBoundary'
 
 type TeamAssignmentsPageProps = ComponentProps<typeof TeamAssignmentsPage>
@@ -16,6 +17,7 @@ type StandupContentProps = {
   teamAssignmentsPageProps: TeamAssignmentsPageProps
   qualityAssurancePageProps: QualityAssurancePageProps
   backlogPageProps: ComponentProps<typeof BacklogPage>
+  triagePageProps: ComponentProps<typeof TriagePage>
   testsPageProps: ComponentProps<typeof TestsPage>
 }
 
@@ -25,6 +27,7 @@ export function StandupContent({
   teamAssignmentsPageProps,
   qualityAssurancePageProps,
   backlogPageProps,
+  triagePageProps,
   testsPageProps,
 }: StandupContentProps) {
   const [testsVisited, setTestsVisited] = useState(activeView === 'tests')
@@ -48,6 +51,8 @@ export function StandupContent({
           <QualityAssurancePage {...qualityAssurancePageProps} />
         ) : activeView === 'backlog' ? (
           <BacklogPage {...backlogPageProps} />
+        ) : activeView === 'triage' ? (
+          <TriagePage key={triagePageProps.selectedTeamId} {...triagePageProps} />
         ) : null}
       </ContentErrorBoundary>
       {(testsVisited || activeView === 'tests') && (

@@ -6,7 +6,6 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 /** Consecutive runs this many days apart or more are joined by a dashed line, so outages read as gaps. */
 export const TEST_GAP_DAYS = 4
 
-export const PASS_RATE_TICKS = [0, 50, 75, 90, 95, 98, 100]
 
 /** Log-scales the failure rate so differences near 100% are visible; larger means more failures. */
 export const passRatePosition = (percent: number) => Math.log10(1 + 100 - percent)

@@ -26,8 +26,16 @@ export type ProjectWorkItemTypeInfo = {
   states: ProjectWorkItemState[]
   /** Distinct work item type names for the project, sorted alphabetically. */
   workItemTypes: string[]
-  /** States defined by each work item type, keyed by lower-cased type name. */
+  /** States defined by each work item type, keyed by lower-cased type name, in the process's workflow order. */
   statesByType: Record<string, ProjectWorkItemState[]>
+}
+
+/**
+ * The state a new work item of the type starts in: the first state in its Proposed category, which Azure DevOps makes
+ * the default (New in Scrum and Agile, Proposed in CMMI). Later Proposed states, such as Scrum's Approved, are not it.
+ */
+export function getInitialState(metadata: ProjectWorkItemTypeInfo, workItemType: string): ProjectWorkItemState | undefined {
+  return metadata.statesByType[workItemType.toLowerCase()]?.find((state) => state.category.trim().toLowerCase() === 'proposed')
 }
 
 /**

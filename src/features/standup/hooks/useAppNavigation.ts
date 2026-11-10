@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
 import { loadLastPage, loadRememberLastView, saveLastPage } from '../utils/lastViews'
 
-export type AppView = 'development' | 'qa-activity' | 'backlog' | 'tests'
+export type AppView = 'development' | 'qa-activity' | 'triage' | 'backlog' | 'tests'
 
 type UseAppNavigationArgs = {
   patConfigured: boolean
@@ -31,6 +31,9 @@ function getViewFromHash(hash: string): AppView {
 
   if (hash === '#backlog') {
     return 'backlog'
+  }
+  if (hash === '#triage') {
+    return 'triage'
   }
 
   if (hash === '#development' || !hash) {

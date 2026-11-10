@@ -179,7 +179,7 @@ const clearFilterButton = (host: Element) => host.querySelector<HTMLButtonElemen
 const BUG_ROWS = 'tbody tr:not(.backlog-tier-header):not(.backlog-cut-line)'
 const bugRows = (host: Element) => [...host.querySelectorAll(BUG_ROWS)]
 const tierHeaders = (host: Element) => [...host.querySelectorAll('tr.backlog-tier-header')]
-const rowId = (row: Element) => Number(row.querySelector('.backlog-bug-id')!.textContent)
+const rowId = (row: Element) => Number(row.querySelector('.work-item-id')!.textContent)
 const listedIds = (host: Element) => bugRows(host).map(rowId)
 const rowFor = (host: Element, id: number) => bugRows(host).find((row) => rowId(row) === id)!
 const titleCell = (host: Element, id: number) => rowFor(host, id).querySelector('td:nth-child(3)')!
@@ -584,7 +584,7 @@ test('every cell the table shows can be found with the quick filter', async (t) 
     // Rank and Age shift as bugs come and go and grow older, so they are left out of the filter on purpose.
     const tags = [...cells[2].querySelectorAll('li')]
     tagsChecked += tags.length
-    const shown = [cells[2].querySelector('.backlog-bug-id')!, cells[1], cells[2].querySelector('a')!, ...tags, ...cells.slice(3, 6), ...cells.slice(7)]
+    const shown = [cells[2].querySelector('.work-item-id')!, cells[1], cells[2].querySelector('a')!, ...tags, ...cells.slice(3, 6), ...cells.slice(7)]
       .map((element) => visibleText(element).replace(' (opens in a new tab)', ''))
     for (const text of shown.filter((cell) => cell && cell !== 'Not set')) {
       assert.ok(filterBacklogBugs(bugs, text).some((bug) => bug.id === id), `"${text}" is shown for bug ${id}`)
@@ -620,9 +620,9 @@ test('compact rows keep one line: the first tag, then a count of the rest, and t
   assert.equal(cell.querySelectorAll('.MuiBadge-badge').length, 1)
   const wrapper = cell.firstElementChild!
   assert.equal(declaredStyle(wrapper)('white-space'), 'nowrap')
-  assert.equal(nestedStyle(wrapper, '.backlog-bug-title')('text-overflow'), 'ellipsis', 'only the title gives way')
-  assert.equal(nestedStyle(wrapper, '.backlog-bug-title')('overflow'), 'hidden')
-  assert.equal(cell.querySelector('a .backlog-bug-title')?.textContent, 'Data loss')
+  assert.equal(nestedStyle(wrapper, '.work-item-title')('text-overflow'), 'ellipsis', 'only the title gives way')
+  assert.equal(nestedStyle(wrapper, '.work-item-title')('overflow'), 'hidden')
+  assert.equal(cell.querySelector('a .work-item-title')?.textContent, 'Data loss')
 
   const assignee = rowFor(host, 102).querySelector('td:nth-child(10)')!
   assert.ok(assignee.querySelector('.MuiAvatar-root'))
@@ -639,7 +639,7 @@ test('comfortable rows list every tag and the assignee name', async (t) => {
 
   assert.deepEqual(tagTexts(titleCell(host, 102)), ['needs triage', 'regression'])
   assert.equal(declaredStyle(titleCell(host, 102).firstElementChild!)('white-space'), '')
-  assert.equal(nestedStyle(titleCell(host, 102).firstElementChild!, '.backlog-bug-title')('text-overflow'), '')
+  assert.equal(nestedStyle(titleCell(host, 102).firstElementChild!, '.work-item-title')('text-overflow'), '')
 })
 
 test('the header counts the listed bugs, out of all of them while a filter hides some', async (t) => {

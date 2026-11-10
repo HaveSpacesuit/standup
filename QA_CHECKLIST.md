@@ -49,6 +49,7 @@ Prepare data that exercises both populated and empty states:
 - [ ] A valid team can be configured and saved.
 - [ ] Team Assignments loads real data and shows the expected board.
 - [ ] Quality Assurance can be opened and shows the expected QA board.
+- [ ] Triage opens between Quality Assurance and Backlog and lists unfinished items tagged Triage.
 - [ ] Backlog can be opened and lists the team's open bugs ranked by Value.
 - [ ] Quick filtering changes visible cards (or Backlog rows) and clearing it restores them.
 - [ ] Refresh reloads data and does not duplicate cards.
@@ -106,6 +107,43 @@ Prepare data that exercises both populated and empty states:
       visible error and leave the app recoverable.
 - [ ] Verify an in-flight request can be superseded by a team change or refresh without stale
       results replacing the current team’s data.
+
+## Triage
+
+- [ ] Confirm the default queue matches whole `Triage` tags, case-insensitively, across work-item
+      types under the selected team's area and its descendants; similar tags such as PreTriage do not match.
+- [ ] Confirm Completed/Removed items are excluded using each type's state categories, even when
+      another type uses the same state name differently. Resolved-category items remain eligible.
+- [ ] Enable new bugs and confirm only Bugs still in their type's initial state (the first
+      Proposed-category state, such as New or a custom name) qualify. Approved bugs are excluded
+      unless tagged. No creation-date cutoff should apply.
+- [ ] Select or enter an excluded iteration path. Confirm it and its descendants exclude untagged
+      new bugs, while similarly prefixed sibling paths do not; tagged items still qualify there.
+- [ ] Turn new bugs off; confirm the excluded paths field is disabled with its saved paths still
+      shown, changing them does not reload the queue, and turning new bugs back on restores them.
+- [ ] In Triage options, add tags with **Add** and with Enter, including `a; b` and a duplicate in
+      another case; remove a pill; save with a typed but not-yet-added tag and confirm it is kept.
+- [ ] Verify a tagged new bug appears once, and that items are ordered oldest created first.
+- [ ] Verify the Work item column matches Backlog's Bug column (ID, linked title with new-tab icon,
+      wrapping tag pills) after the type icon, and that there is no separate Tags column.
+- [ ] Verify the other columns match Backlog's order and formatting: Severity chips, Impact bars,
+      Effort, Age, Sprint labels (This sprint, Next sprint, Backlog), State badges, and Assigned to
+      (muted Unassigned), then Created by and Parent. Missing Severity/Impact/Effort are flagged on
+      Bugs and dashed on other types; there is no Matched by column.
+- [ ] Verify type icons, creator, effort (including zero), and parent ID/title; item and parent links
+      open Azure DevOps. Inaccessible parents retain known IDs/links and show an explicit warning.
+- [ ] Filter by creator, parent, type, tag and sprint label; test `/` and Ctrl/Cmd+F and clearing the filter.
+- [ ] Disable both rules; confirm the No Triage rules card, that its button opens Triage options, and
+      that no Triage query runs. Check the loading skeleton, the Nothing to triage card (naming the
+      enabled rules), the quick-filter no-match text, failed query/retry, and unavailable metadata states.
+- [ ] Confirm the navigation rail and page header use the category icon for Triage.
+- [ ] Switch teams during loading and with options open; confirm data and settings stay isolated.
+- [ ] Save options, reload, export/import, and delete a team; verify persistence and cleanup. Import
+      an older export without Triage options and confirm defaults.
+- [ ] Confirm unreadable storage and failed saves show errors, retain stored data, and recover only
+      after saving replacement options.
+- [ ] Confirm manual/automatic refresh updates the active queue and its sync time without duplicate
+      requests or refreshing Backlog; test narrow layouts and horizontal table scrolling.
 
 ## 3. Settings and team profiles
 

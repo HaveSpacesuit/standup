@@ -2,17 +2,15 @@ import { Fragment } from 'react'
 import { Box, CircularProgress, Skeleton, Typography } from '@mui/material'
 import { keyframes } from '@mui/material/styles'
 import { TEST_TILE_GRID_COLUMNS } from './testHealthPresentation'
-import { PASS_RATE_TICKS, passRatePosition } from '../utils/testHealth'
+import { passRatePosition } from '../utils/testHealth'
 
 type TestsLoadingStateProps = {
   pipelineCount: number
   lookbackDays: number
-  view?: 'rows' | 'overlay' | 'calendar'
+  view?: 'rows' | 'calendar'
 }
 
-const CHART_HEIGHT = 480
 const X_TICK_COUNT = 7
-const MAX_TRACES = 4
 const MAX_TILES = 8
 const MAX_ROWS = 6
 // Matches the Rows view: a 92px plot over a lane of tests ran, inside 14px top and 8px bottom padding.
@@ -41,8 +39,6 @@ const pulse = keyframes`
   100% { opacity: 1; }
 `
 
-const maxPosition = passRatePosition(0)
-const percentToTop = (percent: number) => (passRatePosition(percent) / maxPosition) * 100
 // The Rows view's scale, which shows 25–100% with a little headroom.
 const ROW_TOP_POSITION = passRatePosition(100) - 0.06
 const rowPercentToTop = (percent: number) =>
@@ -50,13 +46,13 @@ const rowPercentToTop = (percent: number) =>
 // Runs rarely begin exactly at the start of the lookback window, so traces start partway in.
 const TRACE_START_X = [12, 22, 30, 18]
 
-function tracePoints(pattern: readonly number[], startX: number, toTop = percentToTop) {
+function tracePoints(pattern: readonly number[], startX: number) {
   return pattern
-    .map((percent, index) => `${startX + (index / (pattern.length - 1)) * (98 - startX)},${toTop(percent)}`)
+    .map((percent, index) => `${startX + (index / (pattern.length - 1)) * (98 - startX)},${rowPercentToTop(percent)}`)
     .join(' ')
 }
 
-export function TestsLoadingState({ pipelineCount, lookbackDays, view = 'overlay' }: TestsLoadingStateProps) {
+export function TestsLoadingState({ pipelineCount, lookbackDays, view = 'rows' }: TestsLoadingStateProps) {
   const tileCount = Math.min(Math.max(pipelineCount, 1), MAX_TILES)
   const pipelineLabel = pipelineCount === 1 ? '1 pipeline' : `${pipelineCount} pipelines`
 
@@ -108,8 +104,7 @@ export function TestsLoadingState({ pipelineCount, lookbackDays, view = 'overlay
       </Box>
 
       {view === 'rows' ? <RowsSkeleton pipelineCount={pipelineCount} />
-        : view === 'calendar' ? <CalendarSkeleton pipelineCount={pipelineCount} lookbackDays={lookbackDays} />
-          : <OverlaySkeleton pipelineCount={pipelineCount} />}
+        : <CalendarSkeleton pipelineCount={pipelineCount} lookbackDays={lookbackDays} />}
     </Box>
   )
 }
@@ -151,7 +146,7 @@ function RowsSkeleton({ pipelineCount }: { pipelineCount: number }) {
                 sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', ...tracePulseSx }}
               >
                 <polyline
-                  points={tracePoints(TRACE_PATTERNS[index % TRACE_PATTERNS.length], TRACE_START_X[index % TRACE_START_X.length], rowPercentToTop)}
+                  points={tracePoints(TRACE_PATTERNS[index % TRACE_PATTERNS.length], TRACE_START_X[index % TRACE_START_X.length])}
                   fill="none"
                   stroke="currentColor"
                   strokeOpacity={0.22}
@@ -210,103 +205,6 @@ function CalendarSkeleton({ pipelineCount, lookbackDays }: { pipelineCount: numb
           </Box>
         </Fragment>
       ))}
-    </Box>
-  )
-}
-
-function OverlaySkeleton({ pipelineCount }: { pipelineCount: number }) {
-  const traceCount = Math.min(Math.max(pipelineCount, 1), MAX_TRACES)
-  return (
-    <Box
-      aria-hidden="true"
-      data-testid="tests-loading-overlay"
-      sx={{
-        height: CHART_HEIGHT,
-        p: 2,
-        display: 'grid',
-        gridTemplateColumns: '16px 40px minmax(0, 1fr)',
-        gridTemplateRows: 'minmax(0, 1fr) auto',
-        columnGap: 1,
-        rowGap: 1,
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
-        bgcolor: 'background.paper',
-      }}
-    >
-      <Box sx={{ gridRow: 1, gridColumn: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Skeleton variant="rounded" width={12} height={180} />
-      </Box>
-
-      <Box sx={{ gridRow: 1, gridColumn: 2, position: 'relative' }}>
-        {PASS_RATE_TICKS.map((percent) => (
-          <Skeleton
-            key={`tests-loading-y-tick-${percent}`}
-            variant="text"
-            width={percent === 100 ? 34 : 26}
-            height={16}
-            sx={{ position: 'absolute', right: 0, top: `${percentToTop(percent)}%`, transform: 'translateY(-50%)' }}
-          />
-        ))}
-      </Box>
-
-      <Box
-        sx={{
-          gridRow: 1,
-          gridColumn: 3,
-          position: 'relative',
-          borderLeft: '1px solid',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        {PASS_RATE_TICKS.map((percent) => (
-          <Box
-            key={`tests-loading-gridline-${percent}`}
-            sx={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: `${percentToTop(percent)}%`,
-              borderTop: '1px solid',
-              borderColor: 'divider',
-            }}
-          />
-        ))}
-        <Box
-          component="svg"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            overflow: 'visible',
-            ...tracePulseSx,
-          }}
-        >
-          {TRACE_PATTERNS.slice(0, traceCount).map((pattern, index) => (
-            <polyline
-              key={`tests-loading-trace-${index}`}
-              points={tracePoints(pattern, TRACE_START_X[index])}
-              fill="none"
-              stroke="currentColor"
-              strokeOpacity={0.22}
-              strokeWidth={3}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-        </Box>
-      </Box>
-
-      <Box sx={{ gridRow: 2, gridColumn: 3, display: 'flex', justifyContent: 'space-between' }}>
-        {Array.from({ length: X_TICK_COUNT }).map((_, index) => (
-          <Skeleton key={`tests-loading-x-tick-${index}`} variant="text" width={64} height={16} />
-        ))}
-      </Box>
     </Box>
   )
 }

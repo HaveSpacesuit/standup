@@ -42,7 +42,7 @@ const { TestsPage } = await server.ssrLoadModule('/src/features/standup/pages/Te
 
 const document = dom.window.document
 
-async function render(t: TestContext, props: { pat?: string | null } = {}) {
+async function render(t: TestContext, props: { pat?: string | null; rememberLastView?: boolean } = {}) {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -101,28 +101,29 @@ test('with pipelines to load, Rows is the first view; each view has its own skel
   t.after(() => {
     globalThis.fetch = previousFetch
   })
-  const host = await render(t, { pat: 'token' })
+  storage.set('standup:last-view:tests', 'overlay')
+  storage.set('standup:test-daily-options', '{obsolete invalid options')
+  const host = await render(t, { pat: 'token', rememberLastView: true })
 
   const toggles = [...host.querySelector('[aria-label="Tests view"]')!.querySelectorAll('button')]
-  assert.deepEqual(toggles.map((toggle) => toggle.textContent), ['Rows', 'Overlay', 'Calendar'])
-  assert.deepEqual(toggles.map((toggle) => toggle.getAttribute('aria-pressed')), ['true', 'false', 'false'])
+  assert.deepEqual(toggles.map((toggle) => toggle.textContent), ['Rows', 'Calendar'])
+  assert.deepEqual(toggles.map((toggle) => toggle.getAttribute('aria-pressed')), ['true', 'false'])
+  assert.equal(storage.get('standup:last-view:tests'), 'rows', 'the retired Overlay preference falls back to Rows')
+  assert.doesNotMatch(host.textContent!, /daily options are invalid/)
   assert.ok(host.querySelector('[data-testid="tests-loading-rows"]'))
-  assert.equal(host.querySelector('[data-testid="tests-loading-overlay"]'), null)
   assert.match(host.textContent!, /One row per pipeline · the shaded band is its usual range · last 60 days/)
 
   await act(async () => toggles[1].click())
   assert.equal(toggles[1].getAttribute('aria-pressed'), 'true')
-  assert.ok(host.querySelector('[data-testid="tests-loading-overlay"]'))
-  assert.equal(host.querySelector('[data-testid="tests-loading-rows"]'), null)
-  assert.match(host.textContent!, /Share of executed tests that passed in each run/)
-  assert.equal(storage.get('standup:last-view:tests'), 'overlay')
-
-  await act(async () => toggles[2].click())
   assert.ok(host.querySelector('[data-testid="tests-loading-calendar"]'))
-  assert.equal(host.querySelector('[data-testid="tests-loading-overlay"]'), null)
+  assert.equal(host.querySelector('[data-testid="tests-loading-rows"]'), null)
   assert.equal(host.querySelectorAll('[data-testid="tests-loading-calendar-cell"]').length, 9 * 5, 'about 60 days of weekday cells for the one pipeline')
   assert.match(host.textContent!, /One cell per day, colored by its worst run · last 60 days/)
   assert.equal(storage.get('standup:last-view:tests'), 'calendar')
+  await act(async () => toggles[0].click())
+  assert.ok(host.querySelector('[data-testid="tests-loading-rows"]'))
+  assert.equal(host.querySelector('[data-testid="tests-loading-calendar"]'), null)
+  assert.equal(storage.get('standup:last-view:tests'), 'rows')
 })
 
 test('Test options opens a dialog and tab list with the same name, and Close dismisses it', async (t) => {
@@ -136,6 +137,7 @@ test('Test options opens a dialog and tab list with the same name, and Close dis
   assert.equal(document.getElementById(opened.getAttribute('aria-labelledby')!)?.textContent, 'Test options')
   assert.equal(opened.querySelector('[role="tablist"]')?.getAttribute('aria-label'), 'Test options')
   assert.deepEqual([...opened.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent), ['Options', 'Pipelines'])
+  assert.doesNotMatch(opened.textContent!, /Daily result|Show at most one result|Overlay/)
 
   await act(async () => [...opened.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
   await waitFor(() => dialog() === null)

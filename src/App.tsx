@@ -15,6 +15,7 @@ import { createDefaultBacklogOptions } from './features/standup/utils/backlogOpt
 import { DEFAULT_CARD_HIGHLIGHT_OPTIONS, type CardHighlightOptions } from './features/standup/utils/cardHighlightOptions'
 import type { QaOptions } from './features/standup/utils/qaOptions'
 import { createDefaultAssignmentOptions, createDefaultQaOptions } from './features/standup/utils/standupOptionDefaults'
+import { createDefaultTriageOptions } from './features/standup/utils/triageOptions'
 
 type AppProps = {
   colorScheme: 'light' | 'dark'
@@ -25,6 +26,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
   const quickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const qualityAssuranceQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const backlogQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
+  const triageQuickFilterInputRef = useRef<HTMLInputElement | null>(null)
   const {
     teamProfiles,
     teamProfilesUnreadable,
@@ -36,6 +38,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     assignmentCardHighlightOptions,
     assignmentOptionsByTeam,
     backlogOptionsByTeam,
+    triageSettingsByTeam,
+    setTriageOptionsForTeam,
     rememberLastView,
     autoRefresh,
     autoRefreshError,
@@ -101,6 +105,10 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     backlogBugsLoading,
     backlogBugsError,
     backlogSyncedAt,
+    triageResult,
+    triageLoading,
+    triageError,
+    triageSyncedAt,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
@@ -117,6 +125,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     qaOptionsByTeam,
     assignmentOptionsByTeam,
     assignmentCardHighlightOptions,
+    triageSettingsByTeam,
   })
 
   const qaOptions = qaOptionsByTeam[selectedTeamId] ?? createDefaultQaOptions()
@@ -146,6 +155,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     qaOptionsByTeam,
     assignmentOptionsByTeam,
     backlogOptionsByTeam,
+    triageSettingsByTeam,
+    setTriageOptionsForTeam,
     tagRulesByTeam,
     replaceTeamProfiles,
     setAssignmentOptionsForTeam,
@@ -179,6 +190,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
       development: quickFilterInputRef,
       'qa-activity': qualityAssuranceQuickFilterInputRef,
       backlog: backlogQuickFilterInputRef,
+      triage: triageQuickFilterInputRef,
     },
   })
 
@@ -322,6 +334,25 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           teamIterationsLoading,
           teamIterationsError,
           rememberLastView,
+        }}
+        triagePageProps={{
+          patConfigured,
+          teamOptions: teamProfiles,
+          selectedTeamId,
+          onTeamChange,
+          teamManagementUrl,
+          result: triageResult,
+          isLoading: triageLoading,
+          error: triageError,
+          syncedAt: triageSyncedAt,
+          onRefresh,
+          options: triageSettingsByTeam[selectedTeamId]?.options ?? createDefaultTriageOptions(),
+          settingsError: triageSettingsByTeam[selectedTeamId]?.error ?? null,
+          onOptionsChange: (next) => setTriageOptionsForTeam(selectedTeamId, next),
+          quickFilterInputRef: triageQuickFilterInputRef,
+          iterations: teamIterations,
+          iterationsLoading: teamIterationsLoading,
+          iterationsError: teamIterationsError,
         }}
         backlogPageProps={{
           patConfigured,

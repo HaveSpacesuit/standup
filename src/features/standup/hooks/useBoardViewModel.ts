@@ -34,6 +34,9 @@ import type { ProjectWorkItemState } from '../../../ado/queryEngine'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
 import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import type { SprintForecast } from '../utils/sprintForecast'
+import type { TriageResult } from '../../../ado/types'
+import { createDefaultTriageOptions, getActiveTriageOptions, hasTriageRules, type TriageSettings } from '../utils/triageOptions'
+import { useTriageItems } from './useTriageItems'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -42,6 +45,7 @@ type UseBoardViewModelArgs = {
   qaOptionsByTeam?: Record<string, QaOptions>
   assignmentOptionsByTeam?: Record<string, AssignmentOptions>
   assignmentCardHighlightOptions?: CardHighlightOptions
+  triageSettingsByTeam?: Record<string, TriageSettings>
 }
 
 type UseBoardViewModelResult = {
@@ -98,6 +102,10 @@ type UseBoardViewModelResult = {
   backlogBugsError: string | null
   /** When the backlog last loaded fresh from Azure DevOps. */
   backlogSyncedAt: number | null
+  triageResult: TriageResult
+  triageLoading: boolean
+  triageError: string | null
+  triageSyncedAt: number | null
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   selectedAssignmentWorkItemTypes: string[]
@@ -119,6 +127,7 @@ const EMPTY_TEAM_PROFILE: TeamProfile = {
   teamName: '',
   repoName: '',
 }
+const DEFAULT_TRIAGE_OPTIONS = createDefaultTriageOptions()
 
 export function useBoardViewModel({
   pat,
@@ -127,10 +136,12 @@ export function useBoardViewModel({
   qaOptionsByTeam,
   assignmentOptionsByTeam,
   assignmentCardHighlightOptions,
+  triageSettingsByTeam,
 }: UseBoardViewModelArgs): UseBoardViewModelResult {
   const [developmentReloadNonce, setDevelopmentReloadNonce] = useState(0)
   const [qaReloadNonce, setQaReloadNonce] = useState(0)
   const [backlogReloadNonce, setBacklogReloadNonce] = useState(0)
+  const [triageReloadNonce, setTriageReloadNonce] = useState(0)
   const [iterationsReloadNonce, setIterationsReloadNonce] = useState(0)
 
   const {
@@ -298,6 +309,21 @@ export function useBoardViewModel({
     enabled: activeView === 'backlog',
   })
 
+  const triageSettings = triageSettingsByTeam?.[effectiveTeam.id]
+  // Memoized so the loader's options keep their identity; excluded paths that are off do not reload the queue.
+  const triageOptions = useMemo(
+    () => getActiveTriageOptions(triageSettings?.options ?? DEFAULT_TRIAGE_OPTIONS),
+    [triageSettings?.options],
+  )
+  const triageScope = JSON.stringify([selectedTeam, triageOptions])
+  const { triageResult, triageLoading, triageError } = useTriageItems({
+    adoQueryEngine: dataQueryEngine,
+    selectedTeam: effectiveTeam,
+    options: triageOptions,
+    enabled: activeView === 'triage' && !triageSettings?.error,
+    reloadNonce: triageReloadNonce,
+  })
+
   const {
     workItemStates: projectWorkItemStates,
     workItemTypes: projectWorkItemTypes,
@@ -379,6 +405,13 @@ export function useBoardViewModel({
 
     if (refreshMetadata) retryProjectWorkItemStates()
 
+    if (activeView === 'triage') {
+      adoQueryEngine.clearTriageDataCache(selectedTeam.id)
+      markTriageRefreshRequested()
+      setTriageReloadNonce((current) => current + 1)
+      return
+    }
+
     if (activeView === 'qa-activity') {
       adoQueryEngine.clearQualityAssuranceDataCache(selectedTeam.id)
       if (refreshMetadata) {
@@ -444,13 +477,18 @@ export function useBoardViewModel({
     isLoading: qaBucketsLoading,
     failed: Boolean(teamIterationsError || qaBucketsError),
   })
+  const { syncedAt: triageSyncedAt, markRefreshRequested: markTriageRefreshRequested } = useTeamDataSyncedAt({
+    teamId: activeView === 'triage' && selectedTeam && hasTriageRules(triageOptions) && !triageSettings?.error ? triageScope : '',
+    isLoading: triageLoading,
+    failed: Boolean(triageError || triageSettings?.error),
+  })
 
   useAutoRefresh({
     options: autoRefresh,
-    active: activeView !== 'tests' && Boolean(pat && selectedTeam),
-    scope: `${activeView}:${selectedTeamId}`,
-    syncedAt: activeView === 'backlog' ? backlogSyncedAt : activeView === 'qa-activity' ? qaSyncedAt : teamDataSyncedAt,
-    isLoading: activeView === 'backlog' ? backlogBugsLoading : activeView === 'qa-activity' ? teamIterationsLoading || qaBucketsLoading : isTeamDataLoading,
+    active: activeView !== 'tests' && Boolean(pat && selectedTeam) && (activeView !== 'triage' || (hasTriageRules(triageOptions) && !triageSettings?.error)),
+    scope: `${activeView}:${activeView === 'triage' ? triageScope : selectedTeamId}`,
+    syncedAt: activeView === 'triage' ? triageSyncedAt : activeView === 'backlog' ? backlogSyncedAt : activeView === 'qa-activity' ? qaSyncedAt : teamDataSyncedAt,
+    isLoading: activeView === 'triage' ? triageLoading : activeView === 'backlog' ? backlogBugsLoading : activeView === 'qa-activity' ? teamIterationsLoading || qaBucketsLoading : isTeamDataLoading,
     onRefresh: () => refreshCurrentView(false),
   })
 
@@ -503,6 +541,10 @@ export function useBoardViewModel({
     backlogBugsLoading,
     backlogBugsError,
     backlogSyncedAt,
+    triageResult,
+    triageLoading,
+    triageError,
+    triageSyncedAt,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,

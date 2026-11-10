@@ -96,12 +96,13 @@ test('the initial window title and favicon use the ADO Team Explorer branding', 
   }
 })
 
-test('the navigation rail lists Backlog between Quality Assurance and Tests', () => {
+test('the navigation rail lists Triage between Quality Assurance and Backlog', () => {
   assert.deepEqual(
     renderNavigationAnchors('development').map(({ label, href }) => [label, href]),
     [
       ['Development', '#development'],
       ['Quality Assurance', '#qa-activity'],
+      ['Triage', '#triage'],
       ['Backlog', '#backlog'],
       ['Tests', '#tests'],
     ],
@@ -118,8 +119,12 @@ test('the Backlog link is the only active link while the backlog view is shown',
   assert.deepEqual(anchors.filter(({ active }) => active).map(({ label }) => label), ['Backlog'])
 })
 
+test('the Triage link is the only active link while the triage view is shown', () => {
+  assert.deepEqual(renderNavigationAnchors('triage').filter(({ active }) => active).map(({ label }) => label), ['Triage'])
+})
+
 test('the Backlog link is not active on the other views', () => {
-  for (const view of ['development', 'qa-activity', 'tests']) {
+  for (const view of ['development', 'qa-activity', 'triage', 'tests']) {
     const backlog = renderNavigationAnchors(view).find(({ label }) => label === 'Backlog')
     assert.equal(backlog?.active, false, `${view} should not mark Backlog active`)
   }

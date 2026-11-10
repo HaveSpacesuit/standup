@@ -1,37 +1,28 @@
-import { Fragment, memo, useLayoutEffect, useRef, type ReactNode } from 'react'
-import { Badge, Box, Button, Checkbox, IconButton, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
+import { memo, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { Box, Button, Checkbox, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
-import svgCalendar from '@stratakit/icons/calendar.svg'
 import svgChevronRight from '@stratakit/icons/chevron-right.svg'
 import svgFlag from '@stratakit/icons/flag.svg'
 import svgSortDescending from '@stratakit/icons/sort-descending.svg'
-import svgStatusWarning from '@stratakit/icons/status-warning.svg'
-import svgWindowPopout from '@stratakit/icons/window-popout.svg'
-import { AdoAvatar } from './AdoAvatar'
 import { AppTooltip as Tooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
+import { CreatedAge, ImpactBars, MissingValue, PersonLabel, SeverityChip, SprintLabel, StateLabel } from './WorkItemFields'
+import { WorkItemTitle } from './WorkItemTitle'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
-import { abbreviateState } from './workItemCardDisplay'
+import { METER_TRACK_COLOR, workItemTitleCellSx } from './workItemTableDisplay'
 import { UNASSIGNED_LABEL } from '../utils/backlogFilter'
 import type { BacklogTierThresholds } from '../utils/backlogOptions'
 import type { BacklogPlan, BacklogPlanPicks } from '../utils/backlogPlan'
-import type { BacklogSprint } from '../utils/backlogSprint'
 import { getBacklogTierStyle, groupBacklogBugsByTier, type BacklogTierGroup, type BacklogTierKey } from '../utils/backlogTiers'
 import {
   describeBacklogValue,
-  formatAssignee,
   formatBacklogValue,
-  formatCreatedDate,
   formatValueTerm,
-  getBacklogAgeDays,
-  getImpactDescription,
-  getSeverityDisplay,
   getValueMeterPercent,
   MIN_ADJUSTED_EFFORT,
   type RankedBacklogBug,
 } from '../utils/backlogValue'
-import { formatDayCount, formatSprintDateRange } from '../utils/sprintDates'
 import { formatEffort, formatEffortPoints } from '../utils/sprintEffortTotals'
 
 type BacklogTableProps = {
@@ -68,8 +59,6 @@ const visuallyHiddenSx: SxProps<Theme> = {
   whiteSpace: 'nowrap',
   border: 0,
 }
-
-const TRACK_COLOR = 'var(--stratakit-color-bg-glow-on-surface-neutral-pressed)'
 
 const BUG_COLUMN_MIN_WIDTH = 300
 
@@ -130,84 +119,12 @@ const planRankCellSx: SxProps<Theme> = { ...rankCellSx, boxShadow: 'none' }
 const pickCellSx: SxProps<Theme> = { width: 36, pr: 0, boxShadow: TIER_BAR_SHADOW }
 const runningCellSx: SxProps<Theme> = { whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }
 
-// The id sits before the title like on the cards. Plain class names styled from the cell keep each row to one sx.
-const bugCellSx: SxProps<Theme> = {
-  minWidth: BUG_COLUMN_MIN_WIDTH,
-  overflowWrap: 'anywhere',
-  '& .backlog-bug-id': {
-    mr: 0.5,
-    fontWeight: 650,
-    fontVariantNumeric: 'tabular-nums',
-    color: 'text.secondary',
-  },
-}
-
-// Compact rows keep the bug to one line. Only the title text gives way, ending in an ellipsis with the full title in the
-// link's tooltip, so the id, the new-tab icon, and the tags stay whole. In a flex row the text spaces between them
-// collapse, so the gap spaces them instead.
-const compactBugSx: SxProps<Theme> = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 0.5,
-  maxWidth: 520,
-  whiteSpace: 'nowrap',
-  '& > a': { display: 'inline-flex', alignItems: 'center', minWidth: 0 },
-  '& .backlog-bug-title': { overflow: 'hidden', textOverflow: 'ellipsis' },
-  '& > ul': { flex: 'none' },
-}
-
-// Tags flow like words after the title, so many or long tags wrap with the title instead of widening the column. The
-// items are styled from the list because there can be thousands of them and a Box with its own sx costs on every mount.
-const tagListSx: SxProps<Theme> = {
-  display: 'inline',
-  m: 0,
-  p: 0,
-  listStyle: 'none',
-  '& > li': { display: 'inline', whiteSpace: 'nowrap' },
-}
+const bugCellSx: SxProps<Theme> = { ...workItemTitleCellSx, minWidth: BUG_COLUMN_MIN_WIDTH }
 
 // The scroller sits at a fractional offset (the app's 0.8px hairlines), and Chromium can snap a stuck header 1-2px
 // below the scroller's clip edge, exposing the row scrolled behind it. Sticking 1px above the edge keeps the header
 // flush with the clip. Larger offsets are worse: the clip's own rounding then decides where the header is visible.
 const headCellSx: SxProps<Theme> = { bgcolor: 'background.paper', whiteSpace: 'nowrap', top: '-1px', zIndex: 3 }
-
-const mutedSx: SxProps<Theme> = { color: TERTIARY_TEXT_COLOR }
-
-function NotSet() {
-  return (
-    <>
-      <span aria-hidden="true">&mdash;</span>
-      <Box component="span" sx={visuallyHiddenSx}>Not set</Box>
-    </>
-  )
-}
-
-const assumedMarkSx: SxProps<Theme> = {
-  display: 'inline-grid',
-  placeItems: 'center',
-  minWidth: 18,
-  height: 18,
-  px: 0.5,
-  border: '1px dashed var(--stratakit-color-border-attention-base)',
-  borderRadius: 999,
-  fontSize: 11,
-  fontWeight: 700,
-  lineHeight: 1,
-  color: 'var(--stratakit-color-text-attention-base)',
-  cursor: 'help',
-}
-
-/** A dashed "?" for a Value input left empty, whose tooltip says what the Value assumes instead. */
-function AssumedDefault({ tip }: { tip: string }) {
-  return (
-    <Tooltip title={tip} describeChild>
-      <Box component="span" sx={assumedMarkSx}>
-        <span aria-hidden="true">?</span>
-        <Box component="span" sx={visuallyHiddenSx}>Not set</Box>
-      </Box>
-    </Tooltip>
-  )
-}
 
 const SEVERITY_ASSUMED_TIP = 'Severity is not set, so the Value counts it as 4 - Low, and the bug may rank too low.'
 const IMPACT_ASSUMED_TIP = 'Impact (the Priority field) is not set, so the Value counts it as 4: few users hit it.'
@@ -231,7 +148,7 @@ const valueSx: SxProps<Theme> = {
     height: 6,
     borderRadius: '3px',
     overflow: 'hidden',
-    bgcolor: TRACK_COLOR,
+    bgcolor: METER_TRACK_COLOR,
   },
   '& > .backlog-value-meter > span': {
     display: 'block',
@@ -260,190 +177,26 @@ export function BugValue({ bug }: { bug: RankedBacklogBug }) {
   )
 }
 
-function BugTags({ tags, compact }: { tags: string[] | undefined; compact: boolean }) {
-  if (!tags || tags.length === 0) {
-    return null
-  }
-
-  const shownTags = compact ? tags.slice(0, 1) : tags
-  const moreTags = tags.slice(shownTags.length)
-
-  // Text spaces separate the title and tags rather than margins: a space drops at a line break, so a wrapped tag stays
-  // flush left, and copied text keeps the tags apart.
-  return (
-    <>
-      {' '}
-      <Box component="ul" role="list" aria-label="Tags" sx={tagListSx}>
-        {shownTags.map((tag, index) => (
-          <Fragment key={tag}>
-            {index > 0 && ' '}
-            <li>
-              {/* MUI shows a badge whose content is a number above max as "99+", and that includes a tag like 2026. */}
-              <Badge variant="inline" type="outlined" size="small" max={Infinity} badgeContent={tag} />
-            </li>
-          </Fragment>
-        ))}
-        {moreTags.length > 0 ? (
-          <>
-            {' '}
-            <li>
-              <Tooltip title={moreTags.join(', ')} describeChild>
-                <Box component="span" sx={mutedSx}>
-                  <span aria-hidden="true">+{moreTags.length}</span>
-                  <Box component="span" sx={visuallyHiddenSx}>{`and ${moreTags.join(', ')}`}</Box>
-                </Box>
-              </Tooltip>
-            </li>
-          </>
-        ) : null}
-      </Box>
-    </>
-  )
-}
-
-/** The id, then the title linking to the work item, then the tags. */
-function BugTitle({ bug, compact }: { bug: RankedBacklogBug; compact: boolean }) {
-  const link = (
-    <Link href={bug.workItemUrl} target="_blank" rel="noreferrer noopener">
-      <span className="backlog-bug-title">{bug.title}</span>
-      <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', ml: 0.5 }}>
-        <Icon href={svgWindowPopout} alt="" />
-      </Box>
-      <Box component="span" sx={visuallyHiddenSx}> (opens in a new tab)</Box>
-    </Link>
-  )
-
-  return (
-    <Box sx={compact ? compactBugSx : undefined}>
-      <span className="backlog-bug-id">{bug.id}</span>{' '}
-      {compact ? <Tooltip title={bug.title} describeChild>{link}</Tooltip> : link}
-      <BugTags tags={bug.tags} compact={compact} />
-    </Box>
-  )
-}
-
-const severityChipSx: SxProps<Theme> = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '5px',
-  height: 20,
-  pl: '6px',
-  pr: 1,
-  border: '1px solid var(--backlog-severity-border, var(--stratakit-color-border-neutral-muted))',
-  borderRadius: 999,
-  fontSize: 11,
-  lineHeight: 1,
-  whiteSpace: 'nowrap',
-  color: 'var(--backlog-severity-text, var(--stratakit-color-text-neutral-secondary))',
-  '&::before': {
-    content: '""',
-    width: 7,
-    height: 7,
-    borderRadius: '50%',
-    bgcolor: 'var(--backlog-severity-dot, var(--stratakit-color-bg-mono-base))',
-  },
-  '& > b': { fontWeight: 700 },
-  '&[data-level="1"]': {
-    '--backlog-severity-text': 'var(--stratakit-color-text-critical-base)',
-    '--backlog-severity-border': 'var(--stratakit-color-border-critical-muted)',
-    '--backlog-severity-dot': 'var(--stratakit-color-bg-critical-base)',
-  },
-  '&[data-level="2"]': {
-    '--backlog-severity-text': 'var(--stratakit-color-text-attention-base)',
-    '--backlog-severity-border': 'var(--stratakit-color-border-attention-muted)',
-    '--backlog-severity-dot': 'var(--stratakit-color-bg-attention-base)',
-  },
-  '&[data-level="4"]': {
-    '--backlog-severity-text': TERTIARY_TEXT_COLOR,
-    '--backlog-severity-dot': 'var(--stratakit-color-bg-mono-muted)',
-  },
-}
-
-const severityUnsetSx: SxProps<Theme> = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  height: 20,
-  px: 1,
-  border: '1px dashed var(--stratakit-color-border-attention-base)',
-  borderRadius: 999,
-  fontSize: 11,
-  lineHeight: 1,
-  whiteSpace: 'nowrap',
-  color: 'var(--stratakit-color-text-attention-base)',
-  cursor: 'help',
-}
-
 /** "S1 · Critical" in a chip whose dot and color climb with the severity; a dashed chip when it is not set. */
 export function BugSeverity({ severity }: { severity: string | undefined }) {
-  const display = getSeverityDisplay(severity)
-  if (!display) {
-    return (
-      <Tooltip title={SEVERITY_ASSUMED_TIP} describeChild>
-        <Box component="span" sx={severityUnsetSx}>Not set</Box>
-      </Tooltip>
-    )
-  }
-
-  if (display.level === undefined) {
-    return (
-      <Tooltip title="The Value cannot read this severity, so it counts it as 4 - Low." describeChild>
-        <Box component="span" sx={severityChipSx}>{display.label}</Box>
-      </Tooltip>
-    )
-  }
-
   return (
-    <Box component="span" sx={severityChipSx} data-level={display.level}>
-      <b>S{display.level}</b> · {display.name}
-    </Box>
+    <SeverityChip
+      severity={severity}
+      unsetTip={SEVERITY_ASSUMED_TIP}
+      unreadableTip="The Value cannot read this severity, so it counts it as 4 - Low."
+    />
   )
 }
 
-const impactSx: SxProps<Theme> = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '5px',
-  cursor: 'help',
-  fontVariantNumeric: 'tabular-nums',
-  '& > .backlog-impact-bars': { display: 'inline-flex', alignItems: 'flex-end', gap: '2px', height: 13 },
-  '& > .backlog-impact-bars > span': { width: 4, borderRadius: '1px', bgcolor: TRACK_COLOR },
-  '& > .backlog-impact-bars > span:nth-of-type(1)': { height: 4 },
-  '& > .backlog-impact-bars > span:nth-of-type(2)': { height: 7 },
-  '& > .backlog-impact-bars > span:nth-of-type(3)': { height: 10 },
-  '& > .backlog-impact-bars > span:nth-of-type(4)': { height: 13 },
-  '& > .backlog-impact-bars > span[data-on]': { bgcolor: 'var(--stratakit-color-text-neutral-secondary)' },
-}
-
-const IMPACT_BAR_COUNT = 4
-
-/** Signal bars that fill as more users hit the bug (Impact 1 fills all four), then the level as entered. */
+/** Signal bars that fill as more users hit the bug, with what the level scores in the Value in the tooltip. */
 function BugImpact({ priority, score }: { priority: number | undefined; score: number }) {
-  if (priority === undefined) {
-    return <AssumedDefault tip={IMPACT_ASSUMED_TIP} />
-  }
-
-  const description = getImpactDescription(priority)
-  if (!description) {
-    return (
-      <Tooltip title="The Value cannot read this impact, so it counts it as 4: few users hit it." describeChild>
-        <span>{priority}</span>
-      </Tooltip>
-    )
-  }
-
-  const lit = IMPACT_BAR_COUNT + 1 - priority
-  const tip = [`Impact ${priority}: ${description}`, `The Priority field · scored ${formatValueTerm(score)}`]
   return (
-    <Tooltip title={<TipLines lines={tip} />} describeChild>
-      <Box component="span" sx={impactSx}>
-        <span className="backlog-impact-bars" aria-hidden="true">
-          {Array.from({ length: IMPACT_BAR_COUNT }, (_, index) => (
-            <span key={index} data-on={index < lit ? '' : undefined} />
-          ))}
-        </span>
-        {priority}
-      </Box>
-    </Tooltip>
+    <ImpactBars
+      priority={priority}
+      detail={`The Priority field · scored ${formatValueTerm(score)}`}
+      missingTip={IMPACT_ASSUMED_TIP}
+      unknownTip="The Value cannot read this impact, so it counts it as 4: few users hit it."
+    />
   )
 }
 
@@ -458,7 +211,7 @@ const raisedEffortSx: SxProps<Theme> = {
 /** The Effort as entered; one under the minimum is underlined, with a tooltip saying the Value counts the minimum. */
 export function BugEffort({ effort }: { effort: number | undefined }) {
   if (effort === undefined) {
-    return <AssumedDefault tip={EFFORT_ASSUMED_TIP} />
+    return <MissingValue tip={EFFORT_ASSUMED_TIP} />
   }
 
   if (effort < MIN_ADJUSTED_EFFORT) {
@@ -470,144 +223,6 @@ export function BugEffort({ effort }: { effort: number | undefined }) {
   }
 
   return effort
-}
-
-/** The age, such as "4mo", with the created date in its tooltip; screen readers read the date instead. */
-function BugAge({ createdAt }: { createdAt: string | undefined }) {
-  const days = getBacklogAgeDays(createdAt)
-  if (createdAt === undefined || days === undefined) {
-    return <NotSet />
-  }
-
-  const created = `Created ${formatCreatedDate(createdAt)}`
-  return (
-    <Tooltip title={created} describeChild>
-      <time dateTime={createdAt}>
-        <span aria-hidden="true">{formatDayCount(days)}</span>
-        <Box component="span" sx={visuallyHiddenSx}>{created}</Box>
-      </time>
-    </Tooltip>
-  )
-}
-
-/**
- * New, where most bugs wait, is muted text; any other state is a badge so work under way stands out. A long state is
- * abbreviated as on the cards ("AFT"), with the full state in its tooltip and for screen readers.
- */
-function BugState({ state }: { state: string | undefined }) {
-  if (!state) {
-    return <NotSet />
-  }
-
-  if (state === 'New') {
-    return <Box component="span" sx={mutedSx}>{state}</Box>
-  }
-
-  const shortState = abbreviateState(state)
-  const badge = (
-    <Badge
-      variant="inline"
-      type="outlined"
-      size="small"
-      max={Infinity}
-      style={{ maxWidth: '100%' }}
-      slotProps={{ badge: { style: { maxWidth: '100%' } } }}
-      badgeContent={<span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortState}</span>}
-    />
-  )
-  if (shortState === state) {
-    return <Tooltip title={state} describeChild>{badge}</Tooltip>
-  }
-
-  return (
-    <Tooltip title={state} describeChild>
-      <span style={{ display: 'inline-flex', maxWidth: '100%' }}>
-        <span aria-hidden="true">{badge}</span>
-        <Box component="span" sx={visuallyHiddenSx}>{state}</Box>
-      </span>
-    </Tooltip>
-  )
-}
-
-const SPRINT_COLORS: Record<BacklogSprint['kind'], string> = {
-  current: 'var(--stratakit-color-text-accent-strong)',
-  next: 'text.primary',
-  future: 'text.primary',
-  past: 'var(--stratakit-color-text-attention-base)',
-  backlog: TERTIARY_TEXT_COLOR,
-  unknown: 'text.secondary',
-}
-
-const SPRINT_ICONS: Partial<Record<BacklogSprint['kind'], { href: string; color: string }>> = {
-  current: { href: svgCalendar, color: 'var(--stratakit-color-icon-accent-strong)' },
-  next: { href: svgCalendar, color: 'var(--stratakit-color-icon-neutral-secondary)' },
-  past: { href: svgStatusWarning, color: 'var(--stratakit-color-icon-attention-base)' },
-}
-
-/** "This sprint", "Next sprint", "Sprint 12 · ended", or "Backlog", with the sprint's dates or the path in a tooltip. */
-export function BugSprint({ sprint, iterationPath }: { sprint: BacklogSprint; iterationPath: string | undefined }) {
-  const { iteration } = sprint
-  const tip = iteration
-    ? `${iteration.name}: ${formatSprintDateRange(iteration.startDate, iteration.finishDate)}`
-    : iterationPath?.trim() || 'No iteration path'
-  const icon = SPRINT_ICONS[sprint.kind]
-
-  return (
-    <Tooltip title={tip} describeChild>
-      <Box
-        component="span"
-        sx={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          maxWidth: '100%',
-          gap: 0.5,
-          color: SPRINT_COLORS[sprint.kind],
-          fontWeight: sprint.kind === 'current' ? 600 : undefined,
-        }}
-      >
-        {icon ? <Icon href={icon.href} alt="" style={{ color: icon.color, flexShrink: 0 }} /> : null}
-        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {sprint.label}
-        </Box>
-      </Box>
-    </Tooltip>
-  )
-}
-
-const personSx: SxProps<Theme> = { display: 'inline-flex', alignItems: 'center', gap: 0.75, overflowWrap: 'anywhere' }
-const avatarSx: SxProps<Theme> = { width: 16, height: 16, fontSize: 9, flex: '0 0 auto' }
-
-/** The assignee's avatar and name; compact rows show only the avatar, with the name in its tooltip. */
-function BugAssignee({ assignedTo, compact }: { assignedTo: RankedBacklogBug['assignedTo']; compact: boolean }) {
-  const name = formatAssignee(assignedTo)
-  if (!name) {
-    return <Box component="span" sx={mutedSx}>{UNASSIGNED_LABEL}</Box>
-  }
-
-  // Decorative: the name is beside it, or in visually hidden text when compact, so its initial is not read twice.
-  const avatar = (
-    <AdoAvatar alt="" aria-hidden="true" src={assignedTo?.imageUrl} sx={avatarSx}>
-      {name.trim().charAt(0).toUpperCase()}
-    </AdoAvatar>
-  )
-
-  if (compact) {
-    return (
-      <Tooltip title={name} describeChild>
-        <Box component="span" sx={personSx}>
-          {avatar}
-          <Box component="span" sx={visuallyHiddenSx}>{name}</Box>
-        </Box>
-      </Tooltip>
-    )
-  }
-
-  return (
-    <Box component="span" sx={personSx}>
-      {avatar}
-      {name}
-    </Box>
-  )
 }
 
 const tierHeadCellSx: SxProps<Theme> = {
@@ -642,7 +257,7 @@ const tierHeadSx: SxProps<Theme> = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    bgcolor: TRACK_COLOR,
+    bgcolor: METER_TRACK_COLOR,
     fontSize: 11,
     fontWeight: 700,
     fontVariantNumeric: 'tabular-nums',
@@ -804,7 +419,7 @@ const BacklogRow = memo(function BacklogRow({
       <TableCell align="right" sx={planning ? planRankCellSx : rankCellSx}>{bug.rank}</TableCell>
       <TableCell sx={noWrapSx}><BugValue bug={bug} /></TableCell>
       <TableCell sx={bugCellSx}>
-        <BugTitle bug={bug} compact={compact} />
+        <WorkItemTitle item={bug} compact={compact} />
         {emphasis === 'match' ? <Box component="span" sx={visuallyHiddenSx}>Highlighted</Box> : null}
       </TableCell>
       <TableCell sx={noWrapSx}><BugSeverity severity={bug.severity} /></TableCell>
@@ -815,10 +430,10 @@ const BacklogRow = memo(function BacklogRow({
           {running ? <span className={picked ? 'backlog-running' : 'backlog-skip-reason'}>{running}</span> : null}
         </TableCell>
       ) : null}
-      <TableCell align="right" sx={noWrapSx}><BugAge createdAt={bug.createdAt} /></TableCell>
-      <TableCell sx={noWrapSx}><BugSprint sprint={bug.sprint} iterationPath={bug.iterationPath} /></TableCell>
-      <TableCell sx={noWrapSx}><BugState state={bug.state} /></TableCell>
-      <TableCell><BugAssignee assignedTo={bug.assignedTo} compact={compact} /></TableCell>
+      <TableCell align="right" sx={noWrapSx}><CreatedAge createdAt={bug.createdAt} /></TableCell>
+      <TableCell sx={noWrapSx}><SprintLabel sprint={bug.sprint} iterationPath={bug.iterationPath} /></TableCell>
+      <TableCell sx={noWrapSx}><StateLabel state={bug.state} /></TableCell>
+      <TableCell><PersonLabel person={bug.assignedTo} emptyLabel={UNASSIGNED_LABEL} compact={compact} /></TableCell>
     </TableRow>
   )
 })

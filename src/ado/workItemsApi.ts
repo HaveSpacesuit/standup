@@ -31,7 +31,7 @@ function normalizeType(value: string): string {
   return value.trim().toLowerCase()
 }
 
-function getIconIdForWorkItemType(typeValue?: string): string {
+export function getIconIdForWorkItemType(typeValue?: string): string {
   if (!typeValue) {
     return 'icon_clipboard'
   }
@@ -124,7 +124,7 @@ export const EFFORT_FIELD_NAMES = [
   'Microsoft.VSTS.Scheduling.Size',
 ] as const
 
-function resolveEffort(fields: WorkItemApiItem['fields']): number | undefined {
+export function resolveEffort(fields: WorkItemApiItem['fields']): number | undefined {
   return (
     parseEffort(fields?.['Microsoft.VSTS.Scheduling.Effort']) ??
     parseEffort(fields?.['Microsoft.VSTS.Scheduling.StoryPoints']) ??

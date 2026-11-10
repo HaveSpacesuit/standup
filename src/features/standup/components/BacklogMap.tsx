@@ -6,8 +6,9 @@ import svgArrowLeft from '@stratakit/icons/arrow-left.svg'
 import svgCheckmark from '@stratakit/icons/checkmark.svg'
 import svgInfo from '@stratakit/icons/info.svg'
 import { AppTooltip as Tooltip } from './AppTooltip'
-import { BugEffort, BugSeverity, BugSprint, BugValue } from './BacklogTable'
+import { BugEffort, BugSeverity, BugValue } from './BacklogTable'
 import { TipLines } from './TipLines'
+import { SprintLabel } from './WorkItemFields'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import {
   createLogScale,
@@ -215,7 +216,7 @@ const MapBugRow = memo(function MapBugRow({
           <Box component="span" sx={visuallyHiddenSx}>Effort </Box>
           {bug.effort === undefined ? <BugEffort effort={undefined} /> : <><BugEffort effort={bug.effort} /> pts</>}
         </span>
-        <BugSprint sprint={bug.sprint} iterationPath={bug.iterationPath} />
+        <SprintLabel sprint={bug.sprint} iterationPath={bug.iterationPath} />
         {picked ? (
           <span className="backlog-map-row-picked">
             <Icon href={svgCheckmark} alt="" style={{ color: 'var(--stratakit-color-icon-accent-strong)' }} />

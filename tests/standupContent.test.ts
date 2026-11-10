@@ -104,8 +104,8 @@ test('Tests retains data across team changes, honors active-page auto-refresh, a
   await render('tests')
   assert.equal(requests.length, 1)
   const heading = host.querySelector('h1')!
-  const overlay = host.querySelector<HTMLButtonElement>('button[value="overlay"]')!
-  await act(async () => overlay.click())
+  const calendar = host.querySelector<HTMLButtonElement>('button[value="calendar"]')!
+  await act(async () => calendar.click())
 
   await render('backlog')
   assert.ok(heading.closest('[hidden]'), 'inactive Tests is hidden from view and accessibility')
@@ -117,7 +117,7 @@ test('Tests retains data across team changes, honors active-page auto-refresh, a
   assert.equal(host.querySelector('h1'), heading, 'Tests remains mounted')
   assert.equal(heading.closest('[hidden]'), null)
   assert.equal(requests.length, 1, 'returning with another team reuses the loaded results')
-  assert.equal(overlay.getAttribute('aria-pressed'), 'true', 'the selected view is preserved')
+  assert.equal(calendar.getAttribute('aria-pressed'), 'true', 'the selected view is preserved')
 
   await render('development', 'b')
   await render('tests', 'b')

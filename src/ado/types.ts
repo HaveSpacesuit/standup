@@ -150,6 +150,27 @@ export type ResolvedWorkItemAssignee = {
   kind: 'team-member' | 'unassigned' | 'history-unavailable'
 }
 
+export type TriageItem = {
+  id: number
+  title: string
+  workItemType: string
+  workItemIconUrl?: string
+  state: string
+  createdAt?: string
+  assignedTo?: IdentityRef
+  createdBy?: IdentityRef
+  severity?: string
+  priority?: number
+  effort?: number
+  iterationPath?: string
+  tags: string[]
+  reasons: string[]
+  workItemUrl: string
+  parent?: { id: number; title?: string; workItemUrl: string; unavailable: boolean }
+}
+
+export type TriageResult = { items: TriageItem[]; warnings: string[] }
+
 export type WorkItemFieldUpdate = {
   oldValue?: unknown
   newValue?: unknown

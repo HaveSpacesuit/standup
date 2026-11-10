@@ -11,6 +11,9 @@ import { fetchQualityAssuranceRawData, fetchSprintScopeChanges, fetchWorkItemsFo
 import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
 import type { BacklogBug, CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
 import type { QualityAssuranceRawData } from './workItemsApi'
+import { fetchTriageItems } from './triageApi'
+import type { TriageResult } from './types'
+import { getActiveTriageOptions, hasTriageRules, parseTriageOptions, type TriageOptions } from '../features/standup/utils/triageOptions'
 
 export type { BacklogBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
@@ -46,6 +49,7 @@ export class AdoQueryEngine {
   private readonly sprintScopeChangesCache = new Map<string, Promise<SprintScopeChanges>>()
   private readonly qaRawDataCache = new Map<string, Promise<QualityAssuranceRawData>>()
   private readonly backlogBugsCache = new Map<string, Promise<BacklogBug[]>>()
+  private readonly triageItemsCache = new Map<string, Promise<TriageResult>>()
   private readonly unlinkedPullRequestItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
   private readonly teamMembersCache = new Map<string, Promise<TeamMember[]>>()
   private readonly currentIterationCache = new Map<string, Promise<IterationWindowInfo>>()
@@ -254,6 +258,27 @@ export class AdoQueryEngine {
     }
 
     this.backlogBugsCache.clear()
+  }
+
+  async getTriageItems(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+    options: TriageOptions,
+  ): Promise<TriageResult> {
+    const normalized = getActiveTriageOptions(parseTriageOptions(options))
+    if (!hasTriageRules(normalized)) return { items: [], warnings: [] }
+    const key = `${backlogBugsCacheKey(team)}:${JSON.stringify({
+      tags: normalized.tags.map((tag) => tag.toLowerCase()).sort(),
+      includeNewBugs: normalized.includeNewBugs,
+      excludedIterationPaths: normalized.excludedIterationPaths.map((path) => path.toLowerCase()).sort(),
+    })}`
+    return this.getOrLoadCached(this.triageItemsCache, key, async () =>
+      fetchTriageItems(this.client, team, normalized, await this.getProjectWorkItemTypeInfo(team)))
+  }
+
+  clearTriageDataCache(teamId?: string): void {
+    for (const key of this.triageItemsCache.keys()) {
+      if (!teamId || key.startsWith(`${teamId}:`)) this.triageItemsCache.delete(key)
+    }
   }
 
   clearTeamIterationsCache(teamId: string): void {

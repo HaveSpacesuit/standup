@@ -1,0 +1,193 @@
+import './stratakitNodeGlobals.ts'
+import assert from 'node:assert/strict'
+import { after, test, type TestContext } from 'node:test'
+import { act, createElement } from 'react'
+import { createServer } from 'vite'
+import { JSDOM } from 'jsdom'
+import type { TriageItem } from '../src/ado/types.ts'
+import type { TriageOptions } from '../src/features/standup/utils/triageOptions.ts'
+
+const dom = new JSDOM('<!doctype html><html><body></body></html>')
+// The assignee avatars read the saved PAT from the bare storage globals.
+for (const name of ['localStorage', 'sessionStorage']) {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, name)
+  Object.defineProperty(globalThis, name, { configurable: true, value: { getItem: () => null } })
+  after(() => {
+    if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+    else Reflect.deleteProperty(globalThis, name)
+  })
+}
+Object.assign(globalThis, {
+  window: dom.window,
+  document: dom.window.document,
+  Document: dom.window.Document,
+  HTMLElement: dom.window.HTMLElement,
+  Node: dom.window.Node,
+  ShadowRoot: dom.window.ShadowRoot,
+  MutationObserver: dom.window.MutationObserver,
+  IS_REACT_ACT_ENVIRONMENT: true,
+})
+const { createRoot } = await import('react-dom/client')
+const server = await createServer({
+  configFile: false,
+  server: { middlewareMode: true, ws: false },
+  ssr: { noExternal: [/^@stratakit\//] },
+})
+after(async () => {
+  await server.close()
+  dom.window.close()
+})
+const { Root } = await server.ssrLoadModule('@stratakit/mui')
+const { TriagePage } = await server.ssrLoadModule('/src/features/standup/pages/TriagePage.tsx')
+
+const item: TriageItem = {
+  id: 42, title: 'Crash on save', workItemType: 'Bug', state: 'New', tags: ['Triage'], reasons: ['Tag: Triage'],
+  workItemUrl: 'https://dev.azure.com/org/Project/_workitems/edit/42',
+}
+const noop = () => {}
+
+async function renderPage(t: TestContext, options: TriageOptions, onOptionsChange: (options: TriageOptions) => void = noop) {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => {
+    await act(async () => root.unmount())
+    host.remove()
+  })
+  await act(async () => root.render(createElement(Root, null, createElement(TriagePage, {
+    patConfigured: true,
+    teamOptions: [{ id: 'a', displayName: 'Team A', orgName: 'org', projectName: 'Project', teamName: 'A', areaPath: 'Project\\A', iterationPath: 'Project', repoName: 'repo' }],
+    selectedTeamId: 'a', onTeamChange: noop, teamManagementUrl: '',
+    result: { items: [item], warnings: [] }, isLoading: false, error: null, syncedAt: null, onRefresh: noop,
+    options, settingsError: null, onOptionsChange, quickFilterInputRef: { current: null },
+    iterations: [{ name: 'Sprint 1', path: 'Project\\Sprint 1', timeFrame: 'current' }], iterationsLoading: false, iterationsError: null,
+  }))))
+  return host
+}
+
+// React tracks an input's value, so typing has to go through the native setter for the change to be noticed.
+const setNativeValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!
+async function typeInto(input: HTMLInputElement, text: string) {
+  await act(async () => {
+    setNativeValue.call(input, text)
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  })
+}
+const click = (element: HTMLElement) => act(async () => element.click())
+const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
+const buttonNamed = (scope: ParentNode, text: string) =>
+  [...scope.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent === text)!
+
+async function openOptions(host: Element) {
+  await click(host.querySelector<HTMLButtonElement>('button[aria-label="Triage options"]')!)
+  return dialog()!
+}
+const tagGroup = (opened: Element) => opened.querySelector('[role="group"][aria-labelledby]')!
+const tagInput = (opened: Element) => opened.querySelector<HTMLInputElement>('input[aria-label="Add Triage tag"]')!
+const tagChips = (opened: Element) => [...tagGroup(opened).querySelectorAll('.MuiChip-root')].map((chip) => chip.querySelector('.MuiChip-label')!.textContent)
+function pathInput(opened: Element) {
+  const label = [...opened.querySelectorAll('label')].find((candidate) => candidate.textContent === 'Excluded iteration paths')!
+  return document.getElementById(label.htmlFor) as HTMLInputElement
+}
+const newBugsCheckbox = (opened: Element) => opened.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+
+test('Triage tags are pills edited with one input and an Add button, like QA tag filters', async (t) => {
+  const saved: TriageOptions[] = []
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [] }, (options) => saved.push(options))
+  const opened = await openOptions(host)
+
+  const group = tagGroup(opened)
+  assert.equal(document.getElementById(group.getAttribute('aria-labelledby')!)?.textContent, 'Triage tags')
+  assert.deepEqual(tagChips(opened), ['Triage'])
+  const add = buttonNamed(group, 'Add')
+  assert.equal(add.disabled, true, 'Add waits for text')
+
+  await typeInto(tagInput(opened), 'Needs review')
+  assert.equal(add.disabled, false)
+  await click(add)
+  assert.deepEqual(tagChips(opened), ['Triage', 'Needs review'])
+  assert.equal(tagInput(opened).value, '', 'the input clears after adding')
+
+  await typeInto(tagInput(opened), 'triage; Bug bash')
+  await act(async () => {
+    tagInput(opened).dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+  })
+  assert.deepEqual(tagChips(opened), ['Triage', 'Needs review', 'Bug bash'], 'Enter adds; separators split and duplicates are skipped')
+  assert.equal(dialog(), opened, 'Enter does not submit or close the dialog')
+
+  const remove = [...group.querySelectorAll<HTMLButtonElement>('.MuiChip-root button')][0]
+  assert.match(remove.textContent ?? '', /Clear/, 'each pill has a labelled remove button')
+  await click(remove)
+  assert.deepEqual(tagChips(opened), ['Needs review', 'Bug bash'])
+
+  await typeInto(tagInput(opened), 'Escalated')
+  await click(buttonNamed(opened, 'Save'))
+  assert.deepEqual(saved, [{ tags: ['Bug bash', 'Escalated', 'Needs review'], includeNewBugs: false, excludedIterationPaths: [] }],
+    'Save includes a tag typed but not yet added')
+  assert.equal(dialog(), null)
+})
+
+test('removing every tag shows the empty text, and saving with no tags keeps tag matching off', async (t) => {
+  const saved: TriageOptions[] = []
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: [] }, (options) => saved.push(options))
+  const opened = await openOptions(host)
+  await click(tagGroup(opened).querySelector<HTMLButtonElement>('.MuiChip-root button')!)
+  assert.deepEqual(tagChips(opened), [])
+  assert.match(tagGroup(opened).textContent ?? '', /No Triage tags\. Tag matching is off\./)
+  await click(buttonNamed(opened, 'Save'))
+  assert.deepEqual(saved, [{ tags: [], includeNewBugs: true, excludedIterationPaths: [] }])
+})
+
+test('excluded iteration paths are disabled while new bugs is off, and kept when saved', async (t) => {
+  const saved: TriageOptions[] = []
+  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'] }
+  const host = await renderPage(t, options, (next) => saved.push(next))
+  const opened = await openOptions(host)
+
+  assert.equal(newBugsCheckbox(opened).checked, false)
+  assert.equal(pathInput(opened).disabled, true)
+  assert.match(opened.textContent ?? '', /Turn on new bugs to use excluded iteration paths\. Saved paths are kept\./)
+  assert.match(opened.textContent ?? '', /Project\\Refine/, 'the saved path is still shown')
+  const pathRemoveButtons = () => opened.querySelectorAll('.MuiAutocomplete-tag button')
+  assert.equal(pathRemoveButtons().length, 0, 'a saved path cannot be removed while the field is disabled')
+
+  await click(newBugsCheckbox(opened))
+  assert.equal(pathInput(opened).disabled, false)
+  assert.equal(pathRemoveButtons().length, 1)
+  assert.match(opened.textContent ?? '', /excluded only for new bugs/)
+  await typeInto(pathInput(opened), 'Project\\Pending')
+
+  await click(newBugsCheckbox(opened))
+  assert.equal(pathInput(opened).disabled, true)
+  await click(buttonNamed(opened, 'Save'))
+  assert.deepEqual(saved, [options], 'the saved paths are kept, but text typed into the disabled field is not')
+})
+
+test('turning new bugs on saves the excluded paths, including one still being typed', async (t) => {
+  const saved: TriageOptions[] = []
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'] }, (next) => saved.push(next))
+  const opened = await openOptions(host)
+  await click(newBugsCheckbox(opened))
+  await typeInto(pathInput(opened), 'Project\\Later')
+  await click(buttonNamed(opened, 'Save'))
+  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Later', 'Project\\Refine'] }])
+})
+
+test('the no-rules card opens Triage options', async (t) => {
+  const host = await renderPage(t, { tags: [], includeNewBugs: false, excludedIterationPaths: [] })
+  assert.equal(host.querySelector('main h2')?.textContent, 'No Triage rules')
+  await click(buttonNamed(host, 'Open Triage options'))
+  assert.equal(dialog()?.querySelector('h2')?.textContent, 'Triage options')
+})
+
+test('a quick filter that hides every item says so as muted status text, not the empty-queue card', async (t) => {
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [] })
+  const count = () => host.querySelector('p[aria-live="polite"]')?.textContent
+  assert.ok(host.querySelector('table'))
+  assert.equal(count(), '1 item', 'like Backlog, the count names the total alone while nothing is filtered out')
+  await typeInto(host.querySelector<HTMLInputElement>('input[aria-label="Quick filter triage items"]')!, 'no such item')
+  assert.equal(count(), '0 of 1 item')
+  assert.equal(host.querySelector('table'), null)
+  assert.equal(host.querySelector('main [role="status"]')?.textContent, 'No items match the quick filter. Clear it to see the triage queue.')
+  assert.equal(host.querySelector('.MuiCard-root'), null)
+})

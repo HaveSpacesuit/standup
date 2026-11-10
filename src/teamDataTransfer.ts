@@ -19,6 +19,7 @@ import type {
 } from './features/standup/utils/qaOptions'
 import { DEFAULT_ASSIGNMENT_SPRINT_FILTER } from './features/standup/utils/assignmentOptions'
 import { DEFAULT_QA_LOOKBACK_DAYS, EMPTY_SPRINT_FILTER, normalizeQaLookbackDays } from './features/standup/utils/qaOptions'
+import { createDefaultTriageOptions, parseTriageOptions, type TriageOptions } from './features/standup/utils/triageOptions'
 
 export type TeamDataExport = {
   schemaVersion: 1
@@ -28,6 +29,7 @@ export type TeamDataExport = {
   assignmentTagRules: TagRule[]
   qaOptions: QaOptions
   backlogOptions: BacklogOptions
+  triageOptions: TriageOptions
 }
 
 const VALID_TAG_RULE_ACTIONS = new Set<TagRuleAction>([
@@ -299,7 +301,8 @@ export function buildTeamDataExport({
   assignmentTagRules,
   qaOptions,
   backlogOptions,
-}: Omit<TeamDataExport, 'schemaVersion' | 'exportedAt'>): TeamDataExport {
+  triageOptions = createDefaultTriageOptions(),
+}: Omit<TeamDataExport, 'schemaVersion' | 'exportedAt' | 'triageOptions'> & { triageOptions?: TriageOptions }): TeamDataExport {
   return {
     schemaVersion: 1,
     exportedAt: new Date().toISOString(),
@@ -308,6 +311,7 @@ export function buildTeamDataExport({
     assignmentTagRules,
     qaOptions,
     backlogOptions,
+    triageOptions,
   }
 }
 
@@ -342,5 +346,6 @@ export function parseImportedTeamData(jsonText: string): TeamDataExport {
     ),
     qaOptions: parseQaOptions(parsed.qaOptions),
     backlogOptions: parseImportedBacklogOptions(parsed.backlogOptions),
+    triageOptions: parsed.triageOptions === undefined ? createDefaultTriageOptions() : parseTriageOptions(parsed.triageOptions),
   }
 }

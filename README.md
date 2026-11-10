@@ -116,13 +116,13 @@ attention bar. The setting is saved per team and included in team exports.
 
 Development opens on the Developers board, Quality Assurance on Testers, Backlog on List, and Tests on Rows.
 Turn on Settings > Display > "Remember last page and view" to return to your last page when opening the site
-without a page route, and reopen each page on its last view, such as Sprint, Flow, Map, or Overlay.
+without a page route, and reopen each page on its last view, such as Sprint, Flow, Map, or Calendar.
 An explicit page route always takes precedence. When off, the site opens on Development unless a route specifies
 another page. The setting, last page, and each page's last view are saved in this browser, not in team exports.
 
 Settings > Display > **Auto-refresh current page** is off by default. When enabled, its interval defaults to
 15 minutes and accepts positive whole minutes. Both choices are saved in local storage (`standup:auto-refresh`),
-not in team exports. Development, Quality Assurance, Backlog, and Tests each use their own last-refresh time
+not in team exports. Development, Quality Assurance, Triage, Backlog, and Tests each use their own last-refresh time
 (per team where applicable). Only the current page refreshes when its data reaches that age; navigating to a
 page with older data refreshes it on entry. Manual refresh resets that page's clock, and an in-progress load
 is never overlapped. Failed automatic refreshes retain the normal error display and wait an interval before
@@ -285,6 +285,52 @@ recent transition into a QA-ready state takes precedence and routes the item to 
 Otherwise, items created within the lookback window appear in Newly added. Ready for QA and
 Recently completed state precedence, and explicit tag-based grouping, are unchanged.
 
+### Triage view
+
+Triage sits between Quality Assurance and Backlog in the navigation rail, under a category icon. It
+is a read-only queue for unfinished work under the selected team's area path (including descendant
+areas), separate from Backlog's bug ranking and sprint planning.
+
+**Triage options** are saved per team and included in team exports:
+
+- **Triage tags** defaults to `Triage`. Tags appear as removable pills; type a tag and select **Add**
+  or press Enter, as with Quality Assurance's tag filters. Separate several tags with `;`, as Azure
+  DevOps does. A tag typed but not yet added is included when you save. Any whole tag matches,
+  case-insensitively. Tagged work items of any type, iteration, or unfinished state (including
+  Approved) can qualify. Removing every tag turns tag matching off.
+- **Also include new bugs** is off by default. When enabled, Bugs still in their type's initial
+  state qualify: the first **Proposed**-category state, which Azure DevOps assigns to new work items
+  (New in Scrum and Agile, Proposed in CMMI, or a custom name). Later Proposed states such as
+  Approved have already been triaged and do not count. There is no creation-date cutoff.
+- **Excluded iteration paths** applies only to the new-bug rule, so it is disabled and ignored while
+  that rule is off. Saved paths are kept and apply again when the rule is turned back on. Select a
+  team sprint or enter a full path, such as `Project\To Refine`. That path and its descendants are
+  excluded, but a matching tag still includes an item there. No exclusions means all new bugs in the
+  area qualify.
+
+Both sources exclude **Completed** and **Removed** state categories, using each work item's own
+type metadata. Resolved-category items remain eligible. With no tags and the new-bug rule off,
+the page shows a **No Triage rules** card with an **Open Triage options** button rather than
+querying all work items. While the queue loads, skeleton rows stand in for the table, as on
+Backlog. An empty queue shows a **Nothing to triage** card naming the rules that found nothing.
+
+Items appear once, oldest created first (ID breaks ties; missing dates sort last). Columns follow
+Backlog's table in order and formatting. The Work item column shows an accessible type icon, the ID,
+the title linking to Azure DevOps, and the tags as pills after it. Then come colored Severity chips,
+Impact signal bars (the Priority field), Effort, Age, Sprint, State, and Assigned to, followed by
+Created by and the immediate Parent's ID/title. Sprint places the iteration against the team's
+sprints as Backlog does (This sprint, Next sprint, a sprint name, or Backlog). Missing Severity,
+Impact, and Effort are flagged on Bugs as on Backlog, and shown as a dash for other types; unassigned
+items show a muted Unassigned. Triage has no Value score, raised-effort marker, or matching-reason
+column. Item and parent links open Azure DevOps for edits. An unavailable parent's known ID/link is
+retained with an explicit warning. Quick filtering searches the displayed text, including tags,
+creator, type, sprint label, and parent; `/` and Ctrl/Cmd+F focus it.
+
+Refresh and automatic refresh load the active team's queue using its own sync time. Changing team
+or options never shows the prior query's results as current. Older team exports without Triage
+options use the defaults. Unreadable saved Triage options produce an error and suspend loading;
+the original data is retained until you explicitly save replacement options.
+
 ### Backlog view
 
 The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, a **Plan a sprint** button, a **View** toggle for List or Map, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
@@ -388,15 +434,13 @@ The Tests page charts e2e pass percentages across a configurable lookback window
 
 After the first visit, Tests keeps its loaded results and page state when navigating away, including when switching teams on another page. Team sprint labels can update without reloading pipeline results. Use Refresh to fetch fresh results; changing pipeline sources, the lookback window, or the PAT also reloads them. If global auto-refresh is enabled, Tests reloads only while it is the current page and its results are old enough, including when returning to stale results.
 
-The toolbar's View toggle switches between Rows (the default), Overlay, and Calendar. Rows and Overlay use a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages so differences near 100% stay visible; "How to read this chart" (or "How to read this calendar") beside the intro line explains the view.
+The toolbar's View toggle switches between Rows (the default) and Calendar. Rows uses a logarithmic scale of failures (with a 1% offset for 100% pass rates), labeled in pass percentages so differences near 100% stay visible; "How to read this chart" (or "How to read this calendar") beside the intro line explains the view. A saved preference for the retired Overlay view falls back to Rows.
 
 **Rows** gives each pipeline its own short row on a shared time axis: a neutral line of every run, the pipeline's usual range as a shaded band, and its latest pass rate labelled at the right edge. Only exceptions get color: amber for a run below usual, red for a sharp drop, and a hollow amber point when fewer tests ran than usual. A pipeline with no recent runs hatches the days since its last run. Under each row, a tests-ran lane has one bar per day for that day's smallest run (so a full rerun can't hide a short run), a dashed line at the usual count labelled "~840" at the right edge, and an amber bar when the run had fewer tests than usual; a pass rate can look fine while half the suite never ran. Each row's label shows the short name, stage, latest pass rate, and its date (or "N working days ago" / "121 of ~220 tests" when that is the story); its left edge takes the status color. Sprint names from the team selected on the other pages run along the top, with a line where each sprint starts, and the current sprint reads "Sprint 42 · Day 9 of 10" (working days); projects share sprint dates, so one team's sprints label every pipeline. Hovering any row shows a crosshair on every row for that day, with the day in the header and each pipeline's lowest run that day ("99.2% · lowest of 2"), "no run", or "not run yet" for today, plus the tests that day's smallest run ran ("842 tests", amber when fewer) in its lane. Click a row to open that day's lowest run in run details. A small triangle above a row marks each run with a change (see Changes below), in the change's color; hover it for its title and click it to open the change.
 
-**Overlay** draws every pipeline on one chart as separate lines, each with its own color and marker shape. Each point represents one run, including multiple runs on the same day. Runs are joined by straight lines, and runs 4 or more days apart are joined by a dashed line so outages read as gaps. The x-axis marks each Monday, with weekends shaded. Hovering snaps to the nearest run within 24px; its tooltip leads with the failure count ("77 failed of 842 · 90.9% passed"), shows the run's date and time, and names any changes on it. A run with a change gets a colored ring. Click a point to open the run in run details; a daily average has no single run to open.
-
 **Calendar** turns each pipeline's row into one cell per day, colored by that day's worst run, so a streak of bad days, a run of short suites, or a week without results stands out at a glance. A usual day is neutral, a day below usual is amber, a sharp drop is red, and a day when fewer tests ran is hatched amber; a sharp drop outranks fewer tests, which outranks below usual. Weekends are narrower and stay empty unless the pipeline has run on a weekend. A day without a run has a dashed outline, and today has an accent-colored dashed outline until the pipeline reports (a pipeline with no recent runs shows today as missed); the first day of the window gets no outline, since the window opens partway through it. Sprint names and lines run along the top as in Rows, with Mondays dated beneath them. Hover a cell for the day's worst run ("Below usual · worst of 2 runs"), its counts, and any changes on it; click it to open that run in run details, where the cell is outlined. A key below the calendar names each cell.
 
-A health strip above the chart shows one tile per pipeline with runs (up to four per row), and doubles as the Overlay's legend. Each tile shows the pipeline's short name (the parenthetical in its name, such as "PWW", unless a short name is set in Test options) and stage, its latest pass rate, the change against its median, a 21-day sparkline, and a status chip whose tooltip explains the status:
+A health strip above the chart shows one tile per pipeline with runs (up to four per row). Each tile shows the pipeline's short name (the parenthetical in its name, such as "PWW", unless a short name is set in Test options) and stage, its latest pass rate, the change against its median, a 21-day sparkline, and a status chip whose tooltip explains the status:
 
 - **Usual** — the latest run is within or above the pipeline's usual range (the middle 80% of its runs in the lookback window, ignoring sharp drops).
 - **Below usual** — the latest run is below that range by more than a small noise margin.
@@ -404,7 +448,7 @@ A health strip above the chart shows one tile per pipeline with runs (up to four
 - **Fewer tests** — the latest run executed fewer than 80% of the pipeline's usual test count.
 - **No recent runs** — no results for 2 or more working days; the sparkline hatches the idle days.
 
-The toolbar summarizes the statuses ("4 pipelines"; hover or focus it for counts). Click a tile (or a row's label in Rows or Calendar) to focus its pipeline: in Overlay the other lines fade, the chart shades its usual range, and hover snaps only to its runs; in Rows and Calendar the other rows fade. Click it again or press Esc to clear focus. Health uses the runs that pass the pass rate filter, before any daily grouping.
+The toolbar summarizes the statuses ("4 pipelines"; hover or focus it for counts). Click a tile (or a row's label in Rows or Calendar) to focus its pipeline: the other rows fade. Click it again or press Esc to clear focus. Health uses all runs that pass the pass rate filter.
 
 A **Changes** panel beside the chart (below it when the page is narrower than 900px) lists what changed across the pipelines, newest first, so standup can start from "what's new" instead of scanning every line. Each change is compared with its pipeline's usual range:
 
@@ -426,13 +470,7 @@ a percentage from 0 to 100 inclusive to hide chart points at or below that pass 
 example, 0 excludes 0% results and 20 excludes results at 20% or lower; 100 hides all results.
 Decimal thresholds are supported. The setting is saved in browser local storage and applies
 to all configured pipelines without refetching results. Disabling it restores the hidden points.
-Options also includes "Show at most one result per pipeline per day" (unchecked by default); it
-applies to the Overlay view, since Rows and Calendar use every run and read each day's lowest or worst.
-Choose Lowest result, Average result, or Highest result. Days use the browser's local timezone,
-and the pass rate filter is applied to individual runs before grouping. Average is the arithmetic
-mean of run percentages, not weighted by test count. Multi-run averages have no run link;
-single-run days and lowest/highest selections retain their original run links. Ties select the
-earliest run (then the lowest run ID). Daily options are saved in browser local storage.
+Rows and Calendar use every run and read each day's lowest or worst result; there is no configurable daily aggregation.
 Under "Pipeline health", Options sets when a pipeline is flagged: "Flag no recent runs after
 (working days)" (2 by default) and "Flag fewer tests below (% of usual)" (80 by default). Both
 are saved in browser local storage when the field loses focus. In Pipelines, each configured

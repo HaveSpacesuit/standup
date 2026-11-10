@@ -8,7 +8,7 @@ import { AdoHttpClient } from '../../../ado/httpClient'
 import { listTestPipelineDefinitions, listTestStages, type Definition, type StageOption } from '../../../ado/testPipelinesApi'
 import {
   TEST_SHORT_NAME_MAX_LENGTH, testLookbackStart, testStageLabel, validateTestHealthOptions, validateTestPassRateFilter,
-  type TestDailyOptions, type TestHealthOptions, type TestPassRateFilter, type TestPipeline, type TestPipelineKind,
+  type TestHealthOptions, type TestPassRateFilter, type TestPipeline, type TestPipelineKind,
 } from '../utils/testPipelines'
 import { defaultTestPipelineShortName } from '../utils/testHealth'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
@@ -25,8 +25,6 @@ type Props = {
   onLookbackDaysChange: (days: number) => string | null
   passRateFilter: TestPassRateFilter
   onPassRateFilterChange: (filter: TestPassRateFilter) => string | null
-  dailyOptions: TestDailyOptions
-  onDailyOptionsChange: (options: TestDailyOptions) => string | null
   healthOptions: TestHealthOptions
   onHealthOptionsChange: (options: TestHealthOptions) => string | null
 }
@@ -38,7 +36,6 @@ const blurOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
 export function TestsSettingsDialog({
   open, onClose, pat, defaultOrg, defaultProject, pipelines, onChange, lookbackDays, onLookbackDaysChange,
   passRateFilter, onPassRateFilterChange,
-  dailyOptions, onDailyOptionsChange,
   healthOptions, onHealthOptionsChange,
 }: Props) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
@@ -58,7 +55,6 @@ export function TestsSettingsDialog({
   const [lookbackError, setLookbackError] = useState<string | null>(null)
   const [thresholdInput, setThresholdInput] = useState(String(passRateFilter.threshold))
   const [thresholdError, setThresholdError] = useState<string | null>(null)
-  const [dailyError, setDailyError] = useState<string | null>(null)
   const [staleInput, setStaleInput] = useState(String(healthOptions.staleDays))
   const [staleError, setStaleError] = useState<string | null>(null)
   const [fewerInput, setFewerInput] = useState(String(healthOptions.fewerPercent))
@@ -282,32 +278,6 @@ export function TestsSettingsDialog({
             helperText={thresholdError ?? 'Exclude chart points with a pass rate less than or equal to this percentage (0–100).'}
             slotProps={{ htmlInput: { min: 0, max: 100, step: 'any' } }}
           />
-          <FormControlLabel
-            control={<Checkbox checked={dailyOptions.enabled} onChange={(_event, checked) => {
-              setDailyError(onDailyOptionsChange({ ...dailyOptions, enabled: checked }))
-            }} />}
-            label="Show at most one result per pipeline per day"
-          />
-          <FormControl fullWidth disabled={!dailyOptions.enabled}>
-            <InputLabel id="test-daily-mode-label">Daily result</InputLabel>
-            <Select labelId="test-daily-mode-label" label="Daily result" value={dailyOptions.mode} onChange={(event) => {
-              const mode = event.target.value
-              if (mode === 'lowest' || mode === 'average' || mode === 'highest') {
-                setDailyError(onDailyOptionsChange({ ...dailyOptions, mode }))
-              }
-            }}>
-              <MenuItem value="lowest">Lowest result</MenuItem>
-              <MenuItem value="average">Average result</MenuItem>
-              <MenuItem value="highest">Highest result</MenuItem>
-            </Select>
-          </FormControl>
-          <Typography variant="body-sm" color="text.secondary">
-            Applies to the Overlay view; Rows and Calendar use every run and read each day&apos;s lowest or worst.
-            Groups runs by your local calendar day, after applying the pass rate filter.
-            Average gives each run equal weight. When multiple runs are averaged, the point
-            does not represent a specific run and cannot link to a test run.
-          </Typography>
-          {dailyError && <Alert severity="error">{dailyError}</Alert>}
           <Typography variant="body-md" render={<h3 />} sx={{ fontWeight: 700, mt: 0, mb: -0.5, pt: 1 }}>Pipeline health</Typography>
           <TextField
             label="Flag no recent runs after (working days)"

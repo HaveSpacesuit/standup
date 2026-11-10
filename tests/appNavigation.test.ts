@@ -92,14 +92,14 @@ function setup(t: TestContext, {
   }
 }
 
-for (const view of ['development', 'qa-activity', 'backlog', 'tests']) {
+for (const view of ['development', 'qa-activity', 'triage', 'backlog', 'tests']) {
   test(`the ${view} view uses the ADO Team Explorer window title`, (t) => {
     setup(t, { view })
     assert.equal(document.title, 'ADO Team Explorer')
   })
 }
 
-for (const view of ['development', 'qa-activity', 'backlog']) {
+for (const view of ['development', 'qa-activity', 'triage', 'backlog']) {
   for (const modifier of ['ctrlKey', 'metaKey']) {
     test(`${modifier}+F focuses and selects the ${view} quick filter from the toolbar`, (t) => {
       const { calls, press } = setup(t, { view })
@@ -142,7 +142,7 @@ test('an unmounted quick filter does not suppress browser Find', (t) => {
 
 const noModifiers = { ctrlKey: false, metaKey: false }
 
-for (const view of ['development', 'qa-activity', 'backlog']) {
+for (const view of ['development', 'qa-activity', 'triage', 'backlog']) {
   test(`/ focuses and selects the ${view} quick filter from the toolbar`, (t) => {
     const { calls, press } = setup(t, { view })
     assert.equal(press(undefined, noModifiers, '/').defaultPrevented, true)
@@ -181,7 +181,7 @@ test('Ctrl+/ and Alt+/ are not the quick filter shortcut', (t) => {
   assert.deepEqual(calls, { focus: 0, select: 0, cycle: [] })
 })
 
-for (const view of ['development', 'qa-activity', 'backlog']) {
+for (const view of ['development', 'qa-activity', 'triage', 'backlog']) {
   for (const modifier of ['ctrlKey', 'metaKey']) {
     test(`${modifier}+F preserves browser Find when the ${view} filter cannot receive focus`, (t) => {
       const { calls, press } = setup(t, { view, focusable: false })

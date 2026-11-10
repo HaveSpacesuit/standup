@@ -3,7 +3,6 @@ import { Alert, Box, Button, CircularProgress, IconButton, ToggleButton, ToggleB
 import type { Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
-import svgChartLine from '@stratakit/icons/chart-line.svg'
 import svgReport from '@stratakit/icons/report.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
@@ -18,7 +17,6 @@ import { TestCalendarChart } from '../components/TestCalendarChart'
 import { TestChangesPanel } from '../components/TestChangesPanel'
 import { TestHealthStrip } from '../components/TestHealthStrip'
 import { TESTS_PANEL_STACK_QUERY } from '../components/testHealthPresentation'
-import { TestPassChart, type TestChartFocus, type TestSeries } from '../components/TestPassChart'
 import { TestRowsChart } from '../components/TestRowsChart'
 import { TestRunDetails } from '../components/TestRunDetails'
 import { TestsIntro } from '../components/TestsIntro'
@@ -34,7 +32,6 @@ import {
   saveTestLookbackDays, saveTestPipelines, testLookbackStart, testPipelineSource, testStageLabel, type TestPipeline,
   DEFAULT_TEST_PASS_RATE_FILTER, filterTestPointsByPassRate, loadTestPassRateFilter,
   saveTestPassRateFilter, type TestPassRateFilter,
-  DEFAULT_TEST_DAILY_OPTIONS, groupTestPointsByDay, loadTestDailyOptions, saveTestDailyOptions, type TestDailyOptions,
   DEFAULT_TEST_HEALTH_OPTIONS, loadTestHealthOptions, saveTestHealthOptions, type TestHealthOptions,
 } from '../utils/testPipelines'
 import {
@@ -69,7 +66,7 @@ type TestsPageProps = {
   autoRefresh?: AutoRefreshOptions
 }
 
-const TEST_VIEWS = ['rows', 'overlay', 'calendar'] as const
+const TEST_VIEWS = ['rows', 'calendar'] as const
 type TestsView = (typeof TEST_VIEWS)[number]
 
 export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = [], rememberLastView = false, isActive = true, autoRefresh = DEFAULT_AUTO_REFRESH }: TestsPageProps) {
@@ -101,15 +98,6 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
   })
   const [passRateFilter, setPassRateFilter] = useState(storedPassRateFilter.filter)
   const [passRateFilterStorageError, setPassRateFilterStorageError] = useState(storedPassRateFilter.error)
-  const [storedDailyOptions] = useState(() => {
-    try {
-      return { options: loadTestDailyOptions(), error: null }
-    } catch (cause) {
-      return { options: DEFAULT_TEST_DAILY_OPTIONS, error: cause instanceof Error ? cause.message : String(cause) }
-    }
-  })
-  const [dailyOptions, setDailyOptions] = useState(storedDailyOptions.options)
-  const [dailyStorageError, setDailyStorageError] = useState(storedDailyOptions.error)
   const [storedHealthOptions] = useState(() => {
     try {
       return { options: loadTestHealthOptions(), error: null }
@@ -142,21 +130,14 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
       points: filterTestPointsByPassRate(entry.points, passRateFilter),
     }))
   }, [series, pipelines, passRateFilter])
-  const chartSeries = useMemo<TestSeries[]>(() => filteredSeries.flatMap((entry) => {
-    const points = groupTestPointsByDay(entry.points, dailyOptions)
-    return points.length > 0 ? [{ ...entry, points }] : []
-  }), [filteredSeries, dailyOptions])
   const axis = useMemo(() => range ? createTestTimeAxis(range) : null, [range])
   const sprints = useMemo(() => axis ? testSprintBands(teamIterations, axis) : [], [axis, teamIterations])
-  // Health compares each run with the pipeline's own runs, so it uses every run, not the daily lowest.
+  // Health compares each run with the pipeline's own runs.
   const healthEntries = useMemo<TestHealthEntry[]>(() => axis ? filteredSeries.flatMap(({ pipeline, points, color, shape }) => {
     const health = testPipelineHealth(points, axis, healthOptions)
     return health ? [{ pipeline, color, shape, health }] : []
   }) : [], [axis, filteredSeries, healthOptions])
   const focusedEntry = healthEntries.find((entry) => entry.pipeline.id === focusId) ?? null
-  const chartFocus = useMemo<TestChartFocus | null>(() => focusedEntry
-    ? { id: focusedEntry.pipeline.id, highPosition: focusedEntry.health.usualHighPosition, lowPosition: focusedEntry.health.usualLowPosition }
-    : null, [focusedEntry])
   const changes = useMemo(() => axis ? testChanges(healthEntries, axis, healthOptions) : [], [axis, healthEntries, healthOptions])
   // A selection is by run ID, so it survives a refresh, and lapses when its run leaves the data.
   const selectedEntry = selection ? healthEntries.find((entry) => entry.pipeline.id === selection.pipelineId) ?? null : null
@@ -202,19 +183,6 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       setHealthStorageError(message)
-      return message
-    }
-  }
-
-  const updateDailyOptions = (next: TestDailyOptions) => {
-    try {
-      saveTestDailyOptions(next)
-      setDailyOptions(next)
-      setDailyStorageError(null)
-      return null
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause)
-      setDailyStorageError(message)
       return message
     }
   }
@@ -328,9 +296,6 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
               <ToggleButton value="rows" render={<Button size="small" startIcon={<Icon href={svgTableRows} />} />}>
                 Rows
               </ToggleButton>
-              <ToggleButton value="overlay" render={<Button size="small" startIcon={<Icon href={svgChartLine} />} />}>
-                Overlay
-              </ToggleButton>
               <ToggleButton value="calendar" render={<Button size="small" startIcon={<Icon href={svgCalendar} />} />}>
                 Calendar
               </ToggleButton>
@@ -365,11 +330,10 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
       <Box component="main" sx={pageSx}>
         <Box sx={layoutSx}>
           <Box sx={contentSx}>
-            {canLoad && <TestsIntro lookbackDays={lookbackDays} daily={dailyOptions.enabled} view={view} />}
+            {canLoad && <TestsIntro lookbackDays={lookbackDays} view={view} />}
             {error && <Alert severity="error">{error}</Alert>}
             {lookbackStorageError && <Alert severity="error">{lookbackStorageError}</Alert>}
             {passRateFilterStorageError && <Alert severity="error">{passRateFilterStorageError}</Alert>}
-            {dailyStorageError && <Alert severity="error">{dailyStorageError}</Alert>}
             {healthStorageError && <Alert severity="error">{healthStorageError}</Alert>}
             {loading && <TestsLoadingState pipelineCount={pipelines.length} lookbackDays={lookbackDays} view={view} />}
             {!pat && <Alert severity="info">Add an Azure DevOps PAT with Test Management (Read) access to load test results.</Alert>}
@@ -407,11 +371,6 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
                 onSelectRun={selectRun}
                 onSelectChange={selectChange}
               />
-            )}
-            {!loading && view === 'overlay' && range && chartSeries.length > 0 && (
-              <Box sx={{ height: 480, flexShrink: 0 }}>
-                <TestPassChart series={chartSeries} range={range} focus={chartFocus} changes={changes} selection={activeSelection} onSelectRun={selectRun} />
-              </Box>
             )}
             {!loading && view === 'calendar' && axis && healthEntries.length > 0 && (
               <TestCalendarChart
@@ -464,7 +423,6 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
         pipelines={pipelines} onChange={updatePipelines}
         lookbackDays={lookbackDays} onLookbackDaysChange={updateLookbackDays}
         passRateFilter={passRateFilter} onPassRateFilterChange={updatePassRateFilter}
-        dailyOptions={dailyOptions} onDailyOptionsChange={updateDailyOptions}
         healthOptions={healthOptions} onHealthOptionsChange={updateHealthOptions}
       />
     </>

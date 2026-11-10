@@ -1,3 +1,44 @@
+import type { TriageOptions } from '../features/standup/utils/triageOptions'
+import { getInitialState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
+
+export function buildTriageWiql(
+  projectName: string,
+  areaPath: string,
+  options: TriageOptions,
+  metadata: ProjectWorkItemTypeInfo,
+): string {
+  const quote = (value: string) => `'${value.replace(/'/g, "''")}'`
+  const sources = options.tags.map((tag) => `[System.Tags] CONTAINS ${quote(tag)}`)
+  if (options.includeNewBugs) {
+    const initial = getInitialState(metadata, 'Bug')
+    if (!initial) throw new Error('The Bug type has no Proposed state for new bugs. Check the project process or disable the new-bug rule.')
+    sources.push(`([System.WorkItemType] = 'Bug' AND [System.State] = ${quote(initial.name)}${
+      options.excludedIterationPaths.map((path) => ` AND [System.IterationPath] NOT UNDER ${quote(path)}`).join('')
+    })`)
+  }
+  if (sources.length === 0) throw new Error('Configure at least one Triage rule before querying.')
+  const unfinished = Object.entries(metadata.statesByType).map(([type, states]) => {
+    if (states.length === 0 || states.some((state) =>
+      !['proposed', 'inprogress', 'resolved', 'completed', 'removed'].includes(state.category.trim().toLowerCase()))) {
+      throw new Error(`State categories are unavailable for ${type}. Refresh or check the project process.`)
+    }
+    const terminal = states.filter((state) => ['completed', 'removed'].includes(state.category.trim().toLowerCase()))
+    return `([System.WorkItemType] = ${quote(type)}${
+      terminal.length ? ` AND [System.State] NOT IN (${terminal.map((state) => quote(state.name)).join(', ')})` : ''
+    })`
+  })
+  if (unfinished.length === 0) throw new Error('Work-item state metadata is unavailable. Refresh to retry.')
+  return [
+    'SELECT [System.Id]',
+    'FROM WorkItems',
+    `WHERE [System.TeamProject] = ${quote(projectName)}`,
+    `  AND [System.AreaPath] UNDER ${quote(areaPath)}`,
+    `  AND (${sources.join(' OR ')})`,
+    `  AND (${unfinished.join(' OR ')})`,
+    'ORDER BY [System.CreatedDate] ASC, [System.Id] ASC',
+  ].join('\n')
+}
+
 export function buildIterationScopedWiql(
   projectName: string,
   areaPath: string,

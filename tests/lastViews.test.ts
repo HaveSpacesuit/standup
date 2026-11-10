@@ -52,7 +52,7 @@ const { useActiveAppView } = await server.ssrLoadModule('/src/features/standup/h
 const DEVELOPMENT_VIEWS = ['people', 'sprint'] as const
 const QA_VIEWS = ['testers', 'flow'] as const
 const BACKLOG_VIEWS = ['list', 'map'] as const
-const TESTS_VIEWS = ['rows', 'overlay'] as const
+const TESTS_VIEWS = ['rows', 'calendar'] as const
 
 beforeEach(() => {
   storage.clear()
@@ -74,12 +74,12 @@ test('each page saves its own last view, and unknown saved views are ignored', (
   saveLastView('development', 'sprint')
   saveLastView('qa-activity', 'flow')
   saveLastView('backlog', 'map')
-  saveLastView('tests', 'overlay')
+  saveLastView('tests', 'calendar')
   assert.equal(new Set(['development', 'qa-activity', 'backlog', 'tests'].map(lastViewStorageKey)).size, 4)
   assert.equal(loadLastView('development', DEVELOPMENT_VIEWS), 'sprint')
   assert.equal(loadLastView('qa-activity', QA_VIEWS), 'flow')
   assert.equal(loadLastView('backlog', BACKLOG_VIEWS), 'map')
-  assert.equal(loadLastView('tests', TESTS_VIEWS), 'overlay')
+  assert.equal(loadLastView('tests', TESTS_VIEWS), 'calendar')
 
   storage.set(lastViewStorageKey('development'), 'assignment')
   assert.equal(loadLastView('development', DEVELOPMENT_VIEWS), null)
@@ -97,7 +97,7 @@ test('unavailable storage never breaks loading or saving', () => {
 
 test('last page validates saved routes and round-trips independently of each page view', () => {
   assert.equal(loadLastPage(), null)
-  for (const page of ['development', 'qa-activity', 'backlog', 'tests']) {
+  for (const page of ['development', 'qa-activity', 'triage', 'backlog', 'tests']) {
     saveLastPage(page)
     assert.equal(loadLastPage(), page)
   }
@@ -123,7 +123,7 @@ async function renderPages(t: { after: (fn: () => unknown) => void }) {
   }
 }
 
-for (const page of ['development', 'qa-activity', 'backlog', 'tests']) {
+for (const page of ['development', 'qa-activity', 'triage', 'backlog', 'tests']) {
   test(`opening without a route restores ${page} for both navigation readers when enabled`, async (t) => {
     saveRememberLastView(true)
     saveLastPage(page)
@@ -196,7 +196,7 @@ test('pages open on their first view when remember last view is off', async (t) 
   storage.set(lastViewStorageKey('development'), 'sprint')
   storage.set(lastViewStorageKey('qa-activity'), 'flow')
   storage.set(lastViewStorageKey('backlog'), 'map')
-  storage.set(lastViewStorageKey('tests'), 'overlay')
+  storage.set(lastViewStorageKey('tests'), 'calendar')
   assert.equal((await renderView(t, 'development', DEVELOPMENT_VIEWS, false)).view, 'people')
   assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, false)).view, 'testers')
   assert.equal((await renderView(t, 'backlog', BACKLOG_VIEWS, false)).view, 'list')
@@ -207,11 +207,11 @@ test('pages reopen on their saved view when remember last view is on', async (t)
   storage.set(lastViewStorageKey('development'), 'sprint')
   storage.set(lastViewStorageKey('qa-activity'), 'flow')
   storage.set(lastViewStorageKey('backlog'), 'map')
-  storage.set(lastViewStorageKey('tests'), 'overlay')
+  storage.set(lastViewStorageKey('tests'), 'calendar')
   assert.equal((await renderView(t, 'development', DEVELOPMENT_VIEWS, true)).view, 'sprint')
   assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, true)).view, 'flow')
   assert.equal((await renderView(t, 'backlog', BACKLOG_VIEWS, true)).view, 'map')
-  assert.equal((await renderView(t, 'tests', TESTS_VIEWS, true)).view, 'overlay')
+  assert.equal((await renderView(t, 'tests', TESTS_VIEWS, true)).view, 'calendar')
 
   storage.set(lastViewStorageKey('qa-activity'), 'retired-view')
   assert.equal((await renderView(t, 'qa-activity', QA_VIEWS, true)).view, 'testers')

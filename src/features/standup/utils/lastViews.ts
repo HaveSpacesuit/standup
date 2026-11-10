@@ -4,7 +4,7 @@ export const REMEMBER_LAST_VIEW_STORAGE_KEY = 'standup:remember-last-view'
 export const LAST_PAGE_STORAGE_KEY = 'standup:last-page'
 const LAST_VIEW_STORAGE_KEY_PREFIX = 'standup:last-view'
 
-/** Pages with a View toggle: Developers or Sprint, Testers or Flow, List or Map, and Rows, Overlay, or Calendar. */
+/** Pages with a View toggle: Developers or Sprint, Testers or Flow, List or Map, and Rows or Calendar. */
 export type RememberedViewPage = Extract<AppView, 'development' | 'qa-activity' | 'backlog' | 'tests'>
 
 export function lastViewStorageKey(page: RememberedViewPage): string {
@@ -38,7 +38,7 @@ export function saveRememberLastView(rememberLastView: boolean): void {
 
 export function loadLastPage(): AppView | null {
   const stored = readStoredValue(LAST_PAGE_STORAGE_KEY)
-  return stored === 'development' || stored === 'qa-activity' || stored === 'backlog' || stored === 'tests'
+  return stored === 'development' || stored === 'qa-activity' || stored === 'triage' || stored === 'backlog' || stored === 'tests'
     ? stored
     : null
 }

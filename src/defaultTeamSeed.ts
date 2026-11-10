@@ -7,6 +7,7 @@ import { assignmentOptionsStorageKey, serializeAssignmentOptions } from './featu
 import { backlogOptionsStorageKey, serializeBacklogOptions } from './features/standup/utils/backlogOptions'
 import { qaOptionsStorageKey, serializeQaOptions } from './features/standup/utils/qaOptions'
 import { tagRulesStorageKey } from './features/standup/hooks/useBoardPreferences'
+import { triageOptionsStorageKey } from './features/standup/utils/triageOptions'
 
 const DEFAULT_TEAM_TEMPLATES: unknown[] = [webTemplate, explorerTemplate]
 
@@ -25,6 +26,7 @@ function seedDefaultTeamProfiles(): TeamProfile[] {
     localStorage.setItem(assignmentOptionsStorageKey(teamId), serializeAssignmentOptions(teamData.assignmentOptions))
     localStorage.setItem(qaOptionsStorageKey(teamId), serializeQaOptions(teamData.qaOptions))
     localStorage.setItem(backlogOptionsStorageKey(teamId), serializeBacklogOptions(teamData.backlogOptions))
+    localStorage.setItem(triageOptionsStorageKey(teamId), JSON.stringify(teamData.triageOptions))
     localStorage.setItem(tagRulesStorageKey(teamId), JSON.stringify(teamData.assignmentTagRules))
     seededProfiles.push(teamData.teamProfile)
   }
