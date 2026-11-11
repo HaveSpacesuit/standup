@@ -122,7 +122,7 @@ export function TriagePage(props: Props) {
 
   const previewSource = props.preview ?? null
   const byId = useMemo(() => new Map(result.items.map((item) => [item.id, item])), [result.items])
-  // J and K follow the list as shown: the Inbox's groups, or the Table's rows.
+  // The arrows follow the list as shown: the Inbox's groups, or the Table's rows.
   const previewIds = useMemo(() => {
     if (!previewSource) return []
     const listed = view === 'inbox' ? groupTriageInbox(items, options.waitingTags, lastVisit).flatMap((group) => group.items) : items

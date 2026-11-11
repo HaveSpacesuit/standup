@@ -71,7 +71,8 @@ const headSx: SxProps<Theme> = {
   '& .facts .label': { color: TERTIARY_TEXT_COLOR },
 }
 
-const bodySx: SxProps<Theme> = { flex: 1, minHeight: 0, overflow: 'auto', px: 1.75, pb: 2 }
+// The body takes focus to scroll by keyboard; its focus ring is drawn inside, clear of the window's edge.
+const bodySx: SxProps<Theme> = { flex: 1, minHeight: 0, overflow: 'auto', px: 1.75, pb: 2, '&:focus-visible': { outlineOffset: -2 } }
 
 const footSx: SxProps<Theme> = {
   display: 'flex',
@@ -269,7 +270,7 @@ type WorkItemPreviewPanelProps = {
 
 /**
  * A resizable panel beside a list, showing one item: its type, id and title over its fields, then sections the page
- * chooses, then the keys that move through the list.
+ * chooses in a body that takes focus to scroll by keyboard, then the keys that move through the list.
  */
 export function WorkItemPreviewPanel({
   panelId, panelRef, width, onResize, onClose, id, item, facts, missingTitle = 'Not in this list', children,
@@ -300,10 +301,10 @@ export function WorkItemPreviewPanel({
         </Typography>
         {item && facts ? <div className="facts">{facts}</div> : null}
       </Box>
-      <Box sx={bodySx}>{children}</Box>
+      <Box sx={bodySx} tabIndex={0} role="region" aria-label="Preview details">{children}</Box>
       <Box sx={footSx}>
         <Icon href={svgKeyboard} alt="" style={smallIconStyle} />
-        <span><kbd>J</kbd><kbd>K</kbd> next / previous</span>
+        <span><kbd>↑</kbd><kbd>↓</kbd> previous / next</span>
         <span><kbd>O</kbd> open in Azure DevOps</span>
         <span><kbd>Esc</kbd> close</span>
       </Box>
@@ -509,7 +510,7 @@ export function PreviewToggleButton({ id, selected, panelId, onToggle }: {
   onToggle: (id: number) => void
 }) {
   return (
-    <AppTooltip title={selected ? 'Close preview (Esc)' : 'Preview · J and K move through the list'} describeChild>
+    <AppTooltip title={selected ? 'Close preview (Esc)' : 'Preview · then ↑ and ↓ move through the list'} describeChild>
       <IconButton
         size="small"
         className="preview-toggle"

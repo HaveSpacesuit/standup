@@ -167,36 +167,36 @@ test('a bug whose Value assumed some inputs says which, and that its rank may ch
   )
 })
 
-test('clicking a row previews it, and J and K follow the ranked rows, skipping collapsed tiers', async (t) => {
+test('clicking a row previews it, and the arrows follow the ranked rows, skipping collapsed tiers', async (t) => {
   const source = previewSource()
   const { host, render } = await renderPage(t, { preview: source, backlogOptions: createDefaultBacklogOptions() })
   assert.equal(rowFor(host, 204) === null, true, 'the Minimal tier starts collapsed')
 
   await click(rowFor(host, 202).querySelector('td:last-child')!)
   assert.equal(panelTitle(), 'Slow page')
-  await press('j')
-  assert.equal(panelTitle(), 'Slow page', 'J stops at the last bug shown')
-  await press('k')
+  await press('ArrowDown')
+  assert.equal(panelTitle(), 'Slow page', 'Down stops at the last bug shown')
+  await press('ArrowUp')
   assert.equal(panelTitle(), 'Data loss')
 
   await render({ preview: source, backlogOptions: { ...createDefaultBacklogOptions(), startLowCollapsed: false } })
-  await press('j')
-  await press('j')
+  await press('ArrowDown')
+  await press('ArrowDown')
   assert.equal(panelTitle(), 'Typo', 'an expanded tier joins the order')
   await press('Escape')
   assert.equal(panel() === null, true)
 })
 
-test('a bug that leaves the backlog says so, and J moves on to the next', async (t) => {
+test('a bug that leaves the backlog says so, and Down moves on to the next', async (t) => {
   const source = previewSource()
   const { host, render } = await renderPage(t, { preview: source })
   await click(toggleFor(host, 201))
   await render({ preview: source, bugs: allBugs.filter((ranked: { id: number }) => ranked.id !== 201) })
 
   assert.equal(panelTitle(), 'No longer in the backlog')
-  assert.match(panel()!.textContent!, /Bug 201 is no longer among the open bugs for this team\. Press J for the next bug\./)
+  assert.match(panel()!.textContent!, /Bug 201 is no longer among the open bugs for this team\. Press the Down arrow for the next bug\./)
   assert.equal(panel()!.querySelector('a[aria-label="Open in Azure DevOps"]') === null, true)
-  await press('j')
+  await press('ArrowDown')
   assert.equal(panelTitle(), 'Slow page')
 })
 
@@ -212,7 +212,7 @@ test('switching teams closes the preview rather than calling the last team\'s bu
   const teamB = rankBacklogBugs([bug(301, 'Other team bug', { severity: '2 - High' })])
   await render({ preview: { ...source, key: 'b' }, teamOptions, selectedTeamId: 'b', bugs: teamB })
   assert.equal(panel() === null, true)
-  await press('j')
+  await click(toggleFor(host, 301))
   assert.equal(panelTitle(), 'Other team bug')
 })
 
@@ -225,11 +225,11 @@ test('the Map has no preview: switching to it closes the panel', async (t) => {
   assert.equal(host.querySelector('table') === null, true)
   assert.equal(panel() === null, true)
   assert.equal(host.querySelector('[data-preview-toggle]') === null, true)
-  await press('j')
-  assert.equal(panel() === null, true, 'J does nothing on the Map')
+  await press('ArrowDown')
+  assert.equal(panel() === null, true, 'Down does nothing on the Map')
 
   await click(viewToggle(host, 'List'))
   assert.equal(panel() === null, true, 'the preview stays closed back on the List')
-  await press('j')
-  assert.equal(panelTitle(), 'Slow page', 'J reopens the bug previewed last')
+  await press('ArrowDown')
+  assert.equal(panel() === null, true, 'the arrows only move an open preview')
 })

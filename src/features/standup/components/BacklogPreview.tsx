@@ -105,7 +105,7 @@ type BacklogPreviewPanelProps = {
   id: number
   /** Undefined once the bug is no longer among the team's open bugs. */
   bug?: RankedBacklogBug
-  /** Whether J still has bugs to move to once the bug has left. */
+  /** Whether the Down arrow still has bugs to move to once the bug has left. */
   canMove: boolean
   /** How many open bugs the rank counts among. */
   totalBugCount: number
@@ -126,7 +126,7 @@ export function BacklogPreviewPanel({
     return (
       <WorkItemPreviewPanel {...panel} missingTitle="No longer in the backlog">
         <Box component="p" sx={gonePromptSx}>
-          Bug {panel.id} is no longer among the open bugs for this team.{canMove ? ' Press J for the next bug.' : ''}
+          Bug {panel.id} is no longer among the open bugs for this team.{canMove ? ' Press the Down arrow for the next bug.' : ''}
         </Box>
       </WorkItemPreviewPanel>
     )

@@ -218,7 +218,7 @@ export function BacklogPage({
   // Only the List previews bugs; the Map has a side panel of its own.
   const previewing = previewSource !== null && view === 'list'
   const byId = useMemo(() => new Map(allBugs.map((bug) => [bug.id, bug])), [allBugs])
-  // J and K follow the rows as listed: by rank, skipping the bugs of collapsed tiers.
+  // The arrows follow the rows as listed: by rank, skipping the bugs of collapsed tiers.
   const previewIds = useMemo(() => {
     if (!previewing || !hasList) return []
     return groupBacklogBugsByTier(bugs, tierThresholds)

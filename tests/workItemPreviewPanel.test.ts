@@ -53,9 +53,13 @@ async function mount(t: TestContext, element: ReactNode) {
   return { host, render }
 }
 
-const press = (key: string, target: EventTarget = document, init: KeyboardEventInit = {}) => act(async () => {
-  target.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }))
-})
+const press = async (key: string, target: EventTarget = document, init: KeyboardEventInit = {}) => {
+  const event = new dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
+  await act(async () => {
+    target.dispatchEvent(event)
+  })
+  return event
+}
 
 test('text sections lead with what the type needs, and keep required fields even when empty', () => {
   const fields = (sections: Array<{ field: string; required: boolean; html?: string }>) => sections.map((section) => [section.field, section.required, Boolean(section.html)])
@@ -89,37 +93,69 @@ function SelectionHarness({ ids, state }: { ids: number[]; state: { current?: Se
     createElement('input', { id: 'field', 'aria-label': 'Field' }))
 }
 
-test('J and K move through the list, opening the panel where it was; Esc closes it', async (t) => {
+test('the Down and Up arrows move through the list while the panel is open; Esc closes it', async (t) => {
   const state: { current?: Selection } = {}
   const { host, render } = await mount(t, createElement(SelectionHarness, { ids: [1, 2, 3], state }))
   const selected = () => state.current!.selectedId
 
+  const closed = await press('ArrowDown')
+  assert.deepEqual([selected(), closed.defaultPrevented], [null, false], 'the arrows scroll the page while the panel is closed')
+
+  await act(async () => state.current!.toggle(1))
+  const moved = await press('ArrowDown')
+  assert.deepEqual([selected(), state.current!.nextId, moved.defaultPrevented], [2, 3, true])
+  await press('ArrowUp')
+  await press('ArrowUp')
+  assert.equal(selected(), 1, 'Up stops at the first item')
+  await press('ArrowDown')
+  await press('ArrowDown')
+  await press('ArrowDown')
+  assert.equal(selected(), 3, 'Down stops at the last item')
+  await press('ArrowUp')
+
+  const inside = host.querySelector<HTMLButtonElement>('#inside')!
+  const scrolled = await press('ArrowDown', inside)
+  assert.deepEqual([selected(), scrolled.defaultPrevented], [2, false], 'within the panel, the arrows scroll it')
+  await press('ArrowDown', host.querySelector('#field')!)
+  await press('ArrowDown', document, { ctrlKey: true })
+  await press('ArrowDown', document, { altKey: true })
+  await press('ArrowDown', document, { shiftKey: true })
   await press('j')
-  assert.equal(selected(), 1)
-  await press('J')
-  assert.deepEqual([selected(), state.current!.nextId], [2, 3])
-  await press('k')
-  await press('k')
-  assert.equal(selected(), 1, 'K stops at the first item')
+  assert.equal(selected(), 2, 'typing, modified keys and the old J and K keys are left alone')
 
   // Esc hands focus back to the item's preview button.
-  host.querySelector<HTMLButtonElement>('#inside')!.focus()
+  inside.focus()
   await press('Escape')
   assert.equal(selected(), null)
-  assert.equal(document.activeElement, host.querySelector('[data-preview-toggle="1"]'))
+  assert.equal(document.activeElement === host.querySelector('[data-preview-toggle="2"]'), true)
 
-  await press('k')
-  assert.equal(selected(), 1, 'reopens on the last previewed item')
-  await press('j', host.querySelector('#field')!)
-  await press('j', document, { ctrlKey: true })
-  await press('J', document, { shiftKey: true })
-  assert.equal(selected(), 1, 'typing and modified keys are left alone')
-
-  // The previewed item leaves the list; J goes to the one that took its place.
+  // The previewed item leaves the list; Down goes to the one that took its place.
+  await act(async () => state.current!.toggle(1))
   await render(createElement(SelectionHarness, { ids: [2, 3], state }))
   assert.deepEqual([selected(), state.current!.listed], [1, false])
-  await press('j')
+  await press('ArrowDown')
   assert.equal(selected(), 2)
+})
+
+test('keyboard focus on a preview button follows the preview', async (t) => {
+  const state: { current?: Selection } = {}
+  const { host } = await mount(t, createElement(SelectionHarness, { ids: [1, 2, 3], state }))
+  const toggleFor = (id: number) => host.querySelector<HTMLButtonElement>(`[data-preview-toggle="${id}"]`)!
+
+  toggleFor(1).focus()
+  await act(async () => toggleFor(1).click())
+  await press('ArrowUp', toggleFor(1))
+  assert.equal(state.current!.selectedId, 1)
+  assert.equal(document.activeElement === toggleFor(1), true, 'focus stays put when the preview does')
+  await press('ArrowDown', toggleFor(1))
+  assert.equal(state.current!.selectedId, 2)
+  assert.equal(document.activeElement === toggleFor(2), true)
+
+  // Focus anywhere else is left where it is.
+  toggleFor(2).blur()
+  await press('ArrowDown')
+  assert.equal(state.current!.selectedId, 3)
+  assert.equal(document.activeElement === document.body, true)
 })
 
 test('O opens the previewed item in Azure DevOps', async (t) => {
@@ -176,6 +212,10 @@ test('the panel names the item and resizes from its edge by keyboard', async (t)
   assert.equal(document.getElementById(aside.getAttribute('aria-labelledby')!)!.textContent, 'Crash on save')
   assert.equal(host.querySelector<HTMLAnchorElement>('a[aria-label="Open in Azure DevOps"]')!.href, item.workItemUrl)
   assert.match(aside.textContent!, /Severity 2/)
+  // The body takes focus, so the arrows scroll it rather than move through the list.
+  const body = aside.querySelector<HTMLElement>('[role="region"]')!
+  assert.deepEqual([body.getAttribute('aria-label'), body.tabIndex, body.textContent], ['Preview details', 0, 'Body'])
+  assert.match(aside.textContent!, /↑↓ previous \/ nextO open in Azure DevOpsEsc close/)
 
   const grip = aside.querySelector<HTMLElement>('[role="separator"]')!
   assert.deepEqual(['aria-valuenow', 'aria-valuemin', 'aria-valuemax', 'aria-orientation'].map((name) => grip.getAttribute(name)), ['500', '320', '1200', 'vertical'])
