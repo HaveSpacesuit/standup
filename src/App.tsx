@@ -111,6 +111,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     triageSyncedAt,
     triageSimilar,
     triagePreview,
+    backlogPreview,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
@@ -382,6 +383,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           backlogOptions,
           onBacklogOptionsChange: (next) => setBacklogOptionsForTeam(selectedTeamId, next),
           rememberLastView,
+          preview: backlogPreview,
         }}
       />
     </Box>

@@ -480,7 +480,7 @@ the original data is retained until you explicitly save replacement options.
 
 The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, a **Plan a sprint** button, a **View** toggle for List or Map, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
 
-The table has no sorting, column filtering, or selection, and bug rows highlight when hovered. Its only buttons are on the Value tier headers, plus a checkbox per bug while planning a sprint, both described below. The columns run from why a bug ranks where it does to who has it:
+The table has no sorting or column filtering, and bug rows highlight when hovered. Selecting a bug row previews it beside the list, as described under **Preview panel** at the end of this section. Its only buttons are on the Value tier headers, each bug's eye button for that preview, and a checkbox per bug while planning a sprint, described below. The columns run from why a bug ranks where it does to who has it:
 
 - **#**: the bug's rank among all of the team's open bugs. It stays the same while the quick filter hides other bugs, so "#14" means the same thing filtered or not.
 - **Value**, with a sort icon in its header because the list is ordered by it. A short meter beside the number shows its size on a log scale, so each Severity or Impact level is an equal step. The meter's ends come from the formula (2.5 to 213.0), not the team's bugs, so a full bar means the same on every team. Hover the Value for its sum, such as "Value 96.8 = 4.8 × 8 ÷ 4 × 10", and where each term came from, including any input the Value assumed or raised. The tooltip's numbers are rounded to one decimal, or none for whole numbers.
@@ -572,6 +572,30 @@ Value is `((SeverityScore * ImpactScore) / AdjustedEffort) * 10`, shown to one d
 | ImpactScore (from Priority) | 8 | 4 | 2 | 1 |
 
 A missing Severity or Priority counts as 4. AdjustedEffort is the Effort field with a minimum of 4, which also applies when Effort is missing. Bugs are ranked by Value (descending), then SeverityScore (descending), then Created Date (ascending). Ranking uses the exact Value, not the rounded one that is displayed, so two bugs that both show 13.3 can still rank apart by their small difference; SeverityScore and Created Date only break ties between bugs whose exact Values are equal. Results are cached per team until you refresh.
+
+#### Preview panel
+
+On the List, select a bug row, or the eye button at the end of its Bug cell (shown while the row is hovered or
+focused, and always on touch screens), to read the bug in a panel beside the list. It works like the Triage
+preview: clicks on the row's links and checkboxes, modified clicks, and selecting text do not preview; **J** and
+**K** preview the next and previous bug as listed (in rank order, skipping collapsed tiers), **O** opens the bug in
+Azure DevOps, and **Esc** closes the panel.
+
+The panel's header shows the bug's ID and title, then its sprint, state, assignee, and age. Its first section,
+**Value**, says why the bug ranks where it does:
+
+- its Value, its rank among all of the team's open bugs ("Rank 14 of 43", the same while the quick filter hides
+  others), and its tier with the tier's range;
+- Severity, Impact (with what the level means), and Effort as the table shows them, each with the score it
+  contributes;
+- the Value's sum, such as "Value 96.8 = 4.8 × 8 ÷ 4 × 10";
+- when the Value assumed a default for a missing or unreadable input, which ones (their scores in amber) and that
+  the rank may change once they are set.
+
+Below that are the bug's Repro steps and other text, attachments, comments, and links from Azure DevOps, loaded and
+shown as on Triage. Refresh reloads the previewed bug's details, and a bug that leaves the backlog on refresh stays in
+the panel as **No longer in the backlog** until **J** moves on. The panel shares its width with the Triage preview.
+The Map has a side panel of its own, so switching to the Map closes the preview, as does switching teams.
 
 ### Tests view
 

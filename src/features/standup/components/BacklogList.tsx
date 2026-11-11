@@ -2,6 +2,7 @@ import { Box, Card, CardContent, Typography } from '@mui/material'
 import { AdoErrorNotice } from './AdoErrorNotice'
 import { BacklogLoadingState } from './BacklogLoadingState'
 import { BacklogTable, type BacklogTablePlan } from './BacklogTable'
+import type { PreviewControls } from './workItemPreviewDisplay'
 import type { BacklogTierThresholds } from '../utils/backlogOptions'
 import type { BacklogTierKey } from '../utils/backlogTiers'
 import type { RankedBacklogBug } from '../utils/backlogValue'
@@ -24,6 +25,8 @@ type BacklogListProps = {
   plan?: BacklogTablePlan | null
   /** The view the loading skeleton takes the shape of. */
   view?: 'list' | 'map'
+  /** Which row the preview panel shows; without it the rows cannot be previewed. */
+  preview?: PreviewControls
 }
 
 export function BacklogList({
@@ -38,6 +41,7 @@ export function BacklogList({
   highlightedBugIds = null,
   plan = null,
   view = 'list',
+  preview,
 }: BacklogListProps) {
   if (isLoading) {
     return <BacklogLoadingState view={view} />
@@ -53,7 +57,7 @@ export function BacklogList({
 
   if (bugs.length === 0 && totalBugCount > 0) {
     return (
-      <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
+      <Box component="main" sx={{ flex: 1, minWidth: 0, minHeight: 0, bgcolor: 'background.paper' }}>
         <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
           No bugs match the quick filter. Clear it to see all open bugs.
         </Typography>
@@ -98,6 +102,7 @@ export function BacklogList({
       onToggleTier={onToggleTier}
       highlightedBugIds={highlightedBugIds}
       plan={plan}
+      preview={preview}
     />
   )
 }

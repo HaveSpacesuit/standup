@@ -67,6 +67,8 @@ type PreviewSelectionOptions = {
   ids: readonly number[]
   /** The item's Azure DevOps page, which O opens. */
   getUrl: (id: number) => string | undefined
+  /** Closes the panel when it changes, such as on switching teams, for a page that is not remounted per team. */
+  scope?: string
 }
 
 /**
@@ -74,8 +76,13 @@ type PreviewSelectionOptions = {
  * panel when it is closed), O to open the item in Azure DevOps, and Esc to close the panel. Keys typed into a field or a
  * dialog are left alone.
  */
-export function usePreviewSelection({ ids, getUrl }: PreviewSelectionOptions) {
+export function usePreviewSelection({ ids, getUrl, scope }: PreviewSelectionOptions) {
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectionScope, setSelectionScope] = useState(scope)
+  if (selectionScope !== scope) {
+    setSelectionScope(scope)
+    setSelectedId(null)
+  }
   const panelRef = useRef<HTMLElement | null>(null)
   const lastId = useRef<number | null>(null)
   const lastIndex = useRef(0)

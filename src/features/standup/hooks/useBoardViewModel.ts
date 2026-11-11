@@ -112,6 +112,8 @@ type UseBoardViewModelResult = {
   triageSimilar: TriageSimilarSources
   /** Where Triage's preview panel loads an item's details from; null without a team. */
   triagePreview: WorkItemPreviewSource | null
+  /** Where Backlog's preview panel loads a bug's details from; null without a team. */
+  backlogPreview: WorkItemPreviewSource | null
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   selectedAssignmentWorkItemTypes: string[]
@@ -337,7 +339,7 @@ export function useBoardViewModel({
     enabled: activeView === 'triage' && !triageSettings?.error && triageResult.items.length > 0,
     reloadNonce: triageReloadNonce,
   })
-  // A new source on refresh, so the open preview reloads with the queue.
+  // A new source on refresh, so the open preview reloads with the queue or the backlog.
   const previewTeamId = selectedTeam?.id
   const previewOrgName = selectedTeam?.orgName
   const previewProjectName = selectedTeam?.projectName
@@ -350,6 +352,16 @@ export function useBoardViewModel({
       )
       : null,
     [dataQueryEngine, previewTeamId, previewOrgName, previewProjectName, triageReloadNonce],
+  )
+  const backlogPreview = useMemo(
+    () => dataQueryEngine && previewTeamId && previewOrgName && previewProjectName
+      ? createWorkItemPreviewSource(
+        dataQueryEngine,
+        { id: previewTeamId, orgName: previewOrgName, projectName: previewProjectName },
+        `${previewTeamId}:backlog:${backlogReloadNonce}`,
+      )
+      : null,
+    [dataQueryEngine, previewTeamId, previewOrgName, previewProjectName, backlogReloadNonce],
   )
 
   const {
@@ -577,6 +589,7 @@ export function useBoardViewModel({
     triageSyncedAt,
     triageSimilar,
     triagePreview,
+    backlogPreview,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
