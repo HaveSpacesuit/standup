@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { Box } from '@mui/material'
 import type { TeamIterationOption } from '../../../ado/types'
 import { AttentionBar } from '../components/AttentionBar'
 import { BacklogList } from '../components/BacklogList'
 import { BacklogMap } from '../components/BacklogMap'
 import { BacklogOptionsDialog } from '../components/BacklogOptionsDialog'
 import { BacklogPlanBar } from '../components/BacklogPlanBar'
+import { BacklogPreviewPanel } from '../components/BacklogPreview'
 import { BacklogRibbon } from '../components/BacklogRibbon'
 import type { BacklogTablePlan } from '../components/BacklogTable'
 import { BacklogToolbar } from '../components/BacklogToolbar'
 import { TeamConfigurationEmptyState } from '../components/TeamConfigurationEmptyState'
 import type { TeamOption } from '../components/TeamToolbarControls'
+import { previewPanelId, type PreviewControls } from '../components/workItemPreviewDisplay'
+import { usePreviewPanelWidth, usePreviewSelection } from '../hooks/usePreviewPanel'
 import { useRememberedView } from '../hooks/useRememberedView'
+import { useWorkItemPreview, type WorkItemPreviewSource } from '../hooks/useWorkItemPreview'
 import {
   countBacklogFacets,
   getBacklogFacetMatches,
@@ -21,7 +26,7 @@ import {
 import { formatBacklogCount } from '../utils/backlogFilter'
 import { createDefaultBacklogOptions, type BacklogOptions } from '../utils/backlogOptions'
 import { NO_PLAN_PICKS, planBacklogSprint, togglePlanPick } from '../utils/backlogPlan'
-import type { BacklogTierKey } from '../utils/backlogTiers'
+import { groupBacklogBugsByTier, type BacklogTierKey } from '../utils/backlogTiers'
 import type { RankedBacklogBug } from '../utils/backlogValue'
 
 type BacklogPageProps = {
@@ -55,9 +60,13 @@ type BacklogPageProps = {
   onBacklogOptionsChange?: (next: BacklogOptions) => void
   /** Reopen the view used last, List or Map; otherwise the page opens on List. */
   rememberLastView?: boolean
+  /** Where the preview panel reads a bug's details; without it the List's rows cannot be previewed. */
+  preview?: WorkItemPreviewSource | null
 }
 
 const BACKLOG_VIEWS = ['list', 'map'] as const
+const BACKLOG_PREVIEW_PANEL_ID = previewPanelId('backlog')
+const previewLayoutSx = { flex: 1, minHeight: 0, display: 'flex' } as const
 
 const DEFAULT_BACKLOG_OPTIONS = createDefaultBacklogOptions()
 const NO_ITERATIONS: readonly TeamIterationOption[] = []
@@ -123,6 +132,7 @@ export function BacklogPage({
   backlogOptions = DEFAULT_BACKLOG_OPTIONS,
   onBacklogOptionsChange = () => {},
   rememberLastView = false,
+  preview: previewSource = null,
 }: BacklogPageProps) {
   const [view, setView] = useRememberedView('backlog', BACKLOG_VIEWS, rememberLastView)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -205,6 +215,32 @@ export function BacklogPage({
     setPlanning(false)
   }
 
+  // Only the List previews bugs; the Map has a side panel of its own.
+  const previewing = previewSource !== null && view === 'list'
+  const byId = useMemo(() => new Map(allBugs.map((bug) => [bug.id, bug])), [allBugs])
+  // J and K follow the rows as listed: by rank, skipping the bugs of collapsed tiers.
+  const previewIds = useMemo(() => {
+    if (!previewing || !hasList) return []
+    return groupBacklogBugsByTier(bugs, tierThresholds)
+      .filter((group) => !collapsedTiers.has(group.key))
+      .flatMap((group) => group.bugs.map((bug) => bug.id))
+  }, [previewing, hasList, bugs, tierThresholds, collapsedTiers])
+  // Scoped to the team: the page is not remounted per team, and the last team's bug would show as no longer listed.
+  const selection = usePreviewSelection({ ids: previewIds, getUrl: (id) => byId.get(id)?.workItemUrl, scope: selectedTeamId })
+  const [panelWidth, resizePanel] = usePreviewPanelWidth()
+  const { selectedId, select, toggle, close: closePreview } = selection
+  const previewBug = selectedId === null ? undefined : byId.get(selectedId)
+  const previewLoad = useWorkItemPreview(previewing ? previewSource : null, previewBug ? previewBug.id : null, selection.nextId)
+  const previewControls = useMemo<PreviewControls | undefined>(
+    () => previewing ? { selectedId, panelId: BACKLOG_PREVIEW_PANEL_ID, onSelect: select, onToggle: toggle } : undefined,
+    [previewing, selectedId, select, toggle],
+  )
+  const changeView = (next: typeof view) => {
+    // Closed rather than left open behind the Map, where Esc and O would still act on it.
+    if (next === 'map') closePreview()
+    setView(next)
+  }
+
   return (
     <>
       <BacklogToolbar
@@ -227,7 +263,7 @@ export function BacklogPage({
         planButtonRef={planButtonRef}
         canPlan={showSummary}
         view={view}
-        onViewChange={setView}
+        onViewChange={changeView}
       />
 
       {showSummary ? (
@@ -272,19 +308,29 @@ export function BacklogPage({
           onSelectedKeyChange={setMapSelection}
         />
       ) : (
-        <BacklogList
-          isLoading={isLoading}
-          error={error}
-          bugs={bugs}
-          totalBugCount={totalBugCount}
-          compact={compactRows}
-          tierThresholds={tierThresholds}
-          collapsedTiers={collapsedTiers}
-          onToggleTier={toggleTier}
-          highlightedBugIds={highlightedBugIds}
-          plan={tablePlan}
-          view={view}
-        />
+        <Box data-preview-layout sx={previewLayoutSx}>
+          <BacklogList
+            isLoading={isLoading}
+            error={error}
+            bugs={bugs}
+            totalBugCount={totalBugCount}
+            compact={compactRows}
+            tierThresholds={tierThresholds}
+            collapsedTiers={collapsedTiers}
+            onToggleTier={toggleTier}
+            highlightedBugIds={highlightedBugIds}
+            plan={tablePlan}
+            view={view}
+            preview={previewControls}
+          />
+          {previewSource && previewing && hasList && selectedId !== null ? (
+            <BacklogPreviewPanel
+              panelId={BACKLOG_PREVIEW_PANEL_ID} panelRef={selection.panelRef} width={panelWidth} onResize={resizePanel}
+              onClose={closePreview} id={selectedId} bug={previewBug} canMove={previewIds.length > 0}
+              totalBugCount={allBugs.length} tierThresholds={tierThresholds} load={previewLoad} images={previewSource.images}
+            />
+          ) : null}
+        </Box>
       )}
 
       {hasConfiguredTeams ? (

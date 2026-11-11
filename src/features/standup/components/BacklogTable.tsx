@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { memo, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Box, Button, Checkbox, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
@@ -8,9 +8,12 @@ import svgSortDescending from '@stratakit/icons/sort-descending.svg'
 import { AppTooltip as Tooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
 import { CreatedAge, ImpactBars, MissingValue, PersonLabel, SeverityChip, SprintLabel, StateLabel } from './WorkItemFields'
+import { PreviewToggleButton } from './WorkItemPreviewPanel'
 import { WorkItemTitle } from './WorkItemTitle'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
+import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { METER_TRACK_COLOR, workItemTitleCellSx } from './workItemTableDisplay'
+import { isPreviewRowClick } from '../hooks/usePreviewPanel'
 import { UNASSIGNED_LABEL } from '../utils/backlogFilter'
 import type { BacklogTierThresholds } from '../utils/backlogOptions'
 import type { BacklogPlan, BacklogPlanPicks } from '../utils/backlogPlan'
@@ -38,7 +41,12 @@ type BacklogTableProps = {
   highlightedBugIds?: ReadonlySet<number> | null
   /** Plan a sprint's picks, which add a checkbox and a running effort total to each row; null when it is off. */
   plan?: BacklogTablePlan | null
+  /** Which row the preview panel shows; without it the rows cannot be previewed. */
+  preview?: PreviewControls
 }
+
+/** The preview controls every row shares, kept apart from the selected id so selecting a bug re-renders two rows. */
+type RowPreview = Omit<PreviewControls, 'selectedId'>
 
 export type BacklogTablePlan = {
   plan: BacklogPlan
@@ -120,6 +128,19 @@ const pickCellSx: SxProps<Theme> = { width: 36, pr: 0, boxShadow: TIER_BAR_SHADO
 const runningCellSx: SxProps<Theme> = { whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }
 
 const bugCellSx: SxProps<Theme> = { ...workItemTitleCellSx, minWidth: BUG_COLUMN_MIN_WIDTH }
+// The title shrinks first, so a compact row's title still ends in an ellipsis before the preview button.
+const bugTitleRowSx: SxProps<Theme> = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 1,
+  '& > *': { minWidth: 0 },
+  '& > .preview-toggle': { flex: 'none', ml: 'auto', my: -0.5 },
+}
+// Rows open the preview when clicked, and stop clear of both sticky headers (columns, then tier) when J and K scroll.
+const previewBodySx: SxProps<Theme> = {
+  ...revealPreviewToggles('& > tr'),
+  '& > tr[data-preview-id]': { cursor: 'pointer', scrollMarginTop: 'calc(var(--backlog-head-height, 37px) + 40px)' },
+}
 
 // The scroller sits at a fractional offset (the app's 0.8px hairlines), and Chromium can snap a stuck header 1-2px
 // below the scroller's clip edge, exposing the row scrolled behind it. Sticking 1px above the edge keeps the header
@@ -163,18 +184,17 @@ function ValueTip({ bug }: { bug: RankedBacklogBug }) {
   return <TipLines lines={describeBacklogValue(bug)} boldFirst />
 }
 
-/** The Value, with a meter for its size at a glance and its sum in the tooltip. */
-export function BugValue({ bug }: { bug: RankedBacklogBug }) {
-  return (
-    <Tooltip title={<ValueTip bug={bug} />} describeChild>
-      <Box component="span" sx={valueSx}>
-        <span className="backlog-value-number">{formatBacklogValue(bug.value)}</span>
-        <span className="backlog-value-meter" aria-hidden="true">
-          <span style={{ width: `${getValueMeterPercent(bug.value).toFixed(1)}%` }} />
-        </span>
-      </Box>
-    </Tooltip>
+/** The Value, with a meter for its size at a glance and, unless `explain` is off, its sum in the tooltip. */
+export function BugValue({ bug, explain = true }: { bug: RankedBacklogBug; explain?: boolean }) {
+  const value = (
+    <Box component="span" sx={valueSx} style={explain ? undefined : { cursor: 'auto' }}>
+      <span className="backlog-value-number">{formatBacklogValue(bug.value)}</span>
+      <span className="backlog-value-meter" aria-hidden="true">
+        <span style={{ width: `${getValueMeterPercent(bug.value).toFixed(1)}%` }} />
+      </span>
+    </Box>
   )
+  return explain ? <Tooltip title={<ValueTip bug={bug} />} describeChild>{value}</Tooltip> : value
 }
 
 /** "S1 · Critical" in a chip whose dot and color climb with the severity; a dashed chip when it is not set. */
@@ -189,7 +209,7 @@ export function BugSeverity({ severity }: { severity: string | undefined }) {
 }
 
 /** Signal bars that fill as more users hit the bug, with what the level scores in the Value in the tooltip. */
-function BugImpact({ priority, score }: { priority: number | undefined; score: number }) {
+export function BugImpact({ priority, score }: { priority: number | undefined; score: number }) {
   return (
     <ImpactBars
       priority={priority}
@@ -398,6 +418,8 @@ const BacklogRow = memo(function BacklogRow({
   pickState,
   running,
   onTogglePick,
+  preview,
+  selected = false,
 }: {
   bug: RankedBacklogBug
   compact: boolean
@@ -408,18 +430,36 @@ const BacklogRow = memo(function BacklogRow({
   /** The running effort total for a pick, or why a bug above the last pick was passed over. */
   running?: string
   onTogglePick?: (id: number, wasPicked: boolean) => void
+  /** Set when the rows can be previewed. */
+  preview?: RowPreview
+  /** Whether the preview panel shows this bug. */
+  selected?: boolean
 }) {
   const planning = pickState !== undefined
   const picked = isPicked(pickState)
+  const title = <WorkItemTitle item={bug} compact={compact} />
   return (
-    <TableRow data-emphasis={emphasis} data-picked={picked ? '' : undefined}>
+    <TableRow
+      data-emphasis={emphasis}
+      data-picked={picked ? '' : undefined}
+      selected={selected}
+      data-preview-id={preview ? bug.id : undefined}
+      onClick={preview ? (event) => {
+        if (isPreviewRowClick(event)) preview.onSelect(bug.id)
+      } : undefined}
+    >
       {planning ? (
         <TableCell sx={pickCellSx}><PlanPick id={bug.id} state={pickState} onToggle={onTogglePick} /></TableCell>
       ) : null}
       <TableCell align="right" sx={planning ? planRankCellSx : rankCellSx}>{bug.rank}</TableCell>
       <TableCell sx={noWrapSx}><BugValue bug={bug} /></TableCell>
       <TableCell sx={bugCellSx}>
-        <WorkItemTitle item={bug} compact={compact} />
+        {preview ? (
+          <Box sx={bugTitleRowSx}>
+            {title}
+            <PreviewToggleButton id={bug.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} />
+          </Box>
+        ) : title}
         {emphasis === 'match' ? <Box component="span" sx={visuallyHiddenSx}>Highlighted</Box> : null}
       </TableCell>
       <TableCell sx={noWrapSx}><BugSeverity severity={bug.severity} /></TableCell>
@@ -523,6 +563,7 @@ export const BacklogTable = memo(function BacklogTable({
   onToggleTier,
   highlightedBugIds = null,
   plan = null,
+  preview,
 }: BacklogTableProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const groups = groupBacklogBugsByTier(bugs, tierThresholds)
@@ -530,6 +571,11 @@ export const BacklogTable = memo(function BacklogTable({
   const columnWidths = columns.map((column) => column.key === 'assignee' && compact ? 112 : column.width)
   const minWidth = columnWidths.reduce<number>((total, width) => total + (width ?? BUG_COLUMN_MIN_WIDTH), 0)
   const lastPick = plan?.plan.picks.at(-1)
+  const { panelId, onSelect, onToggle } = preview ?? {}
+  const rowPreview = useMemo<RowPreview | undefined>(
+    () => panelId && onSelect && onToggle ? { panelId, onSelect, onToggle } : undefined,
+    [panelId, onSelect, onToggle],
+  )
 
   // The tier headers stick just below the column header, whose height changes with the theme's font size.
   useLayoutEffect(() => {
@@ -551,6 +597,7 @@ export const BacklogTable = memo(function BacklogTable({
       component="main"
       sx={{
         flex: 1,
+        minWidth: 0,
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -581,7 +628,12 @@ export const BacklogTable = memo(function BacklogTable({
             const matchCount = highlightedBugIds ? group.bugs.filter((bug) => highlightedBugIds.has(bug.id)).length : undefined
             const pickedCount = plan ? group.bugs.filter((bug) => plan.plan.pickedIds.has(bug.id)).length : undefined
             return (
-              <TableBody key={group.key} data-tier={group.key} style={getBacklogTierStyle(group.key)}>
+              <TableBody
+                key={group.key}
+                data-tier={group.key}
+                style={getBacklogTierStyle(group.key)}
+                sx={rowPreview ? previewBodySx : undefined}
+              >
                 <TierHeader
                   group={group}
                   collapsed={collapsed}
@@ -602,6 +654,8 @@ export const BacklogTable = memo(function BacklogTable({
                       pickState={pickState}
                       running={plan ? describeRunning(bug, plan.plan, lastPick) : undefined}
                       onTogglePick={plan?.onTogglePick}
+                      preview={rowPreview}
+                      selected={preview?.selectedId === bug.id}
                     />
                   )
                   return plan && bug.id === lastPick?.id ? [

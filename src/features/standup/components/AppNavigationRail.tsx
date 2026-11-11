@@ -450,8 +450,8 @@ export function AppNavigationRail({
             <Typography component="li" variant="body-sm">
               <strong>Triage</strong> lists unfinished tagged work items and, optionally, Proposed-state bugs outside excluded iterations, with why each is listed, what each still needs before it is ready to clear, and how many working days it has been in triage. Switch to the Inbox to see what is new since your last visit and what is waiting on others. Items whose titles resemble another in the queue, an open bug, or a recently closed bug are flagged as possible duplicates or regressions, to compare side by side. Select an item to preview its repro steps, screenshots, comments, and links beside the list; J and K move through it, and its edge resizes it. Open items in Azure DevOps to triage them, or open the whole queue there as a query for bulk edits.
             </Typography>
-            <Typography variant="body-md">
-              <strong>Backlog</strong> ranks the team&apos;s open bugs, across all sprints, by development value: severity and impact (the Priority field) weighed against effort.
+            <Typography component="li" variant="body-sm">
+              <strong>Backlog</strong> ranks the team&apos;s open bugs, across all sprints, by development value: severity and impact (the Priority field) weighed against effort. Select a bug in the list to preview why it ranks where it does, with its repro steps, comments, and links, beside the list; J and K move through it.
             </Typography>
             <Typography component="li" variant="body-sm">
               <strong>Tests</strong> charts e2e test pass rates across configured build and release pipeline stages.

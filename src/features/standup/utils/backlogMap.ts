@@ -3,8 +3,7 @@ import { getBacklogTier, type BacklogTierKey } from './backlogTiers'
 import {
   formatBacklogValue,
   formatValueTerm,
-  getImpactDescription,
-  getSeverityDisplay,
+  getAssumedValueInputs,
   MIN_ADJUSTED_EFFORT,
   type RankedBacklogBug,
 } from './backlogValue'
@@ -53,10 +52,8 @@ const NUDGE_STEPS = [0, 1, -1, 2, -2, 3, -3, 4, -4]
 
 /** The Value used a default for the Severity, the Impact, or the Effort. */
 export function usesAssumedDefault(bug: RankedBacklogBug): boolean {
-  return getSeverityDisplay(bug.severity)?.level === undefined
-    || getImpactDescription(bug.priority) === undefined
-    || bug.effort === undefined
-    || !Number.isFinite(bug.effort)
+  const assumed = getAssumedValueInputs(bug)
+  return assumed.severity || assumed.impact || assumed.effort
 }
 
 /**

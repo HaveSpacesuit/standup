@@ -173,6 +173,15 @@ export function getImpactDescription(priority: number | undefined): string | und
   return priority === undefined ? undefined : IMPACT_NAMES[priority]
 }
 
+/** Which of the Value's inputs it assumed a default for, because the field is empty or unreadable. */
+export function getAssumedValueInputs(bug: RankedBacklogBug): { severity: boolean; impact: boolean; effort: boolean } {
+  return {
+    severity: getSeverityDisplay(bug.severity)?.level === undefined,
+    impact: getImpactDescription(bug.priority) === undefined,
+    effort: bug.effort === undefined || !Number.isFinite(bug.effort),
+  }
+}
+
 function describeSeverity(bug: RankedBacklogBug): string {
   const display = getSeverityDisplay(bug.severity)
   const score = formatValueTerm(bug.severityScore)
