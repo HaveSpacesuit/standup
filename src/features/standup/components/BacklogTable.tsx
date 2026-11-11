@@ -136,7 +136,7 @@ const bugTitleRowSx: SxProps<Theme> = {
   '& > *': { minWidth: 0 },
   '& > .preview-toggle': { flex: 'none', ml: 'auto', my: -0.5 },
 }
-// Rows open the preview when clicked, and stop clear of both sticky headers (columns, then tier) when J and K scroll.
+// Rows open the preview when clicked, and stop clear of both sticky headers (columns, then tier) when the arrows scroll.
 const previewBodySx: SxProps<Theme> = {
   ...revealPreviewToggles('& > tr'),
   '& > tr[data-preview-id]': { cursor: 'pointer', scrollMarginTop: 'calc(var(--backlog-head-height, 37px) + 40px)' },

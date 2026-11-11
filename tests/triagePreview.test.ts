@@ -130,14 +130,14 @@ test('the eye button previews an item beside the table, loading the next one ahe
   assert.equal(panel(), null, 'the same button closes it')
 })
 
-test('clicking a row previews it, and J, K and Esc move through and close the panel', async (t) => {
+test('clicking a row previews it, and the arrows and Esc move through and close the panel', async (t) => {
   const { host } = await renderPage(t, { preview: previewSource() })
   await click(host.querySelector('tr[data-preview-id="43"] td:last-child')!)
   assert.equal(panelTitle(), 'Freeze on open')
-  await press('j')
+  await press('ArrowDown')
   assert.equal(panelTitle(), 'Typo in dialog')
-  await press('k')
-  await press('k')
+  await press('ArrowUp')
+  await press('ArrowUp')
   assert.equal(panelTitle(), 'Crash on save')
   await press('Escape')
   assert.equal(panel(), null)
@@ -161,16 +161,16 @@ test('clicks on a row link or button, modified clicks and text selection do not 
   row.remove()
 })
 
-test('an item that leaves the queue says so, and J moves on to the next', async (t) => {
+test('an item that leaves the queue says so, and Down moves on to the next', async (t) => {
   const source = previewSource()
   const { host, render } = await renderPage(t, { preview: source })
   await click(toggleFor(host, 42))
   await render({ preview: source, result: { items: items.slice(1), warnings: [] } })
 
   assert.equal(panelTitle(), 'No longer in triage')
-  assert.match(panel()!.textContent!, /Item 42 has left the triage queue\. Press J for the next item\./)
+  assert.match(panel()!.textContent!, /Item 42 has left the triage queue\. Press the Down arrow for the next item\./)
   assert.equal(panel()!.querySelector('a[aria-label="Open in Azure DevOps"]'), null)
-  await press('j')
+  await press('ArrowDown')
   assert.equal(panelTitle(), 'Freeze on open')
 })
 

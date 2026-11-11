@@ -51,7 +51,7 @@ const wrapSx: SxProps<Theme> = { overflowWrap: 'anywhere' }
 const titleRowSx: SxProps<Theme> = { display: 'flex', alignItems: 'flex-start', gap: 1, '& > .preview-toggle': { ml: 'auto', my: -0.5 } }
 // The match strip sits under the title, only as wide as its text.
 const titleStackSx: SxProps<Theme> = { display: 'grid', justifyItems: 'start', gap: 0.5, minWidth: 0 }
-// Rows open the preview when clicked, and stop clear of the sticky header when J and K scroll to them.
+// Rows open the preview when clicked, and stop clear of the sticky header when the arrows scroll to them.
 const previewBodySx: SxProps<Theme> = {
   ...revealPreviewToggles('& > tr'),
   '& > tr[data-preview-id]': { cursor: 'pointer', scrollMarginTop: 40 },

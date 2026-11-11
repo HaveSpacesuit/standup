@@ -425,11 +425,13 @@ out with a warning.
 
 Select a row or Inbox card, or the eye button that shows on it while hovered or focused (always, on
 touch screens), to read the item in a panel beside the list without leaving the page. Clicks on the
-item's links and buttons, modified clicks, and selecting text to copy do not preview. Keys move through
-the list as it is filtered and sorted: **J** and **K** preview the next and previous item (opening the
-panel on the last-previewed or first item when it is closed), **O** opens the previewed item in Azure
-DevOps, and **Esc** closes the panel, returning focus to the item's eye button. Keys typed into a field
-or a dialog are left alone.
+item's links and buttons, modified clicks, and selecting text to copy do not preview. While the panel is
+open, keys move through the list as it is filtered and sorted: the **Down** and **Up** arrows preview the
+next and previous item, **O** opens the previewed item in Azure DevOps, and **Esc** closes the panel,
+returning focus to the item's eye button. If that eye button has keyboard focus, focus follows the
+preview to the next item's eye button. Keys typed into a field or a dialog are left alone, and the arrows
+scroll as usual while the panel is closed or has focus: click or tab into the panel's text to scroll it
+with the keyboard.
 
 The panel's header shows the item's type, ID, and title, then its Severity, Impact, Effort, sprint,
 state, and assignee as the Table shows them. Below that:
@@ -453,11 +455,11 @@ pasted into the text load from the team organization's work item attachments, th
 the Azure DevOps APIs that carry the PAT; an image from anywhere else is shown as a link rather than
 requested. Select a screenshot to open it full size.
 
-Details load when an item is previewed, and the next one loads ahead so **J** is instant; items already
-previewed show at once until the page refreshes. If the details cannot load, the panel says why and
-offers **Retry**; if only the comments or the linked items' titles fail, that section says so. An item
-that leaves the queue on refresh stays in the panel as **No longer in triage**, and **J** moves on to
-the item that took its place.
+Details load when an item is previewed, and the next one loads ahead so **Down** is instant; items
+already previewed show at once until the page refreshes. If the details cannot load, the panel says why
+and offers **Retry**; if only the comments or the linked items' titles fail, that section says so. An
+item that leaves the queue on refresh stays in the panel as **No longer in triage**, and **Down** moves
+on to the item that took its place.
 
 Drag the panel's left edge to resize it, or focus the edge and use Left and Right arrow keys (32 pixels
 at a time), Home (narrowest), and End (widest); double-click the edge to reset it. The panel is 320 to
@@ -577,9 +579,9 @@ A missing Severity or Priority counts as 4. AdjustedEffort is the Effort field w
 
 On the List, select a bug row, or the eye button at the end of its Bug cell (shown while the row is hovered or
 focused, and always on touch screens), to read the bug in a panel beside the list. It works like the Triage
-preview: clicks on the row's links and checkboxes, modified clicks, and selecting text do not preview; **J** and
-**K** preview the next and previous bug as listed (in rank order, skipping collapsed tiers), **O** opens the bug in
-Azure DevOps, and **Esc** closes the panel.
+preview: clicks on the row's links and checkboxes, modified clicks, and selecting text do not preview; while the
+panel is open, the **Down** and **Up** arrows preview the next and previous bug as listed (in rank order, skipping
+collapsed tiers), **O** opens the bug in Azure DevOps, and **Esc** closes the panel.
 
 The panel's header shows the bug's ID and title, then its sprint, state, assignee, and age. Its first section,
 **Value**, says why the bug ranks where it does:
@@ -594,7 +596,7 @@ The panel's header shows the bug's ID and title, then its sprint, state, assigne
 
 Below that are the bug's Repro steps and other text, attachments, comments, and links from Azure DevOps, loaded and
 shown as on Triage. Refresh reloads the previewed bug's details, and a bug that leaves the backlog on refresh stays in
-the panel as **No longer in the backlog** until **J** moves on. The panel shares its width with the Triage preview.
+the panel as **No longer in the backlog** until **Down** moves on. The panel shares its width with the Triage preview.
 The Map has a side panel of its own, so switching to the Map closes the preview, as does switching teams.
 
 ### Tests view

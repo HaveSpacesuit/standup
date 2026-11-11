@@ -35,7 +35,7 @@ type TriagePreviewPanelProps = {
   id: number
   /** Undefined once the item has left the queue. */
   item?: TriageItem
-  /** Whether J still has items to move to once the item has left. */
+  /** Whether the Down arrow still has items to move to once the item has left. */
   canMove: boolean
   load: PreviewLoad
   images?: WorkItemPreviewImages
@@ -61,7 +61,7 @@ export function TriagePreviewPanel({
     return (
       <WorkItemPreviewPanel {...panel} missingTitle="No longer in triage">
         <Box component="p" sx={gonePromptSx}>
-          Item {panel.id} has left the triage queue.{canMove ? ' Press J for the next item.' : ''}
+          Item {panel.id} has left the triage queue.{canMove ? ' Press the Down arrow for the next item.' : ''}
         </Box>
       </WorkItemPreviewPanel>
     )
