@@ -12,6 +12,15 @@ export const TRIAGE_CHECK_LABELS: Record<TriageCheck, string> = {
 /** The fields an item must have filled in before it counts as ready to clear: one list for bugs, one for other types. */
 export type TriageReadinessChecks = { bug: TriageCheck[]; other: TriageCheck[] }
 
+/** Where Similar items looks for possible duplicates beyond the queue itself, which is always compared. */
+export type TriageSimilarOptions = {
+  /** The team's open bugs, as on the Backlog page. */
+  openBugs: boolean
+  /** Bugs closed in the last `closedDays` days, as possible regressions. */
+  closedBugs: boolean
+  closedDays: number
+}
+
 export type TriageOptions = {
   tags: string[]
   includeNewBugs: boolean
@@ -21,6 +30,7 @@ export type TriageOptions = {
   readinessChecks: TriageReadinessChecks
   /** Tags that mean the item is waiting on someone else, such as QA; the Inbox groups these items apart. */
   waitingTags: string[]
+  similarItems: TriageSimilarOptions
 }
 
 /** The options that decide which items the queue holds; the rest only change how they are shown. */
@@ -28,6 +38,8 @@ export type TriageQueryOptions = Pick<TriageOptions, 'tags' | 'includeNewBugs' |
 
 export const DEFAULT_TRIAGE_AGE_FLAG_DAYS = 2
 export const MAX_TRIAGE_AGE_FLAG_DAYS = 30
+export const DEFAULT_TRIAGE_CLOSED_DAYS = 180
+export const MAX_TRIAGE_CLOSED_DAYS = 365
 
 export function createDefaultTriageReadinessChecks(): TriageReadinessChecks {
   return { bug: ['severity', 'impact', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria'] }
@@ -37,6 +49,7 @@ export function createDefaultTriageOptions(): TriageOptions {
   return {
     tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: DEFAULT_TRIAGE_AGE_FLAG_DAYS,
     readinessChecks: createDefaultTriageReadinessChecks(), waitingTags: ['Needs Info'],
+    similarItems: { openBugs: true, closedBugs: true, closedDays: DEFAULT_TRIAGE_CLOSED_DAYS },
   }
 }
 
@@ -86,7 +99,22 @@ export function parseTriageOptions(value: unknown): TriageOptions {
     ageFlagDays,
     readinessChecks: candidate.readinessChecks === undefined ? defaults.readinessChecks : readReadinessChecks(candidate.readinessChecks),
     waitingTags,
+    similarItems: candidate.similarItems === undefined ? defaults.similarItems : readSimilarOptions(candidate.similarItems, defaults.similarItems),
   }
+}
+
+function readSimilarOptions(value: unknown, defaults: TriageSimilarOptions): TriageSimilarOptions {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Triage similar items must be an object with openBugs, closedBugs and closedDays.')
+  }
+  const { openBugs = defaults.openBugs, closedBugs = defaults.closedBugs, closedDays = defaults.closedDays } = value as Record<string, unknown>
+  if (typeof openBugs !== 'boolean' || typeof closedBugs !== 'boolean') {
+    throw new Error('Triage similar items openBugs and closedBugs must be true or false.')
+  }
+  if (typeof closedDays !== 'number' || !Number.isInteger(closedDays) || closedDays < 1 || closedDays > MAX_TRIAGE_CLOSED_DAYS) {
+    throw new Error(`Triage similar items must look back a whole number of days from 1 to ${MAX_TRIAGE_CLOSED_DAYS}.`)
+  }
+  return { openBugs, closedBugs, closedDays }
 }
 
 function readReadinessChecks(value: unknown): TriageReadinessChecks {

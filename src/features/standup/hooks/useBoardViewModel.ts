@@ -37,6 +37,7 @@ import type { SprintForecast } from '../utils/sprintForecast'
 import type { TriageResult } from '../../../ado/types'
 import { createDefaultTriageOptions, getTriageQueryOptions, hasTriageRules, type TriageQueryOptions, type TriageSettings } from '../utils/triageOptions'
 import { useTriageItems } from './useTriageItems'
+import { useTriageSimilarSources, type TriageSimilarSources } from './useTriageSimilarSources'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -106,6 +107,8 @@ type UseBoardViewModelResult = {
   triageLoading: boolean
   triageError: string | null
   triageSyncedAt: number | null
+  /** The open and recently closed bugs Triage compares the queue's titles with. */
+  triageSimilar: TriageSimilarSources
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   selectedAssignmentWorkItemTypes: string[]
@@ -322,6 +325,15 @@ export function useBoardViewModel({
     enabled: activeView === 'triage' && !triageSettings?.error,
     reloadNonce: triageReloadNonce,
   })
+  const triageSimilarOptions = triageSettings?.options.similarItems ?? DEFAULT_TRIAGE_OPTIONS.similarItems
+  // Waits for a queue to compare: a clear queue needs no bugs loaded.
+  const triageSimilar = useTriageSimilarSources({
+    adoQueryEngine: dataQueryEngine,
+    selectedTeam: effectiveTeam,
+    options: triageSimilarOptions,
+    enabled: activeView === 'triage' && !triageSettings?.error && triageResult.items.length > 0,
+    reloadNonce: triageReloadNonce,
+  })
 
   const {
     workItemStates: projectWorkItemStates,
@@ -406,6 +418,8 @@ export function useBoardViewModel({
 
     if (activeView === 'triage') {
       adoQueryEngine.clearTriageDataCache(selectedTeam.id)
+      // Similar items reads the open bugs from the Backlog page's cache, so a refresh reloads them too.
+      if (triageSimilarOptions.openBugs) adoQueryEngine.clearBacklogDataCache(selectedTeam.id)
       markTriageRefreshRequested()
       setTriageReloadNonce((current) => current + 1)
       return
@@ -544,6 +558,7 @@ export function useBoardViewModel({
     triageLoading,
     triageError,
     triageSyncedAt,
+    triageSimilar,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,

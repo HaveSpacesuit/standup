@@ -19,26 +19,32 @@ const { createDefaultAssignmentOptions, createDefaultQaOptions } = await server.
 const { createDefaultBacklogOptions } = await server.ssrLoadModule('/src/features/standup/utils/backlogOptions.ts')
 const { loadTeamProfilesWithDefaultsAndRecovery } = await server.ssrLoadModule('/src/defaultTeamSeed.ts')
 const { recordTriageVisit, triageVisitStorageKey } = await server.ssrLoadModule('/src/features/standup/utils/triageVisits.ts')
+const { addTriageNotDuplicate, loadTriageNotDuplicates, MAX_TRIAGE_NOT_DUPLICATES, triageNotDuplicatesStorageKey } =
+  await server.ssrLoadModule('/src/features/standup/utils/triageNotDuplicates.ts')
 const profile = {
   id: 'triage-a', orgName: 'org', projectName: 'Project', displayName: 'Team A',
   areaPath: 'Project\\A', iterationPath: 'Project', teamName: 'A', repoName: 'repo',
 }
 const defaultChecks = { bug: ['severity', 'impact', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria'] }
+const defaultSimilar = { openBugs: true, closedBugs: true, closedDays: 180 }
 const custom = {
   tags: ['Needs triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 3,
   readinessChecks: { bug: ['severity', 'reproSteps'], other: [] }, waitingTags: ['Awaiting QA', 'Needs Info'],
+  similarItems: { openBugs: false, closedBugs: true, closedDays: 90 },
 }
 
 test('Triage defaults to its tag only; explicit empty rules are preserved and lists normalize', () => {
   assert.deepEqual(createDefaultTriageOptions(), {
     tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks: defaultChecks, waitingTags: ['Needs Info'],
+    similarItems: defaultSimilar,
   })
   assert.deepEqual(parseTriageOptions({ tags: [], includeNewBugs: false, excludedIterationPaths: [] }), {
     tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks: defaultChecks, waitingTags: ['Needs Info'],
+    similarItems: defaultSimilar,
   })
   assert.deepEqual(parseTriageOptions({ tags: [' triage ', '', 'TRIAGE', 'Other'], excludedIterationPaths: [' Project\\Refine '], ageFlagDays: 30 }), {
     tags: ['Other', 'TRIAGE'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 30, readinessChecks: defaultChecks,
-    waitingTags: ['Needs Info'],
+    waitingTags: ['Needs Info'], similarItems: defaultSimilar,
   })
   for (const value of [null, [], { tags: null }, { tags: [1] }, { tags: ['one;two'] }, { includeNewBugs: 'true' }, { excludedIterationPaths: false }]) {
     assert.throws(() => parseTriageOptions(value))
@@ -55,6 +61,47 @@ test('waiting tags normalize like Triage tags, may be empty, and reject lists an
   assert.deepEqual(parseTriageOptions({ waitingTags: [] }).waitingTags, [])
   assert.throws(() => parseTriageOptions({ waitingTags: 'Needs Info' }), /waiting tags must be a list of strings/)
   assert.throws(() => parseTriageOptions({ waitingTags: ['Needs; Info'] }), /without semicolons/)
+})
+
+test('similar items options default each missing field and reject anything but on, off and 1 to 365 days', () => {
+  assert.deepEqual(parseTriageOptions({ similarItems: { closedBugs: false } }).similarItems, { ...defaultSimilar, closedBugs: false })
+  assert.deepEqual(parseTriageOptions({ similarItems: { openBugs: false, closedDays: 365 } }).similarItems,
+    { openBugs: false, closedBugs: true, closedDays: 365 })
+  for (const similarItems of [null, [], 'on']) {
+    assert.throws(() => parseTriageOptions({ similarItems }), /similar items must be an object/)
+  }
+  assert.throws(() => parseTriageOptions({ similarItems: { openBugs: 'yes' } }), /must be true or false/)
+  for (const closedDays of [0, 366, 1.5, '30', null, Number.NaN]) {
+    assert.throws(() => parseTriageOptions({ similarItems: { closedDays } }), /whole number of days from 1 to 365/)
+  }
+})
+
+test('pairs marked as not duplicates are kept per team, oldest dropped first, and survive storage failures', () => {
+  localStorage.clear()
+  assert.deepEqual(loadTriageNotDuplicates('a'), [])
+  let pairs = addTriageNotDuplicate('a', [], '10:20')
+  pairs = addTriageNotDuplicate('a', pairs, '5:30')
+  assert.deepEqual(addTriageNotDuplicate('a', pairs, '10:20'), ['5:30', '10:20'], 'marking a pair again moves it to the newest')
+  assert.deepEqual(loadTriageNotDuplicates('a'), ['5:30', '10:20'])
+  assert.deepEqual(loadTriageNotDuplicates('b'), [], 'each team has its own pairs')
+  const full = Array.from({ length: MAX_TRIAGE_NOT_DUPLICATES }, (_, index) => `${index}:${index + 1000}`)
+  const capped = addTriageNotDuplicate('a', full, '1:2')
+  assert.equal(capped.length, MAX_TRIAGE_NOT_DUPLICATES)
+  assert.deepEqual([capped[0], capped.at(-1)], ['1:1001', '1:2'], 'the oldest pair is forgotten first')
+  localStorage.setItem(triageNotDuplicatesStorageKey('c'), JSON.stringify(['1:2', 'bad', 3, '4:5']))
+  assert.deepEqual(loadTriageNotDuplicates('c'), ['1:2', '4:5'], 'unreadable entries are skipped')
+  for (const raw of ['{broken', '{"1:2":true}']) {
+    localStorage.setItem(triageNotDuplicatesStorageKey('c'), raw)
+    assert.deepEqual(loadTriageNotDuplicates('c'), [], raw)
+  }
+  const originalSet = dom.window.Storage.prototype.setItem
+  dom.window.Storage.prototype.setItem = () => { throw new Error('quota exceeded') }
+  try {
+    assert.deepEqual(addTriageNotDuplicate('d', ['1:2'], '3:4'), ['1:2', '3:4'], 'the page still updates when storage cannot be written')
+  } finally {
+    dom.window.Storage.prototype.setItem = originalSet
+  }
+  localStorage.clear()
 })
 
 test('a visit returns the last time Triage was open on an earlier day, the same answer all day, per team', () => {
@@ -131,7 +178,10 @@ test('team data round-trips Triage options, defaults old exports and rejects sup
   assert.deepEqual(parseImportedTeamData(JSON.stringify(payload)).triageOptions, custom)
   const { triageOptions: _omitted, ...legacy } = payload
   assert.deepEqual(parseImportedTeamData(JSON.stringify(legacy)).triageOptions, createDefaultTriageOptions())
-  for (const triageOptions of [null, [], { tags: [42] }, { includeNewBugs: 'yes' }, { ageFlagDays: 0 }, { readinessChecks: { bug: ['bogus'], other: [] } }]) {
+  for (const triageOptions of [
+    null, [], { tags: [42] }, { includeNewBugs: 'yes' }, { ageFlagDays: 0 }, { readinessChecks: { bug: ['bogus'], other: [] } },
+    { similarItems: { closedDays: 0 } },
+  ]) {
     assert.throws(() => parseImportedTeamData(JSON.stringify({ ...payload, triageOptions })), /Triage/)
   }
 })
@@ -159,9 +209,11 @@ test('per-team options persist, reload, report save failures, recover explicitly
   await act(async () => state.setTriageOptionsForTeam('triage-a', custom))
   assert.equal(state!.triageSettingsByTeam['triage-a'].error, null)
   recordTriageVisit('triage-a')
+  addTriageNotDuplicate('triage-a', [], '1:2')
   await act(async () => state.handleTeamProfilesChange([{ ...profile, id: 'triage-b' }]))
   assert.equal(localStorage.getItem(triageOptionsStorageKey('triage-a')), null)
   assert.equal(localStorage.getItem(triageVisitStorageKey('triage-a')), null, 'the team’s Triage visits go with it')
+  assert.equal(localStorage.getItem(triageNotDuplicatesStorageKey('triage-a')), null, 'and its pairs marked as not duplicates')
   assert.equal(state!.triageSettingsByTeam['triage-a'], undefined)
   await act(async () => root.unmount())
   t.after(() => localStorage.clear())

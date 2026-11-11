@@ -2,8 +2,8 @@ import type { TeamProfile } from '../appSettings'
 import { mapWithConcurrency } from './concurrency'
 import type { AdoRequestClient } from './httpClient'
 import { parseAssignedTo } from './identity'
-import type { BacklogBug } from './types'
-import { buildBacklogBugsWiql } from './wiql'
+import type { BacklogBug, ClosedBug } from './types'
+import { buildBacklogBugsWiql, buildRecentlyClosedBugsWiql } from './wiql'
 import {
   chunkArray,
   EFFORT_FIELD_NAMES,
@@ -22,6 +22,12 @@ const CLOSED_STATE_CATEGORIES = new Set(['completed', 'removed'])
 /** Used when the Bug type reports no closed-category states to exclude. */
 export const FALLBACK_CLOSED_BUG_STATES: readonly string[] = ['Closed', 'Done', 'Removed', 'Completed']
 
+/** Used when the Bug type reports no Completed-category states: a fixed bug, unlike a Removed one, can regress. */
+export const FALLBACK_COMPLETED_BUG_STATES: readonly string[] = ['Closed', 'Done', 'Completed']
+
+/** At most this many recently closed bugs are compared, newest first, so a busy area cannot slow the Triage page. */
+export const RECENTLY_CLOSED_BUG_LIMIT = 1000
+
 const BACKLOG_BUG_FIELDS = [
   'System.Title',
   'System.CreatedDate',
@@ -33,6 +39,8 @@ const BACKLOG_BUG_FIELDS = [
   'Microsoft.VSTS.Common.Priority',
   ...EFFORT_FIELD_NAMES,
 ]
+
+const CLOSED_BUG_FIELDS = [...BACKLOG_BUG_FIELDS, 'Microsoft.VSTS.Common.StateChangeDate']
 
 type BacklogBugApiItem = {
   id?: number
@@ -79,6 +87,15 @@ export function resolveClosedBugStates(bugStates: readonly ProjectWorkItemState[
   return closedStates.length > 0 ? closedStates : [...FALLBACK_CLOSED_BUG_STATES]
 }
 
+/** Names of the Bug states that mean a bug was fixed (the Completed category), else well-known names. */
+export function resolveCompletedBugStates(bugStates: readonly ProjectWorkItemState[] | undefined): string[] {
+  const completedStates = (bugStates ?? [])
+    .filter((state) => state.category.trim().toLowerCase() === 'completed')
+    .map((state) => state.name)
+
+  return completedStates.length > 0 ? completedStates : [...FALLBACK_COMPLETED_BUG_STATES]
+}
+
 export function mapBacklogBug(
   item: BacklogBugApiItem,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
@@ -104,6 +121,34 @@ export function mapBacklogBug(
   }
 }
 
+async function fetchBugFields(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName'>,
+  ids: readonly number[],
+  fields: readonly string[],
+  signal?: AbortSignal,
+): Promise<BacklogBugApiItem[]> {
+  const batches = await mapWithConcurrency(
+    chunkArray([...ids], WORK_ITEM_BATCH_LIMIT),
+    BATCH_REQUEST_CONCURRENCY,
+    (idsChunk) => client.request<BacklogBugsBatchResponse>({
+      method: 'POST',
+      orgName: team.orgName,
+      path: '/_apis/wit/workitemsbatch',
+      params: {
+        'api-version': '7.1',
+      },
+      body: {
+        ids: idsChunk,
+        fields,
+      },
+      signal,
+    }),
+  )
+
+  return batches.flatMap((batch) => batch.value ?? [])
+}
+
 /** Fetches every open Bug for the team's area path, across all iterations. */
 export async function fetchBacklogBugs(
   client: AdoRequestClient,
@@ -121,26 +166,40 @@ export async function fetchBacklogBugs(
     return []
   }
 
-  const batches = await mapWithConcurrency(
-    chunkArray(ids, WORK_ITEM_BATCH_LIMIT),
-    BATCH_REQUEST_CONCURRENCY,
-    (idsChunk) => client.request<BacklogBugsBatchResponse>({
-      method: 'POST',
-      orgName: team.orgName,
-      path: '/_apis/wit/workitemsbatch',
-      params: {
-        'api-version': '7.1',
-      },
-      body: {
-        ids: idsChunk,
-        fields: BACKLOG_BUG_FIELDS,
-      },
-      signal,
-    }),
-  )
-
-  return batches
-    .flatMap((batch) => batch.value ?? [])
+  return (await fetchBugFields(client, team, ids, BACKLOG_BUG_FIELDS, signal))
     .map((item) => mapBacklogBug(item, team))
     .filter((bug): bug is BacklogBug => bug !== null)
+}
+
+/**
+ * Fetches the team's Bugs that entered a completed state in the last `days` days, newest first, up to
+ * RECENTLY_CLOSED_BUG_LIMIT of them.
+ */
+export async function fetchRecentlyClosedBugs(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'areaPath'>,
+  completedStates: readonly string[],
+  days: number,
+  signal?: AbortSignal,
+): Promise<ClosedBug[]> {
+  if (completedStates.length === 0 || days < 1) {
+    return []
+  }
+
+  const ids = (await fetchWorkItemIdsByWiql(
+    client,
+    team,
+    buildRecentlyClosedBugsWiql(team.projectName, team.areaPath, completedStates, days),
+    signal,
+  )).slice(0, RECENTLY_CLOSED_BUG_LIMIT)
+  if (ids.length === 0) {
+    return []
+  }
+
+  return (await fetchBugFields(client, team, ids, CLOSED_BUG_FIELDS, signal)).flatMap((item) => {
+    const bug = mapBacklogBug(item, team)
+    if (!bug) return []
+    const closedAt = readText(item.fields?.['Microsoft.VSTS.Common.StateChangeDate'])
+    return [closedAt ? { ...bug, closedAt } : bug]
+  })
 }

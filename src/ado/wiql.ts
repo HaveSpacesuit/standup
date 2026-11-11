@@ -224,3 +224,25 @@ export function buildBacklogBugsWiql(
 
   return clauses.join('\n')
 }
+
+/**
+ * Bugs under the area path that entered one of the completed states in the last `days` days, newest first. A closed
+ * bug's state change date is when it was closed; WIQL cannot filter on a state category, so the caller names the states.
+ */
+export function buildRecentlyClosedBugsWiql(
+  projectName: string,
+  areaPath: string,
+  completedStates: readonly string[],
+  days: number,
+): string {
+  return [
+    'SELECT [System.Id]',
+    'FROM WorkItems',
+    `WHERE [System.TeamProject] = ${quoteWiql(projectName)}`,
+    `  AND [System.AreaPath] UNDER ${quoteWiql(areaPath)}`,
+    `  AND [System.WorkItemType] = 'Bug'`,
+    `  AND [System.State] IN (${completedStates.map(quoteWiql).join(', ')})`,
+    `  AND [Microsoft.VSTS.Common.StateChangeDate] >= @Today - ${Math.max(Math.trunc(days), 0)}`,
+    'ORDER BY [Microsoft.VSTS.Common.StateChangeDate] DESC',
+  ].join('\n')
+}

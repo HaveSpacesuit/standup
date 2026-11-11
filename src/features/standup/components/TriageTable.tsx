@@ -6,10 +6,13 @@ import type { BacklogSprintResolver } from '../utils/backlogSprint'
 import { formatTriageParent, getTriageTitleTags, UNKNOWN_CREATOR_LABEL } from '../utils/triageDisplay'
 import type { TriageReadinessChecks } from '../utils/triageOptions'
 import { describeTriageClearing, getTriageChecksFor, hasTriageChecks } from '../utils/triageRules'
+import type { TriageMatch } from '../utils/triageSimilar'
 import { AppTooltip } from './AppTooltip'
 import {
   TriageAgeLabel, TriageEffort, TriageImpact, TriageReadinessLabel, TriageReasons, TriageSeverity, TriageTypeIcon,
 } from './TriageFields'
+import { TriageMatchStrip } from './TriageSimilar'
+import { describeTriageMatch } from './triageSimilarDisplay'
 import { NotSet, PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { WorkItemTitle } from './WorkItemTitle'
 import { workItemTitleCellSx } from './workItemTableDisplay'
@@ -42,6 +45,9 @@ const tableSx: SxProps<Theme> = { tableLayout: 'fixed' }
 const headCellSx: SxProps<Theme> = { bgcolor: 'background.paper', whiteSpace: 'nowrap', top: '-1px', zIndex: 3 }
 const noWrapSx: SxProps<Theme> = { whiteSpace: 'nowrap' }
 const wrapSx: SxProps<Theme> = { overflowWrap: 'anywhere' }
+const titleRowSx: SxProps<Theme> = { display: 'flex', alignItems: 'flex-start', gap: 1 }
+// The match strip sits under the title, only as wide as its text.
+const titleStackSx: SxProps<Theme> = { display: 'grid', justifyItems: 'start', gap: 0.5, minWidth: 0 }
 type TriageTableProps = {
   items: TriageItem[]
   resolveSprint: BacklogSprintResolver
@@ -59,10 +65,14 @@ type TriageTableProps = {
   excludedIterationPaths: readonly string[]
   /** Tags that mean the item is waiting on someone else, so its age is never flagged. */
   waitingTags: readonly string[]
+  /** Each item's closest similar item, shown under its title. */
+  matches?: ReadonlyMap<number, TriageMatch>
+  onCompare?: (itemId: number) => void
 }
 
 export function TriageTable({
   items, resolveSprint, ageFlagDays, showAssignee = true, showParent = true, readinessChecks, excludedIterationPaths, waitingTags,
+  matches, onCompare,
 }: TriageTableProps) {
   const showReadiness = hasTriageChecks(readinessChecks)
   const columns = COLUMNS
@@ -93,12 +103,18 @@ export function TriageTable({
           {items.map((item) => {
             const checks = getTriageChecksFor(item, readinessChecks)
             const clearing = describeTriageClearing(item, excludedIterationPaths)
+            const match = matches?.get(item.id)
             return (
               <TableRow key={item.id}>
                 <TableCell component="th" scope="row" sx={workItemTitleCellSx}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <Box sx={titleRowSx}>
                     <TriageTypeIcon item={item} />
-                    <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} />
+                    {match && onCompare ? (
+                      <Box sx={titleStackSx}>
+                        <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} />
+                        <TriageMatchStrip itemId={item.id} match={match} detail={describeTriageMatch(match, resolveSprint)} compact onCompare={onCompare} />
+                      </Box>
+                    ) : <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} />}
                   </Box>
                 </TableCell>
                 <TableCell><TriageReasons item={item} clearing={clearing} /></TableCell>

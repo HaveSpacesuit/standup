@@ -2,7 +2,8 @@ import { useId, useState } from 'react'
 import { Alert, Autocomplete, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, TextField, Typography } from '@mui/material'
 import type { TeamIterationOption } from '../../../ado/types'
 import {
-  addTriageTags, MAX_TRIAGE_AGE_FLAG_DAYS, parseTriageOptions, TRIAGE_CHECK_LABELS, TRIAGE_CHECKS, type TriageCheck, type TriageOptions,
+  addTriageTags, MAX_TRIAGE_AGE_FLAG_DAYS, MAX_TRIAGE_CLOSED_DAYS, parseTriageOptions, TRIAGE_CHECK_LABELS, TRIAGE_CHECKS, type TriageCheck,
+  type TriageOptions,
 } from '../utils/triageOptions'
 import { ChipListEditor } from './ChipListEditor'
 
@@ -35,6 +36,7 @@ type Props = {
 export function TriageOptionsDialog({ options, onSave, onClose, iterations, iterationsLoading, iterationsError }: Props) {
   const newBugsHeadingId = useId()
   const readinessHeadingId = useId()
+  const similarHeadingId = useId()
   const [tags, setTags] = useState(options.tags)
   const [tagDraft, setTagDraft] = useState('')
   const [includeNewBugs, setIncludeNewBugs] = useState(options.includeNewBugs)
@@ -45,6 +47,9 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
   const [waitingDraft, setWaitingDraft] = useState('')
   const [bugChecks, setBugChecks] = useState(options.readinessChecks.bug)
   const [otherChecks, setOtherChecks] = useState(options.readinessChecks.other)
+  const [similarOpenBugs, setSimilarOpenBugs] = useState(options.similarItems.openBugs)
+  const [similarClosedBugs, setSimilarClosedBugs] = useState(options.similarItems.closedBugs)
+  const [closedDaysInput, setClosedDaysInput] = useState(String(options.similarItems.closedDays))
   const [error, setError] = useState<string | null>(null)
 
   const addTags = () => {
@@ -67,6 +72,14 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
         ageFlagDays: ageFlagInput.trim() ? Number(ageFlagInput) : Number.NaN,
         readinessChecks: { bug: bugChecks, other: otherChecks },
         waitingTags: addTriageTags(waitingTags, waitingDraft),
+        similarItems: {
+          openBugs: similarOpenBugs,
+          closedBugs: similarClosedBugs,
+          // Like the excluded paths, the saved days are kept while closed bugs are off, but an edit to the disabled field is not.
+          closedDays: !similarClosedBugs
+            ? options.similarItems.closedDays
+            : closedDaysInput.trim() ? Number(closedDaysInput) : Number.NaN,
+        },
       })
       onSave(next)
       onClose()
@@ -163,6 +176,37 @@ export function TriageOptionsDialog({ options, onSave, onClose, iterations, iter
             inputLabel="Add waiting tag"
             emptyText="No waiting tags. Every item counts as still to triage."
           />
+          <Box role="group" aria-labelledby={similarHeadingId}>
+            <Typography id={similarHeadingId} variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>
+              Similar items
+            </Typography>
+            <Typography variant="body-sm" color="text.secondary" sx={{ mb: 0.5 }}>
+              Each item's title is compared with the rest of the queue, and with these, to show its closest match as a
+              possible duplicate or, for a closed bug, a possible regression.
+            </Typography>
+            <FormControlLabel
+              control={<Checkbox checked={similarOpenBugs} onChange={(event) => setSimilarOpenBugs(event.target.checked)} />}
+              label="Open bugs"
+              sx={{ display: 'flex' }}
+            />
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1 }}>
+              <FormControlLabel
+                control={<Checkbox checked={similarClosedBugs} onChange={(event) => setSimilarClosedBugs(event.target.checked)} />}
+                label="Bugs closed in the last"
+                sx={{ mr: 0 }}
+              />
+              <TextField
+                type="number"
+                size="small"
+                disabled={!similarClosedBugs}
+                value={closedDaysInput}
+                onChange={(event) => setClosedDaysInput(event.target.value)}
+                sx={{ width: 96 }}
+                slotProps={{ htmlInput: { min: 1, max: MAX_TRIAGE_CLOSED_DAYS, step: 1, 'aria-label': `Days to look back for closed bugs (1–${MAX_TRIAGE_CLOSED_DAYS})` } }}
+              />
+              <Typography variant="body-sm" aria-hidden="true">days</Typography>
+            </Box>
+          </Box>
           {error ? <Alert severity="error">{error}</Alert> : null}
         </Box>
       </DialogContent>

@@ -10,9 +10,12 @@ import svgTable from '@stratakit/icons/table.svg'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
 import type { TeamIterationOption, TriageResult } from '../../../ado/types'
 import { useRememberedView } from '../hooks/useRememberedView'
+import type { TriageSimilarSources } from '../hooks/useTriageSimilarSources'
 import { createBacklogSprintResolver } from '../utils/backlogSprint'
 import { getTriageQueryOptions, hasTriageRules, type TriageOptions } from '../utils/triageOptions'
 import { describeEmptyTriage, filterTriageItems, formatTriageCount } from '../utils/triageDisplay'
+import { addTriageNotDuplicate, loadTriageNotDuplicates } from '../utils/triageNotDuplicates'
+import { collectTriageMatchCandidates, findTriageMatches, triagePairKey } from '../utils/triageSimilar'
 import { recordTriageVisit } from '../utils/triageVisits'
 import { AppTooltip } from '../components/AppTooltip'
 import { AdoErrorNotice } from '../components/AdoErrorNotice'
@@ -26,6 +29,7 @@ import { TriageEmptyState } from '../components/TriageEmptyState'
 import { TriageInbox } from '../components/TriageInbox'
 import { TriageLoadingState } from '../components/TriageLoadingState'
 import { TriageOptionsDialog } from '../components/TriageOptionsDialog'
+import { TriageCompareDialog } from '../components/TriageSimilar'
 import { TriageTable } from '../components/TriageTable'
 
 type Props = {
@@ -38,6 +42,8 @@ type Props = {
   isLoading: boolean
   error: string | null
   syncedAt: number | null
+  /** The open and recently closed bugs the queue's titles are compared with, besides each other. */
+  similar: TriageSimilarSources
   onRefresh: () => void
   options: TriageOptions
   settingsError: string | null
@@ -74,13 +80,27 @@ export function TriagePage(props: Props) {
   const [filter, setFilter] = useState('')
   const [view, setView] = useRememberedView<TriageView>('triage', TRIAGE_VIEWS, props.rememberLastView)
   const lastVisit = useTriageVisit(props.selectedTeamId, props.syncedAt)
-  const { result, options, isLoading, error, settingsError, iterations } = props
+  // The page is keyed by team, so this holds the team's pairs.
+  const [notDuplicates, setNotDuplicates] = useState(() => (props.selectedTeamId ? loadTriageNotDuplicates(props.selectedTeamId) : []))
+  const [compareId, setCompareId] = useState<number | null>(null)
+  const { result, options, isLoading, error, settingsError, iterations, similar } = props
   // Sprints are placed against the team's iterations, like Backlog; until they load, the path's last segment is shown.
   const resolveSprint = useMemo(() => createBacklogSprintResolver(iterations), [iterations])
-  const items = useMemo(
-    () => filterTriageItems(result.items, filter, resolveSprint, options.readinessChecks),
-    [result.items, filter, resolveSprint, options.readinessChecks],
+  // From the whole queue, so an item's match holds still while the quick filter changes.
+  const matches = useMemo(
+    () => findTriageMatches(
+      result.items,
+      collectTriageMatchCandidates(result.items, similar.openBugs, similar.closedBugs),
+      new Set(notDuplicates),
+    ),
+    [result.items, similar.openBugs, similar.closedBugs, notDuplicates],
   )
+  const items = useMemo(
+    () => filterTriageItems(result.items, filter, resolveSprint, options.readinessChecks, matches),
+    [result.items, filter, resolveSprint, options.readinessChecks, matches],
+  )
+  const compareItem = compareId === null ? undefined : result.items.find((item) => item.id === compareId)
+  const compareMatch = compareId === null ? undefined : matches.get(compareId)
   // From the whole queue, not the filtered rows, so the columns hold still while typing in the quick filter.
   const showAssignee = result.items.some((item) => item.assignedTo)
   const showParent = result.items.some((item) => item.parent)
@@ -113,19 +133,19 @@ export function TriagePage(props: Props) {
     if (isLoading) return <TriageLoadingState />
     return (
       <>
-        {result.warnings.map((warning) => <Alert key={warning} severity="warning">{warning}</Alert>)}
+        {[...result.warnings, ...similar.warnings].map((warning) => <Alert key={warning} severity="warning">{warning}</Alert>)}
         {items.length ? view === 'inbox' ? (
           <TriageInbox
             items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays} lastVisit={lastVisit}
             readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
-            waitingTags={options.waitingTags}
+            waitingTags={options.waitingTags} matches={matches} onCompare={setCompareId}
           />
         ) : (
           <TriageTable
             items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays}
             showAssignee={showAssignee} showParent={showParent}
             readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
-            waitingTags={options.waitingTags}
+            waitingTags={options.waitingTags} matches={matches} onCompare={setCompareId}
           />
         ) : result.items.length ? (
           <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
@@ -211,6 +231,15 @@ export function TriagePage(props: Props) {
         options={options} onSave={props.onOptionsChange} onClose={() => setSettingsOpen(false)}
         iterations={props.iterations} iterationsLoading={props.iterationsLoading} iterationsError={props.iterationsError}
       /> : null}
+      {compareItem && compareMatch ? (
+        <TriageCompareDialog
+          item={compareItem} match={compareMatch} resolveSprint={resolveSprint} onClose={() => setCompareId(null)}
+          onNotDuplicate={() => {
+            setNotDuplicates((pairs) => addTriageNotDuplicate(props.selectedTeamId, pairs, triagePairKey(compareItem.id, compareMatch.candidate.id)))
+            setCompareId(null)
+          }}
+        />
+      ) : null}
       {renderContent()}
     </>
   )
