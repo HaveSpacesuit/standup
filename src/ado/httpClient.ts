@@ -51,29 +51,13 @@ export class AdoHttpClient implements AdoRequestClient {
   }
 
   async requestPage<T>(options: AdoRequestOptions): Promise<{ data: T; continuationToken: string | null }> {
-    const signal = options.signal
-      ? AbortSignal.any([this.patSessionSignal, options.signal])
-      : this.patSessionSignal
-    signal.throwIfAborted()
-
-    const host = options.host ?? 'dev.azure.com'
-    const url = new URL(`https://${host}/${encodeURIComponent(options.orgName)}${options.path}`)
-    const params = options.params ?? {}
-
-    if (!params['api-version']) {
-      params['api-version'] = this.defaultApiVersion
-    }
-
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined) {
-        url.searchParams.set(key, String(value))
-      }
-    }
+    const signal = this.createSignal(options.signal)
+    const { url, host } = this.buildUrl(options)
 
     const response = await fetch(url, {
       method: options.method ?? 'GET',
       headers: {
-        Authorization: `Basic ${btoa(`:${this.pat}`)}`,
+        Authorization: this.authorization(),
         Accept: 'application/json',
         ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       },
@@ -104,5 +88,62 @@ export class AdoHttpClient implements AdoRequestClient {
       data,
       continuationToken: response.headers.get('x-ms-continuationtoken'),
     }
+  }
+
+  /**
+   * Downloads a file, such as a screenshot pasted into a work item, for the page to show from memory. The path is always
+   * under the organization on `dev.azure.com`, so the token never goes anywhere else.
+   */
+  async requestBlob(options: Omit<AdoRequestOptions, 'method' | 'body'> & { maxBytes: number }): Promise<Blob> {
+    const signal = this.createSignal(options.signal)
+    const { url, host } = this.buildUrl(options)
+    const response = await fetch(url, { method: 'GET', headers: { Authorization: this.authorization(), Accept: '*/*' }, signal })
+
+    signal.throwIfAborted()
+    if (response.status === 401 || response.status === 403 || response.status === 203) {
+      throw new AdoAuthError(response.status, host)
+    }
+    if (!response.ok) {
+      throw new Error(`Azure DevOps attachment request failed (HTTP ${response.status}).`)
+    }
+    if ((response.headers.get('content-type') ?? '').toLowerCase().includes('text/html')) {
+      throw new AdoAuthError()
+    }
+    if (Number(response.headers.get('content-length')) > options.maxBytes) {
+      void response.body?.cancel().catch(() => undefined)
+      throw new Error('The attachment is too large to show here.')
+    }
+
+    const blob = await response.blob()
+    signal.throwIfAborted()
+    if (blob.size > options.maxBytes) throw new Error('The attachment is too large to show here.')
+    return blob
+  }
+
+  private createSignal(signal: AbortSignal | undefined): AbortSignal {
+    const combined = signal ? AbortSignal.any([this.patSessionSignal, signal]) : this.patSessionSignal
+    combined.throwIfAborted()
+    return combined
+  }
+
+  private authorization(): string {
+    return `Basic ${btoa(`:${this.pat}`)}`
+  }
+
+  private buildUrl(options: Pick<AdoRequestOptions, 'host' | 'orgName' | 'path' | 'params'>): { url: URL; host: NonNullable<AdoRequestOptions['host']> } {
+    const host = options.host ?? 'dev.azure.com'
+    const url = new URL(`https://${host}/${encodeURIComponent(options.orgName)}${options.path}`)
+    const params = options.params ?? {}
+
+    if (!params['api-version']) {
+      params['api-version'] = this.defaultApiVersion
+    }
+
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value))
+      }
+    }
+    return { url, host }
   }
 }

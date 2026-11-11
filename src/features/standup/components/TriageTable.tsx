@@ -7,6 +7,7 @@ import { formatTriageParent, getTriageTitleTags, UNKNOWN_CREATOR_LABEL } from '.
 import type { TriageReadinessChecks } from '../utils/triageOptions'
 import { describeTriageClearing, getTriageChecksFor, hasTriageChecks } from '../utils/triageRules'
 import type { TriageMatch } from '../utils/triageSimilar'
+import { isPreviewRowClick } from '../hooks/usePreviewPanel'
 import { AppTooltip } from './AppTooltip'
 import {
   TriageAgeLabel, TriageEffort, TriageImpact, TriageReadinessLabel, TriageReasons, TriageSeverity, TriageTypeIcon,
@@ -14,6 +15,8 @@ import {
 import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { NotSet, PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
+import { PreviewToggleButton } from './WorkItemPreviewPanel'
+import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { WorkItemTitle } from './WorkItemTitle'
 import { workItemTitleCellSx } from './workItemTableDisplay'
 
@@ -45,9 +48,14 @@ const tableSx: SxProps<Theme> = { tableLayout: 'fixed' }
 const headCellSx: SxProps<Theme> = { bgcolor: 'background.paper', whiteSpace: 'nowrap', top: '-1px', zIndex: 3 }
 const noWrapSx: SxProps<Theme> = { whiteSpace: 'nowrap' }
 const wrapSx: SxProps<Theme> = { overflowWrap: 'anywhere' }
-const titleRowSx: SxProps<Theme> = { display: 'flex', alignItems: 'flex-start', gap: 1 }
+const titleRowSx: SxProps<Theme> = { display: 'flex', alignItems: 'flex-start', gap: 1, '& > .preview-toggle': { ml: 'auto', my: -0.5 } }
 // The match strip sits under the title, only as wide as its text.
 const titleStackSx: SxProps<Theme> = { display: 'grid', justifyItems: 'start', gap: 0.5, minWidth: 0 }
+// Rows open the preview when clicked, and stop clear of the sticky header when J and K scroll to them.
+const previewBodySx: SxProps<Theme> = {
+  ...revealPreviewToggles('& > tr'),
+  '& > tr[data-preview-id]': { cursor: 'pointer', scrollMarginTop: 40 },
+}
 type TriageTableProps = {
   items: TriageItem[]
   resolveSprint: BacklogSprintResolver
@@ -68,11 +76,13 @@ type TriageTableProps = {
   /** Each item's closest similar item, shown under its title. */
   matches?: ReadonlyMap<number, TriageMatch>
   onCompare?: (itemId: number) => void
+  /** Which row the preview panel shows; without it the rows cannot be previewed. */
+  preview?: PreviewControls
 }
 
 export function TriageTable({
   items, resolveSprint, ageFlagDays, showAssignee = true, showParent = true, readinessChecks, excludedIterationPaths, waitingTags,
-  matches, onCompare,
+  matches, onCompare, preview,
 }: TriageTableProps) {
   const showReadiness = hasTriageChecks(readinessChecks)
   const columns = COLUMNS
@@ -85,7 +95,7 @@ export function TriageTable({
 
   return (
     // Relative so the absolutely positioned visually hidden text is contained by this scroller, not the page.
-    <TableContainer component="main" sx={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'auto', scrollbarGutter: 'stable' }}>
+    <TableContainer component="main" sx={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto', scrollbarGutter: 'stable' }}>
       <Table stickyHeader size="small" aria-label="Triage work items, oldest created first" sx={tableSx} style={{ minWidth }}>
         <colgroup>
           {columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
@@ -99,13 +109,22 @@ export function TriageTable({
             ))}
           </TableRow>
         </TableHead>
-        <TableBody>
+        <TableBody sx={preview ? previewBodySx : undefined}>
           {items.map((item) => {
             const checks = getTriageChecksFor(item, readinessChecks)
             const clearing = describeTriageClearing(item, excludedIterationPaths)
             const match = matches?.get(item.id)
+            const selected = preview?.selectedId === item.id
             return (
-              <TableRow key={item.id}>
+              <TableRow
+                key={item.id}
+                hover={Boolean(preview)}
+                selected={selected}
+                data-preview-id={preview ? item.id : undefined}
+                onClick={preview ? (event) => {
+                  if (isPreviewRowClick(event)) preview.onSelect(item.id)
+                } : undefined}
+              >
                 <TableCell component="th" scope="row" sx={workItemTitleCellSx}>
                   <Box sx={titleRowSx}>
                     <TriageTypeIcon item={item} />
@@ -115,6 +134,7 @@ export function TriageTable({
                         <TriageMatchStrip itemId={item.id} match={match} detail={describeTriageMatch(match, resolveSprint)} compact onCompare={onCompare} />
                       </Box>
                     ) : <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} />}
+                    {preview ? <PreviewToggleButton id={item.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} /> : null}
                   </Box>
                 </TableCell>
                 <TableCell><TriageReasons item={item} clearing={clearing} /></TableCell>

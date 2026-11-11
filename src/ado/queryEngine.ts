@@ -12,7 +12,8 @@ import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState, type ProjectWo
 import type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
 import type { QualityAssuranceRawData } from './workItemsApi'
 import { fetchTriageItems } from './triageApi'
-import type { TriageResult } from './types'
+import type { TriageResult, WorkItemPreview } from './types'
+import { fetchWorkItemPreview, resolveAdoAttachmentRequest } from './workItemPreviewApi'
 import { getTriageQueryOptions, hasTriageRules, parseTriageOptions, type TriageQueryOptions } from '../features/standup/utils/triageOptions'
 
 export type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
@@ -41,6 +42,25 @@ function backlogBugsCacheKey(team: Pick<TeamProfile, 'id' | 'orgName' | 'project
   return `${team.id}:${JSON.stringify([team.orgName.toLowerCase(), team.projectName.toLowerCase(), team.areaPath.toLowerCase()])}`
 }
 
+/** How many previewed work items and attachments are kept; moving through a day's queue fits easily. */
+const WORK_ITEM_PREVIEW_CACHE_LIMIT = 60
+const ATTACHMENT_CACHE_LIMIT = 40
+const ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024
+
+// Maps keep insertion order, so the first keys are the oldest.
+function dropOldest(cache: Map<string, unknown>, limit: number): void {
+  for (const key of cache.keys()) {
+    if (cache.size < limit) return
+    cache.delete(key)
+  }
+}
+
+function clearTeamEntries(cache: Map<string, unknown>, teamId?: string): void {
+  for (const key of cache.keys()) {
+    if (!teamId || key.startsWith(`${teamId}:`)) cache.delete(key)
+  }
+}
+
 
 export class AdoQueryEngine {
   private readonly client: AdoHttpClient
@@ -58,7 +78,8 @@ export class AdoQueryEngine {
   private readonly projectWorkItemStatesCache = new Map<string, Promise<ProjectWorkItemTypeInfo>>()
   private readonly teamIterationsCache = new Map<string, Promise<TeamIterationOption[]>>()
   private readonly workItemUpdatesCache = new Map<string, Promise<WorkItemUpdate[]>>()
-
+  private readonly workItemPreviewCache = new Map<string, Promise<WorkItemPreview>>()
+  private readonly attachmentCache = new Map<string, Promise<Blob>>()
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
     // Route through getWorkItemUpdates so the assignee resolver shares its cache instead of
@@ -249,6 +270,7 @@ export class AdoQueryEngine {
   }
 
   clearBacklogDataCache(teamId?: string): void {
+    clearTeamEntries(this.workItemPreviewCache, teamId)
     if (teamId) {
       for (const key of this.backlogBugsCache.keys()) {
         if (key.startsWith(`${teamId}:`)) {
@@ -259,6 +281,25 @@ export class AdoQueryEngine {
     }
 
     this.backlogBugsCache.clear()
+  }
+
+  /** The details the preview panel shows for a work item, kept for the most recently previewed items until a refresh. */
+  async getWorkItemPreview(team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>, id: number): Promise<WorkItemPreview> {
+    const key = `${team.id}:${orgProjectCacheKey(team)}:${id}`
+    if (!this.workItemPreviewCache.has(key)) dropOldest(this.workItemPreviewCache, WORK_ITEM_PREVIEW_CACHE_LIMIT)
+    return this.getOrLoadCached(this.workItemPreviewCache, key, () => fetchWorkItemPreview(this.client, team, id))
+  }
+
+  /**
+   * A file attached to a work item in `orgName`, such as a pasted screenshot, or null for any other URL, which is never
+   * requested. Attachments never change, so they are kept until the most recent ones push them out.
+   */
+  getWorkItemAttachment(src: string, orgName: string): Promise<Blob> | null {
+    const request = resolveAdoAttachmentRequest(src, orgName)
+    if (!request) return null
+    const key = `${request.orgName.toLowerCase()}${request.path.toLowerCase()}`
+    if (!this.attachmentCache.has(key)) dropOldest(this.attachmentCache, ATTACHMENT_CACHE_LIMIT)
+    return this.getOrLoadCached(this.attachmentCache, key, () => this.client.requestBlob({ ...request, maxBytes: ATTACHMENT_MAX_BYTES }))
   }
 
   async getTriageItems(
@@ -287,13 +328,14 @@ export class AdoQueryEngine {
     })
   }
 
-  /** Clears the Triage queue and the closed bugs its similar items compare with. */
+  /** Clears the Triage queue, the closed bugs its similar items compare with, and the previewed items. */
   clearTriageDataCache(teamId?: string): void {
     for (const cache of [this.triageItemsCache, this.closedBugsCache]) {
       for (const key of cache.keys()) {
         if (!teamId || key.startsWith(`${teamId}:`)) cache.delete(key)
       }
     }
+    clearTeamEntries(this.workItemPreviewCache, teamId)
   }
 
   clearTeamIterationsCache(teamId: string): void {

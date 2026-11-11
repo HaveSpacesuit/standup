@@ -38,6 +38,7 @@ import type { TriageResult } from '../../../ado/types'
 import { createDefaultTriageOptions, getTriageQueryOptions, hasTriageRules, type TriageQueryOptions, type TriageSettings } from '../utils/triageOptions'
 import { useTriageItems } from './useTriageItems'
 import { useTriageSimilarSources, type TriageSimilarSources } from './useTriageSimilarSources'
+import { createWorkItemPreviewSource, type WorkItemPreviewSource } from './useWorkItemPreview'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -109,6 +110,8 @@ type UseBoardViewModelResult = {
   triageSyncedAt: number | null
   /** The open and recently closed bugs Triage compares the queue's titles with. */
   triageSimilar: TriageSimilarSources
+  /** Where Triage's preview panel loads an item's details from; null without a team. */
+  triagePreview: WorkItemPreviewSource | null
   projectWorkItemStates: ProjectWorkItemState[]
   projectWorkItemTypes: string[]
   selectedAssignmentWorkItemTypes: string[]
@@ -334,6 +337,20 @@ export function useBoardViewModel({
     enabled: activeView === 'triage' && !triageSettings?.error && triageResult.items.length > 0,
     reloadNonce: triageReloadNonce,
   })
+  // A new source on refresh, so the open preview reloads with the queue.
+  const previewTeamId = selectedTeam?.id
+  const previewOrgName = selectedTeam?.orgName
+  const previewProjectName = selectedTeam?.projectName
+  const triagePreview = useMemo(
+    () => dataQueryEngine && previewTeamId && previewOrgName && previewProjectName
+      ? createWorkItemPreviewSource(
+        dataQueryEngine,
+        { id: previewTeamId, orgName: previewOrgName, projectName: previewProjectName },
+        `${previewTeamId}:triage:${triageReloadNonce}`,
+      )
+      : null,
+    [dataQueryEngine, previewTeamId, previewOrgName, previewProjectName, triageReloadNonce],
+  )
 
   const {
     workItemStates: projectWorkItemStates,
@@ -559,6 +576,7 @@ export function useBoardViewModel({
     triageError,
     triageSyncedAt,
     triageSimilar,
+    triagePreview,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
