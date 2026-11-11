@@ -203,6 +203,43 @@ export type TriageResult = {
   queryUrl?: string
 }
 
+/** A rich-text field the preview panel shows. */
+export type WorkItemPreviewTextField = 'reproSteps' | 'systemInfo' | 'description' | 'acceptanceCriteria'
+
+export type WorkItemPreviewAttachment = { name: string; url: string; size?: number; addedAt?: string }
+
+export type WorkItemPreviewComment = { id: number; at: string; by?: IdentityRef; html: string; edited: boolean }
+
+/** A linked work item: how it relates, as Azure DevOps names it ("Parent", "Related"), and what it is. */
+export type WorkItemPreviewLink = {
+  label: string
+  id: number
+  workItemUrl: string
+  title?: string
+  workItemType?: string
+  state?: string
+}
+
+/** What the preview panel reads for one work item, beyond what its page already loaded. */
+export type WorkItemPreview = {
+  id: number
+  /** Each rich-text field with content, as Azure DevOps stores it: HTML, which the panel sanitizes as it renders. */
+  text: Partial<Record<WorkItemPreviewTextField, string>>
+  attachments: WorkItemPreviewAttachment[]
+  /** The newest comments, newest first. */
+  comments: WorkItemPreviewComment[]
+  commentCount: number
+  /** Why the comments could not load; the count still comes from the work item. */
+  commentsError?: string
+  /** Linked work items, parents and children first. */
+  links: WorkItemPreviewLink[]
+  hyperlinks: Array<{ url: string; label: string }>
+  /** Pull requests, commits, branches and builds, which the panel only counts. */
+  developmentLinks: number
+  /** Why the linked items' titles could not load; the links still show by ID. */
+  linkTitlesError?: string
+}
+
 export type WorkItemFieldUpdate = {
   oldValue?: unknown
   newValue?: unknown

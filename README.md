@@ -421,6 +421,49 @@ number of days, newest first, up to 1,000. They load only while the Triage page 
 the queue shows first, and matches appear once the bugs arrive. A source that fails to load is left
 out with a warning.
 
+#### Preview panel
+
+Select a row or Inbox card, or the eye button that shows on it while hovered or focused (always, on
+touch screens), to read the item in a panel beside the list without leaving the page. Clicks on the
+item's links and buttons, modified clicks, and selecting text to copy do not preview. Keys move through
+the list as it is filtered and sorted: **J** and **K** preview the next and previous item (opening the
+panel on the last-previewed or first item when it is closed), **O** opens the previewed item in Azure
+DevOps, and **Esc** closes the panel, returning focus to the item's eye button. Keys typed into a field
+or a dialog are left alone.
+
+The panel's header shows the item's type, ID, and title, then its Severity, Impact, Effort, sprint,
+state, and assignee as the Table shows them. Below that:
+
+- **Why it's here**: how the item arrived, as the Inbox card says, and what clears it.
+- **Readiness**: the readiness checklist, when there are readiness checks.
+- **Similar**: the closest match, with **Compare**, when there is one.
+- The item's text from Azure DevOps. A Bug leads with **Repro steps**, then System info, Description,
+  and Acceptance criteria; other types lead with Description. Empty fields are left out unless a
+  readiness check needs them, when they are flagged (such as **Repro steps are empty**); an item with
+  no text shows its main field as empty.
+- **Attachments**, each with its size, opening in a new tab.
+- **Comments**: the newest five, with a link to the rest in Azure DevOps.
+- **Links**: linked work items with their titles and states (parent and child first, then
+  duplicates and related items, up to 50 with a count of the rest), hyperlinks, and a count of
+  development links (pull requests, commits, and builds).
+
+Text and comments keep their structure (headings, lists, tables, code, and links) but not their
+colors, fonts, or sizes, so they read well in either theme, and nothing in them can run. Screenshots
+pasted into the text load from the team organization's work item attachments, the only requests besides
+the Azure DevOps APIs that carry the PAT; an image from anywhere else is shown as a link rather than
+requested. Select a screenshot to open it full size.
+
+Details load when an item is previewed, and the next one loads ahead so **J** is instant; items already
+previewed show at once until the page refreshes. If the details cannot load, the panel says why and
+offers **Retry**; if only the comments or the linked items' titles fail, that section says so. An item
+that leaves the queue on refresh stays in the panel as **No longer in triage**, and **J** moves on to
+the item that took its place.
+
+Drag the panel's left edge to resize it, or focus the edge and use Left and Right arrow keys (32 pixels
+at a time), Home (narrowest), and End (widest); double-click the edge to reset it. The panel is 320 to
+1,200 pixels wide (440 by default), and the list keeps at least 360 pixels. The width is kept in this
+browser (`standup:preview-panel-width`), not in team exports.
+
 #### Open in ADO and refresh
 
 **Open in ADO** opens the same rules as an unsaved Azure DevOps query in a new tab, for bulk edits the
@@ -428,7 +471,7 @@ page cannot make. The query is passed in the link's `wiql` parameter, so it need
 is available once the queue has loaded.
 
 Refresh and automatic refresh load the active team's queue using its own sync time, and reload the
-bugs Similar items compares with. Changing team
+bugs Similar items compares with and the previewed item's details. Changing team
 or options never shows the prior query's results as current. Older team exports without Triage
 options use the defaults. Unreadable saved Triage options produce an error and suspend loading;
 the original data is retained until you explicitly save replacement options.
@@ -731,4 +774,8 @@ npm run preview  # preview the production Vite build locally
 
 - The PAT is stored in browser storage only, not on a server.
 - A session-only PAT is possible for temporary usage without persisting credentials to disk.
+- The PAT is sent only to Azure DevOps: its APIs, and the team organization's work item attachments
+  when previewing screenshots. Images linked from anywhere else are never requested.
+- Work item text and comments are rendered from an allowlist of formatting tags; scripts, styles,
+  frames, forms, and event handlers are dropped.
 - This app is best suited for internal or trusted environments where browser-side Azure DevOps access is acceptable.

@@ -9,11 +9,14 @@ import svgStatusSuccess from '@stratakit/icons/status-success.svg'
 import svgTable from '@stratakit/icons/table.svg'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
 import type { TeamIterationOption, TriageResult } from '../../../ado/types'
+import { usePreviewPanelWidth, usePreviewSelection } from '../hooks/usePreviewPanel'
 import { useRememberedView } from '../hooks/useRememberedView'
 import type { TriageSimilarSources } from '../hooks/useTriageSimilarSources'
+import { useWorkItemPreview, type WorkItemPreviewSource } from '../hooks/useWorkItemPreview'
 import { createBacklogSprintResolver } from '../utils/backlogSprint'
 import { getTriageQueryOptions, hasTriageRules, type TriageOptions } from '../utils/triageOptions'
 import { describeEmptyTriage, filterTriageItems, formatTriageCount } from '../utils/triageDisplay'
+import { groupTriageInbox } from '../utils/triageInbox'
 import { addTriageNotDuplicate, loadTriageNotDuplicates } from '../utils/triageNotDuplicates'
 import { collectTriageMatchCandidates, findTriageMatches, triagePairKey } from '../utils/triageSimilar'
 import { recordTriageVisit } from '../utils/triageVisits'
@@ -29,8 +32,10 @@ import { TriageEmptyState } from '../components/TriageEmptyState'
 import { TriageInbox } from '../components/TriageInbox'
 import { TriageLoadingState } from '../components/TriageLoadingState'
 import { TriageOptionsDialog } from '../components/TriageOptionsDialog'
+import { TriagePreviewPanel } from '../components/TriagePreview'
 import { TriageCompareDialog } from '../components/TriageSimilar'
 import { TriageTable } from '../components/TriageTable'
+import { previewPanelId, type PreviewControls } from '../components/workItemPreviewDisplay'
 
 type Props = {
   patConfigured: boolean
@@ -54,10 +59,15 @@ type Props = {
   iterationsError: string | null
   /** Whether to reopen the view used last time rather than the Table. */
   rememberLastView: boolean
+  /** Where the preview panel loads an item's details from; without it the items cannot be previewed. */
+  preview?: WorkItemPreviewSource | null
 }
 
 const TRIAGE_VIEWS = ['table', 'inbox'] as const
 type TriageView = (typeof TRIAGE_VIEWS)[number]
+const TRIAGE_PREVIEW_PANEL_ID = previewPanelId('triage')
+// The list and the preview panel side by side; the list keeps its place while the panel opens and closes.
+const previewLayoutSx = { flex: 1, minHeight: 0, display: 'flex' } as const
 
 /**
  * Notes the visit as the page opens, and again whenever it syncs and as it closes, and returns the earlier visit the
@@ -109,6 +119,34 @@ export function TriagePage(props: Props) {
   const showCount = canLoad && rulesEnabled && !isLoading && !error && !settingsError
   const canOpenQuery = showCount && Boolean(result.queryUrl)
 
+  const previewSource = props.preview ?? null
+  const byId = useMemo(() => new Map(result.items.map((item) => [item.id, item])), [result.items])
+  // J and K follow the list as shown: the Inbox's groups, or the Table's rows.
+  const previewIds = useMemo(() => {
+    if (!previewSource) return []
+    const listed = view === 'inbox' ? groupTriageInbox(items, options.waitingTags, lastVisit).flatMap((group) => group.items) : items
+    return listed.map((item) => item.id)
+  }, [previewSource, view, items, options.waitingTags, lastVisit])
+  const selection = usePreviewSelection({ ids: previewIds, getUrl: (id) => byId.get(id)?.workItemUrl })
+  const [panelWidth, resizePanel] = usePreviewPanelWidth()
+  const previewItem = selection.selectedId === null ? undefined : byId.get(selection.selectedId)
+  const previewLoad = useWorkItemPreview(previewSource, previewItem ? previewItem.id : null, selection.nextId)
+  const { selectedId, select, toggle } = selection
+  const previewControls = useMemo<PreviewControls | undefined>(
+    () => previewSource ? { selectedId, panelId: TRIAGE_PREVIEW_PANEL_ID, onSelect: select, onToggle: toggle } : undefined,
+    [previewSource, selectedId, select, toggle],
+  )
+
+  const renderPreview = () => selectedId === null || !previewSource ? null : (
+    <TriagePreviewPanel
+      panelId={TRIAGE_PREVIEW_PANEL_ID} panelRef={selection.panelRef} width={panelWidth} onResize={resizePanel}
+      onClose={selection.close} id={selectedId} item={previewItem} canMove={previewIds.length > 0}
+      load={previewLoad} images={previewSource.images} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays}
+      readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
+      waitingTags={options.waitingTags} match={matches.get(selectedId)} onCompare={setCompareId}
+    />
+  )
+
   const renderContent = () => {
     if (!props.teamOptions.length) return <TeamConfigurationEmptyState pageLabel="Triage" />
     if (!props.patConfigured) return <Typography sx={{ p: 2 }}>Configure an Azure DevOps PAT to load Triage.</Typography>
@@ -134,36 +172,39 @@ export function TriagePage(props: Props) {
     return (
       <>
         {[...result.warnings, ...similar.warnings].map((warning) => <Alert key={warning} severity="warning">{warning}</Alert>)}
-        {items.length ? view === 'inbox' ? (
-          <TriageInbox
-            items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays} lastVisit={lastVisit}
-            readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
-            waitingTags={options.waitingTags} matches={matches} onCompare={setCompareId}
-          />
-        ) : (
-          <TriageTable
-            items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays}
-            showAssignee={showAssignee} showParent={showParent}
-            readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
-            waitingTags={options.waitingTags} matches={matches} onCompare={setCompareId}
-          />
-        ) : result.items.length ? (
-          <Box component="main" sx={{ flex: 1, minHeight: 0, bgcolor: 'background.paper' }}>
-            <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
-              No items match the quick filter. Clear it to see the triage queue.
-            </Typography>
-          </Box>
-        ) : (
-          <TriageEmptyState
-            heading="Triage is clear"
-            message={props.syncedAt === null
-              ? 'Nothing needs triage.'
-              : `Nothing needs triage as of ${new Date(props.syncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`}
-            detail={describeEmptyTriage(getTriageQueryOptions(options))}
-            iconHref={svgStatusSuccess}
-            iconColor="var(--stratakit-color-icon-positive-base)"
-          />
-        )}
+        <Box data-preview-layout sx={previewLayoutSx}>
+          {items.length ? view === 'inbox' ? (
+            <TriageInbox
+              items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays} lastVisit={lastVisit}
+              readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
+              waitingTags={options.waitingTags} matches={matches} onCompare={setCompareId} preview={previewControls}
+            />
+          ) : (
+            <TriageTable
+              items={items} resolveSprint={resolveSprint} ageFlagDays={options.ageFlagDays}
+              showAssignee={showAssignee} showParent={showParent}
+              readinessChecks={options.readinessChecks} excludedIterationPaths={options.excludedIterationPaths}
+              waitingTags={options.waitingTags} matches={matches} onCompare={setCompareId} preview={previewControls}
+            />
+          ) : result.items.length ? (
+            <Box component="main" sx={{ flex: 1, minWidth: 0, minHeight: 0, bgcolor: 'background.paper' }}>
+              <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
+                No items match the quick filter. Clear it to see the triage queue.
+              </Typography>
+            </Box>
+          ) : (
+            <TriageEmptyState
+              heading="Triage is clear"
+              message={props.syncedAt === null
+                ? 'Nothing needs triage.'
+                : `Nothing needs triage as of ${new Date(props.syncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`}
+              detail={describeEmptyTriage(getTriageQueryOptions(options))}
+              iconHref={svgStatusSuccess}
+              iconColor="var(--stratakit-color-icon-positive-base)"
+            />
+          )}
+          {renderPreview()}
+        </Box>
       </>
     )
   }

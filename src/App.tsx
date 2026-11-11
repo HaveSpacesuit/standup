@@ -110,6 +110,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     triageError,
     triageSyncedAt,
     triageSimilar,
+    triagePreview,
     projectWorkItemStates,
     projectWorkItemTypes,
     selectedAssignmentWorkItemTypes,
@@ -356,6 +357,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           iterationsLoading: teamIterationsLoading,
           iterationsError: teamIterationsError,
           rememberLastView,
+          preview: triagePreview,
         }}
         backlogPageProps={{
           patConfigured,

@@ -18,6 +18,7 @@ import {
 import type { TriageReadinessChecks } from '../utils/triageOptions'
 import { describeTriageClearing, getTriageChecksFor, getTriageReadiness, hasTriageChecks } from '../utils/triageRules'
 import type { TriageMatch } from '../utils/triageSimilar'
+import { isPreviewRowClick } from '../hooks/usePreviewPanel'
 import { AppTooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
@@ -25,6 +26,8 @@ import { TriageChecklist, TriageEffort, TriageImpact, TriageReasons, TriageSever
 import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
+import { PreviewToggleButton } from './WorkItemPreviewPanel'
+import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { WorkItemTitle } from './WorkItemTitle'
 import { METER_TRACK_COLOR, workItemTitleCellSx } from './workItemTableDisplay'
 
@@ -37,6 +40,7 @@ const TAG_LIST_FORMAT = new Intl.ListFormat('en', { type: 'disjunction' })
 const scrollerSx: SxProps<Theme> = {
   position: 'relative',
   flex: 1,
+  minWidth: 0,
   minHeight: 0,
   overflow: 'auto',
   scrollbarGutter: 'stable',
@@ -79,6 +83,20 @@ const headingSx: SxProps<Theme> = {
   '& .subtitle': { fontSize: 11.5, fontWeight: 500, color: TERTIARY_TEXT_COLOR },
 }
 
+// The line of what happened to an item, on its card and in the preview panel.
+const metaSx = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: '4px 8px',
+  fontSize: 12,
+  color: 'text.secondary',
+  '& .separator': { color: TERTIARY_TEXT_COLOR },
+  '& .with-icon': { display: 'inline-flex', alignItems: 'center', gap: 0.625 },
+  '& .stale': { color: ATTENTION_TEXT, fontWeight: 600 },
+  '& .parent-id': { fontWeight: 650, fontVariantNumeric: 'tabular-nums', mr: 0.5 },
+} as const
+
 // Each card is a grid of the type icon, the title with what happened and what is missing, then the fields. Styled from
 // the list so each card costs no sx of its own.
 const cardListSx: SxProps<Theme> = {
@@ -102,20 +120,24 @@ const cardListSx: SxProps<Theme> = {
     boxShadow: 'inset 3px 0 0 var(--triage-edge, transparent), var(--stratakit-shadow-surface-xs)',
   },
   '& > li.ready': { '--triage-edge': 'var(--stratakit-color-border-positive-base)' },
-  '& .card-main': { minWidth: 0, display: 'grid', gap: 0.75 },
-  '& .card-title': { ...workItemTitleCellSx, fontSize: 13.5, lineHeight: 1.4 },
-  '& .card-meta': {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: '4px 8px',
-    fontSize: 12,
-    color: 'text.secondary',
+  '& > li[data-preview-id]': { cursor: 'pointer' },
+  '& > li.selected': {
+    borderColor: 'var(--stratakit-color-border-accent-base)',
+    boxShadow: 'inset 3px 0 0 var(--triage-edge, transparent), 0 0 0 1px var(--stratakit-color-border-accent-base)',
   },
-  '& .card-meta .separator': { color: TERTIARY_TEXT_COLOR },
-  '& .card-meta .with-icon': { display: 'inline-flex', alignItems: 'center', gap: 0.625 },
-  '& .card-meta .stale': { color: ATTENTION_TEXT, fontWeight: 600 },
-  '& .card-meta .parent-id': { fontWeight: 650, fontVariantNumeric: 'tabular-nums', mr: 0.5 },
+  ...revealPreviewToggles('& > li'),
+  '& .card-main': { minWidth: 0, display: 'grid', gap: 0.75 },
+  '& .card-title': {
+    ...workItemTitleCellSx,
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 1,
+    fontSize: 13.5,
+    lineHeight: 1.4,
+    '& > :not(.preview-toggle)': { flex: 1, minWidth: 0 },
+    '& > .preview-toggle': { my: -0.5 },
+  },
+  '& .card-meta': metaSx,
   '& .card-fields': {
     display: 'grid',
     gridTemplateColumns: '104px 40px 72px 128px',
@@ -226,6 +248,27 @@ function StaleText({ item, ageFlagDays, waitingTags, now }: { item: TriageItem; 
 // Only what differs from a fresh item: a state other than the type's first, someone assigned, or a parent.
 const showsState = (item: TriageItem) => item.inInitialState === undefined ? item.state !== 'New' : !item.inInitialState
 
+/**
+ * How the item entered triage, why it is listed, and whether it is waiting on someone or has been in triage too long:
+ * the card's account of the item, for the preview panel.
+ */
+export function TriageEntryLine({ item, clearing, ageFlagDays, waitingTags, now = new Date() }: {
+  item: TriageItem
+  clearing: string
+  ageFlagDays: number
+  waitingTags: readonly string[]
+  now?: Date
+}) {
+  return (
+    <Box sx={metaSx}>
+      <EntryText item={item} now={now} />
+      <TriageReasons item={item} clearing={clearing} />
+      <WaitingText item={item} waitingTags={waitingTags} now={now} />
+      <StaleText item={item} ageFlagDays={ageFlagDays} waitingTags={waitingTags} now={now} />
+    </Box>
+  )
+}
+
 type CardProps = {
   item: TriageItem
   resolveSprint: BacklogSprintResolver
@@ -236,11 +279,13 @@ type CardProps = {
   /** Each item's closest similar item, shown under its readiness. */
   matches?: ReadonlyMap<number, TriageMatch>
   onCompare?: (itemId: number) => void
+  /** Which card the preview panel shows; without it the cards cannot be previewed. */
+  preview?: PreviewControls
   now: Date
 }
 
 function TriageInboxCard({
-  item, resolveSprint, ageFlagDays, readinessChecks, excludedIterationPaths, waitingTags, matches, onCompare, now,
+  item, resolveSprint, ageFlagDays, readinessChecks, excludedIterationPaths, waitingTags, matches, onCompare, preview, now,
 }: CardProps) {
   const checks = getTriageChecksFor(item, readinessChecks)
   const clearing = describeTriageClearing(item, excludedIterationPaths)
@@ -250,12 +295,24 @@ function TriageInboxCard({
   const tags = getTriageTitleTags(item).filter((tag) => !waiting.has(tag.toLowerCase()))
   const sprint = resolveSprint(item.iterationPath)
   const match = matches?.get(item.id)
+  const selected = preview?.selectedId === item.id
+  const className = [ready ? 'ready' : '', selected ? 'selected' : ''].filter(Boolean).join(' ')
 
   return (
-    <li className={ready ? 'ready' : undefined} data-triage-card={item.id}>
+    <li
+      className={className || undefined}
+      data-triage-card={item.id}
+      data-preview-id={preview ? item.id : undefined}
+      onClick={preview ? (event) => {
+        if (isPreviewRowClick(event)) preview.onSelect(item.id)
+      } : undefined}
+    >
       <TriageTypeIcon item={item} />
       <div className="card-main">
-        <div className="card-title"><WorkItemTitle item={{ ...item, tags }} /></div>
+        <div className="card-title">
+          <WorkItemTitle item={{ ...item, tags }} />
+          {preview ? <PreviewToggleButton id={item.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} /> : null}
+        </div>
         <div className="card-meta">
           <EntryText item={item} now={now} />
           <TriageReasons item={item} clearing={clearing} />
