@@ -20,10 +20,11 @@ import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import { TriageTypeIcon } from './TriageFields'
 import { ImpactBars, NotSet, PersonLabel, SeverityChip, SprintLabel, StateLabel } from './WorkItemFields'
 
-// The words two titles share, tinted like a text highlighter and bold. Mixed from the accent so it reads on the strip's
-// tint too; the weight keeps the words apart in the dark theme, where the tint is close to the muted strip.
+// The words two titles share, tinted like a text highlighter and bold. Mixed from the strip's own hue (accent, or
+// attention on a regression's amber strip) so it deepens the tint rather than clashing with it; the weight keeps the
+// words apart in the dark theme, where the tint is close to the muted strip.
 const markSx = {
-  bgcolor: 'color-mix(in srgb, var(--stratakit-color-bg-accent-base) 35%, transparent)',
+  bgcolor: 'color-mix(in srgb, var(--triage-mark-hue, var(--stratakit-color-bg-accent-base)) 35%, transparent)',
   color: 'text.primary',
   fontWeight: 600,
   borderRadius: '2px',
@@ -53,7 +54,10 @@ const stripSx: SxProps<Theme> = {
   color: 'text.secondary',
   bgcolor: 'var(--stratakit-color-bg-accent-muted)',
   overflowWrap: 'normal',
-  '&.regression': { bgcolor: 'var(--stratakit-color-bg-attention-muted)' },
+  '&.regression': {
+    bgcolor: 'var(--stratakit-color-bg-attention-muted)',
+    '--triage-mark-hue': 'var(--stratakit-color-bg-attention-base)',
+  },
   '&.compact': { display: 'inline-flex', maxWidth: '100%' },
   '& .lead': { whiteSpace: 'nowrap' },
   '& .lead b': { color: 'text.primary', fontWeight: 650, fontVariantNumeric: 'tabular-nums' },
