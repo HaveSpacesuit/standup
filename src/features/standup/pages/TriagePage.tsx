@@ -68,6 +68,7 @@ type TriageView = (typeof TRIAGE_VIEWS)[number]
 const TRIAGE_PREVIEW_PANEL_ID = previewPanelId('triage')
 // The list and the preview panel side by side; the list keeps its place while the panel opens and closes.
 const previewLayoutSx = { flex: 1, minHeight: 0, display: 'flex' } as const
+const openQuerySx = { flexShrink: 0, whiteSpace: 'nowrap' } as const
 
 /**
  * Notes the visit as the page opens, and again whenever it syncs and as it closes, and returns the earlier visit the
@@ -223,14 +224,18 @@ export function TriagePage(props: Props) {
           <span>
             {canOpenQuery && result.queryUrl ? (
               <Button
-                size="small" variant="outlined" href={result.queryUrl} target="_blank" rel="noopener noreferrer"
-                startIcon={<Icon href={svgWindowPopout} alt="" />}
+                size="small" variant="contained" color="primary" href={result.queryUrl} target="_blank" rel="noopener noreferrer"
+                startIcon={<Icon href={svgWindowPopout} alt="" />} sx={openQuerySx}
               >
                 Open in ADO
                 <Box component="span" sx={visuallyHiddenSx}> (opens in a new tab)</Box>
               </Button>
             ) : (
-              <Button size="small" variant="outlined" disabled startIcon={<Icon href={svgWindowPopout} alt="" />}>Open in ADO</Button>
+              <Button
+                size="small" variant="contained" color="primary" disabled startIcon={<Icon href={svgWindowPopout} alt="" />} sx={openQuerySx}
+              >
+                Open in ADO
+              </Button>
             )}
           </span>
         </AppTooltip>
