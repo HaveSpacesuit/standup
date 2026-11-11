@@ -145,6 +145,12 @@ export type BacklogBug = {
   workItemUrl: string
 }
 
+/** A Bug closed recently, which Triage compares new items with as possible regressions. */
+export type ClosedBug = BacklogBug & {
+  /** When the bug last changed state, which for a closed bug is when it was closed. */
+  closedAt?: string
+}
+
 export type ResolvedWorkItemAssignee = {
   label: string
   kind: 'team-member' | 'unassigned' | 'history-unavailable'

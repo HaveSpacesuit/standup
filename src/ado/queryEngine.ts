@@ -6,16 +6,16 @@ import { fetchIterationWindowInfo, fetchTeamIterations } from './teamIterationsA
 import { fetchTeamMembers } from './teamMembersApi'
 import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
-import { fetchBacklogBugs, resolveClosedBugStates } from './backlogApi'
+import { fetchBacklogBugs, fetchRecentlyClosedBugs, resolveClosedBugStates, resolveCompletedBugStates } from './backlogApi'
 import { fetchQualityAssuranceRawData, fetchSprintScopeChanges, fetchWorkItemsForCurrentAndNextIteration, type SprintScopeChanges } from './workItemsApi'
 import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
-import type { BacklogBug, CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
+import type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
 import type { QualityAssuranceRawData } from './workItemsApi'
 import { fetchTriageItems } from './triageApi'
 import type { TriageResult } from './types'
 import { getTriageQueryOptions, hasTriageRules, parseTriageOptions, type TriageQueryOptions } from '../features/standup/utils/triageOptions'
 
-export type { BacklogBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
+export type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
 export type { SprintScopeChanges } from './workItemsApi'
 
@@ -50,6 +50,7 @@ export class AdoQueryEngine {
   private readonly qaRawDataCache = new Map<string, Promise<QualityAssuranceRawData>>()
   private readonly backlogBugsCache = new Map<string, Promise<BacklogBug[]>>()
   private readonly triageItemsCache = new Map<string, Promise<TriageResult>>()
+  private readonly closedBugsCache = new Map<string, Promise<ClosedBug[]>>()
   private readonly unlinkedPullRequestItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
   private readonly teamMembersCache = new Map<string, Promise<TeamMember[]>>()
   private readonly currentIterationCache = new Map<string, Promise<IterationWindowInfo>>()
@@ -275,9 +276,23 @@ export class AdoQueryEngine {
       fetchTriageItems(this.client, team, normalized, await this.getProjectWorkItemTypeInfo(team)))
   }
 
+  /** The team's Bugs closed in the last `days` days, which Triage compares new items with as possible regressions. */
+  async getRecentlyClosedBugs(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+    days: number,
+  ): Promise<ClosedBug[]> {
+    return this.getOrLoadCached(this.closedBugsCache, `${backlogBugsCacheKey(team)}:${days}`, async () => {
+      const { statesByType } = await this.getProjectWorkItemTypeInfo(team)
+      return fetchRecentlyClosedBugs(this.client, team, resolveCompletedBugStates(statesByType['bug']), days)
+    })
+  }
+
+  /** Clears the Triage queue and the closed bugs its similar items compare with. */
   clearTriageDataCache(teamId?: string): void {
-    for (const key of this.triageItemsCache.keys()) {
-      if (!teamId || key.startsWith(`${teamId}:`)) this.triageItemsCache.delete(key)
+    for (const cache of [this.triageItemsCache, this.closedBugsCache]) {
+      for (const key of cache.keys()) {
+        if (!teamId || key.startsWith(`${teamId}:`)) cache.delete(key)
+      }
     }
   }
 

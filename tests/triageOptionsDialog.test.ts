@@ -48,8 +48,15 @@ const item: TriageItem = {
 const noop = () => {}
 const readinessChecks: TriageOptions['readinessChecks'] = { bug: ['severity', 'impact', 'effort', 'reproSteps'], other: ['effort', 'acceptanceCriteria'] }
 const waitingTags = ['Needs Info']
+const similarItems: TriageOptions['similarItems'] = { openBugs: true, closedBugs: true, closedDays: 180 }
+const noSimilar = { openBugs: [], closedBugs: [], loading: false, warnings: [] }
 
-async function renderPage(t: TestContext, options: TriageOptions, onOptionsChange: (options: TriageOptions) => void = noop) {
+async function renderPage(
+  t: TestContext,
+  options: TriageOptions,
+  onOptionsChange: (options: TriageOptions) => void = noop,
+  overrides: Record<string, unknown> = {},
+) {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -64,6 +71,7 @@ async function renderPage(t: TestContext, options: TriageOptions, onOptionsChang
     result: { items: [item], warnings: [] }, isLoading: false, error: null, syncedAt: null, onRefresh: noop,
     options, settingsError: null, onOptionsChange, quickFilterInputRef: { current: null },
     iterations: [{ name: 'Sprint 1', path: 'Project\\Sprint 1', timeFrame: 'current' }], iterationsLoading: false, iterationsError: null,
+    similar: noSimilar, ...overrides,
   }))))
   return host
 }
@@ -96,7 +104,7 @@ const newBugsCheckbox = (opened: Element) => opened.querySelector<HTMLInputEleme
 
 test('Triage tags are pills edited with one input and an Add button, like QA tag filters', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (options) => saved.push(options))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }, (options) => saved.push(options))
   const opened = await openOptions(host)
 
   const group = tagGroup(opened)
@@ -125,25 +133,25 @@ test('Triage tags are pills edited with one input and an Add button, like QA tag
 
   await typeInto(tagInput(opened), 'Escalated')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Bug bash', 'Escalated', 'Needs review'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }],
+  assert.deepEqual(saved, [{ tags: ['Bug bash', 'Escalated', 'Needs review'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }],
     'Save includes a tag typed but not yet added')
   assert.equal(dialog(), null)
 })
 
 test('removing every tag shows the empty text, and saving with no tags keeps tag matching off', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (options) => saved.push(options))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }, (options) => saved.push(options))
   const opened = await openOptions(host)
   await click(tagGroup(opened).querySelector<HTMLButtonElement>('.MuiChip-root button')!)
   assert.deepEqual(tagChips(opened), [])
   assert.match(tagGroup(opened).textContent ?? '', /No Triage tags\. Tag matching is off\./)
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: [], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }])
+  assert.deepEqual(saved, [{ tags: [], includeNewBugs: true, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }])
 })
 
 test('excluded iteration paths are disabled while new bugs is off, and kept when saved', async (t) => {
   const saved: TriageOptions[] = []
-  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags }
+  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }
   const host = await renderPage(t, options, (next) => saved.push(next))
   const opened = await openOptions(host)
 
@@ -168,17 +176,17 @@ test('excluded iteration paths are disabled while new bugs is off, and kept when
 
 test('turning new bugs on saves the excluded paths, including one still being typed', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: ['Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }, (next) => saved.push(next))
   const opened = await openOptions(host)
   await click(newBugsCheckbox(opened))
   await typeInto(pathInput(opened), 'Project\\Later')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Later', 'Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags }])
+  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: ['Project\\Later', 'Project\\Refine'], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }])
 })
 
 test('the age flag is a whole number of working days, saved with the rules and rejected when out of range', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }, (next) => saved.push(next))
   const opened = await openOptions(host)
   const label = [...opened.querySelectorAll('label')].find((candidate) => candidate.textContent === 'Flag age after (working days)')!
   const input = document.getElementById(label.htmlFor) as HTMLInputElement
@@ -195,12 +203,12 @@ test('the age flag is a whole number of working days, saved with the rules and r
 
   await typeInto(input, '5')
   await click(buttonNamed(opened, 'Save'))
-  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 5, readinessChecks, waitingTags }])
+  assert.deepEqual(saved, [{ tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 5, readinessChecks, waitingTags, similarItems }])
 })
 
 test('waiting tags are edited like Triage tags and saved with the rules, including one still being typed', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }, (next) => saved.push(next))
   const opened = await openOptions(host)
   const group = [...opened.querySelectorAll('[role="group"]')].find((candidate) =>
     document.getElementById(candidate.getAttribute('aria-labelledby')!)?.textContent === 'Waiting tags')!
@@ -220,7 +228,7 @@ test('waiting tags are edited like Triage tags and saved with the rules, includi
 
 test('readiness checks are picked per type from the known fields and saved with the rules', async (t) => {
   const saved: TriageOptions[] = []
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags }, (next) => saved.push(next))
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }, (next) => saved.push(next))
   const opened = await openOptions(host)
   const group = [...opened.querySelectorAll('[role="group"]')].find((candidate) =>
     document.getElementById(candidate.getAttribute('aria-labelledby')!)?.textContent === 'Readiness checks')!
@@ -249,14 +257,14 @@ test('readiness checks are picked per type from the known fields and saved with 
 })
 
 test('the no-rules card opens Triage options', async (t) => {
-  const host = await renderPage(t, { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags })
+  const host = await renderPage(t, { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems })
   assert.equal(host.querySelector('main h2')?.textContent, 'No Triage rules')
   await click(buttonNamed(host, 'Open Triage options'))
   assert.equal(dialog()?.querySelector('h2')?.textContent, 'Triage options')
 })
 
 test('a quick filter that hides every item says so as muted status text, not the empty-queue card', async (t) => {
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags })
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems })
   const count = () => host.querySelector('p[aria-live="polite"]')?.textContent
   assert.ok(host.querySelector('table'))
   assert.equal(count(), '1 item', 'like Backlog, the count names the total alone while nothing is filtered out')
@@ -268,7 +276,7 @@ test('a quick filter that hides every item says so as muted status text, not the
 })
 
 test('the View toggle switches between the table and the Inbox, which the quick filter narrows too', async (t) => {
-  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags })
+  const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems })
   const toggle = (name: string) => [...host.querySelectorAll<HTMLButtonElement>('[aria-label="Triage view"] button')].find((button) => button.textContent === name)!
   const filter = host.querySelector<HTMLInputElement>('input[aria-label="Quick filter triage items"]')!
   assert.ok(host.querySelector('table'))
@@ -283,4 +291,88 @@ test('the View toggle switches between the table and the Inbox, which the quick 
   assert.ok(host.querySelector('[data-triage-card="42"]'))
   await click(toggle('Table'))
   assert.ok(host.querySelector('table tbody tr'))
+})
+
+test('Similar items sources are saved with the rules, and the days are kept while closed bugs are off', async (t) => {
+  const saved: TriageOptions[] = []
+  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }
+  const host = await renderPage(t, options, (next) => saved.push(next))
+  let opened = await openOptions(host)
+  const group = () => [...dialog()!.querySelectorAll('[role="group"]')].find((candidate) =>
+    document.getElementById(candidate.getAttribute('aria-labelledby')!)?.textContent === 'Similar items')!
+  const checkbox = (name: string) => [...group().querySelectorAll('label')].find((label) => label.textContent === name)!.querySelector('input')!
+  const days = () => group().querySelector<HTMLInputElement>('input[aria-label^="Days to look back"]')!
+  assert.match(group().textContent ?? '', /compared with the rest of the queue/)
+  assert.deepEqual([checkbox('Open bugs').checked, checkbox('Bugs closed in the last').checked, days().value], [true, true, '180'])
+
+  await click(checkbox('Open bugs'))
+  for (const value of ['0', '366', '']) {
+    await typeInto(days(), value)
+    await click(buttonNamed(opened, 'Save'))
+    assert.match(opened.querySelector('.MuiAlert-message')?.textContent ?? '', /whole number of days from 1 to 365/)
+  }
+  await typeInto(days(), '90')
+  await click(buttonNamed(opened, 'Save'))
+  assert.deepEqual(saved.map((next) => next.similarItems), [{ openBugs: false, closedBugs: true, closedDays: 90 }])
+
+  opened = await openOptions(host)
+  await typeInto(days(), '0')
+  await click(checkbox('Bugs closed in the last'))
+  assert.equal(days().disabled, true)
+  await click(buttonNamed(opened, 'Save'))
+  assert.deepEqual(saved[1].similarItems, { openBugs: true, closedBugs: false, closedDays: 180 },
+    'the saved days are kept, but an edit to the disabled field is not')
+})
+
+test('Compare shows an item beside its closest match, and Not a duplicate moves on to the next closest', async (t) => {
+  const url = (id: number) => `https://dev.azure.com/org/Project/_workitems/edit/${id}`
+  const watermark: TriageItem = {
+    id: 50, title: 'Watermark missing from exported PDF drawings', workItemType: 'Bug', state: 'New', tags: ['Triage'],
+    reasons: ['Tag: Triage'], createdAt: '2026-04-28T10:00:00Z', createdBy: { displayName: 'Ana Diaz' }, workItemUrl: url(50),
+  }
+  const similar = {
+    ...noSimilar,
+    openBugs: [{ id: 800, title: 'Watermark missing in PDF preview', state: 'Active', iterationPath: 'Project\\Sprint 1', workItemUrl: url(800) }],
+    closedBugs: [{
+      id: 900, title: 'Exported PDF drawings lose watermark', state: 'Done', closedAt: '2026-01-14T12:00:00Z', severity: '2 - High',
+      priority: 2, effort: 3, workItemUrl: url(900),
+    }],
+  }
+  const options = { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }
+  const host = await renderPage(t, options, noop, { result: { items: [item, watermark], warnings: [] }, similar })
+  const strip = (id: number) => host.querySelector(`tr:has(a[href$="/${id}"]) [data-triage-match]`)
+  assert.equal(strip(42), null, 'an item with no similar title has no strip')
+  assert.equal(strip(50)?.getAttribute('data-triage-match'), 'closed')
+  assert.match(strip(50)!.textContent!, /^Possible regression of 900/)
+
+  const filter = host.querySelector<HTMLInputElement>('input[aria-label="Quick filter triage items"]')!
+  await typeInto(filter, 'regression')
+  assert.deepEqual([...host.querySelectorAll('tbody tr')].map((row) => row.querySelector('.work-item-id')?.textContent), ['50'],
+    'the quick filter searches the match too')
+  await typeInto(filter, '')
+
+  const compare = [...strip(50)!.querySelectorAll('button')].find((button) => button.textContent!.startsWith('Compare'))!
+  assert.equal(compare.textContent, 'Compare 50 with 900')
+  await click(compare)
+  const opened = dialog()!
+  assert.equal(opened.querySelector('h2')?.textContent, 'Compare 50 and 900')
+  assert.equal(opened.querySelector('p')?.textContent, 'Shared words: Watermark exported PDF drawings')
+  const sides = [...opened.querySelectorAll('section')]
+  assert.deepEqual(sides.map((side) => side.querySelector('.side-top')!.textContent), ['50In triage', '900Closed · possible regression'])
+  assert.deepEqual(sides.map((side) => [...side.querySelectorAll('h3 mark')].map((mark) => mark.textContent)),
+    [['Watermark', 'exported', 'PDF', 'drawings'], ['Exported', 'PDF', 'drawings', 'watermark']])
+  for (const side of sides) {
+    const link = side.querySelector<HTMLAnchorElement>('h3 a')!
+    assert.equal(link.target, '_blank')
+    assert.equal(document.getElementById(side.getAttribute('aria-labelledby')!), side.querySelector('h3'))
+  }
+  const facts = Object.fromEntries([...sides[1].querySelectorAll('dt')].map((term) => [term.textContent, term.nextElementSibling!.textContent]))
+  assert.equal(facts.Closed, 'Jan 14')
+  assert.equal(facts.Effort, '3')
+  assert.match(opened.textContent!, /If this is a regression, link the two as Related/)
+
+  await click(buttonNamed(opened, 'Not a duplicate'))
+  assert.equal(dialog(), null)
+  assert.match(strip(50)!.textContent!, /^Similar open bug 800/, 'the next closest match shows instead')
+  assert.equal(strip(50)?.getAttribute('data-triage-match'), 'open')
 })

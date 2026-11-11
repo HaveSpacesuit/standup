@@ -8,9 +8,11 @@ const server = await createServer({
   server: { middlewareMode: true, ws: false },
 })
 after(() => server.close())
-const { buildBacklogBugsWiql } = await server.ssrLoadModule('/src/ado/wiql.ts')
-const { FALLBACK_CLOSED_BUG_STATES, fetchBacklogBugs, mapBacklogBug, resolveClosedBugStates } =
-  await server.ssrLoadModule('/src/ado/backlogApi.ts')
+const { buildBacklogBugsWiql, buildRecentlyClosedBugsWiql } = await server.ssrLoadModule('/src/ado/wiql.ts')
+const {
+  FALLBACK_CLOSED_BUG_STATES, FALLBACK_COMPLETED_BUG_STATES, RECENTLY_CLOSED_BUG_LIMIT, fetchBacklogBugs, fetchRecentlyClosedBugs,
+  mapBacklogBug, resolveClosedBugStates, resolveCompletedBugStates,
+} = await server.ssrLoadModule('/src/ado/backlogApi.ts')
 const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 
 const team = {
@@ -82,6 +84,37 @@ test('closed Bug states fall back to well-known names when the Bug type reports 
 
   resolveClosedBugStates(undefined).push('Changed')
   assert.deepEqual([...FALLBACK_CLOSED_BUG_STATES], expected, 'callers cannot modify the shared fallback list')
+})
+
+test('the recently closed WIQL selects Bugs that entered a fixed state within the window, newest first', () => {
+  assert.equal(
+    buildRecentlyClosedBugsWiql('Example Project', "Example Project\\Team's Area", ['Closed', "Won't Fix"], 180),
+    [
+      'SELECT [System.Id]',
+      'FROM WorkItems',
+      "WHERE [System.TeamProject] = 'Example Project'",
+      "  AND [System.AreaPath] UNDER 'Example Project\\Team''s Area'",
+      "  AND [System.WorkItemType] = 'Bug'",
+      "  AND [System.State] IN ('Closed', 'Won''t Fix')",
+      '  AND [Microsoft.VSTS.Common.StateChangeDate] >= @Today - 180',
+      'ORDER BY [Microsoft.VSTS.Common.StateChangeDate] DESC',
+    ].join('\n'),
+  )
+  assert.match(buildRecentlyClosedBugsWiql('P', 'P', ['Done'], 7.9), /@Today - 7$/m)
+})
+
+test('fixed Bug states are the Completed category alone, since a removed bug cannot regress', () => {
+  assert.deepEqual(resolveCompletedBugStates([
+    { name: 'Active', category: 'InProgress' },
+    { name: 'Fixed', category: ' Completed ' },
+    { name: 'Cut', category: 'Removed' },
+  ]), ['Fixed'])
+  const expected = ['Closed', 'Done', 'Completed']
+  assert.deepEqual([...FALLBACK_COMPLETED_BUG_STATES], expected)
+  assert.deepEqual(resolveCompletedBugStates(undefined), expected)
+  assert.deepEqual(resolveCompletedBugStates([{ name: 'Cut', category: 'Removed' }]), expected)
+  resolveCompletedBugStates(undefined).push('Changed')
+  assert.deepEqual([...FALLBACK_COMPLETED_BUG_STATES], expected, 'callers cannot modify the shared fallback list')
 })
 
 test('a work item maps to the fields shown on the backlog', () => {
@@ -412,4 +445,65 @@ test('the caller abort signal does not cancel the shared backlog request', async
   assert.equal(bugs.length, 2)
   assert.ok(requests.length > 0)
   assert.ok(requests.every((request) => request.signal?.aborted === false))
+})
+
+test('recently closed bugs are found with WIQL, capped, and loaded with the date each was closed', async () => {
+  const ids = Array.from({ length: RECENTLY_CLOSED_BUG_LIMIT + 5 }, (_, index) => index + 1)
+  const client = createClient((options) => {
+    if (options.path.endsWith('/_apis/wit/wiql')) return { workItems: ids.map((id) => ({ id })) }
+    const body = options.body as { ids: number[] }
+    return {
+      value: body.ids.map((id) => ({
+        id, fields: { 'System.Title': `Bug ${id}`, ...(id === 1 ? { 'Microsoft.VSTS.Common.StateChangeDate': '2026-04-14T12:00:00Z' } : {}) },
+      })),
+    }
+  })
+  const controller = new AbortController()
+
+  const bugs = await fetchRecentlyClosedBugs(client, team, ['Closed'], 90, controller.signal)
+
+  const [wiql, ...batches] = client.requests
+  assert.deepEqual(wiql.body, { query: buildRecentlyClosedBugsWiql(team.projectName, team.areaPath, ['Closed'], 90) })
+  assert.deepEqual(batches.map((request) => (request.body as { ids: number[] }).ids.length), [200, 200, 200, 200, 200])
+  assert.deepEqual((batches[0].body as { fields: string[] }).fields, [...BATCH_FIELDS, 'Microsoft.VSTS.Common.StateChangeDate'])
+  assert.ok(client.requests.every((request) => request.signal === controller.signal))
+  assert.equal(bugs.length, RECENTLY_CLOSED_BUG_LIMIT, 'only the most recently closed are compared')
+  assert.deepEqual([bugs[0].id, bugs[0].title, bugs[0].closedAt], [1, 'Bug 1', '2026-04-14T12:00:00Z'])
+  assert.equal('closedAt' in bugs[1], false)
+})
+
+test('no request is made for closed bugs without fixed states or a window', async () => {
+  for (const [states, days] of [[[], 90], [['Closed'], 0]] as const) {
+    const client = createClient(() => ({ workItems: [{ id: 1 }] }))
+    assert.deepEqual(await fetchRecentlyClosedBugs(client, team, states, days), [])
+    assert.equal(client.requests.length, 0)
+  }
+})
+
+test('the engine caches recently closed bugs per team and window until the triage cache is cleared', async (t) => {
+  const { wiqlRequests } = mockBacklogApi(t)
+  const engine = new AdoQueryEngine('')
+
+  const bugs = await engine.getRecentlyClosedBugs(team, 180)
+  assert.deepEqual(bugs.map((bug: { id: number }) => bug.id), [2, 1])
+  assert.match(wiqlRequests()[0].body!.query!, /\[System\.State\] IN \('Closed'\)/, 'Removed states are left out')
+  assert.match(wiqlRequests()[0].body!.query!, /@Today - 180/)
+
+  await engine.getRecentlyClosedBugs(team, 180)
+  assert.equal(wiqlRequests().length, 1)
+  await engine.getRecentlyClosedBugs(team, 30)
+  assert.equal(wiqlRequests().length, 2, 'each window has its own entry')
+
+  engine.clearBacklogDataCache(team.id)
+  await engine.getRecentlyClosedBugs(team, 180)
+  assert.equal(wiqlRequests().length, 2, 'the backlog cache is separate')
+
+  engine.clearTriageDataCache('other-team')
+  await engine.getRecentlyClosedBugs(team, 180)
+  assert.equal(wiqlRequests().length, 2)
+
+  engine.clearTriageDataCache(team.id)
+  await engine.getRecentlyClosedBugs(team, 180)
+  await engine.getRecentlyClosedBugs(team, 30)
+  assert.equal(wiqlRequests().length, 4)
 })

@@ -7,6 +7,7 @@ import { normalizeQuickFilterText } from './boardFilters'
 import { countWorkingDays, formatDayCount } from './sprintDates'
 import type { TriageQueryOptions, TriageReadinessChecks } from './triageOptions'
 import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks } from './triageRules'
+import { formatTriageMatchLead, type TriageMatch } from './triageSimilar'
 
 /** Shown in muted text in place of an unknown creator. */
 export const UNKNOWN_CREATOR_LABEL = 'Unknown'
@@ -70,11 +71,17 @@ function shown(value: string | number | undefined): string {
 
 /**
  * The text each Triage column shows for an item, like Backlog's visible text: the type (the icon's name), the id, the
- * title, each tag, why the item is listed, its readiness, then the other columns as displayed. The quick filter searches
- * exactly these strings, so it never matches hidden detail such as the iteration path. Age is left out, as on Backlog: it
- * grows as items get older, so a filter on it would stop matching.
+ * title, each tag, why the item is listed, its readiness, then the other columns as displayed, and its similar item
+ * ("Possible regression of 2160021"). The quick filter searches exactly these strings, so it never matches hidden detail
+ * such as the iteration path. Age is left out, as on Backlog: it grows as items get older, so a filter on it would stop
+ * matching.
  */
-export function getTriageVisibleText(item: TriageItem, sprint: BacklogSprint, checks: TriageReadinessChecks): string[] {
+export function getTriageVisibleText(
+  item: TriageItem,
+  sprint: BacklogSprint,
+  checks: TriageReadinessChecks,
+  match?: TriageMatch,
+): string[] {
   const shortState = abbreviateState(item.state)
   return [
     item.workItemType,
@@ -92,6 +99,7 @@ export function getTriageVisibleText(item: TriageItem, sprint: BacklogSprint, ch
     formatAssignee(item.assignedTo) || UNASSIGNED_LABEL,
     formatAssignee(item.createdBy) || UNKNOWN_CREATOR_LABEL,
     ...(item.parent ? [formatTriageParent(item.parent)] : []),
+    ...(match ? [formatTriageMatchLead(match)] : []),
   ]
 }
 
@@ -101,12 +109,13 @@ export function filterTriageItems(
   input: string,
   resolveSprint: BacklogSprintResolver,
   checks: TriageReadinessChecks,
+  similar: ReadonlyMap<number, TriageMatch> = new Map(),
 ): TriageItem[] {
   const query = normalizeQuickFilterText(input)
   if (!query) return items
-  const matches = items.filter((item) => getTriageVisibleText(item, resolveSprint(item.iterationPath), checks)
+  const kept = items.filter((item) => getTriageVisibleText(item, resolveSprint(item.iterationPath), checks, similar.get(item.id))
     .some((text) => text.toLowerCase().includes(query)))
-  return matches.length === items.length ? items : matches
+  return kept.length === items.length ? items : kept
 }
 
 const TAG_LIST_FORMAT = new Intl.ListFormat('en', { type: 'disjunction' })

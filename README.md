@@ -320,6 +320,9 @@ areas), separate from Backlog's bug ranking and sprint planning.
   Effort and Acceptance criteria). Choose from Severity, Impact, Effort, Repro steps, Acceptance
   criteria, and Description. Leave both empty to hide the Readiness column. Like the age flag, the
   checks only redraw the table.
+- **Similar items** chooses what each item's title is compared with besides the rest of the queue,
+  which is always compared: **Open bugs** and **Bugs closed in the last** 180 days (1–365), both on by
+  default. A source turned off is not loaded. The saved days are kept while closed bugs are off.
 
 Both sources exclude **Completed** and **Removed** state categories, using each work item's own
 type metadata. Resolved-category items remain eligible. With no tags and the new-bug rule off,
@@ -356,8 +359,8 @@ checks, and otherwise shown as a dash; unassigned items show a muted Unassigned.
 score or raised-effort marker. Item and parent links open
 Azure DevOps for edits. An unavailable parent's known ID/link is retained with an explicit warning.
 Quick filtering searches the displayed text, including tags, why items are listed, readiness
-(**Ready to clear** or the missing field names), creator, type, sprint label, and parent; `/` and
-Ctrl/Cmd+F focus it.
+(**Ready to clear** or the missing field names), creator, type, sprint label, parent, and the
+similar-item match (such as **Possible regression of 2160021**); `/` and Ctrl/Cmd+F focus it.
 
 #### Table and Inbox
 
@@ -391,11 +394,41 @@ that, ages count from creation, replies are not shown, and a warning says so. An
 fails to load falls back the same way, with a warning. Your last visit is kept in this browser per
 team (`standup:triage-visit:<team id>`), not in team exports, and is removed with the team.
 
+#### Similar items
+
+Each item's title is compared with the rest of the queue and, as Triage options allow, with the
+team's open bugs and recently closed bugs, to catch possible duplicates and regressions. Titles are
+compared word by word, ignoring common words such as "the" and "when" and reading forms such as
+"crashes" and "crashed" as one word. Rarer words count for more, so a shared "watermark" means more
+than a shared "viewer". A match needs at least two shared words and a close enough overall likeness.
+Only the closest match shows; when two are equally close, another queued item comes first, then an
+open bug, then a closed bug.
+
+In the Table, a tinted line under the title names the match: **Also in triage: 2193540**, **Similar
+open bug 2178403**, or, in amber, **Possible regression of 2160021**, with the matched title and its
+details in a tooltip. Inbox cards show the same line in full: the matched title with the shared words
+highlighted, then when a closed bug was closed, where an open bug is planned and who has it, or when
+the other queued item was filed. **Compare** opens the two side by side, with the shared words
+highlighted, each item's state, sprint, assignee, created (and closed) dates, Severity, Impact, and
+Effort, and a link to each in Azure DevOps. **Not a duplicate** stops suggesting that pair and shows
+the next closest match, if there is one. It is remembered in this browser per team
+(`standup:triage-not-duplicates:<team id>`, up to 500 pairs), not in team exports, and is removed
+with the team.
+
+Open bugs are the list Backlog ranks, shared with its cache. Closed bugs are Bugs in a
+**Completed**-category state (a removed bug cannot regress) whose state changed within the chosen
+number of days, newest first, up to 1,000. They load only while the Triage page has items to compare;
+the queue shows first, and matches appear once the bugs arrive. A source that fails to load is left
+out with a warning.
+
+#### Open in ADO and refresh
+
 **Open in ADO** opens the same rules as an unsaved Azure DevOps query in a new tab, for bulk edits the
 page cannot make. The query is passed in the link's `wiql` parameter, so it needs no write access. It
 is available once the queue has loaded.
 
-Refresh and automatic refresh load the active team's queue using its own sync time. Changing team
+Refresh and automatic refresh load the active team's queue using its own sync time, and reload the
+bugs Similar items compares with. Changing team
 or options never shows the prior query's results as current. Older team exports without Triage
 options use the defaults. Unreadable saved Triage options produce an error and suspend loading;
 the original data is retained until you explicitly save replacement options.

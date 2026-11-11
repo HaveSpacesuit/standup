@@ -50,9 +50,11 @@ function props() {
     teamOptions: [{ id: 'a', displayName: 'Team A', orgName: 'org', projectName: 'Project', teamName: 'A', areaPath: 'Project\\A', iterationPath: 'Project', repoName: 'repo' }],
     selectedTeamId: 'a', onTeamChange: noop, teamManagementUrl: '',
     result: { items: [item], warnings: [] }, isLoading: false, error: null, syncedAt: null, onRefresh: noop,
-    options: { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags: ['Needs Info'] },
+    options: { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags: ['Needs Info'],
+      similarItems: { openBugs: true, closedBugs: true, closedDays: 180 } },
     settingsError: null, onOptionsChange: noop, quickFilterInputRef: { current: null },
     iterations: [], iterationsLoading: false, iterationsError: null, rememberLastView: false,
+    similar: { openBugs: [], closedBugs: [], loading: false, warnings: [] },
   }
 }
 function render(overrides: Record<string, unknown> = {}) {

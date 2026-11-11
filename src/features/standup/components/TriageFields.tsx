@@ -189,7 +189,7 @@ export function TriageChecklist({ item, checks, clearing }: { item: TriageItem; 
   )
 }
 
-export function TriageTypeIcon({ item }: { item: TriageItem }) {
+export function TriageTypeIcon({ item }: { item: Pick<TriageItem, 'workItemType' | 'workItemIconUrl'> }) {
   return (
     <Box component="span" sx={typeIconSx}>
       <AppTooltip title={item.workItemType}>

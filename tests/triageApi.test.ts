@@ -24,6 +24,7 @@ const metadata: ProjectWorkItemTypeInfo = {
 }
 const options: TriageOptions = { tags: ['Triage', "Team's queue"], includeNewBugs: true, excludedIterationPaths: ['Project\\To Refine'], ageFlagDays: 2,
   readinessChecks: { bug: ['reproSteps'], other: [] }, waitingTags: ['Needs Info'],
+  similarItems: { openBugs: true, closedBugs: true, closedDays: 180 },
 }
 const team = { id: 'a', orgName: 'triage-fixture-org', projectName: 'Project', areaPath: 'Project\\Team' }
 

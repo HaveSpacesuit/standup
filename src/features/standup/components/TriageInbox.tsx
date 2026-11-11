@@ -17,10 +17,13 @@ import {
 } from '../utils/triageInbox'
 import type { TriageReadinessChecks } from '../utils/triageOptions'
 import { describeTriageClearing, getTriageChecksFor, getTriageReadiness, hasTriageChecks } from '../utils/triageRules'
+import type { TriageMatch } from '../utils/triageSimilar'
 import { AppTooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { TriageChecklist, TriageEffort, TriageImpact, TriageReasons, TriageSeverity, TriageTypeIcon } from './TriageFields'
+import { TriageMatchStrip } from './TriageSimilar'
+import { describeTriageMatch } from './triageSimilarDisplay'
 import { PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { WorkItemTitle } from './WorkItemTitle'
 import { METER_TRACK_COLOR, workItemTitleCellSx } from './workItemTableDisplay'
@@ -230,10 +233,15 @@ type CardProps = {
   readinessChecks: TriageReadinessChecks
   excludedIterationPaths: readonly string[]
   waitingTags: readonly string[]
+  /** Each item's closest similar item, shown under its readiness. */
+  matches?: ReadonlyMap<number, TriageMatch>
+  onCompare?: (itemId: number) => void
   now: Date
 }
 
-function TriageInboxCard({ item, resolveSprint, ageFlagDays, readinessChecks, excludedIterationPaths, waitingTags, now }: CardProps) {
+function TriageInboxCard({
+  item, resolveSprint, ageFlagDays, readinessChecks, excludedIterationPaths, waitingTags, matches, onCompare, now,
+}: CardProps) {
   const checks = getTriageChecksFor(item, readinessChecks)
   const clearing = describeTriageClearing(item, excludedIterationPaths)
   const ready = hasTriageChecks(readinessChecks) && getTriageReadiness(item, readinessChecks).ready
@@ -241,6 +249,7 @@ function TriageInboxCard({ item, resolveSprint, ageFlagDays, readinessChecks, ex
   const waiting = new Set(waitingTags.map((tag) => tag.toLowerCase()))
   const tags = getTriageTitleTags(item).filter((tag) => !waiting.has(tag.toLowerCase()))
   const sprint = resolveSprint(item.iterationPath)
+  const match = matches?.get(item.id)
 
   return (
     <li className={ready ? 'ready' : undefined} data-triage-card={item.id}>
@@ -269,6 +278,9 @@ function TriageInboxCard({ item, resolveSprint, ageFlagDays, readinessChecks, ex
           <StaleText item={item} ageFlagDays={ageFlagDays} waitingTags={waitingTags} now={now} />
         </div>
         <TriageChecklist item={item} checks={readinessChecks} clearing={clearing} />
+        {match && onCompare ? (
+          <TriageMatchStrip itemId={item.id} match={match} detail={describeTriageMatch(match, resolveSprint, now)} onCompare={onCompare} />
+        ) : null}
       </div>
       <div className="card-fields">
         <span><TriageSeverity item={item} checks={checks} /></span>
