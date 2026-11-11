@@ -46,7 +46,7 @@ const scrollerSx: SxProps<Theme> = {
   scrollbarGutter: 'stable',
   containerType: 'inline-size',
 }
-const columnSx: SxProps<Theme> = { display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 1280, p: 2 }
+const columnSx: SxProps<Theme> = { display: 'flex', flexDirection: 'column', gap: 2, p: 2 }
 
 const summarySx: SxProps<Theme> = {
   display: 'flex',
