@@ -361,6 +361,7 @@ test('Open in ADO opens the Triage rules as a query in a new tab, and is disable
     assert.equal(link.target, '_blank')
     assert.ok(link.relList.contains('noopener') && link.relList.contains('noreferrer'))
     assert.equal(link.textContent, 'Open in ADO (opens in a new tab)')
+    assert.ok(link.classList.contains('MuiButton-contained'), 'a primary button, like Start standup and Plan a sprint')
   } finally { loaded.window.close() }
 
   for (const overrides of [{}, { isLoading: true, result: { items: [], warnings: [], queryUrl } }, { error: 'failed', result: { items: [], warnings: [], queryUrl } }]) {
