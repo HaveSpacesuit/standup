@@ -3,7 +3,7 @@ import { parseAssignedTo, toIdentityKeys } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { CurrentIterationInfo, PullRequestApiResponse, TeamMember, WorkItemPullRequestSummary, WorkItemSummary } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
-import { fetchPolicyEvaluationChecksSummary, fetchProjectId } from './policyEvaluationChecksApi'
+import { fetchPullRequestPolicies, fetchProjectId } from './policyEvaluationChecksApi'
 import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
 import { getPullRequestIconUrl, parseIsoDate } from './adoShared'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
@@ -96,7 +96,7 @@ function mapPullRequestToWorkItemSummary(
   pullRequest: PullRequestApiResponse,
   team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,
   pullRequestIconUrl: string | undefined,
-  checks: WorkItemPullRequestSummary['checks'],
+  policies: Pick<WorkItemPullRequestSummary, 'checks' | 'reviewPolicy'>,
   readyForReviewAt?: string,
 ): WorkItemSummary | null {
   const pullRequestId = pullRequest.pullRequestId
@@ -125,7 +125,7 @@ function mapPullRequestToWorkItemSummary(
     approvalCount: resolvePullRequestApprovalCount(pullRequest.reviewers),
     reviewState: resolvePullRequestReviewState(pullRequest.reviewers),
     status: pullRequest.status?.trim().toLowerCase(),
-    checks,
+    ...policies,
     recentActivityAt: readyForReviewAt ?? pullRequest.creationDate,
   }
 
@@ -216,15 +216,15 @@ async function fetchPullRequestItems(
       const readyForReviewAt = typeof pullRequestId === 'number'
         ? await fetchPullRequestReadyForReviewAt(client, team, pullRequest.repository?.id?.trim(), pullRequestId, signal)
         : undefined
-      const checks = typeof pullRequestId === 'number'
-        ? await fetchPolicyEvaluationChecksSummary(client, team, pullRequestId, projectId, signal)
-        : undefined
+      const policies = typeof pullRequestId === 'number'
+        ? await fetchPullRequestPolicies(client, team, pullRequestId, projectId, signal)
+        : {}
 
       return mapPullRequestToWorkItemSummary(
         pullRequest,
         team,
         pullRequestIconUrl,
-        checks,
+        policies,
         readyForReviewAt,
       )
     }),

@@ -32,15 +32,25 @@ cards show their full hover preview instead of opening competing tooltips on ind
 Each card also names its next step and, when it is someone other than the row's developer, who it
 is waiting on. For a PR, the step is the first of: fix failing checks, rework after a rejection,
 respond to review feedback, checks unavailable, waiting on pending checks (the pipeline), more
-approvals needed (two are required, from reviewers), and Ready to complete. A blocked card gives the
+approvals needed (using that PR's required reviewer policy), and Ready to complete. A blocked card gives the
 reason from its blocked tag or state. A Review card now assigned to someone other than the row's
 developer says In testing or Handed off and shows who has it.
 
 Each open PR also shows a three-segment progress strip: checks (red when failing, striped amber while
-pending, green when passing), review (filling green toward the two required approvals, or red when
+pending, green when passing), review (filling green toward the PR's required approvals, or red when
 rejected and amber when waiting on the author), and ready to complete (outlined in green once the
 PR can complete). The repository name appears only when a work item's PRs span more than one
 repository.
+
+Approval requirements come from each PR's applicable, enabled, blocking Azure DevOps policies,
+using the existing policy request. Optional and non-applicable minimum-reviewer policies do not
+add requirements; PRs with no applicable minimum show **No minimum**. Missing policy data shows
+an unknown requirement rather than assuming zero or two. Azure DevOps must also report the
+reviewer policy satisfied before a PR is ready, so excluded self-approvals or reset-vote rules
+cannot be bypassed by the displayed vote count. Policies requiring specific reviewers or groups
+also contribute their approval requirement, including a group's configured minimum (such as two
+members). The displayed requirement is the largest applicable count, not a sum, since the same
+approval can satisfy multiple policies; all applicable reviewer policies must still pass.
 
 A recently changed card has a dot in its corner and a badge saying what changed and when, such as
 "Moved to Review · 3h" or "PR 912 approved · just now". Blocked, Active, and Review cards show up to
@@ -75,8 +85,8 @@ Done cards are always compact, and each cell shows up to five compact or three f
 "Show more".
 
 A Needs attention bar above the board counts the visible cards that match each signal: Blocked,
-Failing checks (an open PR's required check is failing), Needs approval (an open PR has fewer than
-two approvals and is not waiting on its author), Idle 3+ days (Blocked, Active, or Review cards
+Failing checks (an open PR's required check is failing), Needs approval (an open PR has an unsatisfied
+reviewer policy and is not waiting on its author), Idle 3+ days (Blocked, Active, or Review cards
 unchanged for three days or more), With QA (a Review card now assigned to someone other than the
 row's developer), Ready to complete, and Recently changed. Select one to highlight its cards in
 place: the rest dim (hover or focus brings one back), matching cards move to the top of their cell
@@ -251,7 +261,7 @@ of other columns are unchanged.
 Each card shows the person its column follows: who filed it, its owner (Coming up), its tester, who
 sent it back, or who verified it. A caption says where it stands: "Filed 3d ago", "2d in AFT",
 "Failed testing · 1d" or "Sent back · 1d", "Verified Nov 2", or "Likely today" for a Coming up card
-whose PR has two approvals and passing required checks. Cards without a sprint say so.
+whose PR satisfies its reviewer policy and has passing required checks. Cards without a sprint say so.
 
 A ribbon above the board shows the current sprint and its working-day progress, a QA flow bar
 splitting the board's items by column, the lookback window, and the next sprint. The Needs attention

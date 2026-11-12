@@ -60,7 +60,11 @@ function card(id: number, status: string, extra: Record<string, unknown> = {}) {
 }
 
 function pr(id: number, extra: Record<string, unknown> = {}) {
-  return { id, title: `PR ${id}`, url: `https://example.test/pr/${id}`, approvalCount: 0, checks: passingChecks, ...extra }
+  return {
+    id, title: `PR ${id}`, url: `https://example.test/pr/${id}`, approvalCount: 0, checks: passingChecks,
+    reviewPolicy: { requiredApprovals: 2, state: Number(extra.approvalCount ?? 0) >= 2 ? 'passing' : 'pending' },
+    ...extra,
+  }
 }
 
 function signalsOf(item: Record<string, unknown>, extra: Record<string, unknown> = {}) {
@@ -89,6 +93,17 @@ test('optional failing checks, closed PRs, and author-side reviews do not raise 
 test('PR-only cards are judged by their own pull request', () => {
   const pullRequestOnly = card(5, 'Review', { kind: 'pull-request', pullRequest: pr(50, { checks: failingChecks }) })
   assert.deepEqual(signalsOf(pullRequestOnly), ['approval', 'failing'])
+})
+
+test('approval attention follows the applicable policy rather than the number of votes', () => {
+  const signals = (approvalCount: number, reviewPolicy: unknown) =>
+    signalsOf(card(1, 'Review', { activePullRequests: [pr(1, { approvalCount, reviewPolicy })] }))
+  assert.deepEqual(signals(0, { requiredApprovals: 0, state: 'passing' }), ['ready'])
+  assert.deepEqual(signals(1, { requiredApprovals: 1, state: 'passing' }), ['ready'])
+  assert.deepEqual(signals(2, { requiredApprovals: 3, state: 'pending' }), ['approval'])
+  assert.deepEqual(signals(3, { requiredApprovals: 1, state: 'failing' }), ['approval'])
+  assert.deepEqual(signals(0, { requiredApprovals: 0, state: 'pending' }), ['approval'])
+  assert.deepEqual(signals(3, undefined), [])
 })
 
 test('idle attention starts at three days and only for in-flight columns', () => {

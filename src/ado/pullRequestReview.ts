@@ -48,16 +48,14 @@ export function resolvePullRequestReviewState(
     return 'waiting-for-author'
   }
 
-  const approvalCount = votes.filter((vote) => vote >= 5).length
-  if (approvalCount === 1) {
-    return 'partially-approved'
-  }
-
-  if (approvalCount >= 2) {
-    return 'fully-approved'
-  }
-
   return undefined
+}
+
+export function isPullRequestReviewSatisfied(
+  pullRequest: Pick<WorkItemPullRequestSummary, 'reviewPolicy' | 'reviewState'>,
+): boolean {
+  return pullRequest.reviewPolicy?.state === 'passing'
+    && !pullRequest.reviewState
 }
 
 export function resolvePullRequestApprovalCount(

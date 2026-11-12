@@ -7,6 +7,7 @@ import svgUndo from '@stratakit/icons/undo.svg'
 import svgUserAdd from '@stratakit/icons/user-add.svg'
 import type { TeamIterationOption, TeamMember, WorkItemSummary, WorkItemUpdate } from '../../../ado/queryEngine'
 import { toIdentityKeys } from '../../../ado/identity'
+import { isPullRequestReviewSatisfied } from '../../../ado/pullRequestReview'
 import { BLOCKED_RAIL_WIDTH } from '../utils/boardLayout'
 import { getAssignmentChangeReason } from '../utils/assignmentChange'
 import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
@@ -163,7 +164,7 @@ export function columnCaption(item: WorkItemSummary, column: QaColumnId, history
 
 function isLikelyToday(item: WorkItemSummary): boolean {
   return (item.activePullRequests ?? []).some((pullRequest) => {
-    if ((pullRequest.approvalCount ?? 0) < 2 || pullRequest.checks?.state !== 'passing') {
+    if (!isPullRequestReviewSatisfied(pullRequest) || pullRequest.checks?.state !== 'passing') {
       return false
     }
     const requiredChecks = pullRequest.checks.checks.filter((check) => !check.optional)

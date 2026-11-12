@@ -10,11 +10,16 @@ type PolicyEvaluationApiResponse = {
   status?: string
   configuration?: {
     isBlocking?: boolean
+    isEnabled?: boolean
+    isDeleted?: boolean
     type?: {
+      id?: string
       displayName?: string
     }
     settings?: {
       displayName?: string
+      minimumApproverCount?: number
+      requiredReviewerIds?: string[]
     }
   }
   context?: {
@@ -38,6 +43,46 @@ const INCLUDED_POLICY_TYPES = new Set([
   'work item linking',
   'status',
 ])
+
+const MINIMUM_REVIEWERS_POLICY_ID = 'fa4e907d-c16b-4a4c-9dfa-4906e5d171dd'
+const REQUIRED_REVIEWERS_POLICY_ID = 'fd2167ab-b0be-447a-8ec8-39368250530e'
+
+function resolveReviewPolicy(
+  evaluations: PolicyEvaluationApiResponse[],
+): WorkItemPullRequestSummary['reviewPolicy'] {
+  let requiredApprovals = 0
+  let state: 'passing' | 'pending' | 'failing' = 'passing'
+  for (const evaluation of evaluations) {
+    const configuration = evaluation.configuration
+    const typeId = configuration?.type?.id?.toLowerCase()
+    const typeName = configuration?.type?.displayName?.trim().toLowerCase()
+    const isMinimumReviewers = typeId === MINIMUM_REVIEWERS_POLICY_ID || typeName === 'minimum number of reviewers'
+    const isRequiredReviewers = typeId === REQUIRED_REVIEWERS_POLICY_ID || typeName === 'required reviewers'
+    if (!isMinimumReviewers && !isRequiredReviewers) {
+      continue
+    }
+    const evaluationState = normalizePolicyEvaluationState(evaluation.status)
+    if (configuration?.isBlocking === false || configuration?.isEnabled === false
+      || configuration?.isDeleted === true || evaluationState === 'skipped') {
+      continue
+    }
+    const settings = configuration?.settings
+    const requiredReviewerCount = isRequiredReviewers
+      ? new Set(settings?.requiredReviewerIds?.map((id) => id.trim().toLowerCase()).filter(Boolean)).size
+      : 0
+    // Required-reviewer policies also carry a minimum when one group must supply multiple approvals.
+    const minimum = settings?.minimumApproverCount
+      ?? (requiredReviewerCount > 0 ? requiredReviewerCount : undefined)
+    if (typeof minimum !== 'number' || !Number.isSafeInteger(minimum) || minimum < 0) {
+      return undefined
+    }
+    requiredApprovals = Math.max(requiredApprovals, minimum, requiredReviewerCount)
+    if (CHECK_STATE_RANK[evaluationState] > CHECK_STATE_RANK[state]) {
+      state = evaluationState
+    }
+  }
+  return { requiredApprovals, state }
+}
 
 const CHECK_STATE_RANK: Record<PullRequestCheckState, number> = {
   skipped: -1,
@@ -185,15 +230,15 @@ export async function fetchProjectId(
   return fetchPromise
 }
 
-export async function fetchPolicyEvaluationChecksSummary(
+export async function fetchPullRequestPolicies(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
   pullRequestId: number,
   projectId: string | null,
   signal?: AbortSignal,
-): Promise<NonNullable<WorkItemPullRequestSummary['checks']>> {
+): Promise<Pick<WorkItemPullRequestSummary, 'checks' | 'reviewPolicy'>> {
   if (!projectId) {
-    return unavailableChecksSummary('request-failed')
+    return { checks: unavailableChecksSummary('request-failed') }
   }
 
   const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${pullRequestId}`
@@ -210,8 +255,15 @@ export async function fetchPolicyEvaluationChecksSummary(
       signal,
     })
 
+    if (!Array.isArray(response.value)) {
+      return { checks: unavailableChecksSummary('request-failed') }
+    }
+
     const checksByName = new Map<string, PullRequestCheckDetail>()
-    for (const evaluation of response.value ?? []) {
+    for (const evaluation of response.value) {
+      if (evaluation.configuration?.isEnabled === false || evaluation.configuration?.isDeleted === true) {
+        continue
+      }
       const policyType = evaluation.configuration?.type?.displayName?.trim() || 'Policy'
       if (!shouldIncludePolicyEvaluationType(policyType)) {
         continue
@@ -230,14 +282,17 @@ export async function fetchPolicyEvaluationChecksSummary(
       })
     }
 
-    return resolvePullRequestChecksSummary([...checksByName.values()])
+    return {
+      checks: resolvePullRequestChecksSummary([...checksByName.values()]),
+      reviewPolicy: resolveReviewPolicy(response.value),
+    }
   } catch (error) {
     if (signal?.aborted) {
       throw error
     }
 
-    return unavailableChecksSummary(error instanceof AdoAuthError && error.status === 403
+    return { checks: unavailableChecksSummary(error instanceof AdoAuthError && error.status === 403
       ? 'access-denied'
-      : 'request-failed')
+      : 'request-failed') }
   }
 }

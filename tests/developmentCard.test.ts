@@ -149,12 +149,16 @@ test('quiet checks summary only surfaces a detail line for required checks that 
 })
 
 test('approval summary counts toward the required approvals', () => {
+  const summary = (approvalCount: number) => display.getApprovalSummary({
+    approvalCount,
+    reviewPolicy: { requiredApprovals: 2, state: approvalCount >= 2 ? 'passing' : 'pending' },
+  })
   assert.deepEqual(
-    { text: display.getApprovalSummary({ approvalCount: 1 }).text, tone: display.getApprovalSummary({ approvalCount: 1 }).tone },
+    { text: summary(1).text, tone: summary(1).tone },
     { text: '1/2', tone: 'neutral' },
   )
-  assert.equal(display.getApprovalSummary({ approvalCount: 3 }).tone, 'positive')
-  assert.equal(display.getApprovalSummary({ approvalCount: 3 }).label, '3 of 2 approvals')
+  assert.equal(summary(3).tone, 'positive')
+  assert.equal(summary(3).label, '3 of 2 approvals')
   assert.equal(display.getApprovalSummary({ approvalCount: 2, reviewState: 'rejected' }).text, 'Rejected')
   assert.equal(display.getApprovalSummary({ reviewState: 'waiting-for-author' }).tone, 'attention')
 })
@@ -221,7 +225,7 @@ test('linked PRs collapse to one quiet row followed by the next step for each PR
       state: 'In Code Review',
       status: 'Review',
       activePullRequests: [
-        { id: 912, title: 'Folder rename API', url: 'https://example.test/pr/912', approvalCount: 1, checks: passingChecks },
+        { id: 912, title: 'Folder rename API', url: 'https://example.test/pr/912', approvalCount: 1, reviewPolicy: { requiredApprovals: 2, state: 'pending' }, checks: passingChecks },
         {
           id: 913,
           title: 'Folder rename UI',
@@ -251,7 +255,7 @@ test('PR-only cards use the PR as the title and skip work item metadata', () => 
       title: 'Unlinked PR',
       status: 'Review',
       sprintName: 'Sprint 40',
-      pullRequest: { id: 77, title: 'Bump dependencies', url: 'https://example.test/pr/77', approvalCount: 0, checks: passingChecks },
+      pullRequest: { id: 77, title: 'Bump dependencies', url: 'https://example.test/pr/77', approvalCount: 0, reviewPolicy: { requiredApprovals: 2, state: 'pending' }, checks: passingChecks },
     },
     currentIterationName: 'Sprint 42',
   }))
@@ -267,8 +271,52 @@ const pr = (overrides: Record<string, unknown> = {}) => ({
   title: 'PR',
   url: 'https://example.test/pr/1',
   approvalCount: 0,
+  reviewPolicy: { requiredApprovals: 2, state: Number(overrides.approvalCount ?? 0) >= 2 ? 'passing' : 'pending' },
   checks: passingChecks,
   ...overrides,
+})
+
+test('cards use zero, one and larger approval requirements and do not guess unavailable requirements', () => {
+  for (const requiredApprovals of [0, 1, 3]) {
+    const pullRequest = pr({
+      approvalCount: requiredApprovals,
+      reviewPolicy: { requiredApprovals, state: 'passing' },
+    })
+    const summary = display.getApprovalSummary(pullRequest)
+    assert.equal(summary.text, requiredApprovals === 0 ? 'No minimum' : `${requiredApprovals}/${requiredApprovals}`)
+    assert.equal(summary.tone, 'positive')
+    assert.equal(display.getPullRequestProgress(pullRequest).review.fill, 1)
+    assert.equal(display.getPullRequestProgress(pullRequest).ready, true)
+    assert.equal(display.getPullRequestNextStep(pullRequest).text, 'Ready to complete')
+
+    const text = textOf(render({
+      item: { ...baseItem, activePullRequests: [pullRequest] },
+    }))
+    assert.equal(text.includes(summary.text), true)
+    assert.match(text, /Ready to complete/)
+    if (requiredApprovals === 0) assert.doesNotMatch(text, /Needs .*approval/)
+  }
+  const partial = pr({ approvalCount: 1, reviewPolicy: { requiredApprovals: 3, state: 'pending' } })
+  assert.equal(display.getApprovalSummary(partial).text, '1/3')
+  assert.equal(display.getPullRequestProgress(partial).review.fill, 1 / 3)
+  assert.equal(display.getPullRequestNextStep(partial).text, 'Needs 2 approvals')
+  const unavailable = pr({ approvalCount: 4, reviewPolicy: undefined })
+  assert.equal(display.getApprovalSummary(unavailable).text, '4/?')
+  assert.equal(display.getPullRequestProgress(unavailable).ready, false)
+  assert.equal(display.getPullRequestProgress(unavailable).review.state, 'empty')
+  assert.equal(display.getPullRequestNextStep(unavailable).text, 'Review requirements unavailable')
+})
+
+test('sufficient raw votes cannot override an unsatisfied Azure DevOps reviewer policy', () => {
+  const pullRequest = pr({ approvalCount: 3, reviewPolicy: { requiredApprovals: 1, state: 'failing' } })
+  assert.equal(display.getApprovalSummary(pullRequest).tone, 'neutral')
+  assert.match(display.getApprovalSummary(pullRequest).label, /review policy not satisfied/)
+  assert.equal(display.getPullRequestProgress(pullRequest).review.state, 'pending')
+  assert.equal(display.getPullRequestProgress(pullRequest).ready, false)
+  assert.equal(display.getPullRequestNextStep(pullRequest).text, 'Review policy not satisfied')
+  const specificReviewers = pr({ approvalCount: 0, reviewPolicy: { requiredApprovals: 0, state: 'pending' } })
+  assert.equal(display.getPullRequestProgress(specificReviewers).ready, false)
+  assert.equal(display.getPullRequestNextStep(specificReviewers).text, 'Review policy not satisfied')
 })
 
 test('PR next step follows the documented priority order', () => {

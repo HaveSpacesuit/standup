@@ -9,6 +9,7 @@ import svgUserEdit from '@stratakit/icons/user-edit.svg'
 import svgUsers from '@stratakit/icons/users.svg'
 import svgValidate from '@stratakit/icons/validate.svg'
 import { toIdentityKeys, type IdentityRef } from '../../../ado/identity'
+import { isPullRequestReviewSatisfied } from '../../../ado/pullRequestReview'
 import type { WorkItemPullRequestSummary, WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getJourneyCaption, type JourneyCaption, type SprintJourney } from '../utils/sprintJourney'
@@ -16,7 +17,6 @@ import { formatDayCount } from '../utils/sprintDates'
 import { getChecksPresentation } from './pullRequestChecksPresentation'
 import { abbreviateState, type WorkItemCardHighlightState } from './workItemCardDisplay'
 
-export const REQUIRED_APPROVALS = 2
 export const TERTIARY_TEXT_COLOR = 'var(--stratakit-color-text-neutral-tertiary)'
 
 // MUI's sx reads a bare 1 as 100%, so the 1px sizes must be strings.
@@ -129,7 +129,7 @@ export type ApprovalSummary = {
   showUsersIcon: boolean
 }
 
-export function getApprovalSummary(pullRequest: Pick<WorkItemPullRequestSummary, 'approvalCount' | 'reviewState'>): ApprovalSummary {
+export function getApprovalSummary(pullRequest: Pick<WorkItemPullRequestSummary, 'approvalCount' | 'reviewState' | 'reviewPolicy'>): ApprovalSummary {
   if (pullRequest.reviewState === 'rejected') {
     return { tone: 'critical', text: 'Rejected', label: 'Rejected', showUsersIcon: false }
   }
@@ -139,10 +139,18 @@ export function getApprovalSummary(pullRequest: Pick<WorkItemPullRequestSummary,
   }
 
   const approvals = pullRequest.approvalCount ?? 0
+  const policy = pullRequest.reviewPolicy
+  if (!policy) {
+    return { tone: 'attention', text: `${approvals}/?`, label: 'Required approvals unavailable', showUsersIcon: true }
+  }
+  const satisfied = isPullRequestReviewSatisfied(pullRequest)
+  const label = policy.requiredApprovals === 0
+    ? 'No minimum approvals required'
+    : `${approvals} of ${policy.requiredApprovals} approvals`
   return {
-    tone: approvals >= REQUIRED_APPROVALS ? 'positive' : 'neutral',
-    text: `${Math.min(approvals, 9)}/${REQUIRED_APPROVALS}`,
-    label: `${approvals} of ${REQUIRED_APPROVALS} approvals`,
+    tone: satisfied ? 'positive' : 'neutral',
+    text: policy.requiredApprovals === 0 ? 'No minimum' : `${approvals}/${policy.requiredApprovals}`,
+    label: satisfied || approvals < policy.requiredApprovals ? label : `${label}; review policy not satisfied`,
     showUsersIcon: true,
   }
 }
@@ -231,12 +239,18 @@ export function getPullRequestNextStep(pullRequest: WorkItemPullRequestSummary):
     }
   }
 
-  const needed = REQUIRED_APPROVALS - (pullRequest.approvalCount ?? 0)
-  if (needed > 0) {
+  if (!pullRequest.reviewPolicy) {
+    return { tone: 'attention', iconHref: svgError, text: 'Review requirements unavailable' }
+  }
+
+  const needed = pullRequest.reviewPolicy.requiredApprovals - (pullRequest.approvalCount ?? 0)
+  if (!isPullRequestReviewSatisfied(pullRequest)) {
     return {
       tone: 'neutral',
       iconHref: svgUsers,
-      text: needed === 1 ? 'Needs 1 more approval' : `Needs ${needed} approvals`,
+      text: needed > 0
+        ? needed === 1 ? 'Needs 1 more approval' : `Needs ${needed} approvals`
+        : 'Review policy not satisfied',
       owner: { kind: 'reviewers' },
     }
   }
@@ -344,18 +358,27 @@ export function getPullRequestProgress(pullRequest: WorkItemPullRequestSummary):
 
   const approvals = getApprovalSummary(pullRequest)
   const approvalCount = pullRequest.approvalCount ?? 0
+  const policy = pullRequest.reviewPolicy
+  const reviewSatisfied = isPullRequestReviewSatisfied(pullRequest)
   const review = pullRequest.reviewState === 'rejected'
     ? { state: 'critical' as const, fill: 1, label: approvals.label }
     : pullRequest.reviewState === 'waiting-for-author'
       ? { state: 'attention' as const, fill: 1, label: approvals.label }
-      : { state: 'positive' as const, fill: Math.min(approvalCount, REQUIRED_APPROVALS) / REQUIRED_APPROVALS, label: approvals.label }
+      : !policy
+        ? { state: 'empty' as const, fill: 0, label: approvals.label }
+        : {
+            state: reviewSatisfied || approvalCount < policy.requiredApprovals ? 'positive' as const : 'pending' as const,
+            fill: reviewSatisfied ? 1 : policy.requiredApprovals > 0
+              ? Math.min(approvalCount / policy.requiredApprovals, 1)
+              : 0,
+            label: approvals.label,
+          }
 
   const ready = !isPullRequestClosed(pullRequest)
     && !checksUnavailable
     && checksState !== 'critical'
     && checksState !== 'pending'
-    && review.state === 'positive'
-    && approvalCount >= REQUIRED_APPROVALS
+    && reviewSatisfied
 
   return {
     checks: { state: checksState, label: checksSummary.label },

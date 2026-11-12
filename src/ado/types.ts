@@ -43,7 +43,12 @@ export type WorkItemPullRequestSummary = {
   url: string
   iconUrl?: string
   approvalCount?: number
-  reviewState?: 'rejected' | 'waiting-for-author' | 'partially-approved' | 'fully-approved'
+  reviewState?: 'rejected' | 'waiting-for-author'
+  /** Missing when policy information is unavailable; zero means no reviewer approvals are required. */
+  reviewPolicy?: {
+    requiredApprovals: number
+    state: 'passing' | 'pending' | 'failing'
+  }
   status?: string
   checks?: PullRequestChecksSummary
   recentActivityAt?: string

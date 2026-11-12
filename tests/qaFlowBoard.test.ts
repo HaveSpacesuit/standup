@@ -32,7 +32,7 @@ const { QaFlowBoard } = await server.ssrLoadModule('/src/features/standup/compon
 const { QualityAssuranceLoadingState } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceLoadingState.tsx')
 const { QaColumnHeader } = await server.ssrLoadModule('/src/features/standup/components/QaColumnHeader.tsx')
 const { default: checkmarkIcon } = await server.ssrLoadModule('@stratakit/icons/checkmark.svg')
-const { getItemHistory, getQaLaneFlags, getQaStandupOrder } = await server.ssrLoadModule('/src/features/standup/components/qaBoardModel.ts')
+const { getItemHistory, getQaLaneFlags, getQaStandupOrder, columnCaption } = await server.ssrLoadModule('/src/features/standup/components/qaBoardModel.ts')
 const { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } =
   await server.ssrLoadModule('/src/features/standup/utils/qualityAssuranceBuckets.ts')
 
@@ -89,6 +89,7 @@ const comingUp = {
     title: 'Approved change',
     url: 'https://example.test/pullrequest/905',
     approvalCount: 2,
+    reviewPolicy: { requiredApprovals: 2, state: 'passing' },
     checks: {
       state: 'passing',
       total: 1,
@@ -227,6 +228,19 @@ test('QA flow follows the testing journey and surfaces its timing and attention 
   assert.match(html, /No sprint/)
   assert.match(html, /No longer needed/)
   assert.match(html, /line-through/)
+})
+
+test('Likely today follows each PR reviewer policy, including no-review changes', () => {
+  const caption = (approvalCount: number, reviewPolicy: unknown, reviewState?: string) => columnCaption({
+    ...comingUp,
+    activePullRequests: [{ ...comingUp.activePullRequests[0], approvalCount, reviewPolicy, reviewState }],
+  }, 'coming', {}, Date.now())
+  assert.equal(caption(0, { requiredApprovals: 0, state: 'passing' }), 'Likely today')
+  assert.equal(caption(1, { requiredApprovals: 1, state: 'passing' }), 'Likely today')
+  assert.equal(caption(2, { requiredApprovals: 3, state: 'pending' }), undefined)
+  assert.equal(caption(3, { requiredApprovals: 1, state: 'failing' }), undefined)
+  assert.equal(caption(3, undefined), undefined)
+  assert.equal(caption(1, { requiredApprovals: 1, state: 'passing' }, 'waiting-for-author'), undefined)
 })
 
 test('QA flow shrinks empty columns to rails that can be expanded, and Coming up can collapse', () => {

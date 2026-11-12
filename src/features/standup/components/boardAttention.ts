@@ -16,7 +16,6 @@ import {
   getCardNextStep,
   getPullRequestProgress,
   isPullRequestClosed,
-  REQUIRED_APPROVALS,
 } from './developmentCardDisplay'
 import type { WorkItemCardHighlightState } from './workItemCardDisplay'
 
@@ -48,7 +47,7 @@ const ATTENTION_FACETS: readonly AttentionFacet[] = [
     label: 'Needs approval',
     tone: 'attention',
     iconHref: svgUsers,
-    description: `An open pull request has fewer than ${REQUIRED_APPROVALS} approvals and is not waiting on its author.`,
+    description: 'An open pull request has an unsatisfied reviewer policy and is not waiting on its author.',
   },
   {
     key: 'idle',
@@ -172,7 +171,7 @@ function needsApproval(pullRequest: WorkItemPullRequestSummary): boolean {
     return false
   }
 
-  return (pullRequest.approvalCount ?? 0) < REQUIRED_APPROVALS
+  return pullRequest.reviewPolicy !== undefined && pullRequest.reviewPolicy.state !== 'passing'
 }
 
 /** The Needs attention facets a card matches, using the same rules the card itself uses to draw its signals. */

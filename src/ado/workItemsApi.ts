@@ -4,7 +4,7 @@ import type { AdoRequestClient } from './httpClient'
 import type { WorkItemPullRequestSummary, WorkItemSummary, PullRequestApiResponse } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
 import { buildIterationMembershipWiql, buildIterationScopedWiql, buildQaBucketCandidatesWiql } from './wiql'
-import { fetchPolicyEvaluationChecksSummary, fetchProjectId } from './policyEvaluationChecksApi'
+import { fetchPullRequestPolicies, fetchProjectId } from './policyEvaluationChecksApi'
 import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
 import { getPullRequestIconUrl, parsePullRequestArtifactLink, type PullRequestArtifactRef } from './adoShared'
 import resolveStatusFromStateAndTags from './workItemStatus'
@@ -287,8 +287,8 @@ async function fetchActivePullRequestsByWorkItem(
         }
 
         const pullRequestId = pullRequest.pullRequestId ?? ref.pullRequestId
-        const [checks, readyForReviewAt] = await Promise.all([
-          fetchPolicyEvaluationChecksSummary(client, team, pullRequestId, projectId, signal),
+        const [policies, readyForReviewAt] = await Promise.all([
+          fetchPullRequestPolicies(client, team, pullRequestId, projectId, signal),
           fetchPullRequestReadyForReviewAt(client, team, ref.repositoryId, pullRequestId, signal),
         ])
 
@@ -301,7 +301,7 @@ async function fetchActivePullRequestsByWorkItem(
           iconUrl: pullRequestIconUrl,
           approvalCount: resolvePullRequestApprovalCount(pullRequest.reviewers),
           reviewState: resolvePullRequestReviewState(pullRequest.reviewers),
-          checks,
+          ...policies,
           recentActivityAt: readyForReviewAt ?? pullRequest.creationDate,
         })
       } catch {
