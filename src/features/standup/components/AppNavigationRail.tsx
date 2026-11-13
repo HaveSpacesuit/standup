@@ -36,7 +36,7 @@ import svgArrowDown from '@stratakit/icons/arrow-down.svg'
 import svgArrowUp from '@stratakit/icons/arrow-up.svg'
 import svgHelp from '@stratakit/icons/help.svg'
 import svgInfo from '@stratakit/icons/info.svg'
-import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
+import { PAT_SCOPES, QUICK_ASSIGN_PAT_REQUIREMENT } from '../../../adoAuth'
 import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
 import { validateTeamProfile, type TeamProfileFormField } from '../utils/teamProfileValidation'
 import type { AppView } from '../hooks/useAppNavigation'
@@ -590,15 +590,16 @@ export function AppNavigationRail({
 
                 <Box>
                   <Typography variant="body-sm" sx={{ fontWeight: 700, mb: 0.5 }}>
-                    Required PAT scopes
+                    PAT scopes
                   </Typography>
                   <Box component="ul" sx={{ m: 0, pl: 2.5, color: 'text.secondary' }}>
-                    {REQUIRED_PAT_SCOPES.map((scope) => (
+                    {PAT_SCOPES.map((scope) => (
                       <Typography key={scope} component="li" variant="body-sm">
                         {scope}
                       </Typography>
                     ))}
                   </Box>
+                  <Typography variant="body-sm" color="text.secondary" sx={{ mt: 1 }}>{QUICK_ASSIGN_PAT_REQUIREMENT}</Typography>
                 </Box>
 
                 <Stack direction="row" spacing={1}>

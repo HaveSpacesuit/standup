@@ -48,9 +48,11 @@ type WorkItemsBatchResponse = {
   value: WorkItemApiItem[]
 }
 
-type WorkItemApiItem = {
+export type WorkItemApiItem = {
   id?: number
+  rev?: number
   fields?: {
+    'System.AreaPath'?: unknown
     'System.Title'?: unknown
     'System.CreatedDate'?: unknown
     'System.ChangedDate'?: unknown
@@ -486,47 +488,50 @@ async function fetchWorkItemSummariesByIds(
 
   return batchResponses.flatMap((batchResponse) => batchResponse.value ?? [])
     .map((item): WorkItemSummary | null => {
-      if (typeof item.id !== 'number') {
-        return null
-      }
-
-      const workItemType =
-        typeof item.fields?.['System.WorkItemType'] === 'string'
-          ? item.fields?.['System.WorkItemType']
-          : undefined
-      const iconId = getIconIdForWorkItemType(workItemType)
-
+      const summary = parseWorkItemSummary(item, team)
+      if (!summary) return null
       return {
-        id: item.id,
-        kind: 'work-item',
-        title: typeof item.fields?.['System.Title'] === 'string'
-          ? item.fields['System.Title']
-          : `Work Item ${item.id}`,
-        createdAt: resolveCreatedAt(item.fields),
-        state: typeof item.fields?.['System.State'] === 'string' ? item.fields?.['System.State'] : undefined,
-        recentActivityAt: resolveRecentActivityAt(item.fields),
-        severity: typeof item.fields?.['Microsoft.VSTS.Common.Severity'] === 'string'
-          ? item.fields['Microsoft.VSTS.Common.Severity']
-          : undefined,
-        priority: parseEffort(item.fields?.['Microsoft.VSTS.Common.Priority']),
-        tags: resolveTags(item.fields),
-        sprintName: resolveSprintName(item.fields),
-        iterationPath: resolveIterationPath(item.fields),
-        activePullRequests: activePullRequestsByWorkItem[item.id] ?? [],
-        linkedPullRequestIds: (pullRequestRefsByWorkItem.get(item.id) ?? []).map((ref) => ref.pullRequestId),
-        workItemUrl: `https://dev.azure.com/${encodeURIComponent(team.orgName)}/${encodeURIComponent(team.projectName)}/_workitems/edit/${item.id}`,
-        effort: resolveEffort(item.fields),
-        workItemType,
-        workItemIconUrl: workItemIconMap[iconId],
-        assignedTo: parseAssignedTo(item.fields?.['System.AssignedTo']),
-        createdBy: parseAssignedTo(item.fields?.['System.CreatedBy']),
-        status: resolveStatusFromStateAndTags(
-          item.fields?.['System.State'],
-          item.fields?.['System.Tags'],
-        ),
+        ...summary,
+        activePullRequests: activePullRequestsByWorkItem[summary.id] ?? [],
+        linkedPullRequestIds: (pullRequestRefsByWorkItem.get(summary.id) ?? []).map((ref) => ref.pullRequestId),
+        workItemIconUrl: workItemIconMap[getIconIdForWorkItemType(summary.workItemType)],
       }
     })
     .filter((item): item is WorkItemSummary => item !== null)
+}
+
+export function parseWorkItemSummary(
+  item: WorkItemApiItem,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+): WorkItemSummary | null {
+  if (typeof item.id !== 'number') return null
+  const workItemType = typeof item.fields?.['System.WorkItemType'] === 'string' ? item.fields['System.WorkItemType'] : undefined
+  return {
+    id: item.id,
+    kind: 'work-item',
+    title: typeof item.fields?.['System.Title'] === 'string'
+      ? item.fields['System.Title']
+      : `Work Item ${item.id}`,
+    createdAt: resolveCreatedAt(item.fields),
+    state: typeof item.fields?.['System.State'] === 'string' ? item.fields['System.State'] : undefined,
+    recentActivityAt: resolveRecentActivityAt(item.fields),
+    severity: typeof item.fields?.['Microsoft.VSTS.Common.Severity'] === 'string'
+      ? item.fields['Microsoft.VSTS.Common.Severity']
+      : undefined,
+    priority: parseEffort(item.fields?.['Microsoft.VSTS.Common.Priority']),
+    tags: resolveTags(item.fields),
+    sprintName: resolveSprintName(item.fields),
+    iterationPath: resolveIterationPath(item.fields),
+    workItemUrl: `https://dev.azure.com/${encodeURIComponent(team.orgName)}/${encodeURIComponent(team.projectName)}/_workitems/edit/${item.id}`,
+    effort: resolveEffort(item.fields),
+    workItemType,
+    assignedTo: parseAssignedTo(item.fields?.['System.AssignedTo']),
+    createdBy: parseAssignedTo(item.fields?.['System.CreatedBy']),
+    status: resolveStatusFromStateAndTags(
+      item.fields?.['System.State'],
+      item.fields?.['System.Tags'],
+    ),
+  }
 }
 
 export async function fetchWorkItemsForCurrentAndNextIteration(

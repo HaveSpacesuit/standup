@@ -1,6 +1,9 @@
 import type { TeamProfile } from '../appSettings'
 import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
+import { assignWorkItem, isAssignmentAccessError } from './workItemAssignmentApi'
+import type { IdentityRef } from './identity'
+import type { TagRule } from './workItemStatus'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
 import { fetchIterationWindowInfo, fetchTeamIterations } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
@@ -58,6 +61,17 @@ function dropOldest(cache: Map<string, unknown>, limit: number): void {
 function clearTeamEntries(cache: Map<string, unknown>, teamId?: string): void {
   for (const key of cache.keys()) {
     if (!teamId || key.startsWith(`${teamId}:`)) cache.delete(key)
+  }
+}
+
+/** Rewrites every cached value in place. An entry whose load fails is dropped so it can be loaded again. */
+function patchCachedValues<T>(cache: Map<string, Promise<T>>, patch: (value: T) => T): void {
+  for (const [key, cached] of cache) {
+    const patched = cached.then(patch)
+    cache.set(key, patched)
+    patched.catch(() => {
+      if (cache.get(key) === patched) cache.delete(key)
+    })
   }
 }
 
@@ -380,6 +394,41 @@ export class AdoQueryEngine {
 
   async request<T>(options: AdoRequestOptions): Promise<T> {
     return this.client.request<T>(options)
+  }
+
+  async assignWorkItem(team: TeamProfile, item: WorkItemSummary, developer: IdentityRef, tagRules: TagRule[]): Promise<WorkItemSummary> {
+    let assigned: WorkItemSummary
+    try {
+      assigned = await assignWorkItem(this.client, team, item, developer, tagRules)
+    } catch (error) {
+      // A denied write changed nothing. Otherwise the item may have changed, so every page reloads it when next shown;
+      // other configured teams can share the item, so this spans team cache keys.
+      if (!isAssignmentAccessError(error)) {
+        this.clearDevelopmentDataCache()
+        this.clearBacklogDataCache()
+        this.clearTriageDataCache()
+        this.clearQualityAssuranceDataCache()
+        this.clearWorkItemUpdatesCache(team, [item.id])
+      }
+      throw error
+    }
+    this.patchCachedAssignee(assigned)
+    return assigned
+  }
+
+  /**
+   * Writes a saved assignment into every cached list that holds the item, for any team, so no page reloads to show it.
+   * Work item IDs repeat across organizations, so the item's URL identifies it. Its cached history keeps the previous
+   * revision until the next refresh, so showing the assignment costs no history reads either.
+   */
+  private patchCachedAssignee(assigned: WorkItemSummary): void {
+    const url = assigned.workItemUrl?.toLowerCase()
+    const patch = <T extends { id: number; workItemUrl?: string; assignedTo?: IdentityRef }>(items: T[]): T[] =>
+      items.map((item) => item.id === assigned.id && item.workItemUrl?.toLowerCase() === url ? { ...item, assignedTo: assigned.assignedTo } : item)
+    patchCachedValues(this.teamWorkItemsCache, patch)
+    patchCachedValues(this.backlogBugsCache, patch)
+    patchCachedValues(this.triageItemsCache, (result) => ({ ...result, items: patch(result.items) }))
+    patchCachedValues(this.qaRawDataCache, (data) => ({ ...data, candidates: patch(data.candidates) }))
   }
 
   /** Cached wrapper around the work item `/updates` (revision history) endpoint, shared by any

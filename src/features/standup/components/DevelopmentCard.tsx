@@ -14,6 +14,7 @@ import { DevelopmentPullRequestRow } from './DevelopmentPullRequestRow'
 import { DevelopmentCardCompactLine } from './DevelopmentCardCompactLine'
 import { DevelopmentCardDetails } from './DevelopmentCardDetails'
 import { ChangeBadge, StateBadge } from './DevelopmentCardBadges'
+import { EFFORT_BADGE_HEIGHT, EffortBadge, WorkItemTypeIcon } from './WorkItemCardParts'
 import { AgingDots } from './AgingDots'
 import { AppTooltip, SuppressTooltips } from './AppTooltip'
 import { AdoAvatar } from './AdoAvatar'
@@ -76,7 +77,6 @@ type CardPartProps = {
 }
 
 const HOVER_CARD_WIDTH = 300
-const EFFORT_BADGE_HEIGHT = 18
 
 /**
  * StrataKit styles tooltips as short captions from a cascade layer that outranks sx, so the hover card
@@ -145,27 +145,8 @@ function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false,
       {/* Outside the link, so the owner's tooltip doesn't open alongside the title's. */}
       {hasAside ? (
         <Box component="span" sx={{ float: 'right', ml: 1.5, mb: 0.25, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-          {model.showEffort ? (
-            <Box
-              component="span"
-              sx={{
-                minWidth: 20,
-                height: EFFORT_BADGE_HEIGHT,
-                px: 1.25,
-                borderRadius: 999,
-                border: '1px solid var(--stratakit-color-border-neutral-muted)',
-                color: struckEffort ? TERTIARY_TEXT_COLOR : 'text.secondary',
-                fontSize: 11,
-                fontWeight: 600,
-                lineHeight: '16px',
-                textAlign: 'center',
-                fontVariantNumeric: 'tabular-nums',
-                textDecoration: struckEffort ? 'line-through' : undefined,
-              }}
-            >
-              <Box component="span" sx={visuallyHiddenSx}>{struckEffort ? 'Removed effort ' : 'Effort '}</Box>
-              {item.effort}
-            </Box>
+          {model.showEffort && typeof item.effort === 'number' ? (
+            <EffortBadge effort={item.effort} struck={struckEffort} />
           ) : null}
           {owner ? <OwnerAvatar owner={owner} label={ownerLabel} /> : null}
         </Box>
@@ -186,31 +167,7 @@ function CardTitle({ item, model, owner = null, lines, showTitleTooltip = false,
             <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'text-bottom', mr: 0.5, color: TERTIARY_TEXT_COLOR }}>
               <Icon href={svgGitBranch} />
             </Box>
-          ) : item.workItemIconUrl ? (
-            <Box
-              component="span"
-              role={item.workItemType ? 'img' : undefined}
-              aria-label={item.workItemType}
-              aria-hidden={item.workItemType ? undefined : true}
-              sx={{
-                width: 14,
-                height: 14,
-                display: 'inline-block',
-                verticalAlign: 'text-bottom',
-                mr: 0.5,
-                // Keep the ADO icon's shape while letting CSS follow the current color scheme.
-                bgcolor: 'var(--stratakit-color-icon-neutral-base)',
-                maskImage: `url(${JSON.stringify(item.workItemIconUrl)})`,
-                maskSize: 'contain',
-                maskRepeat: 'no-repeat',
-                maskPosition: 'center',
-                '@media (forced-colors: active)': {
-                  bgcolor: 'CanvasText',
-                  forcedColorAdjust: 'none',
-                },
-              }}
-            />
-          ) : null}
+          ) : <WorkItemTypeIcon item={item} />}
           <Box component="span" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>
             {model.displayId}
           </Box>

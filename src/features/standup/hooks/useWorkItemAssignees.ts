@@ -45,10 +45,13 @@ export function useWorkItemAssignees({
   const [assigneesError, setAssigneesError] = useState<string | null>(null)
   const [historyRetryNonce, setHistoryRetryNonce] = useState(0)
   const historyRetryInProgress = useRef(false)
+  // The cards the shown assignees cover. A card edited in place, such as by Quick assign, re-resolves without blanking the board.
+  const resolvedItemIds = useRef<string | null>(null)
 
   useEffect(() => {
     if (!adoQueryEngine) {
       historyRetryInProgress.current = false
+      resolvedItemIds.current = null
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -57,6 +60,7 @@ export function useWorkItemAssignees({
 
     if (membersLoading || workItemsLoading) {
       historyRetryInProgress.current = false
+      resolvedItemIds.current = null
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -65,6 +69,7 @@ export function useWorkItemAssignees({
 
     if (membersError || workItemsError) {
       historyRetryInProgress.current = false
+      resolvedItemIds.current = null
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -73,6 +78,7 @@ export function useWorkItemAssignees({
 
     if (workItems.length === 0) {
       historyRetryInProgress.current = false
+      resolvedItemIds.current = null
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -80,6 +86,7 @@ export function useWorkItemAssignees({
     }
 
     const abortController = new AbortController()
+    const itemIds = workItems.map((item) => item.id).join(',')
 
     const memberLookup = members.reduce<Record<string, string>>((lookup, member) => {
       const canonical = member.displayName
@@ -90,7 +97,7 @@ export function useWorkItemAssignees({
       return lookup
     }, {})
 
-    if (!historyRetryInProgress.current) {
+    if (!historyRetryInProgress.current && resolvedItemIds.current !== itemIds) {
       setAssigneesLoading(true)
     }
     setAssigneesError(null)
@@ -118,6 +125,7 @@ export function useWorkItemAssignees({
           return acc
         }, {})
 
+        resolvedItemIds.current = itemIds
         setWorkItemAssignees(mapped)
       })
       .catch((error: unknown) => {
@@ -125,6 +133,7 @@ export function useWorkItemAssignees({
           return
         }
 
+        resolvedItemIds.current = null
         setWorkItemAssignees({})
         setAssigneesError(
           toErrorMessage(error, 'Unknown error while resolving work item assignees.'),

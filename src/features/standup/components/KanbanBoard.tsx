@@ -44,6 +44,7 @@ import {
 } from './boardAttention'
 import { StandupPresenterBar } from './StandupPresenterBar'
 import { getStandupOrder, isStandupSpeakerRow, resolveStandupSpeakers, type StandupOrderMode } from './standupOrder'
+import type { QuickAssignController } from '../hooks/useQuickAssign'
 
 const LOADING_LAYOUT = getBoardLayout(true)
 const NO_JOURNEYS: Record<number, SprintJourney> = {}
@@ -55,6 +56,7 @@ const NO_QA_TESTERS: TeamMember[] = []
 export type BoardLens = 'people' | 'sprint'
 
 type KanbanBoardProps = {
+  quickAssign?: QuickAssignController
   patConfigured: boolean
   isLoading: boolean
   membersError: string | null
@@ -98,6 +100,7 @@ type KanbanBoardProps = {
 }
 
 export const KanbanBoard = memo(function KanbanBoard({
+  quickAssign,
   patConfigured,
   isLoading,
   membersError,
@@ -500,7 +503,7 @@ export const KanbanBoard = memo(function KanbanBoard({
     content = <AdoErrorNotice title="Unable to load work items" message={workItemsError} />
   } else if (assigneesError && !isSprintLens) {
     content = <AdoErrorNotice title="Unable to resolve work item assignees" message={assigneesError} />
-  } else if (boardItems.length === 0 && qaStandupData.itemsByRow.size === 0) {
+  } else if (boardItems.length === 0 && qaStandupData.itemsByRow.size === 0 && (isSprintLens || !quickAssign)) {
     content = (
       <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
         No cards match the current filters. Try adjusting the quick filter or member selection.
@@ -531,6 +534,7 @@ export const KanbanBoard = memo(function KanbanBoard({
         )}
         <Box sx={{ flex: '1 1 auto', minHeight: 0 }}>
           <KanbanBoardGrid
+            quickAssign={isSprintLens ? undefined : quickAssign}
             layout={layout}
             rows={visibleRows}
             cardsByCell={cardsByCell}

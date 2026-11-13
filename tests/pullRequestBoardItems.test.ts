@@ -21,6 +21,11 @@ const server = await createServer({
         if (!(slot in state)) state[slot] = initial
         return [state[slot], (value) => { state[slot] = value }]
       }
+      export const useRef = (initial) => {
+        const slot = index++
+        if (!(slot in state)) state[slot] = { current: initial }
+        return state[slot]
+      }
     ` : undefined,
   }],
 })
@@ -80,5 +85,53 @@ test('repository reload clears old cards while pending and ignores late results 
   pending[1].resolve([])
   await settle()
   assert.deepEqual(state[0], originalItems, 'late results must not overwrite the restored repository')
+  cleanup()
+})
+
+test('a card edited in place keeps the shown pull request cards without a loading state', async () => {
+  state.length = 0
+  const pending: ((items: unknown[]) => void)[] = []
+  const loading: boolean[] = []
+  const args = {
+    adoQueryEngine: { getUnlinkedActivePullRequestItems: () => new Promise((resolve) => pending.push(resolve)) },
+    selectedTeam: { id: 'team', orgName: 'org', projectName: 'project', repoName: 'SharePortal' },
+    members: [{ displayName: 'Team Member' }],
+    membersLoading: false,
+    membersError: null,
+    workItems: [{ id: 1 }, { id: 2 }],
+    workItemsLoading: false,
+    workItemsError: null,
+    currentIteration: null,
+  }
+  function Render() {
+    beginRender()
+    usePullRequestBoardItems(args)
+    const cleanup = effects.shift()()
+    loading.push(state[1])
+    return cleanup
+  }
+  const settle = async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+  }
+  const shownItems = [{ id: -682196 }]
+  let cleanup = Render()
+  pending[0](shownItems)
+  await settle()
+
+  cleanup()
+  args.workItems = [{ id: 1, assignedTo: { displayName: 'Developer' } }, { id: 2 }]
+  cleanup = Render()
+  assert.equal(state[0], shownItems)
+  const refreshedItems = [{ id: -682196 }]
+  pending[1](refreshedItems)
+  await settle()
+  assert.equal(state[0], refreshedItems)
+
+  cleanup()
+  args.workItems = [...args.workItems, { id: 3 }]
+  cleanup = Render()
+  assert.deepEqual(state[0], [], 'a different set of cards is a new request')
+  assert.deepEqual(loading, [true, false, true])
   cleanup()
 })

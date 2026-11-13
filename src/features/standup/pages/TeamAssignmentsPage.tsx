@@ -31,10 +31,12 @@ import type { SprintForecast } from '../utils/sprintForecast'
 import type { SprintDeparture, SprintJourney } from '../utils/sprintJourney'
 import { getCurrentSprintEffortTotals } from '../utils/sprintEffortTotals'
 import { formatReplayDate, getSprintReplayTimeline } from '../utils/sprintReplay'
+import type { QuickAssignController } from '../hooks/useQuickAssign'
 
 const DEVELOPMENT_VIEWS = ['people', 'sprint'] as const
 
 type TeamAssignmentsPageProps = {
+  quickAssign?: QuickAssignController
   patConfigured: boolean
   colorScheme: 'light' | 'dark'
   quickFilterInput: string
@@ -105,6 +107,7 @@ type TeamAssignmentsPageProps = {
 }
 
 export function TeamAssignmentsPage({
+  quickAssign,
   patConfigured,
   colorScheme,
   quickFilterInput,
@@ -306,7 +309,7 @@ export function TeamAssignmentsPage({
               QA tester lanes could not be loaded: {qaBucketsError}
             </Alert>
           ) : null}
-          {patConfigured && !teamIterationsError && !isTeamDataLoading && !membersError && !workItemsError && !assigneesError && workItems.length === 0 ? (
+          {patConfigured && !teamIterationsError && !isTeamDataLoading && !membersError && !workItemsError && !assigneesError && workItems.length === 0 && (isSprintView || !quickAssign) ? (
             <Typography role="status" variant="body-sm" color="text.secondary" sx={{ p: 2 }}>
               {quickFilterInput.trim() || selectedMemberFilter
                 ? 'No cards match your filters. Clear the quick filter or select All team members to restore cards.'
@@ -327,6 +330,7 @@ export function TeamAssignmentsPage({
           <Box ref={boardRef} sx={{ flex: 1, minHeight: 0 }}>
             {teamIterationsError ? null : (
               <KanbanBoard
+                quickAssign={quickAssign}
                 // Each lens keeps its own collapse and expansion state.
                 key={lens}
                 lens={lens}

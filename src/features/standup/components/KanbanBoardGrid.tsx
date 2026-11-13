@@ -31,6 +31,8 @@ import { BoardLaneHead, CollapsedLaneSummary } from './BoardLane'
 import { getLaneSummary, presentingFrameShadow, type LaneSummary } from './laneSummary'
 import { isStandupSpeakerRow } from './standupOrder'
 import type { SprintRemoval } from '../utils/sprintLens'
+import type { QuickAssignController } from '../hooks/useQuickAssign'
+import { QuickAssignCell } from './QuickAssignCell'
 
 const NO_SIGNALS: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>> = new Map()
 const NO_COLLAPSED_ROWS: ReadonlySet<string> = new Set()
@@ -69,6 +71,7 @@ export type BoardRowData = {
 }
 
 type KanbanBoardGridProps = {
+  quickAssign?: QuickAssignController
   layout: BoardLayout
   rows: BoardRowData[]
   cardsByCell: Record<string, WorkItemSummary[]>
@@ -110,6 +113,7 @@ type KanbanBoardGridProps = {
 }
 
 export function KanbanBoardGrid({
+  quickAssign,
   layout,
   rows,
   cardsByCell,
@@ -507,6 +511,11 @@ export function KanbanBoardGrid({
                         boxShadow: frame,
                         minHeight: 92,
                         minWidth: 0,
+                        display: status === 'New' && quickAssign ? 'flex' : undefined,
+                        flexDirection: status === 'New' && quickAssign ? 'column' : undefined,
+                        '& .quick-assign-trigger': { opacity: 0, pointerEvents: 'none' },
+                        '&:hover .quick-assign-trigger, &:focus-within .quick-assign-trigger': { opacity: 1, pointerEvents: 'auto' },
+                        '@media (hover: none)': { '& .quick-assign-trigger': { opacity: 1, pointerEvents: 'auto' } },
                       }}
                     >
                       <Box
@@ -544,7 +553,7 @@ export function KanbanBoardGrid({
                         <Button
                           size="small"
                           variant="text"
-                          sx={{ mt: 0.5, px: 0.5, minWidth: 0 }}
+                          sx={{ mt: 0.5, px: 0.5, minWidth: 0, alignSelf: 'flex-start' }}
                           onClick={() => onSetCellExpanded(cellKey, true)}
                         >
                           Show {hiddenCount} more
@@ -555,11 +564,14 @@ export function KanbanBoardGrid({
                         <Button
                           size="small"
                           variant="text"
-                          sx={{ mt: 0.5, px: 0.5, minWidth: 0 }}
+                          sx={{ mt: 0.5, px: 0.5, minWidth: 0, alignSelf: 'flex-start' }}
                           onClick={() => onSetCellExpanded(cellKey, false)}
                         >
                           Show less
                         </Button>
+                      ) : null}
+                      {status === 'New' && quickAssign && row.memberIdentity && !row.isQaTester && !row.ghost ? (
+                        <QuickAssignCell developer={row.memberIdentity} controller={quickAssign} />
                       ) : null}
                     </Box>
                   )

@@ -3,15 +3,21 @@ export type StoredPatState = {
 }
 
 export const DEFAULT_AZDO_API_VERSION = '7.1'
+export const QUICK_ASSIGN_PAT_SCOPE = 'Work Items (Read & write)'
+export const QUICK_ASSIGN_PAT_REQUIREMENT =
+  'Work Items (Read) is enough to view the boards. Quick assign needs Work Items (Read & write) plus permission to edit the work item in Azure DevOps.'
+// Editing a PAT's scopes keeps its token value, so the user can retry without pasting it again.
+export const QUICK_ASSIGN_PAT_FIX =
+  'In Azure DevOps, open User settings > Personal access tokens, edit this PAT to set Work Items to Read & write, then try again.'
 
-export const REQUIRED_PAT_SCOPES = [
+export const PAT_SCOPES = [
   'Build (Read)',
   'Code (Read)',
   'Graph (Read)',
   'Project and Team (Read)',
   'Release (Read)',
   'Test Management (Read)',
-  'Work Items (Read)',
+  QUICK_ASSIGN_PAT_SCOPE,
 ] as const
 
 // Legacy key — PATs were previously persisted to localStorage. Migrated to sessionStorage.

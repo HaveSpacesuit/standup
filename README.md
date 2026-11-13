@@ -691,11 +691,11 @@ vite.config.ts            # Vite configuration
 
 - Node.js 22+
 - npm 10+
-- An Azure DevOps account and PAT with read access to work items, pull requests, project/team metadata, and related APIs
+- An Azure DevOps account and PAT with read access to work items, pull requests, project/team metadata, and related APIs (plus Work Items (Read & write) to use Quick assign)
 
 ## Azure DevOps PAT requirements
 
-The app validates a PAT before loading data. Required scopes include:
+The app validates a PAT before loading data. Grant these scopes:
 
 - Build (Read)
 - Code (Read)
@@ -703,7 +703,36 @@ The app validates a PAT before loading data. Required scopes include:
 - Project and Team (Read)
 - Release (Read)
 - Test Management (Read)
-- Work Items (Read)
+- Work Items (Read & write)
+
+Work Items (Read) is enough to view the app. Quick assign on **Development > Developers** needs
+**Work Items (Read & write)** (`vso.work_write`) and permission to edit the work item. To add it
+to an existing PAT, open **User settings > Personal access tokens** in Azure DevOps, edit the PAT,
+and set Work Items to Read & write; the token value does not change, so there is nothing to
+re-enter. Without the scope, Azure DevOps rejects the write with a 401 that the browser cannot
+read, so Quick assign re-reads the item. If nothing changed, it reports that the assignment was
+not saved and that the PAT is probably missing the scope.
+
+Hover or keyboard-focus a developer's **New** cell to reveal **Quick assign** (the action stays
+visible on touch devices). Select an item from the inline sprint-grouped list, then choose
+**Assign to [developer]**. Only unassigned, unblocked PBIs and Bugs in New within the loaded
+team/type/sprint scope are offered, excluding items with an Effort of 0 (items with no Effort
+are still offered); board person and text filters do not restrict this list.
+Sprints are ordered oldest first, with undated/unrecognized sprints last. Within each sprint,
+PBIs come first by effort descending and creation date ascending; Bugs follow by the Backlog
+value ranking. Rows use the cards' type icons, bold IDs, and numeric effort badges, without
+dates or value scores. Assignment changes only Assigned To:
+state and sprint stay unchanged. After a successful assignment the picker closes, focus returns to
+**Quick assign**, and screen readers announce the assignment; reopen it to assign another item.
+The board updates in place: the card appears in the developer's New cell and leaves the list, and
+Backlog, Triage, and QA Activity show the new assignee from their already-loaded data. The only
+Azure DevOps requests are the item read and the write. Other changes, including the assignment's
+card highlight, appear on the next refresh. Concurrent changes are
+protected with a revision check. The failed write is never retried; instead the item is re-read.
+If the assignment turns out to have been saved, it is reported as a success. If the item changed
+or the result cannot be confirmed, the board refreshes. If the result still cannot be confirmed,
+verify the assignee in Azure DevOps before retrying. A missing scope or permission does not
+refresh anything, because nothing was written.
 
 The Graph read scope is needed for resolving a team `subjectDescriptor` when building the direct "Manage team" deep link. If it is not available, the app falls back to the project team listing page.
 
@@ -732,7 +761,7 @@ http://localhost:5173
 On first launch:
 
 1. open the app
-2. provide your Azure DevOps PAT in the settings dialog
+2. provide your Azure DevOps PAT, with the scopes listed under [Azure DevOps PAT requirements](#azure-devops-pat-requirements), in the settings dialog
 3. choose whether to remember it on this machine or keep it only for the current browser session
 4. select or configure a team profile from Settings > Teams
 

@@ -39,6 +39,7 @@ import { createDefaultTriageOptions, getTriageQueryOptions, hasTriageRules, type
 import { useTriageItems } from './useTriageItems'
 import { useTriageSimilarSources, type TriageSimilarSources } from './useTriageSimilarSources'
 import { createWorkItemPreviewSource, type WorkItemPreviewSource } from './useWorkItemPreview'
+import { useQuickAssign, type QuickAssignController } from './useQuickAssign'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -51,6 +52,7 @@ type UseBoardViewModelArgs = {
 }
 
 type UseBoardViewModelResult = {
+  quickAssign: QuickAssignController
   selectedTeamId: string
   onTeamChange: (teamId: string) => void
   onRefresh: () => void
@@ -209,6 +211,7 @@ export function useBoardViewModel({
     membersLoading,
     membersError,
     workItems,
+    updateWorkItem,
     workItemsLoading,
     workItemsError,
     iterationLoading,
@@ -495,6 +498,17 @@ export function useBoardViewModel({
     setDevelopmentReloadNonce((current) => current + 1)
   }
   const onRefresh = () => refreshCurrentView(true)
+  const quickAssign = useQuickAssign({
+    engine: scopedQueryEngine,
+    team: effectiveTeam,
+    items: boardItems,
+    iterations: teamIterations,
+    tagRules,
+    scopeKey: JSON.stringify([selectedAssignmentIterationPaths, selectedAssignmentWorkItemTypes, useDefaultAssignmentIterationWindow]),
+    // The engine already wrote the assignment into its cached lists, so the board updates in place without a reload.
+    onAssigned: updateWorkItem,
+    onRefresh: () => refreshCurrentView(false),
+  })
 
   const teamManagementUrl = useTeamManagementUrl({
     adoQueryEngine: dataQueryEngine,
@@ -535,6 +549,7 @@ export function useBoardViewModel({
   })
 
   return {
+    quickAssign,
     selectedTeamId,
     onTeamChange,
     onRefresh,

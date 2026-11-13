@@ -1,10 +1,10 @@
-import { getPatSessionSignal } from '../adoAuth'
+import { getPatSessionSignal, QUICK_ASSIGN_PAT_FIX } from '../adoAuth'
 
 export type QueryValue = string | number | boolean | undefined
 
 export type QueryParams = Record<string, QueryValue>
 
-export type QueryMethod = 'GET' | 'POST'
+export type QueryMethod = 'GET' | 'POST' | 'PATCH'
 
 export type AdoRequestOptions = {
   method?: QueryMethod
@@ -12,6 +12,7 @@ export type AdoRequestOptions = {
   path: string
   params?: QueryParams
   body?: unknown
+  contentType?: 'application/json' | 'application/json-patch+json'
   signal?: AbortSignal
   host?: 'dev.azure.com' | 'vssps.dev.azure.com' | 'vsrm.dev.azure.com' | 'vstmr.dev.azure.com'
 }
@@ -23,6 +24,31 @@ export interface AdoRequestClient {
 
 export const ADO_AUTH_ERROR_MESSAGE =
   'Azure DevOps rejected the personal access token. It is likely expired, revoked, or missing the required scopes. Open Settings to enter a new PAT.'
+
+function writeErrorMessage(status: number): string {
+  // Writes follow a successful read with the same PAT, so a 401 here almost always means missing write scope, not expiry.
+  if (status === 401) {
+    return `Azure DevOps rejected the assignment (HTTP 401). Your PAT can read work items but is most likely missing the Work Items (Read & write) scope. ${QUICK_ASSIGN_PAT_FIX} Nothing was assigned.`
+  }
+  if (status === 403) {
+    return `Azure DevOps denied the assignment (HTTP 403). Quick assign needs the Work Items (Read & write) PAT scope and permission to edit this work item. ${QUICK_ASSIGN_PAT_FIX} Nothing was assigned.`
+  }
+  return `Azure DevOps could not save the assignment (HTTP ${status}). Refresh before trying again.`
+}
+
+export class AdoWriteError extends Error {
+  readonly status: number
+
+  constructor(status: number) {
+    super(writeErrorMessage(status))
+    this.name = 'AdoWriteError'
+    this.status = status
+  }
+
+  get accessDenied(): boolean {
+    return this.status === 401 || this.status === 403
+  }
+}
 
 export class AdoAuthError extends Error {
   readonly status?: number
@@ -59,7 +85,7 @@ export class AdoHttpClient implements AdoRequestClient {
       headers: {
         Authorization: this.authorization(),
         Accept: 'application/json',
-        ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.body !== undefined ? { 'Content-Type': options.contentType ?? 'application/json' } : {}),
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       signal,
@@ -67,6 +93,10 @@ export class AdoHttpClient implements AdoRequestClient {
 
     signal.throwIfAborted()
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+
+    if (options.method === 'PATCH' && !response.ok) {
+      throw new AdoWriteError(response.status)
+    }
 
     if (response.status === 401 || response.status === 403 || response.status === 203) {
       throw new AdoAuthError(response.status, host)

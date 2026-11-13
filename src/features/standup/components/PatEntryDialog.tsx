@@ -12,7 +12,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { REQUIRED_PAT_SCOPES } from '../../../adoAuth'
+import { PAT_SCOPES, QUICK_ASSIGN_PAT_REQUIREMENT } from '../../../adoAuth'
 
 type PatEntryDialogProps = {
   open: boolean
@@ -86,15 +86,16 @@ export function PatEntryDialog({ open, onPatSave, patCreationUrl }: PatEntryDial
 
           <Box>
             <Typography variant="body-sm" sx={{ fontWeight: 700, mb: 0.5 }}>
-              Required PAT scopes
+              PAT scopes
             </Typography>
             <Box component="ul" sx={{ m: 0, pl: 2.5, color: 'text.secondary' }}>
-              {REQUIRED_PAT_SCOPES.map((scope) => (
+              {PAT_SCOPES.map((scope) => (
                 <Typography key={scope} component="li" variant="body-sm">
                   {scope}
                 </Typography>
               ))}
             </Box>
+            <Typography variant="body-sm" color="text.secondary" sx={{ mt: 1 }}>{QUICK_ASSIGN_PAT_REQUIREMENT}</Typography>
           </Box>
         </Stack>
       </DialogContent>

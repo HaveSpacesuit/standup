@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AdoQueryEngine, CurrentIterationInfo, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
 import { isAbortError, toErrorMessage } from './queryErrors'
@@ -35,9 +35,12 @@ export function usePullRequestBoardItems({
   const [pullRequestBoardItems, setPullRequestBoardItems] = useState<WorkItemSummary[]>([])
   const [pullRequestBoardItemsLoading, setPullRequestBoardItemsLoading] = useState(false)
   const [pullRequestBoardItemsError, setPullRequestBoardItemsError] = useState<string | null>(null)
+  // The request the shown cards answer. A card edited in place, such as by Quick assign, repeats it without blanking the board.
+  const shownRequest = useRef<string | null>(null)
 
   useEffect(() => {
     if (!adoQueryEngine || membersLoading || workItemsLoading) {
+      shownRequest.current = null
       setPullRequestBoardItems([])
       setPullRequestBoardItemsLoading(false)
       setPullRequestBoardItemsError(null)
@@ -45,6 +48,7 @@ export function usePullRequestBoardItems({
     }
 
     if (membersError || workItemsError || members.length === 0) {
+      shownRequest.current = null
       setPullRequestBoardItems([])
       setPullRequestBoardItemsLoading(false)
       setPullRequestBoardItemsError(null)
@@ -52,8 +56,15 @@ export function usePullRequestBoardItems({
     }
 
     const abortController = new AbortController()
-    setPullRequestBoardItems([])
-    setPullRequestBoardItemsLoading(true)
+    const request = JSON.stringify([
+      selectedTeam.id, selectedTeam.orgName, selectedTeam.projectName, selectedTeam.repoName,
+      currentIteration?.startDate, currentIteration?.finishDate, workItems.map((item) => item.id),
+    ])
+    if (shownRequest.current !== request) {
+      shownRequest.current = null
+      setPullRequestBoardItems([])
+      setPullRequestBoardItemsLoading(true)
+    }
     setPullRequestBoardItemsError(null)
 
     adoQueryEngine
@@ -66,11 +77,13 @@ export function usePullRequestBoardItems({
       )
       .then((items) => {
         if (!abortController.signal.aborted) {
+          shownRequest.current = request
           setPullRequestBoardItems(items)
         }
       })
       .catch((error: unknown) => {
         if (!abortController.signal.aborted && !isAbortError(error)) {
+          shownRequest.current = null
           setPullRequestBoardItems([])
           setPullRequestBoardItemsError(toErrorMessage(error, 'Unable to load pull request data.'))
         }

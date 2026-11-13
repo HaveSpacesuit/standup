@@ -18,6 +18,7 @@ type UseTeamDataResult = {
   membersLoading: boolean
   membersError: string | null
   workItems: WorkItemSummary[]
+  updateWorkItem: (item: WorkItemSummary) => void
   workItemsLoading: boolean
   workItemsError: string | null
   iterationLoading: boolean
@@ -157,6 +158,7 @@ export function useTeamData({
     membersLoading,
     membersError,
     workItems,
+    updateWorkItem: (item) => setWorkItems((current) => current.map((existing) => existing.id === item.id ? item : existing)),
     workItemsLoading,
     workItemsError,
     iterationLoading,
