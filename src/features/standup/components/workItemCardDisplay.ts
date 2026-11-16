@@ -1,6 +1,5 @@
 import type { WorkItemSummary } from '../../../ado/queryEngine'
-
-export type StatusPaletteKey = 'error' | 'info' | 'primary' | 'warning' | 'success'
+import type { Theme } from '@mui/material/styles'
 
 export type WorkItemCardHighlightState = 'new' | 'stale' | 'none'
 
@@ -17,17 +16,17 @@ export function abbreviateState(state: string): string {
   return words.slice(0, 3).map((word) => word.charAt(0).toUpperCase()).join('')
 }
 
-export function getStatusPaletteKey(status: WorkItemSummary['status']): StatusPaletteKey {
+export function getQaColumnColor(status: WorkItemSummary['status'], palette: Theme['palette']): string {
   switch (status) {
     case 'Blocked':
-      return 'error'
+      return palette.error.main
     case 'New':
-      return 'info'
+      return palette.info.main
     case 'Active':
-      return 'primary'
+      return palette.primary.main
     case 'Review':
-      return 'warning'
+      return palette.warning.main
     case 'Done':
-      return 'success'
+      return palette.success.main
   }
 }

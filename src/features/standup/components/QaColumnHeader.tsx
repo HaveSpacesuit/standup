@@ -3,7 +3,7 @@ import { useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgChevronLeftDouble from '@stratakit/icons/chevron-left-double.svg'
 import { BOARD_COLUMN_DIVIDER, BOARD_HEADER_HEIGHT } from '../utils/boardLayout'
-import { getStatusColumnColor } from '../utils/statusColumnStyles'
+import { getQaColumnColor } from './workItemCardDisplay'
 import { AppTooltip } from './AppTooltip'
 import { ColumnRailMark } from './ColumnRailMark'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
@@ -60,7 +60,7 @@ function CountPill({ count, matchCount }: { count: number; matchCount: number | 
 export function QaColumnHeader({ id, count, matchCount = null, rail, onToggle, divider = false, sx }: QaColumnHeaderProps) {
   const theme = useTheme()
   const { title, status } = COLUMN_META[id]
-  const color = getStatusColumnColor(status, theme.palette)
+  const color = getQaColumnColor(status, theme.palette)
   const headingId = `qa-column-${id}`
   const extraSx = Array.isArray(sx) ? sx : [sx]
 

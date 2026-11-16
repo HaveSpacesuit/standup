@@ -7,7 +7,7 @@ import svgInfo from '@stratakit/icons/info.svg'
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { BOARD_COLUMN_DIVIDER, BOARD_HEADER_HEIGHT, getCollapsedCellCardLimit, LANE_COLUMN_WIDTH } from '../utils/boardLayout'
-import { getStatusColumnColor } from '../utils/statusColumnStyles'
+import { getQaColumnColor } from './workItemCardDisplay'
 import { partitionHighlighted } from './boardAttention'
 import { CollapsedCellSummary, LaneHead } from './BoardLane'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
@@ -62,7 +62,7 @@ export function QaTesterLanes({
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
   const { gridTemplate, minWidth } = getQaBoardLayout(columns, LANE_COLUMN_WIDTH)
   const cellItems = (rowKey: string, id: QaColumnId) => itemsByCell.get(`${rowKey}:${id}`) ?? NO_ITEMS
-  const columnColor = (id: QaColumnId) => getStatusColumnColor(COLUMN_META[id].status, theme.palette)
+  const columnColor = (id: QaColumnId) => getQaColumnColor(COLUMN_META[id].status, theme.palette)
   const setCellExpanded = (cellKey: string, expanded: boolean) => setExpandedCells((current) => ({ ...current, [cellKey]: expanded }))
 
   useEffect(() => {

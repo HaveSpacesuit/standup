@@ -2,7 +2,7 @@ import { useTheme } from '@mui/material'
 import type { TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import { getCardChangeDetail, getHighlightState, type CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
-import { getStatusColumnColor } from '../utils/statusColumnStyles'
+import { getQaColumnColor } from './workItemCardDisplay'
 import { DevelopmentCard } from './DevelopmentCard'
 import { COLUMN_META, columnCaption, normalizeState, personForColumn, type ItemHistory, type QaColumnId } from './qaBoardModel'
 
@@ -46,7 +46,7 @@ export function QaCard({ item, column, history, compact, currentIterationName, h
       owner={owner}
       ownerLabel={ownerLabel}
       caption={columnCaption(item, column, history, now)}
-      columnColor={getStatusColumnColor(meta.status, theme.palette)}
+      columnColor={getQaColumnColor(meta.status, theme.palette)}
       expectedStateNames={meta.expectedStates}
       showNoSprintBadge
       cancelled={column === 'done' && normalizeState(item.state) === 'removed'}

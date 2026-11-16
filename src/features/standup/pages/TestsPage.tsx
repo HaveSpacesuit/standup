@@ -3,7 +3,7 @@ import { Alert, Box, Button, CircularProgress, IconButton, ToggleButton, ToggleB
 import type { Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgCalendar from '@stratakit/icons/calendar.svg'
-import svgReport from '@stratakit/icons/report.svg'
+import svgChartLine from '@stratakit/icons/chart-line.svg'
 import svgSettings from '@stratakit/icons/settings.svg'
 import svgCloudSync from '@stratakit/icons/cloud-sync.svg'
 import svgTableRows from '@stratakit/icons/table-rows-comfortable.svg'
@@ -270,7 +270,7 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
 
   return (
     <>
-      <PageToolbar iconHref={svgReport} title="Tests" isPageTitle wrap>
+      <PageToolbar iconHref={svgChartLine} title="Tests" isPageTitle wrap>
         {!loading && healthEntries.length > 0 && (
           <Tooltip title={<TipLines lines={healthSummary} />}>
             <Typography variant="body-sm" color="text.secondary" tabIndex={0} sx={{ whiteSpace: 'nowrap', ml: 0.5 }}>

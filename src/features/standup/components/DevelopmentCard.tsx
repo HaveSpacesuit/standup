@@ -23,7 +23,8 @@ import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import { getJourneyTrail, type SprintJourney } from '../utils/sprintJourney'
 import { formatSprintDate } from '../utils/sprintDates'
 import type { SprintRemoval } from '../utils/sprintLens'
-import { getStatusPaletteKey, type WorkItemCardHighlightState } from './workItemCardDisplay'
+import { getStatusColumnColor } from '../utils/statusColumnStyles'
+import type { WorkItemCardHighlightState } from './workItemCardDisplay'
 import {
   getDevelopmentCardModel,
   TERTIARY_TEXT_COLOR,
@@ -364,7 +365,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
   const theme = useTheme()
   const accent = cancelled
     ? 'var(--stratakit-color-icon-neutral-secondary)'
-    : columnColor ?? theme.palette[getStatusPaletteKey(item.status)].main
+    : columnColor ?? getStatusColumnColor(item.status, theme.palette)
   const model = getDevelopmentCardModel({ item, highlightState, changeDetail, currentIterationName, rowMember, showRolloverIndicator, expectedStateNames, journey, asOf })
   const trail = journey && model.journeyCaption ? getJourneyTrail(journey, asOf ?? Date.now()) : null
   // A past day's card has nothing more to show on hover.

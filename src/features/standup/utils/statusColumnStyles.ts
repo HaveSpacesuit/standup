@@ -9,11 +9,12 @@ export function getStatusColumnColor(status: StatusColumn, palette: Theme['palet
     case 'Blocked':
       return palette.error.main as string
     case 'New':
-      return palette.info.main as string
+      return 'var(--stratakit-color-icon-neutral-secondary)'
     case 'Active':
-      return palette.primary.main as string
+      return palette.info.main as string
     case 'Review':
-      return palette.warning.main as string
+      // StrataKit has no categorical violet; tune it separately for each surface scheme.
+      return 'light-dark(rgb(116, 65, 171), rgb(190, 156, 233))'
     case 'Done':
       return palette.success.main as string
   }

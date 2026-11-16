@@ -30,6 +30,8 @@ const { QualityAssurancePage } = await server.ssrLoadModule('/src/features/stand
 const { TeamToolbarControls } = await server.ssrLoadModule('/src/features/standup/components/TeamToolbarControls.tsx')
 const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoardGrid.tsx')
 const { getBoardLayout } = await server.ssrLoadModule('/src/features/standup/utils/boardLayout.ts')
+const { getStatusColumnColor } = await server.ssrLoadModule('/src/features/standup/utils/statusColumnStyles.ts')
+const { useTheme } = await server.ssrLoadModule('@mui/material/styles')
 const { KanbanBoard } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoard.tsx')
 const { QualityAssuranceList } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceList.tsx')
 const { SprintReplayBar } = await server.ssrLoadModule('/src/features/standup/components/SprintReplayBar.tsx')
@@ -426,6 +428,45 @@ test('Development board exposes status and member labels as headings', () => {
 
   assert.match(html, /<h2[^>]*>Active<\/h2>/)
   assert.match(html, /<h2[^>]*>Alex Example<\/h2>/)
+})
+
+test('board headers and card edges share workflow colors without changing semantic indicators', () => {
+  let palette: Record<string, { main: string }>
+  function CapturePalette() {
+    palette = useTheme().palette
+    return null
+  }
+  render(createElement(CapturePalette))
+
+  const statuses = ['Blocked', 'New', 'Active', 'Review', 'Done'] as const
+  const counts = Object.fromEntries(statuses.map((status) => [status, 1]))
+  const cardsByCell = Object.fromEntries(statuses.map((status, index) => [
+    `alex:${status}`, [boardCard(index + 1, status)],
+  ]))
+  const dom = new JSDOM(renderBoardGrid({ layout: getBoardLayout(true), statusItemCounts: counts, cardsByCell }))
+  try {
+    const styles = [...dom.window.document.querySelectorAll('style')].map((style) => style.textContent ?? '')
+    const styleFor = (element: Element) => styles.filter((css) =>
+      [...element.classList].some((className) => css.includes(`.${className}{`)),
+    ).join('').replace(/\s+/g, '')
+    for (const [index, status] of statuses.entries()) {
+      const color = getStatusColumnColor(status, palette).replace(/\s+/g, '')
+      const header = dom.window.document.querySelector(`[data-column-header="${status}"]`)
+      const marker = header?.querySelector(':scope > :not(style)')
+      const card = dom.window.document.querySelector(`[data-card-id="${index + 1}"]`)
+      assert.ok(marker)
+      assert.ok(card)
+      assert.ok(styleFor(marker).includes(`background-color:${color}`), `${status} header`)
+      assert.ok(styleFor(card).includes(`inset3px00${color}`), `${status} card`)
+    }
+    assert.equal(getStatusColumnColor('Blocked', palette), palette.error.main)
+    assert.equal(getStatusColumnColor('Active', palette), palette.info.main)
+    assert.equal(getStatusColumnColor('Done', palette), palette.success.main)
+    assert.notEqual(getStatusColumnColor('Review', palette), palette.warning.main)
+    assert.notEqual(getStatusColumnColor('New', palette), palette.info.main)
+  } finally {
+    dom.window.close()
+  }
 })
 
 test('the Team member header counts the people with lanes, not the Unassigned or unavailable lanes', () => {

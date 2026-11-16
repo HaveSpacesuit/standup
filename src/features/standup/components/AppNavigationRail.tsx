@@ -29,7 +29,7 @@ import svgDeveloper from '@stratakit/icons/developer.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
 import svgCategory from '@stratakit/icons/category.svg'
 import svgIssueReport from '@stratakit/icons/issue-report.svg'
-import svgReport from '@stratakit/icons/report.svg'
+import svgChartLine from '@stratakit/icons/chart-line.svg'
 import svgBinder from '@stratakit/icons/binder.svg'
 import svgConfiguration from '@stratakit/icons/configuration.svg'
 import svgArrowDown from '@stratakit/icons/arrow-down.svg'
@@ -399,7 +399,7 @@ export function AppNavigationRail({
             <NavigationRail.Anchor
               href="#tests"
               label="Tests"
-              icon={`${svgReport}#icon-large`}
+              icon={`${svgChartLine}#icon-large`}
               active={activeView === 'tests'}
               style={{inlineSize: 'unset'}}
             />

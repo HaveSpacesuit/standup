@@ -230,6 +230,32 @@ test('QA flow follows the testing journey and surfaces its timing and attention 
   assert.match(html, /line-through/)
 })
 
+test('QA column headers and cards retain their original semantic colors', () => {
+  const dom = new JSDOM(render('flow'))
+  try {
+    const styles = [...dom.window.document.querySelectorAll('style')].map((style) => style.textContent ?? '')
+    const styleFor = (element: Element) => styles.filter((css) =>
+      [...element.classList].some((className) => css.includes(`.${className}{`)),
+    ).join('').replace(/\s+/g, '')
+    for (const [column, itemId, paletteKey] of [
+      ['new', filed.id, 'info'],
+      ['needs-testing', ready.id, 'warning'],
+      ['needs-development', sentBack.id, 'primary'],
+    ] as const) {
+      const header = dom.window.document.querySelector(`[data-qa-column-header="${column}"]`)
+      const card = dom.window.document.querySelector(`[data-card-id="${itemId}"]`)
+      const color = `var(--stratakit-mui-palette-${paletteKey}-main)`
+      assert.ok(header)
+      assert.ok(card)
+      assert.ok([...header.querySelectorAll('*')].some((child) =>
+        styleFor(child).includes(`background-color:${color}`)), `${column} header`)
+      assert.ok(styleFor(card).includes(`inset3px00${color}`), `${column} card`)
+    }
+  } finally {
+    dom.window.close()
+  }
+})
+
 test('Likely today follows each PR reviewer policy, including no-review changes', () => {
   const caption = (approvalCount: number, reviewPolicy: unknown, reviewState?: string) => columnCaption({
     ...comingUp,

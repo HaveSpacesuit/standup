@@ -24,6 +24,7 @@ const server = await createServer({
 after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { default: issueReportIcon } = await server.ssrLoadModule('@stratakit/icons/issue-report.svg')
+const { default: chartLineIcon } = await server.ssrLoadModule('@stratakit/icons/chart-line.svg')
 const { default: binderIcon } = await server.ssrLoadModule('@stratakit/icons/binder.svg')
 const { AppNavigationRail } = await server.ssrLoadModule('/src/features/standup/components/AppNavigationRail.tsx')
 
@@ -112,6 +113,11 @@ test('the navigation rail lists Triage between Quality Assurance and Backlog', (
 test('the Backlog link uses the issue-report (bug) icon', () => {
   const backlog = renderNavigationAnchors('development').find(({ label }) => label === 'Backlog')
   assert.equal(backlog?.icon, `${issueReportIcon}#icon-large`)
+})
+
+test('the Tests link uses the chart-line icon', () => {
+  const tests = renderNavigationAnchors('tests').find(({ label }) => label === 'Tests')
+  assert.equal(tests?.icon, `${chartLineIcon}#icon-large`)
 })
 
 test('the Backlog link is the only active link while the backlog view is shown', () => {

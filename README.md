@@ -78,6 +78,9 @@ row stays visible. Column counts and effort totals still include the hidden rows
 every row ends up hidden the board says so. The setting is saved per team in browser local storage
 and does not change the sprint view.
 
+The board uses red for Blocked, slate gray for New, blue for Active, violet for Review, and green
+for Done. These workflow colors also appear in sprint charts and journey trails; attention and
+other semantic indicators retain their usual colors. The QA board's own column colors are unchanged.
 The board leaves its columns untinted so the cards' colored edges carry status. Active and Review,
 where in-flight work lives, get the widest columns and Done the narrowest. Blocked is tinted red
 only while it holds cards; when it is empty it shrinks to a narrow "Blocked · none" rail. New and

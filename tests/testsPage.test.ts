@@ -1,5 +1,6 @@
 import './stratakitNodeGlobals.ts'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { after, test, type TestContext } from 'node:test'
 import { act, createElement } from 'react'
 import { createServer } from 'vite'
@@ -41,6 +42,9 @@ const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { TestsPage } = await server.ssrLoadModule('/src/features/standup/pages/TestsPage.tsx')
 
 const document = dom.window.document
+const chartLinePath = new dom.window.DOMParser()
+  .parseFromString(readFileSync(new URL(import.meta.resolve('@stratakit/icons/chart-line.svg')), 'utf8'), 'image/svg+xml')
+  .querySelector('symbol[id="icon-large"] path')!.getAttribute('d')
 
 async function render(t: TestContext, props: { pat?: string | null; rememberLastView?: boolean } = {}) {
   const host = document.createElement('div')
@@ -82,6 +86,13 @@ test('the toolbar holds the only page heading and a Refresh that waits for a PAT
   const host = await render(t)
 
   assert.deepEqual([...host.querySelectorAll('h1')].map((heading) => heading.textContent), ['Tests'])
+  const iconHref = () => host.querySelector('h1')?.parentElement?.querySelector('svg use')?.getAttribute('href')
+  await waitFor(() => {
+    const href = iconHref()
+    return !!href && !!document.getElementById(href.slice(1))?.querySelector('path')
+  })
+  assert.ok(chartLinePath)
+  assert.equal(document.getElementById(iconHref()!.slice(1))?.querySelector('path')?.getAttribute('d'), chartLinePath)
   assert.doesNotMatch(host.textContent!, /E2E test pass rates/)
   assert.equal(button(host, 'Refresh')?.disabled, true)
   assert.equal(button(host, 'Refresh tests'), null)
