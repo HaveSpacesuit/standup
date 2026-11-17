@@ -189,7 +189,7 @@ export function KanbanBoardGrid({
     scrollerRef,
     resolve: resolveDrop,
     onDrop: (source, option) => void editor?.save(source.item, option.changes),
-    onRefused: (_source, reason) => editor?.notify(reason),
+    onRefused: (_source, reason) => editor?.notify(reason, 'warning'),
   })
   const dragSource = drag?.source ?? null
   const dropResults = useMemo(() => {

@@ -119,7 +119,9 @@ const isIn = (id: number, lane: string, column: string) => cell(lane, column)?.q
 const click = (element: Element) => act(async () => (element as HTMLElement).click())
 const byText = (selector: string, text: string) =>
   [...document.querySelectorAll<HTMLElement>(selector)].find((element) => element.textContent?.trim().startsWith(text))!
-const toastText = () => document.querySelector('.MuiSnackbarContent-message')?.textContent ?? ''
+const toastText = () => document.querySelector('.MuiSnackbar-root .MuiAlert-message')?.textContent ?? ''
+/** The toast's StrataKit status, such as `Success`, which also colours its icon and border. */
+const toastSeverity = () => /\bMuiAlert-color(\w+)/.exec(document.querySelector('.MuiSnackbar-root [role="alert"]')?.className ?? '')?.[1]
 const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
 
 const pointer = (type: string, x: number, y: number, init: PointerEventInit = {}) =>
@@ -172,10 +174,11 @@ test('the card menu opens a field editor; the change shows at once, saves, and c
 
   assert.deepEqual(engine.updates, [{ id: 1, changes: { state: 'Committed' }, expected: { state: 'Approved' } }])
   assert.equal(toastText().includes('#1: State → Committed.'), true)
+  assert.equal(toastSeverity(), 'Success')
   assert.equal(card(1).hasAttribute('aria-busy'), false)
 
   engine.gate = null
-  await click(byText('.MuiSnackbarContent-action button', 'Undo'))
+  await click(byText('.MuiSnackbar-root .MuiAlert-action button', 'Undo'))
   await settle()
   assert.deepEqual(engine.updates[1], { id: 1, changes: { state: 'Approved' }, expected: { state: 'Committed' } })
   assert.equal(isIn(1, 'ana', 'New'), true)
@@ -198,6 +201,7 @@ test('field keys open editors with the team’s effort suggestions; a failed sav
   await settle()
   assert.deepEqual(engine.updates.map((update) => update.changes), [{ effort: 5 }])
   assert.equal(toastText().includes('Azure DevOps is down.'), true)
+  assert.equal(toastSeverity(), 'Error')
   // The card shows the saved effort again (the reload fails too), and is reloaded in case the save failed partway.
   assert.equal(card(1).textContent, shown)
   assert.equal(engine.reloads, 1)
@@ -233,6 +237,7 @@ test('a refused drop explains why, and Escape cancels a drag, without saving', a
   const { engine } = await render(t, [makeItem(1)])
   await dragCard(1, () => cell('ana', 'Review'))
   assert.equal(toastText().includes('No Product Backlog Item state goes in Review'), true)
+  assert.equal(toastSeverity(), 'Warning')
 
   await dragCard(1, () => cell('bo', 'Active'), 'escape')
   assert.equal(document.querySelector('[data-board-drag-ghost]') === null, true)

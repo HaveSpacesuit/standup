@@ -1,11 +1,8 @@
 import { useId, useMemo, useState, type ReactNode } from 'react'
-import { Box, Button, Divider, IconButton, MenuItem, MenuList, Popover, Snackbar, Typography } from '@mui/material'
+import { Alert, Box, Button, Divider, IconButton, MenuItem, MenuList, Popover, Snackbar, Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
-import svgInfo from '@stratakit/icons/info.svg'
-import svgStatusError from '@stratakit/icons/status-error.svg'
-import svgStatusSuccess from '@stratakit/icons/status-success.svg'
 import { getWorkItemFields } from '../../../ado/workItemPatch'
 import { WORK_ITEM_FIELD_LABELS, type EditableWorkItemField, type WorkItemFieldChanges } from '../../../ado/workItemUpdateApi'
 import { isTypingTarget } from '../hooks/usePreviewPanel'
@@ -204,18 +201,14 @@ function FieldPopover({ open, editor, onSave, onClose }: {
   )
 }
 
-const TOAST_ICONS: Record<WorkItemEditToast['tone'], { href: string; color: string }> = {
-  success: { href: svgStatusSuccess, color: 'var(--stratakit-color-icon-positive-base)' },
-  error: { href: svgStatusError, color: 'var(--stratakit-color-icon-critical-base)' },
-  info: { href: svgInfo, color: 'var(--stratakit-color-icon-neutral-secondary)' },
-}
-
 const TOAST_DURATION_MS = 7000
 
-/** Confirms each save or reload, with Undo after a save. Errors stay until dismissed. */
+/**
+ * Confirms each save or reload, with Undo after a save, as a StrataKit status alert that follows the light or dark
+ * theme. Errors stay until dismissed.
+ */
 function EditToast({ toast, onClose }: { toast: WorkItemEditToast | null; onClose: () => void }) {
   if (!toast) return null
-  const icon = TOAST_ICONS[toast.tone]
   return (
     <Snackbar
       key={toast.key}
@@ -225,30 +218,33 @@ function EditToast({ toast, onClose }: { toast: WorkItemEditToast | null; onClos
       onClose={(_event, reason) => {
         if (reason !== 'clickaway') onClose()
       }}
-      message={(
-        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'flex-start', gap: 1, maxWidth: 560 }}>
-          <Icon href={icon.href} style={{ color: icon.color, flexShrink: 0, marginTop: 2 }} />
-          {toast.message}
-        </Box>
-      )}
-      action={(
-        <>
-          {toast.undo ? (
-            <Button
-              size="small"
-              onClick={() => {
-                const undo = toast.undo
-                onClose()
-                undo?.()
-              }}
-            >
-              Undo
-            </Button>
-          ) : null}
-          <IconButton size="small" label="Dismiss" onClick={onClose}><Icon href={svgDismiss} /></IconButton>
-        </>
-      )}
-    />
+    >
+      <Alert
+        severity={toast.tone}
+        // StrataKit's Alert is a plain group by default; a toast has to announce itself.
+        role="alert"
+        sx={{ width: '100%', maxWidth: 560, boxShadow: 'var(--stratakit-shadow-surface-lg)' }}
+        action={(
+          <>
+            {toast.undo ? (
+              <Button
+                size="small"
+                onClick={() => {
+                  const undo = toast.undo
+                  onClose()
+                  undo?.()
+                }}
+              >
+                Undo
+              </Button>
+            ) : null}
+            <IconButton size="small" edge="end" label="Dismiss" onClick={onClose}><Icon href={svgDismiss} /></IconButton>
+          </>
+        )}
+      >
+        {toast.message}
+      </Alert>
+    </Snackbar>
   )
 }
 

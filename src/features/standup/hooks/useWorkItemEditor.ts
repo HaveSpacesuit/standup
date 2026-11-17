@@ -29,7 +29,7 @@ import { toErrorMessage } from './queryErrors'
 export type WorkItemEditToast = {
   /** Changes with every toast, so a new message replaces the last one. */
   key: number
-  tone: 'success' | 'error' | 'info'
+  tone: 'success' | 'error' | 'warning' | 'info'
   message: string
   undo?: () => void
 }
@@ -61,7 +61,7 @@ export type WorkItemEditor = {
   reload: (item: EditableWorkItem) => Promise<void>
   toast: WorkItemEditToast | null
   dismissToast: () => void
-  /** Shows a passing note, such as why a card can't be dropped where it was released. */
+  /** Shows a passing note, such as a warning about why a card can't be dropped where it was released. */
   notify: (message: string, tone?: WorkItemEditToast['tone']) => void
 }
 
