@@ -32,7 +32,9 @@ import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { normalizeCardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { TeamIterationOption } from '../../../ado/queryEngine'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
+import { DEFAULT_EFFORT_SUGGESTIONS } from '../utils/assignmentOptions'
 import { readStringArraySelectValue } from '../utils/selectValues'
+import { EffortSuggestionsEditor } from './EffortSuggestionsEditor'
 
 type HiddenTagsDialogProps = {
   open: boolean
@@ -57,6 +59,9 @@ type HiddenTagsDialogProps = {
   onCompactCardsChange?: (next: boolean) => void
   includeQaTestersInStandup?: boolean
   onIncludeQaTestersInStandupChange?: (next: boolean) => void
+  /** The team's effort suggestions; the Editing tab shows only with onEffortSuggestionsChange. */
+  effortSuggestions?: number[]
+  onEffortSuggestionsChange?: (next: number[]) => void
   teamIterations?: TeamIterationOption[]
   teamIterationsLoading?: boolean
   title?: string
@@ -64,6 +69,7 @@ type HiddenTagsDialogProps = {
 }
 
 const TAG_RULE_ACTION_OPTIONS: TagRuleAction[] = ['Blocked', 'New', 'Active', 'Review', 'Done', 'unlisted']
+const DEFAULT_EFFORT_SUGGESTIONS_LIST = [...DEFAULT_EFFORT_SUGGESTIONS]
 
 // Lets assistive technology announce why the stale-done option can be unavailable.
 const STALE_DONE_HELP_ID = 'hide-users-stale-done-help'
@@ -117,6 +123,8 @@ export function HiddenTagsDialog({
   onCompactCardsChange,
   includeQaTestersInStandup = false,
   onIncludeQaTestersInStandupChange,
+  effortSuggestions = DEFAULT_EFFORT_SUGGESTIONS_LIST,
+  onEffortSuggestionsChange,
   teamIterations = [],
   teamIterationsLoading = false,
   title = 'Development options',
@@ -124,7 +132,7 @@ export function HiddenTagsDialog({
 }: HiddenTagsDialogProps) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
   const orderedRules = useMemo(() => tagRules, [tagRules])
-  const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness' | 'display' | 'members'>('work-item-types')
+  const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness' | 'display' | 'members' | 'editing'>('work-item-types')
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
   const relativeSprintLabels = useMemo(() => ({
     current: resolveRelativeSprintName(teamIterations, 0),
@@ -224,9 +232,13 @@ export function HiddenTagsDialog({
             <Tab label="Freshness" value="freshness" />
             <Tab label="Display" value="display" />
             <Tab label="Members" value="members" />
+            {onEffortSuggestionsChange ? <Tab label="Editing" value="editing" /> : null}
           </Tabs>
 
           <Box sx={{ flex: 1, minWidth: 0 }}>
+            {activeTab === 'editing' && onEffortSuggestionsChange ? (
+              <EffortSuggestionsEditor value={effortSuggestions} onChange={onEffortSuggestionsChange} />
+            ) : null}
             {activeTab === 'members' ? (
               <>
                 <Typography variant="body-md" sx={{ fontWeight: 700, mb: 0.5 }}>

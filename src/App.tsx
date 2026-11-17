@@ -3,6 +3,7 @@ import { Box } from '@mui/material'
 import { AppNavigationRail } from './features/standup/components/AppNavigationRail'
 import { PatEntryDialog } from './features/standup/components/PatEntryDialog'
 import { StandupContent } from './features/standup/components/StandupContent'
+import { WorkItemEditingProvider } from './features/standup/components/WorkItemEditing'
 import { useAppNavigation } from './features/standup/hooks/useAppNavigation'
 import { useBacklogPageModel } from './features/standup/hooks/useBacklogPageModel'
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
@@ -81,6 +82,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     members,
     visibleBoardItems,
     quickAssign,
+    workItemEditor,
     currentIterationName,
     iterationWindow,
     iterationLoading,
@@ -223,6 +225,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
         patCreationUrl={patCreationUrl}
       />
 
+      <WorkItemEditingProvider editor={workItemEditor}>
       <StandupContent
         activeView={activeView}
         teamProfilesUnreadable={teamProfilesUnreadable}
@@ -289,6 +292,8 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           onCompactCardsChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, compactCards: next }),
           includeQaTestersInStandup: assignmentOptions.includeQaTestersInStandup,
           onIncludeQaTestersInStandupChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, includeQaTestersInStandup: next }),
+          effortSuggestions: assignmentOptions.effortSuggestions,
+          onEffortSuggestionsChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, effortSuggestions: next }),
           qaBuckets,
           qaTesters,
           qaBucketsLoading,
@@ -388,6 +393,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           preview: backlogPreview,
         }}
       />
+      </WorkItemEditingProvider>
     </Box>
   )
 }

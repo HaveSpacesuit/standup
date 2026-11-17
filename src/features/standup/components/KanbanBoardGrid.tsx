@@ -3,10 +3,18 @@ import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgCollapseRowsAll from '@stratakit/icons/collapse-rows-all.svg'
 import svgExpandRowsAll from '@stratakit/icons/expand-rows-all.svg'
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import type { CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
+import {
+  DROP_COLUMN_ATTRIBUTE,
+  DROP_LANE_ATTRIBUTE,
+  useBoardDrag,
+  type BoardDragSource,
+  type BoardDropTarget,
+} from '../hooks/useBoardDrag'
+import { getBoardDropResult, type BoardDropResult, type LaneDrop } from '../utils/workItemEditing'
 import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../utils/statusColumnStyles'
 import {
   BOARD_COLUMN_DIVIDER as COLUMN_DIVIDER,
@@ -20,6 +28,10 @@ import type { ColumnFlow } from '../utils/columnFlow'
 import { formatEffortPoints } from '../utils/sprintEffortTotals'
 import { ColumnFlowLine } from './ColumnFlowLine'
 import { DevelopmentCard } from './DevelopmentCard'
+import { EditableWorkItemCard } from './WorkItemActions'
+import { useWorkItemEditing } from './workItemEditingContext'
+import { BoardDragGhost, DropSlots } from './BoardDragLayer'
+import { getDropCellState, getDropCellSx } from './boardDropDisplay'
 import { JourneyGhostLayer } from './JourneyGhostLayer'
 import type { WorkItemCardHighlightState } from './workItemCardDisplay'
 import type { SprintJourney } from '../utils/sprintJourney'
@@ -68,6 +80,8 @@ export type BoardRowData = {
   ghost?: boolean
   /** Lane facts shown after the attention flags. */
   notes?: LaneNote[]
+  /** What dropping a card on the lane changes, or why it can't take cards; lanes without it take none. */
+  drop?: LaneDrop
 }
 
 type KanbanBoardGridProps = {
@@ -153,6 +167,59 @@ export function KanbanBoardGrid({
     [cardsByCell, rows, signalsByItemId],
   )
   const memberCount = rows.filter(isStandupSpeakerRow).length
+
+  // Dragging a card to another lane or column edits it: the lane's assignee or sprint, and the column's state.
+  const editor = useWorkItemEditing()?.editor
+  const rowsByKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows])
+  const resolveDrop = useCallback((source: BoardDragSource, target: BoardDropTarget): BoardDropResult => (editor
+    ? getBoardDropResult({
+        item: source.item,
+        fromLaneKey: source.laneKey,
+        toLaneKey: target.laneKey,
+        toLane: rowsByKey.get(target.laneKey)?.drop,
+        fromColumn: source.column,
+        toColumn: target.column,
+        states: editor.options.statesFor(source.item),
+        tagRules: editor.options.tagRules,
+      })
+    : { kind: 'none' }), [editor, rowsByKey])
+  const dragEnabled = Boolean(editor && !editor.lockedReason && cardsAsOf === undefined)
+  const { drag, getDragProps, setGhost } = useBoardDrag({
+    enabled: dragEnabled,
+    scrollerRef,
+    resolve: resolveDrop,
+    onDrop: (source, option) => void editor?.save(source.item, option.changes),
+    onRefused: (_source, reason) => editor?.notify(reason),
+  })
+  const dragSource = drag?.source ?? null
+  const dropResults = useMemo(() => {
+    if (!dragSource) return null
+    const results = new Map<string, BoardDropResult>()
+    for (const row of rows) {
+      results.set(`${row.key}|*`, resolveDrop(dragSource, { laneKey: row.key, column: null }))
+      for (const status of STATUS_COLUMNS) {
+        results.set(`${row.key}|${status}`, resolveDrop(dragSource, { laneKey: row.key, column: status }))
+      }
+    }
+    return results
+  }, [dragSource, resolveDrop, rows])
+  // Cells are marked whenever cards can be dragged, so the first move past the threshold already finds its target.
+  const getDropTarget = (laneKey: string, column: StatusColumn | null) => {
+    if (!dragEnabled) return null
+    const attributes = { [DROP_LANE_ATTRIBUTE]: laneKey, [DROP_COLUMN_ATTRIBUTE]: column ?? undefined }
+    if (!drag || !dropResults) return { state: undefined, attributes, slots: null }
+    const over = drag.target?.laneKey === laneKey && drag.target.column === column
+    const result = over ? drag.result : dropResults.get(`${laneKey}|${column ?? '*'}`)
+    return {
+      state: getDropCellState(result, over),
+      attributes,
+      // A column that offers several of the card's states lets the pointer pick one.
+      slots: over && result?.kind === 'options' && result.options.length > 1 ? result.options : null,
+    }
+  }
+  const renderSlots = (target: ReturnType<typeof getDropTarget>, narrow = false) => (target?.slots && drag
+    ? <DropSlots options={target.slots} selected={drag.slot} stickyTop={headerHeight + 8} narrow={narrow} />
+    : null)
 
   useEffect(() => {
     const scroller = scrollerRef.current
@@ -445,13 +512,29 @@ export function KanbanBoardGrid({
                   onToggleCollapsed={toggleCollapsed}
                   presenting={presenting}
                   headerHeight={headerHeight}
+                  drop={dragEnabled ? { state: getDropTarget(row.key, null)?.state } : undefined}
                 />
 
                 {STATUS_COLUMNS.map((status, columnIndex) => {
                   const cellKey = `${row.key}:${status}`
                   const frame = presenting ? presentingFrameShadow({ right: columnIndex === STATUS_COLUMNS.length - 1 }) : undefined
+                  const dropTarget = getDropTarget(row.key, status)
                   if (isRail(status)) {
-                    return <Box key={cellKey} sx={{ borderBottom: '1px solid', borderColor: 'divider', boxShadow: frame }} />
+                    return (
+                      <Box
+                        key={cellKey}
+                        {...dropTarget?.attributes}
+                        sx={{
+                          position: dropTarget?.slots ? 'relative' : undefined,
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          boxShadow: frame,
+                          ...getDropCellSx(dropTarget?.state, frame),
+                        }}
+                      >
+                        {renderSlots(dropTarget, true)}
+                      </Box>
+                    )
                   }
 
                   if (collapsed) {
@@ -464,6 +547,7 @@ export function KanbanBoardGrid({
                       <Box
                         key={cellKey}
                         data-collapsed-cell=""
+                        {...dropTarget?.attributes}
                         // The chevron is the keyboard path; a click anywhere in the summary is a mouse shortcut.
                         onClick={toggleCollapsed}
                         sx={{
@@ -477,6 +561,7 @@ export function KanbanBoardGrid({
                           alignItems: 'center',
                           cursor: toggleCollapsed ? 'pointer' : undefined,
                           opacity: highlightedCount === 0 ? 0.35 : undefined,
+                          ...getDropCellSx(dropTarget?.state),
                         }}
                       >
                         <CollapsedLaneSummary
@@ -486,6 +571,7 @@ export function KanbanBoardGrid({
                           highlightedCount={highlightedCount}
                           ghost={row.ghost}
                         />
+                        {renderSlots(dropTarget)}
                       </Box>
                     )
                   }
@@ -503,7 +589,10 @@ export function KanbanBoardGrid({
                   return (
                     <Box
                       key={cellKey}
+                      {...dropTarget?.attributes}
                       sx={{
+                        // Holds the state picker while a card is dragged over.
+                        position: drag ? 'relative' : undefined,
                         px: 1.25,
                         py: 1,
                         borderBottom: '1px solid',
@@ -516,6 +605,7 @@ export function KanbanBoardGrid({
                         '& .quick-assign-trigger': { opacity: 0, pointerEvents: 'none' },
                         '&:hover .quick-assign-trigger, &:focus-within .quick-assign-trigger': { opacity: 1, pointerEvents: 'auto' },
                         '@media (hover: none)': { '& .quick-assign-trigger': { opacity: 1, pointerEvents: 'auto' } },
+                        ...getDropCellSx(dropTarget?.state, frame),
                       }}
                     >
                       <Box
@@ -529,22 +619,31 @@ export function KanbanBoardGrid({
                         {visibleItems.map((item) => {
                           const owner = ownerByItemId ? ownerByItemId.get(item.id) ?? null : null
                           const removal = row.ghost ? removalsByItemId?.get(item.id) ?? { to: null, at: null } : undefined
+                          // Tester lanes repeat cards placed by their QA buckets, so cards move from their developer's lane.
+                          const movable = !removal && !row.isQaTester
                           return (
-                            <DevelopmentCard
+                            <EditableWorkItemCard
                               key={item.id}
                               item={item}
-                              highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
-                              changeDetail={changeDetailsByItemId?.[item.id]}
-                              currentIterationName={currentIterationName}
-                              rowMember={ownerByItemId ? owner : row.memberIdentity}
-                              showRolloverIndicator={rolledOverItemIds[item.id] === true}
-                              compact={compact}
-                              emphasis={highlightedItemIds ? (!removal && highlightedItemIds.has(item.id) ? 'match' : 'dim') : undefined}
-                              journey={removal ? undefined : journeysByItemId?.[item.id]}
-                              owner={owner}
-                              removal={removal}
-                              asOf={removal ? undefined : cardsAsOf}
-                            />
+                              enabled={!removal && cardsAsOf === undefined}
+                              dragProps={movable ? getDragProps({ item, laneKey: row.key, column: status }) : undefined}
+                              dragging={dragSource?.item.id === item.id && dragSource.laneKey === row.key}
+                            >
+                              <DevelopmentCard
+                                item={item}
+                                highlightState={changeHighlightsByItemId[item.id] ?? 'none'}
+                                changeDetail={changeDetailsByItemId?.[item.id]}
+                                currentIterationName={currentIterationName}
+                                rowMember={ownerByItemId ? owner : row.memberIdentity}
+                                showRolloverIndicator={rolledOverItemIds[item.id] === true}
+                                compact={compact}
+                                emphasis={highlightedItemIds ? (!removal && highlightedItemIds.has(item.id) ? 'match' : 'dim') : undefined}
+                                journey={removal ? undefined : journeysByItemId?.[item.id]}
+                                owner={owner}
+                                removal={removal}
+                                asOf={removal ? undefined : cardsAsOf}
+                              />
+                            </EditableWorkItemCard>
                           )
                         })}
                       </Box>
@@ -573,6 +672,7 @@ export function KanbanBoardGrid({
                       {status === 'New' && quickAssign && row.memberIdentity && !row.isQaTester && !row.ghost ? (
                         <QuickAssignCell developer={row.memberIdentity} controller={quickAssign} />
                       ) : null}
+                      {renderSlots(dropTarget)}
                     </Box>
                   )
                 })}
@@ -583,6 +683,7 @@ export function KanbanBoardGrid({
           </Box>
         </Box>
       </Box>
+      {drag ? <BoardDragGhost drag={drag} ghostRef={setGhost} /> : null}
     </Box>
   )
 }

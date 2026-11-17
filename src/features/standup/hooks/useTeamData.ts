@@ -1,7 +1,9 @@
 import { useEffect, useState, type MutableRefObject } from 'react'
 import type { AdoQueryEngine, CurrentIterationInfo, IterationWindowInfo, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
+import { applyWorkItemPatch } from '../../../ado/workItemPatch'
 import { isAbortError, toErrorMessage } from './queryErrors'
+import { useWorkItemPatches } from './useWorkItemPatches'
 
 type UseTeamDataArgs = {
   adoQueryEngine: AdoQueryEngine | null
@@ -152,6 +154,8 @@ export function useTeamData({
       abortController.abort()
     }
   }, [adoQueryEngine, selectedTeam, reloadNonce, forceRefreshRef, includeWorkItemTypes, includeIterationPaths, useDefaultIterationWindow])
+
+  useWorkItemPatches(adoQueryEngine, (patch) => setWorkItems((current) => applyWorkItemPatch(current, patch)))
 
   return {
     members,

@@ -16,10 +16,13 @@ import { PREVIEW_LINK_LIMIT } from '../../../ado/workItemPreviewApi'
 import { clampPreviewPanelWidth, PREVIEW_LIST_MIN_WIDTH, PREVIEW_PANEL_WIDTH } from '../hooks/usePreviewPanel'
 import type { WorkItemPreviewImages } from '../hooks/useWorkItemPreview'
 import { formatTriageMoment, formatTriageWhen } from '../utils/triageInbox'
+import { isEditableWorkItem, type EditableWorkItem } from '../utils/workItemEditing'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import { RichText } from './RichText'
 import { TriageTypeIcon } from './TriageFields'
+import { WorkItemActions } from './WorkItemActions'
+import { useWorkItemEditing } from './workItemEditingContext'
 import { PersonLabel, StateLabel } from './WorkItemFields'
 import { describeEmptyText, formatFileSize, getPreviewTextSections, isImageFileName } from './workItemPreviewDisplay'
 
@@ -263,6 +266,8 @@ type WorkItemPreviewPanelProps = {
   item?: PreviewWorkItem
   /** The item's fields as a row under its title, like the list shows them. */
   facts?: ReactNode
+  /** The item with its fields, when it can be edited and reloaded from the panel. */
+  editItem?: EditableWorkItem
   /** Shown in place of the title while the item is not on the page. */
   missingTitle?: string
   children: ReactNode
@@ -273,18 +278,30 @@ type WorkItemPreviewPanelProps = {
  * chooses in a body that takes focus to scroll by keyboard, then the keys that move through the list.
  */
 export function WorkItemPreviewPanel({
-  panelId, panelRef, width, onResize, onClose, id, item, facts, missingTitle = 'Not in this list', children,
+  panelId, panelRef, width, onResize, onClose, id, item, facts, editItem, missingTitle = 'Not in this list', children,
 }: WorkItemPreviewPanelProps) {
   const titleId = useId()
+  const editing = useWorkItemEditing()
+  const editable = editing && editItem && isEditableWorkItem(editItem) ? { editing, item: editItem } : null
   return (
-    <Box component="aside" id={panelId} ref={panelRef} aria-labelledby={titleId} sx={panelSx} style={{ width }}>
+    <Box
+      component="aside"
+      id={panelId}
+      ref={panelRef}
+      aria-labelledby={titleId}
+      aria-busy={editable?.editing.editor.isBusy(editable.item) || undefined}
+      sx={panelSx}
+      style={{ width }}
+      onKeyDown={editable ? (event) => editable.editing.handleKeyDown(editable.item, event) : undefined}
+    >
       <PanelResizer panelRef={panelRef} width={width} onResize={onResize} />
-      <Box sx={headSx}>
+      <Box sx={headSx} onContextMenu={editable ? (event) => editable.editing.handleContextMenu(editable.item, event) : undefined}>
         <div className="top">
           {item ? <TriageTypeIcon item={item} /> : null}
           <span className="id">{id}</span>
           {item ? <span>{item.workItemType}</span> : null}
           <span className="spacer" />
+          {editable ? <WorkItemActions item={editable.item} /> : null}
           {item ? (
             <AppTooltip title="Open in Azure DevOps (O)">
               <IconButton size="small" aria-label="Open in Azure DevOps" href={item.workItemUrl} target="_blank" rel="noopener noreferrer">
@@ -306,6 +323,7 @@ export function WorkItemPreviewPanel({
         <Icon href={svgKeyboard} alt="" style={smallIconStyle} />
         <span><kbd>↑</kbd><kbd>↓</kbd> previous / next</span>
         <span><kbd>O</kbd> open in Azure DevOps</span>
+        {editable ? <span><kbd>Shift</kbd><kbd>F10</kbd> edit</span> : null}
         <span><kbd>Esc</kbd> close</span>
       </Box>
     </Box>

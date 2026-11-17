@@ -10,7 +10,9 @@ import { getStatusColumnColor, STATUS_COLUMNS, type StatusColumn } from '../util
 import { AdoAvatar } from './AdoAvatar'
 import { AppTooltip } from './AppTooltip'
 import { formatLaneFlag, getLaneFlags, type AttentionFacetKey, type AttentionTone, type LaneFlag } from './boardAttention'
+import { getDropCellSx, type DropCellState } from './boardDropDisplay'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
+import { DROP_LANE_ATTRIBUTE } from '../hooks/useBoardDrag'
 import type { BoardRowData, LaneNote } from './KanbanBoardGrid'
 import {
   describeLaneLoad,
@@ -111,6 +113,8 @@ type LaneHeadProps = {
   caption: ReactNode
   /** Attention flags, most urgent first; the head shows the first few. */
   flags: readonly LaneHeadFlag[]
+  /** Set while a card is dragged: the head takes it, changing only the lane, and shows whether it can. */
+  drop?: { state: DropCellState | undefined }
 }
 
 /** The sticky first cell of a lane: who it belongs to, how their work spreads across columns, and what needs attention. */
@@ -124,6 +128,7 @@ export function LaneHead({
   loadLabel,
   caption,
   flags,
+  drop,
 }: LaneHeadProps) {
   const avatarSize = collapsed ? 20 : 28
   // Cards in a ghost lane have left the board, so they raise no attention flags here.
@@ -196,6 +201,7 @@ export function LaneHead({
       data-lane={row.key}
       data-lane-collapsed={collapsed ? '' : undefined}
       data-lane-presenting={presenting ? '' : undefined}
+      {...(drop ? { [DROP_LANE_ATTRIBUTE]: row.key } : undefined)}
       sx={{
         position: 'sticky',
         left: 0,
@@ -212,6 +218,7 @@ export function LaneHead({
         display: 'flex',
         alignItems: collapsed ? 'center' : 'flex-start',
         minWidth: 0,
+        ...getDropCellSx(drop?.state, presenting ? presentingFrameShadow({ left: true }) : undefined),
       }}
     >
       {collapsed ? (
@@ -290,7 +297,7 @@ export function LaneHead({
   )
 }
 
-type BoardLaneHeadProps = Pick<LaneHeadProps, 'row' | 'collapsed' | 'onToggleCollapsed' | 'presenting' | 'headerHeight'> & {
+type BoardLaneHeadProps = Pick<LaneHeadProps, 'row' | 'collapsed' | 'onToggleCollapsed' | 'presenting' | 'headerHeight' | 'drop'> & {
   summary: LaneSummary
 }
 

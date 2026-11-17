@@ -17,6 +17,7 @@ import type { BoardRowData } from './KanbanBoardGrid'
 import { resolveStandupSpeakers, type StandupOrderMode } from './standupOrder'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { QaCard } from './QaCard'
+import { EditableWorkItemCard } from './WorkItemActions'
 import { QaColumnHeader } from './QaColumnHeader'
 import { QaTesterLanes } from './QaTesterLanes'
 import {
@@ -493,16 +494,18 @@ export function QaFlowBoard({
 
   const renderCard = (item: WorkItemSummary, column: QaColumnId, compact: boolean) => (
     <Box data-qa-card={item.id}>
-      <QaCard
-        item={item}
-        column={column}
-        history={historyById.get(item.id) ?? NO_HISTORY}
-        compact={compact}
-        currentIterationName={currentIterationName}
-        highlightOptions={cardHighlightOptions}
-        emphasis={highlightedIds ? highlightedIds.has(item.id) ? 'match' : 'dim' : undefined}
-        testers={testers}
-      />
+      <EditableWorkItemCard item={item}>
+        <QaCard
+          item={item}
+          column={column}
+          history={historyById.get(item.id) ?? NO_HISTORY}
+          compact={compact}
+          currentIterationName={currentIterationName}
+          highlightOptions={cardHighlightOptions}
+          emphasis={highlightedIds ? highlightedIds.has(item.id) ? 'match' : 'dim' : undefined}
+          testers={testers}
+        />
+      </EditableWorkItemCard>
     </Box>
   )
 

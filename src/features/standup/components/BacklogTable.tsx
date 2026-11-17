@@ -9,6 +9,8 @@ import { AppTooltip as Tooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
 import { CreatedAge, ImpactBars, MissingValue, PersonLabel, SeverityChip, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewToggleButton } from './WorkItemPreviewPanel'
+import { EditableFieldButton, WorkItemActions } from './WorkItemActions'
+import { getEditableRowProps, useWorkItemEditing } from './workItemEditingContext'
 import { WorkItemTitle } from './WorkItemTitle'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
@@ -134,7 +136,8 @@ const bugTitleRowSx: SxProps<Theme> = {
   alignItems: 'flex-start',
   gap: 1,
   '& > *': { minWidth: 0 },
-  '& > .preview-toggle': { flex: 'none', ml: 'auto', my: -0.5 },
+  '& > .preview-toggle, & > .work-item-actions': { flex: 'none', ml: 'auto', my: -0.5 },
+  '& > .work-item-actions + .preview-toggle': { ml: 0 },
 }
 // Rows open the preview when clicked, and stop clear of both sticky headers (columns, then tier) when the arrows scroll.
 const previewBodySx: SxProps<Theme> = {
@@ -438,12 +441,16 @@ const BacklogRow = memo(function BacklogRow({
   const planning = pickState !== undefined
   const picked = isPicked(pickState)
   const title = <WorkItemTitle item={bug} compact={compact} />
+  const editing = useWorkItemEditing()
+  // Backlog lists only bugs, so the editors offer the Bug type's states and its Severity.
+  const item = useMemo(() => ({ ...bug, workItemType: 'Bug' }), [bug])
   return (
     <TableRow
       data-emphasis={emphasis}
       data-picked={picked ? '' : undefined}
       selected={selected}
       data-preview-id={preview ? bug.id : undefined}
+      {...getEditableRowProps(editing, item)}
       onClick={preview ? (event) => {
         if (isPreviewRowClick(event)) preview.onSelect(bug.id)
       } : undefined}
@@ -454,26 +461,35 @@ const BacklogRow = memo(function BacklogRow({
       <TableCell align="right" sx={planning ? planRankCellSx : rankCellSx}>{bug.rank}</TableCell>
       <TableCell sx={noWrapSx}><BugValue bug={bug} /></TableCell>
       <TableCell sx={bugCellSx}>
-        {preview ? (
+        {preview || editing ? (
           <Box sx={bugTitleRowSx}>
             {title}
-            <PreviewToggleButton id={bug.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} />
+            <WorkItemActions item={item} />
+            {preview ? <PreviewToggleButton id={bug.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} /> : null}
           </Box>
         ) : title}
         {emphasis === 'match' ? <Box component="span" sx={visuallyHiddenSx}>Highlighted</Box> : null}
       </TableCell>
-      <TableCell sx={noWrapSx}><BugSeverity severity={bug.severity} /></TableCell>
-      <TableCell sx={noWrapSx}><BugImpact priority={bug.priority} score={bug.impactScore} /></TableCell>
-      <TableCell align="right" sx={noWrapSx}><BugEffort effort={bug.effort} /></TableCell>
+      <TableCell sx={noWrapSx}><EditableFieldButton item={item} field="severity"><BugSeverity severity={bug.severity} /></EditableFieldButton></TableCell>
+      <TableCell sx={noWrapSx}>
+        <EditableFieldButton item={item} field="priority"><BugImpact priority={bug.priority} score={bug.impactScore} /></EditableFieldButton>
+      </TableCell>
+      <TableCell align="right" sx={noWrapSx}><EditableFieldButton item={item} field="effort"><BugEffort effort={bug.effort} /></EditableFieldButton></TableCell>
       {planning ? (
         <TableCell align="right" sx={runningCellSx}>
           {running ? <span className={picked ? 'backlog-running' : 'backlog-skip-reason'}>{running}</span> : null}
         </TableCell>
       ) : null}
       <TableCell align="right" sx={noWrapSx}><CreatedAge createdAt={bug.createdAt} /></TableCell>
-      <TableCell sx={noWrapSx}><SprintLabel sprint={bug.sprint} iterationPath={bug.iterationPath} /></TableCell>
-      <TableCell sx={noWrapSx}><StateLabel state={bug.state} /></TableCell>
-      <TableCell><PersonLabel person={bug.assignedTo} emptyLabel={UNASSIGNED_LABEL} compact={compact} /></TableCell>
+      <TableCell sx={noWrapSx}>
+        <EditableFieldButton item={item} field="iterationPath"><SprintLabel sprint={bug.sprint} iterationPath={bug.iterationPath} /></EditableFieldButton>
+      </TableCell>
+      <TableCell sx={noWrapSx}><EditableFieldButton item={item} field="state"><StateLabel state={bug.state} /></EditableFieldButton></TableCell>
+      <TableCell>
+        <EditableFieldButton item={item} field="assignedTo">
+          <PersonLabel person={bug.assignedTo} emptyLabel={UNASSIGNED_LABEL} compact={compact} />
+        </EditableFieldButton>
+      </TableCell>
     </TableRow>
   )
 })
@@ -576,6 +592,7 @@ export const BacklogTable = memo(function BacklogTable({
     () => panelId && onSelect && onToggle ? { panelId, onSelect, onToggle } : undefined,
     [panelId, onSelect, onToggle],
   )
+  const editing = useWorkItemEditing()
 
   // The tier headers stick just below the column header, whose height changes with the theme's font size.
   useLayoutEffect(() => {
@@ -632,7 +649,7 @@ export const BacklogTable = memo(function BacklogTable({
                 key={group.key}
                 data-tier={group.key}
                 style={getBacklogTierStyle(group.key)}
-                sx={rowPreview ? previewBodySx : undefined}
+                sx={rowPreview || editing ? previewBodySx : undefined}
               >
                 <TierHeader
                   group={group}

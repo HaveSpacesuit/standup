@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { TriageResult } from '../../../ado/types'
 import type { TeamProfile } from '../../../appSettings'
+import { applyWorkItemPatch } from '../../../ado/workItemPatch'
 import { hasTriageRules, type TriageQueryOptions } from '../utils/triageOptions'
 import { isAbortError, toErrorMessage } from './queryErrors'
+import { useWorkItemPatches } from './useWorkItemPatches'
 
 type Args = {
   adoQueryEngine: AdoQueryEngine | null
@@ -43,6 +45,12 @@ export function useTriageItems({ adoQueryEngine, selectedTeam, options, enabled,
     )
     return () => { active = false }
   }, [adoQueryEngine, canLoad, key, options, selectedTeam])
+
+  useWorkItemPatches(adoQueryEngine, (patch) => setSnapshot((current) => {
+    if (!current?.result) return current
+    const items = applyWorkItemPatch(current.result.items, patch)
+    return items === current.result.items ? current : { ...current, result: { ...current.result, items } }
+  }))
 
   const current = canLoad && snapshot?.engine === adoQueryEngine && snapshot.key === key ? snapshot : null
   return {

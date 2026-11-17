@@ -17,7 +17,7 @@ import type {
   QaTagFilterRule,
   QaTagGroups,
 } from './features/standup/utils/qaOptions'
-import { DEFAULT_ASSIGNMENT_SPRINT_FILTER } from './features/standup/utils/assignmentOptions'
+import { DEFAULT_ASSIGNMENT_SPRINT_FILTER, parseEffortSuggestions } from './features/standup/utils/assignmentOptions'
 import { DEFAULT_QA_LOOKBACK_DAYS, EMPTY_SPRINT_FILTER, normalizeQaLookbackDays } from './features/standup/utils/qaOptions'
 import { createDefaultTriageOptions, parseTriageOptions, type TriageOptions } from './features/standup/utils/triageOptions'
 
@@ -215,6 +215,7 @@ function parseAssignmentOptions(value: unknown): AssignmentOptions {
     ),
     compactCards: value.compactCards === true,
     includeQaTestersInStandup: value.includeQaTestersInStandup === true,
+    effortSuggestions: parseEffortSuggestions(value.effortSuggestions),
   }
 }
 

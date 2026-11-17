@@ -27,6 +27,8 @@ import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewToggleButton } from './WorkItemPreviewPanel'
+import { EditableFieldButton, WorkItemActions } from './WorkItemActions'
+import { getEditableRowProps, useWorkItemEditing } from './workItemEditingContext'
 import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { WorkItemTitle } from './WorkItemTitle'
 import { METER_TRACK_COLOR, workItemTitleCellSx } from './workItemTableDisplay'
@@ -134,8 +136,8 @@ const cardListSx: SxProps<Theme> = {
     gap: 1,
     fontSize: 13.5,
     lineHeight: 1.4,
-    '& > :not(.preview-toggle)': { flex: 1, minWidth: 0 },
-    '& > .preview-toggle': { my: -0.5 },
+    '& > :not(.preview-toggle):not(.work-item-actions)': { flex: 1, minWidth: 0 },
+    '& > .preview-toggle, & > .work-item-actions': { my: -0.5 },
   },
   '& .card-meta': metaSx,
   '& .card-fields': {
@@ -297,12 +299,15 @@ function TriageInboxCard({
   const match = matches?.get(item.id)
   const selected = preview?.selectedId === item.id
   const className = [ready ? 'ready' : '', selected ? 'selected' : ''].filter(Boolean).join(' ')
+  const editing = useWorkItemEditing()
+  const canEdit = editing?.editor.canEdit(item) ?? false
 
   return (
     <li
       className={className || undefined}
       data-triage-card={item.id}
       data-preview-id={preview ? item.id : undefined}
+      {...getEditableRowProps(editing, item)}
       onClick={preview ? (event) => {
         if (isPreviewRowClick(event)) preview.onSelect(item.id)
       } : undefined}
@@ -311,14 +316,20 @@ function TriageInboxCard({
       <div className="card-main">
         <div className="card-title">
           <WorkItemTitle item={{ ...item, tags }} />
+          <WorkItemActions item={item} />
           {preview ? <PreviewToggleButton id={item.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} /> : null}
         </div>
         <div className="card-meta">
           <EntryText item={item} now={now} />
           <TriageReasons item={item} clearing={clearing} />
-          {showsState(item) ? <><Separator /><StateLabel state={item.state} /></> : null}
+          {showsState(item) ? <><Separator /><EditableFieldButton item={item} field="state"><StateLabel state={item.state} /></EditableFieldButton></> : null}
           {item.assignedTo ? (
-            <><Separator /><span className="with-icon">Assigned to <PersonLabel person={item.assignedTo} emptyLabel="" /></span></>
+            <>
+              <Separator />
+              <span className="with-icon">
+                Assigned to <EditableFieldButton item={item} field="assignedTo"><PersonLabel person={item.assignedTo} emptyLabel="" /></EditableFieldButton>
+              </span>
+            </>
           ) : null}
           {item.parent ? (
             <>
@@ -340,10 +351,18 @@ function TriageInboxCard({
         ) : null}
       </div>
       <div className="card-fields">
-        <span><TriageSeverity item={item} checks={checks} /></span>
-        <span><TriageImpact item={item} checks={checks} /></span>
-        <span><span className="effort-label">Effort</span><TriageEffort item={item} checks={checks} /></span>
-        <span>{sprint.kind === 'backlog' ? null : <SprintLabel sprint={sprint} iterationPath={item.iterationPath} />}</span>
+        <span><EditableFieldButton item={item} field="severity"><TriageSeverity item={item} checks={checks} /></EditableFieldButton></span>
+        <span><EditableFieldButton item={item} field="priority"><TriageImpact item={item} checks={checks} /></EditableFieldButton></span>
+        <span>
+          <EditableFieldButton item={item} field="effort"><span className="effort-label">Effort</span><TriageEffort item={item} checks={checks} /></EditableFieldButton>
+        </span>
+        <span>
+          {sprint.kind !== 'backlog' ? (
+            <EditableFieldButton item={item} field="iterationPath"><SprintLabel sprint={sprint} iterationPath={item.iterationPath} /></EditableFieldButton>
+          ) : canEdit ? (
+            <EditableFieldButton item={item} field="iterationPath"><span className="effort-label">No sprint</span></EditableFieldButton>
+          ) : null}
+        </span>
       </div>
     </li>
   )

@@ -11,6 +11,8 @@ type UseProjectWorkItemStatesArgs = {
 type UseProjectWorkItemStatesResult = {
   workItemStates: ProjectWorkItemState[]
   workItemTypes: string[]
+  /** Each work item type's states in workflow order, keyed by lower-cased type name. */
+  workItemStatesByType: Record<string, ProjectWorkItemState[]>
   workItemStatesLoading: boolean
   workItemStatesError: string | null
   retryWorkItemStates: () => void
@@ -22,6 +24,7 @@ export function useProjectWorkItemStates({
 }: UseProjectWorkItemStatesArgs): UseProjectWorkItemStatesResult {
   const [workItemStates, setWorkItemStates] = useState<ProjectWorkItemState[]>([])
   const [workItemTypes, setWorkItemTypes] = useState<string[]>([])
+  const [workItemStatesByType, setWorkItemStatesByType] = useState<Record<string, ProjectWorkItemState[]>>({})
   const [workItemStatesLoading, setWorkItemStatesLoading] = useState(false)
   const [workItemStatesError, setWorkItemStatesError] = useState<string | null>(null)
   const [reloadNonce, setReloadNonce] = useState(0)
@@ -36,6 +39,7 @@ export function useProjectWorkItemStates({
     if (!adoQueryEngine) {
       setWorkItemStates([])
       setWorkItemTypes([])
+      setWorkItemStatesByType({})
       setWorkItemStatesLoading(false)
       return
     }
@@ -46,17 +50,20 @@ export function useProjectWorkItemStates({
     Promise.all([
       adoQueryEngine.getProjectWorkItemStates(selectedTeam, abortController.signal),
       adoQueryEngine.getProjectWorkItemTypes(selectedTeam, abortController.signal),
+      adoQueryEngine.getProjectWorkItemStatesByType(selectedTeam, abortController.signal),
     ])
-      .then(([states, types]) => {
+      .then(([states, types, statesByType]) => {
         if (!abortController.signal.aborted) {
           setWorkItemStates(states)
           setWorkItemTypes(types)
+          setWorkItemStatesByType(statesByType)
         }
       })
       .catch((error: unknown) => {
         if (!abortController.signal.aborted && !isAbortError(error)) {
           setWorkItemStates([])
           setWorkItemTypes([])
+          setWorkItemStatesByType({})
           setWorkItemStatesError(`Unable to load work item types and states: ${toErrorMessage(error, 'Unknown error')}`)
         }
       })
@@ -71,5 +78,5 @@ export function useProjectWorkItemStates({
     }
   }, [adoQueryEngine, selectedTeam, reloadNonce])
 
-  return { workItemStates, workItemTypes, workItemStatesLoading, workItemStatesError, retryWorkItemStates }
+  return { workItemStates, workItemTypes, workItemStatesByType, workItemStatesLoading, workItemStatesError, retryWorkItemStates }
 }

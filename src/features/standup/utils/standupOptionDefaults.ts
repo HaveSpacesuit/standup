@@ -1,5 +1,5 @@
 import type { AssignmentOptions } from './assignmentOptions'
-import { DEFAULT_ASSIGNMENT_SPRINT_FILTER } from './assignmentOptions'
+import { DEFAULT_ASSIGNMENT_SPRINT_FILTER, DEFAULT_EFFORT_SUGGESTIONS } from './assignmentOptions'
 import type { QaOptions } from './qaOptions'
 import { DEFAULT_QA_LOOKBACK_DAYS, EMPTY_SPRINT_FILTER } from './qaOptions'
 
@@ -23,5 +23,6 @@ export function createDefaultAssignmentOptions(): AssignmentOptions {
     sprintFilter: { ...DEFAULT_ASSIGNMENT_SPRINT_FILTER },
     compactCards: false,
     includeQaTestersInStandup: false,
+    effortSuggestions: [...DEFAULT_EFFORT_SUGGESTIONS],
   }
 }

@@ -2,6 +2,8 @@ import type { TeamProfile } from '../appSettings'
 import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
 import { assignWorkItem, isAssignmentAccessError } from './workItemAssignmentApi'
+import { readWorkItem, updateWorkItemFields, WorkItemConflictError, type WorkItemFieldChanges, type WorkItemFields, type WorkItemReadResult } from './workItemUpdateApi'
+import { applyWorkItemPatch, workItemUrlFor, type WorkItemPatch } from './workItemPatch'
 import type { IdentityRef } from './identity'
 import type { TagRule } from './workItemStatus'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
@@ -22,6 +24,7 @@ import { getTriageQueryOptions, hasTriageRules, parseTriageOptions, type TriageQ
 export type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
 export type { SprintScopeChanges } from './workItemsApi'
+export type { WorkItemPatch } from './workItemPatch'
 
 // Shared cache-key builders so a getter and its corresponding `clear*Cache` method can never
 // drift apart and silently stop invalidating (each key shape is defined in exactly one place).
@@ -65,7 +68,7 @@ function clearTeamEntries(cache: Map<string, unknown>, teamId?: string): void {
 }
 
 /** Rewrites every cached value in place. An entry whose load fails is dropped so it can be loaded again. */
-function patchCachedValues<T>(cache: Map<string, Promise<T>>, patch: (value: T) => T): void {
+function patchCachedValues<T>(cache: Map<string, Promise<T>>, patch: (value: T) => T | Promise<T>): void {
   for (const [key, cached] of cache) {
     const patched = cached.then(patch)
     cache.set(key, patched)
@@ -94,6 +97,7 @@ export class AdoQueryEngine {
   private readonly workItemUpdatesCache = new Map<string, Promise<WorkItemUpdate[]>>()
   private readonly workItemPreviewCache = new Map<string, Promise<WorkItemPreview>>()
   private readonly attachmentCache = new Map<string, Promise<Blob>>()
+  private readonly workItemPatchListeners = new Set<(patch: WorkItemPatch) => void>()
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
     // Route through getWorkItemUpdates so the assignee resolver shares its cache instead of
@@ -148,6 +152,14 @@ export class AdoQueryEngine {
     signal?: AbortSignal,
   ): Promise<string[]> {
     return (await this.getProjectWorkItemTypeInfo(team, signal)).workItemTypes
+  }
+
+  /** Each work item type's states in workflow order, keyed by lower-cased type name. */
+  async getProjectWorkItemStatesByType(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
+    signal?: AbortSignal,
+  ): Promise<Record<string, ProjectWorkItemState[]>> {
+    return (await this.getProjectWorkItemTypeInfo(team, signal)).statesByType
   }
 
   async getTeamIterations(
@@ -429,6 +441,87 @@ export class AdoQueryEngine {
     patchCachedValues(this.backlogBugsCache, patch)
     patchCachedValues(this.triageItemsCache, (result) => ({ ...result, items: patch(result.items) }))
     patchCachedValues(this.qaRawDataCache, (data) => ({ ...data, candidates: patch(data.candidates) }))
+  }
+
+  /**
+   * Saves changes to a work item's fields, then shows them in every cached list and every subscribed view, for any team,
+   * without a reload. When someone else changed one of the fields meanwhile, nothing is saved and the views show their
+   * value instead.
+   *
+   * @param expected The values the view showed for the changed fields.
+   */
+  async updateWorkItem(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    id: number,
+    changes: WorkItemFieldChanges,
+    expected: Partial<WorkItemFields>,
+  ): Promise<WorkItemPatch> {
+    try {
+      return this.publishWorkItem(team, id, await updateWorkItemFields(this.client, team, id, changes, expected))
+    } catch (error) {
+      if (error instanceof WorkItemConflictError) this.publishWorkItem(team, id, { item: error.item, fields: error.current })
+      throw error
+    }
+  }
+
+  /** Reads one work item fresh from Azure DevOps and shows it in every cached list and subscribed view. */
+  async reloadWorkItem(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id: number): Promise<WorkItemPatch> {
+    return this.publishWorkItem(team, id, await readWorkItem(this.client, team, id))
+  }
+
+  /**
+   * Shows fields in every subscribed view without saving or caching them: an edit while it saves, or the item as it was
+   * when the save fails.
+   */
+  previewWorkItemFields(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id: number, fields: WorkItemFields): void {
+    const patch: WorkItemPatch = { id, workItemUrl: workItemUrlFor(team, id), fields, preview: true }
+    for (const listener of this.workItemPatchListeners) listener(patch)
+  }
+
+  /** Calls the listener with each work item saved or reloaded, so views holding it can update it in place. */
+  subscribeWorkItemPatches(listener: (patch: WorkItemPatch) => void): () => void {
+    this.workItemPatchListeners.add(listener)
+    return () => {
+      this.workItemPatchListeners.delete(listener)
+    }
+  }
+
+  private publishWorkItem(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id: number, { item, fields }: WorkItemReadResult): WorkItemPatch {
+    const changedAt = (item.fields as Record<string, unknown> | undefined)?.['System.ChangedDate']
+    const patch: WorkItemPatch = { id, workItemUrl: workItemUrlFor(team, id), fields, changedAt: typeof changedAt === 'string' ? changedAt : undefined }
+    const apply = <T extends { id: number; workItemUrl?: string; title: string }>(items: T[]) => applyWorkItemPatch(items, patch)
+    patchCachedValues(this.teamWorkItemsCache, apply)
+    patchCachedValues(this.backlogBugsCache, apply)
+    patchCachedValues(this.triageItemsCache, (result) => ({ ...result, items: apply(result.items) }))
+    // The item's history and details now have a newer revision.
+    this.clearWorkItemUpdatesCache(team, [id])
+    // QA sorts items by their history, so a QA list holding the item also takes its new history.
+    patchCachedValues(this.qaRawDataCache, async (data) => {
+      const candidates = apply(data.candidates)
+      if (candidates === data.candidates) return data
+      return { ...data, candidates, ...await this.getQualityAssuranceItemHistory(team, data, id) }
+    })
+    const previewSuffix = `:${orgProjectCacheKey(team)}:${id}`
+    for (const key of this.workItemPreviewCache.keys()) {
+      if (key.endsWith(previewSuffix)) this.workItemPreviewCache.delete(key)
+    }
+    for (const listener of this.workItemPatchListeners) listener(patch)
+    return patch
+  }
+
+  /** A QA list's history with one item's history read again; when that read fails, QA marks the item's history unavailable. */
+  async getQualityAssuranceItemHistory(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    data: Pick<QualityAssuranceRawData, 'updatesByItemId' | 'failedUpdateItemIds'>,
+    id: number,
+  ): Promise<Pick<QualityAssuranceRawData, 'updatesByItemId' | 'failedUpdateItemIds'>> {
+    const failedUpdateItemIds = data.failedUpdateItemIds.filter((failedId) => failedId !== id)
+    try {
+      return { updatesByItemId: { ...data.updatesByItemId, [id]: await this.getWorkItemUpdates(team, id) }, failedUpdateItemIds }
+    } catch {
+      const { [id]: _stale, ...updatesByItemId } = data.updatesByItemId
+      return { updatesByItemId, failedUpdateItemIds: [...failedUpdateItemIds, id] }
+    }
   }
 
   /** Cached wrapper around the work item `/updates` (revision history) endpoint, shared by any

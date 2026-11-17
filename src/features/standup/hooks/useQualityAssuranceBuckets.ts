@@ -6,6 +6,8 @@ import type { QualityAssuranceBucket } from '../utils/qualityAssuranceBuckets'
 import { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } from '../utils/qualityAssuranceBuckets'
 import type { QaStateGroupOverrides, QaTagGroups } from '../utils/qaOptions'
 import { isAbortError, toErrorMessage } from './queryErrors'
+import { useWorkItemPatches } from './useWorkItemPatches'
+import { applyWorkItemPatch, matchesWorkItemPatch } from '../../../ado/workItemPatch'
 import type { QualityAssuranceRawData } from '../../../ado/workItemsApi'
 
 type UseQualityAssuranceBucketsArgs = {
@@ -114,6 +116,19 @@ export function useQualityAssuranceBuckets({
       abortController.abort()
     }
   }, [adoQueryEngine, enabled, reloadNonce, selectedTeam, includeWorkItemTypesKey, includeIterationPathsKey, lookbackDays])
+
+  useWorkItemPatches(adoQueryEngine, (patch) => {
+    const candidates = rawData && applyWorkItemPatch(rawData.candidates, patch)
+    if (!adoQueryEngine || !rawData || candidates === rawData.candidates) return
+    setRawData((current) => current && { ...current, candidates: applyWorkItemPatch(current.candidates, patch) })
+    if (patch.preview) return
+    // QA sorts items by their history, which the save just extended.
+    adoQueryEngine.getQualityAssuranceItemHistory(selectedTeam, rawData, patch.id).then((history) => {
+      setRawData((current) => current && current.candidates.some((item) => matchesWorkItemPatch(item, patch))
+        ? { ...current, ...history }
+        : current)
+    }, () => undefined)
+  })
 
   const qaBuckets = useMemo<QualityAssuranceBucket[]>(() => {
     if (!rawData) {

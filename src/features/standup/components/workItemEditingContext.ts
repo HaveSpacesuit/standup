@@ -1,0 +1,43 @@
+import { createContext, useContext, type KeyboardEvent, type MouseEvent } from 'react'
+import type { EditableWorkItemField } from '../../../ado/workItemUpdateApi'
+import type { WorkItemEditor } from '../hooks/useWorkItemEditor'
+import { isEditableWorkItem, type EditableWorkItem } from '../utils/workItemEditing'
+
+/** Where a menu or editor opens: under an element, or at a point such as a right-click. */
+export type EditAnchor = Element | { top: number; left: number }
+
+export type WorkItemEditingApi = {
+  editor: WorkItemEditor
+  openMenu: (item: EditableWorkItem, anchor: EditAnchor) => void
+  openField: (item: EditableWorkItem, field: EditableWorkItemField, anchor: EditAnchor) => void
+  /** Opens the item's menu on right-click, Shift+F10 or the Menu key; text fields keep the browser's menu. */
+  handleContextMenu: (item: EditableWorkItem, event: MouseEvent<HTMLElement>) => void
+  /** The field keys (S, A, I, E, V, P, T, F2) and R, while focus is in the item's card or row. */
+  handleKeyDown: (item: EditableWorkItem, event: KeyboardEvent<HTMLElement>) => void
+}
+
+export const WorkItemEditingContext = createContext<WorkItemEditingApi | null>(null)
+
+/** The editing controls for cards and rows; null outside a WorkItemEditingProvider, where items are read-only. */
+export function useWorkItemEditing(): WorkItemEditingApi | null {
+  return useContext(WorkItemEditingContext)
+}
+
+/** Marks each item's More button, so focus can return to it when the card moves while a menu is open. */
+export const WORK_ITEM_MENU_ATTRIBUTE = 'data-work-item-menu'
+
+export const workItemEditKey = (item: EditableWorkItem) => `${item.workItemUrl?.toLowerCase() ?? ''}#${item.id}`
+
+/**
+ * Props that make a table row or list item editable from the keyboard and by right-click; spread onto the row. Empty
+ * without editing.
+ */
+export function getEditableRowProps(editing: WorkItemEditingApi | null, item: EditableWorkItem) {
+  if (!editing || !isEditableWorkItem(item)) return {}
+  return {
+    'aria-busy': editing.editor.isBusy(item) || undefined,
+    'data-busy': editing.editor.isBusy(item) ? '' : undefined,
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => editing.handleKeyDown(item, event),
+    onContextMenu: (event: MouseEvent<HTMLElement>) => editing.handleContextMenu(item, event),
+  }
+}

@@ -6,6 +6,7 @@ import svgHistory from '@stratakit/icons/history.svg'
 import svgMinus from '@stratakit/icons/minus.svg'
 import type { IterationWindowInfo, TeamIterationOption, WorkItemSummary } from '../../../ado/queryEngine'
 import type { BoardRowData, LaneNote } from '../components/KanbanBoardGrid'
+import type { LaneDrop } from './workItemEditing'
 import { parseDateOnly } from './dateOnly'
 import { formatSprintDate, formatSprintDateRange } from './sprintDates'
 import { formatEffortPoints } from './sprintEffortTotals'
@@ -169,6 +170,7 @@ function getScopeRows(items: readonly WorkItemSummary[], scope: SprintLensScope,
   }))
 
   const startDate = parseDateOnly(options.iterationWindow?.current?.startDate)
+  const sprintName = current[0]?.sprintName?.trim() || options.currentIterationName || 'the sprint'
   return [
     {
       key: SCOPE_COMMITTED_ROW_KEY,
@@ -177,6 +179,7 @@ function getScopeRows(items: readonly WorkItemSummary[], scope: SprintLensScope,
       subtitle: startDate ? `Planned ${formatSprintDate(startDate)}` : 'Planned for the sprint',
       countsAllItems: true,
       notes: committedNotes,
+      drop: { refusal: 'Committed at start holds what was planned when the sprint began; drop on Added during sprint to bring a card in' },
     },
     {
       key: SCOPE_ADDED_ROW_KEY,
@@ -185,6 +188,7 @@ function getScopeRows(items: readonly WorkItemSummary[], scope: SprintLensScope,
       subtitle: 'Scope added after planning',
       countsAllItems: true,
       notes: addedNotes,
+      drop: getSprintDrop(sprintName, current, options, SCOPE_UNCHANGED_REASON),
     },
     {
       key: SCOPE_REMOVED_ROW_KEY,
@@ -195,9 +199,31 @@ function getScopeRows(items: readonly WorkItemSummary[], scope: SprintLensScope,
       defaultCollapsed: true,
       ghost: true,
       notes: removedNotes,
+      drop: { refusal: 'Removed from sprint shows where cards left the sprint; move a card to another sprint’s lane instead' },
     },
   ]
 }
+
+/** The iteration path behind a sprint lane: the team's sprint by that name, or else the path its cards already share. */
+function getSprintPath(name: string, items: readonly WorkItemSummary[], { iterationWindow, teamIterations }: SprintLensRowOptions): string | null {
+  const key = name.trim().toLowerCase()
+  const known = [
+    ...[iterationWindow?.current, iterationWindow?.next].flatMap((iteration) => (iteration ? [{ name: iteration.name, path: iteration.fullName }] : [])),
+    ...(teamIterations ?? []).map((iteration) => ({ name: iteration.name, path: iteration.path })),
+  ]
+  const path = known.find((candidate) => candidate.name.trim().toLowerCase() === key && candidate.path?.trim())?.path
+    ?? items.find((item) => item.sprintName?.trim().toLowerCase() === key && item.iterationPath?.trim())?.iterationPath
+  return path?.trim() || null
+}
+
+function getSprintDrop(name: string, items: readonly WorkItemSummary[], options: SprintLensRowOptions, unchangedReason?: string): LaneDrop {
+  const path = getSprintPath(name, items, options)
+  return path
+    ? { label: name, changes: { iterationPath: path }, unchangedReason: unchangedReason ?? `Already in ${name}` }
+    : { refusal: `${name}’s iteration path isn’t known, so cards can’t be moved into it` }
+}
+
+const SCOPE_UNCHANGED_REASON = 'These lanes record when a card joined the sprint, so only its column can change here'
 
 function getSprintDates(name: string, { iterationWindow, teamIterations }: SprintLensRowOptions): string | undefined {
   const key = name.toLowerCase()
@@ -253,6 +279,7 @@ export function getSprintLensRows(items: readonly WorkItemSummary[], options: Sp
         subtitle: getSprintDates(name, options),
         countsAllItems: true,
         defaultCollapsed: hasCurrent && key !== currentKey && laneCount > 1,
+        drop: getSprintDrop(name, items, options),
       }]))
 
   if (hasNoSprint) {
@@ -262,6 +289,7 @@ export function getSprintLensRows(items: readonly WorkItemSummary[], options: Sp
       iconHref: svgCalendar,
       countsAllItems: true,
       defaultCollapsed: hasCurrent,
+      drop: { refusal: 'Every work item has an iteration; move a card to a sprint’s lane, or to the backlog from its menu' },
     })
   }
 

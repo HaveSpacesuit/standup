@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine, BacklogBug, TeamIterationOption } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
+import { applyWorkItemPatch } from '../../../ado/workItemPatch'
 import { rankBacklogBugs, type RankedBacklogBug } from '../utils/backlogValue'
 import { isAbortError, toErrorMessage } from './queryErrors'
+import { useWorkItemPatches } from './useWorkItemPatches'
 
 type UseBacklogBugsArgs = {
   adoQueryEngine: AdoQueryEngine | null
@@ -71,6 +73,8 @@ export function useBacklogBugs({
       abortController.abort()
     }
   }, [adoQueryEngine, enabled, reloadNonce, selectedTeam])
+
+  useWorkItemPatches(adoQueryEngine, (patch) => setBugs((current) => current && applyWorkItemPatch(current, patch)))
 
   const backlogBugs = useMemo(() => (bugs ? rankBacklogBugs(bugs, iterations) : []), [bugs, iterations])
 
