@@ -4,9 +4,9 @@ import { after, test, type TestContext } from 'node:test'
 import { act, createElement, useState } from 'react'
 import { JSDOM } from 'jsdom'
 import { createServer } from 'vite'
-import type { WorkItemSummary } from '../src/ado/types.ts'
+import type { TriageItem, TriageResult, WorkItemSummary } from '../src/ado/types.ts'
 import type { WorkItemFieldChanges, WorkItemFields } from '../src/ado/workItemUpdateApi.ts'
-import type { WorkItemPatch } from '../src/ado/workItemPatch.ts'
+import type { PatchableWorkItem, WorkItemPatch } from '../src/ado/workItemPatch.ts'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
 for (const name of ['localStorage', 'sessionStorage'] as const) {
@@ -33,6 +33,10 @@ const { useWorkItemEditor } = await server.ssrLoadModule('/src/features/standup/
 const { useWorkItemPatches } = await server.ssrLoadModule('/src/features/standup/hooks/useWorkItemPatches.ts')
 const { applyWorkItemPatch, getWorkItemFields, workItemUrlFor } = await server.ssrLoadModule('/src/ado/workItemPatch.ts')
 const { applyFieldChanges } = await server.ssrLoadModule('/src/ado/workItemUpdateApi.ts')
+const { TriageTable } = await server.ssrLoadModule('/src/features/standup/components/TriageTable.tsx')
+const { TriageInbox } = await server.ssrLoadModule('/src/features/standup/components/TriageInbox.tsx')
+const { applyTriagePatch, getListedTriageResult, getTriageReasons } = await server.ssrLoadModule('/src/ado/triageApi.ts')
+const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
 
 const team = { orgName: 'org', projectName: 'Project', iterationPath: 'Project' }
 const ana = { displayName: 'Ana', uniqueName: 'ana@example.invalid' }
@@ -51,7 +55,7 @@ const makeItem = (id: number, fields: Partial<WorkItemSummary> = {}): WorkItemSu
 type Update = { id: number; changes: WorkItemFieldChanges; expected: Partial<WorkItemFields> }
 
 /** Stands in for the query engine: keeps each item's saved fields and tells subscribers about every change. */
-function createFakeEngine(items: WorkItemSummary[]) {
+function createFakeEngine(items: PatchableWorkItem[]) {
   const saved = new Map<number, WorkItemFields>(items.map((item) => [item.id, getWorkItemFields(item)]))
   const listeners = new Set<(patch: WorkItemPatch) => void>()
   const publish = (patch: WorkItemPatch) => listeners.forEach((listener) => listener(patch))
@@ -297,4 +301,98 @@ test('Copy link falls back to a copy event, and says so when the browser blocks 
   await click(byText('[role="menu"] [role="menuitem"]', 'Copy link'))
   await settle()
   assert.equal(toastText().includes('Couldn’t copy the link to Product Backlog Item 1.'), true)
+})
+
+const bugStates = [
+  { name: 'New', category: 'Proposed' },
+  { name: 'Approved', category: 'Proposed' },
+  { name: 'Committed', category: 'InProgress' },
+  { name: 'Done', category: 'Completed' },
+]
+const triageRules = {
+  options: { tags: ['Triage'], includeNewBugs: true, excludedIterationPaths: [] },
+  metadata: { states: bugStates, workItemTypes: ['Bug'], statesByType: { bug: bugStates } },
+}
+const makeTriageItem = (id: number, fields: Partial<TriageItem> = {}): TriageItem => {
+  const item = {
+    id, title: `Bug ${id}`, workItemType: 'Bug', state: 'New', createdAt: '2026-01-01T00:00:00Z', tags: [] as string[], reasons: [] as string[],
+    workItemUrl: workItemUrlFor(team, id), ...fields,
+  }
+  return { ...item, reasons: getTriageReasons(item, triageRules.options, triageRules.metadata), inInitialState: item.state === 'New' }
+}
+
+/** The Triage page's handling of edits: each one works out again whether the item is still listed. */
+function TriageHarness({ engine, initialItems, view }: { engine: ReturnType<typeof createFakeEngine>; initialItems: TriageItem[]; view: 'table' | 'inbox' }) {
+  const [result, setResult] = useState<TriageResult>({ items: initialItems, warnings: [], rules: triageRules })
+  useWorkItemPatches(engine, (patch: WorkItemPatch) => setResult((current) => applyTriagePatch(current, patch)))
+  const editor = useWorkItemEditor({
+    engine, team, statesByType: { bug: bugStates }, projectStates: bugStates, iterations: [],
+    members: [ana, bo], knownTags: ['Triage', 'frontend'], effortSuggestions: [3, 5], tagRules: [],
+  })
+  const props = {
+    items: getListedTriageResult(result).items, resolveSprint: createBacklogSprintResolver([]), ageFlagDays: 2,
+    readinessChecks: { bug: [], other: [] }, excludedIterationPaths: [], waitingTags: [],
+  }
+  return createElement(WorkItemEditingProvider, { editor },
+    view === 'table' ? createElement(TriageTable, props) : createElement(TriageInbox, { ...props, lastVisit: null }))
+}
+
+async function renderTriage(t: TestContext, items: TriageItem[], view: 'table' | 'inbox') {
+  const engine = createFakeEngine(items)
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => { await act(async () => root.unmount()); host.remove() })
+  await act(async () => root.render(createElement(Root, null, createElement(TriageHarness, { engine, initialItems: items, view }))))
+  return engine
+}
+
+/** The listed items, in order, by the IDs on their More buttons. */
+const listedIds = () => [...document.querySelectorAll('[data-work-item-menu]')].map((button) => Number(button.getAttribute('data-work-item-menu')?.split('#').at(-1)))
+const menuButtonFor = (id: number) => document.querySelector(`[data-work-item-menu="${workItemUrlFor(team, id).toLowerCase()}#${id}"]`)
+
+test('a Triage row’s tag chip removes the tag in place, and an item it clears leaves the queue until an undo', async (t) => {
+  const engine = await renderTriage(t, [makeTriageItem(1, { state: 'Approved', tags: ['frontend', 'Triage'] }), makeTriageItem(2)], 'table')
+  assert.deepEqual(listedIds(), [1, 2])
+  const remove = document.querySelector<HTMLElement>('[aria-label="Remove the “Triage” tag from #1"]')!
+  assert.equal(remove !== null, true)
+
+  await act(async () => remove.focus())
+  await click(remove)
+  assert.deepEqual(listedIds(), [2], 'the approved bug no longer needs triage once untagged')
+  await settle()
+  assert.deepEqual(engine.updates, [{ id: 1, changes: { tags: ['frontend'] }, expected: { tags: ['frontend', 'Triage'] } }])
+  assert.equal(toastText().includes('#1: Tags → frontend.'), true)
+  assert.equal(document.activeElement === menuButtonFor(2), true, 'focus moves on to the next item')
+
+  await click(byText('.MuiSnackbar-root .MuiAlert-action button', 'Undo'))
+  await settle()
+  assert.deepEqual(engine.updates[1], { id: 1, changes: { tags: ['frontend', 'Triage'] }, expected: { tags: ['frontend'] } })
+  assert.deepEqual(listedIds(), [1, 2])
+  assert.equal(document.querySelector('[aria-label="Remove the “Triage” tag from #1"]') !== null, true, 'its reason is back too')
+
+  const addTag = document.querySelector<HTMLElement>('.edit-tags[aria-label="Tags: no tags. Change"]')!
+  assert.equal(addTag.textContent, 'Tag')
+  await click(addTag)
+  assert.equal(document.querySelector('[role="dialog"]')?.textContent?.includes('Edit tags'), true)
+})
+
+test('a Triage card always offers its state, and a new bug moved on from its first state leaves the inbox', async (t) => {
+  const engine = await renderTriage(t, [makeTriageItem(1), makeTriageItem(2)], 'inbox')
+  const card = () => document.querySelector<HTMLElement>('[data-triage-card="1"]')
+  const state = card()!.querySelector<HTMLElement>('[data-edit-field="state"]')!
+  assert.equal(state.textContent, 'New', 'shown even though the item is still in its first state')
+
+  await click(state)
+  assert.equal(document.querySelector('[role="dialog"]')?.textContent?.includes('Change state'), true)
+  await click(byText('[role="menuitemradio"]', 'Approved'))
+  await settle()
+  assert.deepEqual(engine.updates, [{ id: 1, changes: { state: 'Approved' }, expected: { state: 'New' } }])
+  assert.equal(card() === null, true)
+  assert.deepEqual(listedIds(), [2])
+  assert.equal(document.querySelector('[aria-label="Triage summary"]')?.textContent?.startsWith('1 in triage'), true)
+
+  await click(byText('.MuiSnackbar-root .MuiAlert-action button', 'Undo'))
+  await settle()
+  assert.deepEqual(listedIds(), [1, 2])
 })

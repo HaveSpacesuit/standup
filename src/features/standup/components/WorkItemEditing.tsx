@@ -19,7 +19,7 @@ import {
 } from '../utils/workItemEditing'
 import { copyRichText, formatWorkItemLink, getWorkItemLinkLabel } from '../utils/workItemLink'
 import {
-  WORK_ITEM_MENU_ATTRIBUTE, workItemEditKey, WorkItemEditingContext, type EditAnchor, type WorkItemEditingApi,
+  prepareFocusRestore, workItemEditKey, WorkItemEditingContext, type EditAnchor, type WorkItemEditingApi,
 } from './workItemEditingContext'
 import { WIDE_FIELD_EDITORS, WorkItemFieldEditor } from './WorkItemFieldEditors'
 
@@ -31,14 +31,6 @@ function toPosition(anchor: EditAnchor): Position {
   if (!(anchor instanceof Element)) return anchor
   const rect = anchor.getBoundingClientRect()
   return { top: rect.bottom + 4, left: rect.left }
-}
-
-function restoreFocus(key: string) {
-  const active = document.activeElement
-  if (active && active !== document.body && active.isConnected) return
-  const button = [...document.querySelectorAll<HTMLElement>(`[${WORK_ITEM_MENU_ATTRIBUTE}]`)]
-    .find((element) => element.getAttribute(WORK_ITEM_MENU_ATTRIBUTE) === key)
-  button?.focus()
 }
 
 const kbdSx: SxProps<Theme> = {
@@ -289,10 +281,10 @@ export function WorkItemEditingProvider({ editor, children }: { editor: WorkItem
 
   const close = () => {
     if (!open) return
-    const key = workItemEditKey(open.item)
+    const restoreFocus = prepareFocusRestore(workItemEditKey(open.item))
     setOpen(null)
-    // A save can move the card to another lane or column, taking the element focus came from with it.
-    requestAnimationFrame(() => restoreFocus(key))
+    // A save can move the card to another lane or column, or take it off the list, with the element focus came from.
+    requestAnimationFrame(restoreFocus)
   }
 
   return (

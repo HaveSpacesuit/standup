@@ -1,7 +1,9 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { Box, ButtonBase, CircularProgress, IconButton } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
+import type { SystemStyleObject } from '@mui/system'
 import { Icon } from '@stratakit/mui'
+import svgAdd from '@stratakit/icons/add.svg'
 import svgMoreHorizontal from '@stratakit/icons/more-horizontal.svg'
 import svgRefresh from '@stratakit/icons/refresh.svg'
 import { getWorkItemFields } from '../../../ado/workItemPatch'
@@ -9,7 +11,9 @@ import { WORK_ITEM_FIELD_LABELS, type EditableWorkItemField } from '../../../ado
 import {
   describeFieldValue, FIELD_SHORTCUT_KEYS, getEditableFields, isEditableWorkItem, RELOAD_SHORTCUT_KEY, type EditableWorkItem,
 } from '../utils/workItemEditing'
-import { useWorkItemEditing, WORK_ITEM_MENU_ATTRIBUTE, workItemEditKey } from './workItemEditingContext'
+import { AppTooltip } from './AppTooltip'
+import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
+import { useWorkItemEditing, WORK_ITEM_MENU_ATTRIBUTE, workItemEditKey, type WorkItemEditingApi } from './workItemEditingContext'
 import type { BoardDragProps } from '../hooks/useBoardDrag'
 
 /** The class on each item's Reload and More buttons; revealPreviewToggles shows them with the row's preview button. */
@@ -160,7 +164,7 @@ export function EditableWorkItemCard({ item, enabled = true, dragProps, dragging
   )
 }
 
-const fieldButtonSx: SxProps<Theme> = {
+const fieldButtonSx: SystemStyleObject<Theme> = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'inherit',
@@ -176,6 +180,24 @@ const fieldButtonSx: SxProps<Theme> = {
   '&.Mui-focusVisible': { outline: '2px solid var(--stratakit-color-border-accent-base)', outlineOffset: 1 },
 }
 
+const canEditField = (editing: WorkItemEditingApi, item: EditableWorkItem, field: EditableWorkItemField) =>
+  editing.editor.canEdit(item) && getEditableFields(item).includes(field)
+
+/** What makes a button open the field's editor, named for the field and its value. */
+function fieldButtonProps(editing: WorkItemEditingApi, item: EditableWorkItem, field: EditableWorkItemField) {
+  const value = describeFieldValue(field, getWorkItemFields(item)[field])
+  return {
+    'aria-label': `${WORK_ITEM_FIELD_LABELS[field]}: ${value}. Change`,
+    'aria-haspopup': 'dialog',
+    'aria-keyshortcuts': FIELD_SHORTCUT_KEYS[field],
+    'data-edit-field': field,
+    onClick: (event: MouseEvent<HTMLElement>) => {
+      event.stopPropagation()
+      editing.openField(item, field, event.currentTarget)
+    },
+  } as const
+}
+
 /**
  * A field's value in a table cell or panel, as a button that opens its editor. Shows the value alone when the item or
  * field cannot be edited.
@@ -187,21 +209,41 @@ export function EditableFieldButton({ item, field, children, sx }: {
   sx?: SxProps<Theme>
 }) {
   const editing = useWorkItemEditing()
-  if (!editing || !editing.editor.canEdit(item) || !getEditableFields(item).includes(field)) return <>{children}</>
-  const value = describeFieldValue(field, getWorkItemFields(item)[field])
+  if (!editing || !canEditField(editing, item, field)) return <>{children}</>
   return (
-    <ButtonBase
-      aria-label={`${WORK_ITEM_FIELD_LABELS[field]}: ${value}. Change`}
-      aria-haspopup="dialog"
-      aria-keyshortcuts={FIELD_SHORTCUT_KEYS[field]}
-      data-edit-field={field}
-      onClick={(event) => {
-        event.stopPropagation()
-        editing.openField(item, field, event.currentTarget)
-      }}
-      sx={[fieldButtonSx, ...(Array.isArray(sx) ? sx : [sx])]}
-    >
+    <ButtonBase {...fieldButtonProps(editing, item, field)} sx={[fieldButtonSx, ...(Array.isArray(sx) ? sx : [sx])]}>
       {children}
     </ButtonBase>
+  )
+}
+
+/** The class on each EditTagsButton; revealPreviewToggles shows it with the row's preview button. */
+export const EDIT_TAGS_CLASS = 'edit-tags'
+
+const tagButtonSx: SystemStyleObject<Theme> = {
+  gap: 0.25,
+  minHeight: 20,
+  mx: 0,
+  fontSize: 11,
+  color: TERTIARY_TEXT_COLOR,
+  whiteSpace: 'nowrap',
+  '&:hover': { color: 'text.primary' },
+}
+const tagButtonIconStyle = { width: 12, height: 12 }
+
+/**
+ * "+ Tag" after an item's tags, opening its tag editor to add or remove tags in place. In a list styled with
+ * revealPreviewToggles it shows while its row is hovered or focused. Renders nothing when the item's tags can't be edited.
+ */
+export function EditTagsButton({ item }: { item: EditableWorkItem }) {
+  const editing = useWorkItemEditing()
+  if (!editing || !canEditField(editing, item, 'tags')) return null
+  return (
+    <AppTooltip title={`Add or remove tags (${FIELD_SHORTCUT_KEYS.tags})`} describeChild>
+      <ButtonBase className={EDIT_TAGS_CLASS} {...fieldButtonProps(editing, item, 'tags')} sx={[fieldButtonSx, tagButtonSx]}>
+        <Icon href={svgAdd} alt="" style={tagButtonIconStyle} />
+        Tag
+      </ButtonBase>
+    </AppTooltip>
   )
 }

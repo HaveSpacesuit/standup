@@ -1,6 +1,7 @@
-import { Box } from '@mui/material'
+import { Box, ButtonBase } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
+import svgDismiss from '@stratakit/icons/dismiss.svg'
 import svgInbox from '@stratakit/icons/inbox.svg'
 import svgInspection from '@stratakit/icons/inspection.svg'
 import svgStatusSuccess from '@stratakit/icons/status-success.svg'
@@ -10,9 +11,11 @@ import { describeTriageAge, READY_TO_CLEAR_LABEL } from '../utils/triageDisplay'
 import { getTriageEntry, getTriageItemAge } from '../utils/triageInbox'
 import type { TriageCheck, TriageReadinessChecks } from '../utils/triageOptions'
 import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks, type TriageReason } from '../utils/triageRules'
+import { getEditableFields } from '../utils/workItemEditing'
 import { AppTooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
 import { visuallyHiddenSx } from './developmentCardDisplay'
+import { prepareFocusRestore, useWorkItemEditing, workItemEditKey } from './workItemEditingContext'
 import { ImpactBars, MissingValue, NotSet, SeverityChip } from './WorkItemFields'
 import { METER_TRACK_COLOR } from './workItemTableDisplay'
 
@@ -27,7 +30,7 @@ const EFFORT_UNSET_TIP = 'Effort is not set yet.'
 const typeIconSx: SxProps<Theme> = { display: 'inline-flex', alignItems: 'center', height: '1lh', flexShrink: 0 }
 
 // Reason chips are quieter than the tag pills: a filled, square-cornered label so they read as the row's status rather
-// than as more tags. Styled from the list so each row costs one sx.
+// than as more tags. A tag reason ends in a button that removes the tag. Styled from the list so each row costs one sx.
 const reasonListSx: SxProps<Theme> = {
   display: 'flex',
   flexWrap: 'wrap',
@@ -38,7 +41,7 @@ const reasonListSx: SxProps<Theme> = {
   '& > li': {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: 0.5,
+    gap: 0.25,
     height: 20,
     pl: 0.625,
     pr: 0.875,
@@ -47,10 +50,20 @@ const reasonListSx: SxProps<Theme> = {
     bgcolor: METER_TRACK_COLOR,
     color: 'text.secondary',
     whiteSpace: 'nowrap',
-    cursor: 'help',
+  },
+  '& > li:has(> .remove-tag)': { pr: 0.25 },
+  '& .reason': { display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'help' },
+  '& .remove-tag': {
+    width: 16,
+    height: 16,
+    borderRadius: '50%',
+    color: 'text.secondary',
+    '&:hover': { color: 'text.primary', bgcolor: 'var(--stratakit-color-bg-glow-on-surface-neutral-hover)' },
+    '&.Mui-focusVisible': { outline: '2px solid var(--stratakit-color-border-accent-base)', outlineOffset: 1 },
   },
 }
 const reasonIconStyle = { width: 12, height: 12, flexShrink: 0 }
+const removeIconStyle = { width: 10, height: 10 }
 
 const flaggedAgeSx: SxProps<Theme> = { color: 'var(--stratakit-color-text-attention-base)', fontWeight: 600 }
 
@@ -211,18 +224,45 @@ function describeReason(reason: TriageReason, item: TriageItem): string {
     : `Listed because it is a bug still in its first state, ${item.state}.`
 }
 
+/** Takes the tag off the item in one click; the toast offers Undo. Renders nothing when the item's tags can't be edited. */
+function RemoveReasonTagButton({ item, tag }: { item: TriageItem; tag: string }) {
+  const editing = useWorkItemEditing()
+  if (!editing || !editing.editor.canEdit(item) || !getEditableFields(item).includes('tags')) return null
+  const { editor } = editing
+  return (
+    <AppTooltip title={`Remove the “${tag}” tag`} describeChild>
+      <ButtonBase
+        className="remove-tag"
+        aria-label={`Remove the “${tag}” tag from #${item.id}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          // Without its last reason the item leaves the list, taking this button with it.
+          const restoreFocus = prepareFocusRestore(workItemEditKey(item))
+          void editor.save(item, { tags: item.tags.filter((name) => name.toLowerCase() !== tag.toLowerCase()) })
+          requestAnimationFrame(restoreFocus)
+        }}
+      >
+        <Icon href={svgDismiss} alt="" style={removeIconStyle} />
+      </ButtonBase>
+    </AppTooltip>
+  )
+}
+
 export function TriageReasons({ item, clearing }: { item: TriageItem; clearing: string }) {
   const reasons = getTriageReasonDetails(item)
   if (reasons.length === 0) return <NotSet />
   return (
     <Box component="ul" role="list" aria-label="Why it is listed" sx={reasonListSx}>
       {reasons.map((reason) => (
-        <AppTooltip key={reason.label} title={<TipLines lines={[describeReason(reason, item), clearing].filter(Boolean)} />} describeChild>
-          <li>
-            <Icon href={reason.kind === 'tag' ? svgTag : svgInbox} alt="" style={reasonIconStyle} />
-            {reason.label}
-          </li>
-        </AppTooltip>
+        <li key={reason.label}>
+          <AppTooltip title={<TipLines lines={[describeReason(reason, item), clearing].filter(Boolean)} />} describeChild>
+            <span className="reason">
+              <Icon href={reason.kind === 'tag' ? svgTag : svgInbox} alt="" style={reasonIconStyle} />
+              {reason.label}
+            </span>
+          </AppTooltip>
+          {reason.kind === 'tag' ? <RemoveReasonTagButton item={item} tag={reason.tag} /> : null}
+        </li>
       ))}
     </Box>
   )

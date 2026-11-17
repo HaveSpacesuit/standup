@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { Badge, Box, Link } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
@@ -75,8 +75,11 @@ function WorkItemTags({ tags, compact }: { tags: string[] | undefined; compact: 
   )
 }
 
-/** The id, then the title linking to the work item, then the tags. Render inside a cell styled with workItemTitleCellSx. */
-export function WorkItemTitle({ item, compact = false }: { item: WorkItemTitleItem; compact?: boolean }) {
+/**
+ * The id, then the title linking to the work item, then the tags and `tagsAction`, such as an EditTagsButton. Render
+ * inside a cell styled with workItemTitleCellSx.
+ */
+export function WorkItemTitle({ item, compact = false, tagsAction }: { item: WorkItemTitleItem; compact?: boolean; tagsAction?: ReactNode }) {
   const link = (
     <Link href={item.workItemUrl} target="_blank" rel="noreferrer noopener">
       <span className="work-item-title">{item.title}</span>
@@ -92,6 +95,7 @@ export function WorkItemTitle({ item, compact = false }: { item: WorkItemTitleIt
       <span className="work-item-id">{item.id}</span>{' '}
       {compact ? <Tooltip title={item.title} describeChild>{link}</Tooltip> : link}
       <WorkItemTags tags={item.tags} compact={compact} />
+      {tagsAction ? <>{' '}{tagsAction}</> : null}
     </Box>
   )
 }

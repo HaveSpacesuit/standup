@@ -1,4 +1,6 @@
+import type { TriageQueryOptions } from '../features/standup/utils/triageOptions'
 import type { IdentityRef } from './identity'
+import type { ProjectWorkItemTypeInfo } from './workItemTypesApi'
 import type { WorkItemStatus } from './workItemStatus'
 
 export type TeamMember = {
@@ -206,6 +208,8 @@ export type TriageResult = {
   warnings: string[]
   /** Opens the same rules as an Azure DevOps query, for edits the page cannot make. */
   queryUrl?: string
+  /** The rules that listed the items, so an item edited until it no longer meets them leaves the queue without a refresh. */
+  rules?: { options: TriageQueryOptions; metadata: ProjectWorkItemTypeInfo }
 }
 
 /** A rich-text field the preview panel shows. */

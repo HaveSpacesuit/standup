@@ -27,7 +27,7 @@ import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewToggleButton } from './WorkItemPreviewPanel'
-import { EditableFieldButton, WorkItemActions } from './WorkItemActions'
+import { EditableFieldButton, EditTagsButton, WorkItemActions } from './WorkItemActions'
 import { getEditableRowProps, useWorkItemEditing } from './workItemEditingContext'
 import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { WorkItemTitle } from './WorkItemTitle'
@@ -247,7 +247,8 @@ function StaleText({ item, ageFlagDays, waitingTags, now }: { item: TriageItem; 
   )
 }
 
-// Only what differs from a fresh item: a state other than the type's first, someone assigned, or a parent.
+// Only what differs from a fresh item: a state other than the type's first, someone assigned, or a parent. An editable
+// item always shows its state, so it can be moved on from the card.
 const showsState = (item: TriageItem) => item.inInitialState === undefined ? item.state !== 'New' : !item.inInitialState
 
 /**
@@ -315,14 +316,14 @@ function TriageInboxCard({
       <TriageTypeIcon item={item} />
       <div className="card-main">
         <div className="card-title">
-          <WorkItemTitle item={{ ...item, tags }} />
+          <WorkItemTitle item={{ ...item, tags }} tagsAction={<EditTagsButton item={item} />} />
           <WorkItemActions item={item} />
           {preview ? <PreviewToggleButton id={item.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} /> : null}
         </div>
         <div className="card-meta">
           <EntryText item={item} now={now} />
           <TriageReasons item={item} clearing={clearing} />
-          {showsState(item) ? <><Separator /><EditableFieldButton item={item} field="state"><StateLabel state={item.state} /></EditableFieldButton></> : null}
+          {showsState(item) || canEdit ? <><Separator /><EditableFieldButton item={item} field="state"><StateLabel state={item.state} /></EditableFieldButton></> : null}
           {item.assignedTo ? (
             <>
               <Separator />
