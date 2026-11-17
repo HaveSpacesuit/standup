@@ -23,6 +23,7 @@ const { DEFAULT_EFFORT_SUGGESTIONS, MAX_EFFORT_SUGGESTIONS, parseEffortSuggestio
   await server.ssrLoadModule('/src/features/standup/utils/assignmentOptions.ts')
 const { createDefaultAssignmentOptions, createDefaultQaOptions } = await server.ssrLoadModule('/src/features/standup/utils/standupOptionDefaults.ts')
 const { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } = await server.ssrLoadModule('/src/teamDataTransfer.ts')
+const { formatWorkItemLink } = await server.ssrLoadModule('/src/features/standup/utils/workItemLink.ts')
 
 type Item = import('../src/features/standup/utils/workItemEditing.ts').EditableWorkItem
 type DropOption = import('../src/features/standup/utils/workItemEditing.ts').DropOption
@@ -229,4 +230,17 @@ test('effort suggestions are stored per team and travel with team exports', () =
   const legacy = JSON.parse(serializeTeamDataExport(data))
   delete legacy.assignmentOptions.effortSuggestions
   assert.deepEqual(parseImportedTeamData(JSON.stringify(legacy)).assignmentOptions.effortSuggestions, [4, 8, 16, 24, 40])
+})
+
+test('a copied link names the item like Azure DevOps does, even without a type, title, or link', () => {
+  const url = 'https://dev.azure.com/org/Project/_workitems/edit/5/'
+  assert.deepEqual(formatWorkItemLink({ id: 5, title: ' Fix it ', workItemUrl: url }), {
+    text: 'Work item 5: Fix it',
+    html: `<a href="${url}">Work item 5</a>: Fix it`,
+  })
+  assert.deepEqual(formatWorkItemLink({ id: 5, title: '', workItemType: 'Task', workItemUrl: url }), {
+    text: 'Task 5',
+    html: `<a href="${url}">Task 5</a>`,
+  })
+  assert.deepEqual(formatWorkItemLink({ id: 5, title: 'A & B', workItemType: 'Bug' }), { text: 'Bug 5: A & B', html: 'Bug 5: A &amp; B' })
 })

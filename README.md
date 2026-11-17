@@ -675,7 +675,10 @@ without one. Pull request cards cannot be edited.
 - **Cards**: hovering or focusing a card shows **Reload** and **Edit** (⋯) buttons on its top edge,
   or its bottom edge when the column header covers the top (always shown, on touch screens). **Edit**, a
   right-click, Shift+F10, or the Menu key opens the item's menu, which lists each field with its value,
-  then **Reload from Azure DevOps** and **Open in Azure DevOps**.
+  then **Reload from Azure DevOps**, **Copy link**, and **Open in Azure DevOps**. **Copy link** copies
+  the item as Azure DevOps does, such as "Bug 123: Title": rich-text editors paste it with "Bug 123"
+  linked to the item, and plain-text editors paste the same text without the link. It works without
+  edit access.
 - **Tables, Inbox cards, and preview panels**: each field's value is a button that opens its editor,
   and rows and Inbox cards have the same **Reload** and **Edit** buttons and menu.
 - **Keys**: while a card, row, or preview panel has focus, **S** edits State, **A** Assigned To, **I**
