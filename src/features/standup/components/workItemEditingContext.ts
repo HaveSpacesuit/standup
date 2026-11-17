@@ -28,6 +28,31 @@ export const WORK_ITEM_MENU_ATTRIBUTE = 'data-work-item-menu'
 
 export const workItemEditKey = (item: EditableWorkItem) => `${item.workItemUrl?.toLowerCase() ?? ''}#${item.id}`
 
+const menuButtons = () => [...document.querySelectorAll<HTMLElement>(`[${WORK_ITEM_MENU_ATTRIBUTE}]`)]
+
+/**
+ * Call before a change that can move the item or take it off the list, then call what it returns once the change has
+ * rendered. If focus was lost, it returns to the item's More button, or when the item has left, to the nearest item's
+ * after it, else before it.
+ */
+export function prepareFocusRestore(key: string): () => void {
+  const keys = [...new Set(menuButtons().map((element) => element.getAttribute(WORK_ITEM_MENU_ATTRIBUTE)))]
+  const at = keys.indexOf(key)
+  const fallbacks = at < 0 ? [] : [...keys.slice(at + 1), ...keys.slice(0, at).reverse()]
+  return () => {
+    const active = document.activeElement
+    if (active && active !== document.body && active.isConnected) return
+    const buttons = menuButtons()
+    for (const candidate of [key, ...fallbacks]) {
+      const button = buttons.find((element) => element.getAttribute(WORK_ITEM_MENU_ATTRIBUTE) === candidate)
+      if (button) {
+        button.focus()
+        return
+      }
+    }
+  }
+}
+
 /**
  * Props that make a table row or list item editable from the keyboard and by right-click; spread onto the row. Empty
  * without editing.

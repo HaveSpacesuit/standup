@@ -61,12 +61,12 @@ export type PreviewControls = {
 }
 
 /**
- * Styles for a list whose rows (`row`, such as '& > tr') hold a PreviewToggleButton or WorkItemActions: the buttons
- * show while their row is hovered, focused, previewed or updating, and always where there is no hover.
+ * Styles for a list whose rows (`row`, such as '& > tr') hold a PreviewToggleButton, WorkItemActions or EditTagsButton:
+ * the buttons show while their row is hovered, focused, previewed or updating, and always where there is no hover.
  */
 export function revealPreviewToggles(row: string) {
-  const reveal = '.preview-toggle, & .work-item-actions'
-  const shown = (scope: string) => `${scope} .preview-toggle, ${scope} .work-item-actions`
+  const reveal = '.preview-toggle, & .work-item-actions, & .edit-tags'
+  const shown = (scope: string) => `${scope} .preview-toggle, ${scope} .work-item-actions, ${scope} .edit-tags`
   return {
     [`& ${reveal}`]: { opacity: 0, transition: 'opacity 120ms' },
     [`${shown(`${row}:hover`)}, ${shown(`${row}:focus-within`)}, & .preview-toggle[aria-pressed="true"], & .work-item-actions[data-busy]`]: { opacity: 1 },

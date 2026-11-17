@@ -349,6 +349,9 @@ Backlog's table in order and formatting. The Work item column shows an accessibl
 the title linking to Azure DevOps, and the tags as pills after it. **Why** follows it, with a chip for
 each rule the item meets: a tag chip such as **Triage tag**, or **New bug**. A Triage tag the item
 matched appears only there, so it does not repeat on every title; its other tags stay on the title.
+While you can edit, each tag chip has a **×** that removes that tag at once, and a **+ Tag** button
+after the title's tags (shown while the row is hovered or focused) opens the Tags editor to add or
+remove any tag, as described under [Editing work items](#editing-work-items).
 **Readiness** comes next: a green **Ready to clear** chip once every check for the item's type passes,
 or the fields still missing, each with a dashed `?`. Repro steps, Acceptance criteria, and
 Description count as filled when they hold text or an image, such as a pasted screenshot; empty
@@ -392,14 +395,15 @@ waiting. The items follow in up to three groups, each longest in triage first:
 
 Each card shows the type icon, ID, linked title, and the item's other tags, then how it arrived:
 **Filed** with when and by whom, or **Tagged “Triage”** or **Moved to New** with when, by whom, and
-the created date. The Why chips follow, then only what differs from a fresh item: a state other
-than the type's first, the assignee, and the parent link. A waiting item says which tag it carries
-and since when; once someone other than whoever added the tag comments after it was added, the card
-shows **replied** with the comment's start in a tooltip. An item past the age flag says how many
-working days it has been in triage. Below, a checklist marks each readiness check filled or missing
-(or shows **Ready to clear**, with a green edge on the card) beside what clears the item. Severity,
-Impact, Effort, and the sprint (unless Backlog) sit to the right, folding under the title when the
-page is narrow.
+the created date. The Why chips follow, then the state, the assignee, and the parent link, each only
+when it differs from a fresh item, except that the state always shows while you can edit, to change
+it in place. Cards have the Table's **+ Tag** button and **×** on tag chips. A waiting item says
+which tag it carries and since when; once someone other than whoever added the tag comments after it
+was added, the card shows **replied** with the comment's start in a tooltip. An item past the age
+flag says how many working days it has been in triage. Below, a checklist marks each readiness check
+filled or missing (or shows **Ready to clear**, with a green edge on the card) beside what clears the
+item. Severity, Impact, Effort, and the sprint (unless Backlog) sit to the right, folding under the
+title when the page is narrow.
 
 To tell when each item entered triage and whether anyone replied, the page reads each item's update
 history and, when it has comments, its newest comment. History loads for up to 100 items; beyond
@@ -447,7 +451,7 @@ scroll as usual while the panel is closed or has focus: click or tab into the pa
 with the keyboard.
 
 The panel's header shows the item's type, ID, and title, then its Severity, Impact, Effort, sprint,
-state, and assignee as the Table shows them. Below that:
+state, assignee, and tags as the Table shows them. Below that:
 
 - **Why it's here**: how the item arrived, as the Inbox card says, and what clears it.
 - **Readiness**: the readiness checklist, when there are readiness checks.
@@ -680,7 +684,8 @@ without one. Pull request cards cannot be edited.
   linked to the item, and plain-text editors paste the same text without the link. It works without
   edit access.
 - **Tables, Inbox cards, and preview panels**: each field's value is a button that opens its editor,
-  and rows and Inbox cards have the same **Reload** and **Edit** buttons and menu.
+  and rows and Inbox cards have the same **Reload** and **Edit** buttons and menu. On Triage, **+ Tag**
+  after an item's tags opens the Tags editor, and **×** on a Why tag chip removes that tag.
 - **Keys**: while a card, row, or preview panel has focus, **S** edits State, **A** Assigned To, **I**
   Iteration, **E** Effort, **V** Severity, **P** Impact, **T** Tags, **F2** the title, and **R** reloads
   the item. The same keys work inside the menu.
@@ -702,8 +707,11 @@ off until the PAT changes or the page reloads, and the menu says why; reloading 
 
 **Reload** reads one item from Azure DevOps and updates it in every view without refreshing the page,
 for changes made elsewhere. The toast says which fields changed, or that the item is up to date. An
-edited or reloaded item updates where it is listed, but does not join or leave a list (such as the
-Triage queue) until the page refreshes.
+edited or reloaded item updates where it is listed. The Triage queue also checks it against its
+rules again: an item that no longer qualifies, such as one whose Triage tag was removed or a new bug
+moved to Approved or into an excluded sprint, leaves the queue at once, and **Undo** brings it back.
+Otherwise items do not join or leave a list until the page refreshes, so an item that newly
+qualifies for triage joins on the next refresh.
 
 #### Drag and drop on Development
 

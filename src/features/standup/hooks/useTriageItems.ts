@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
+import { applyTriagePatch, getListedTriageResult } from '../../../ado/triageApi'
 import type { TriageResult } from '../../../ado/types'
 import type { TeamProfile } from '../../../appSettings'
-import { applyWorkItemPatch } from '../../../ado/workItemPatch'
 import { hasTriageRules, type TriageQueryOptions } from '../utils/triageOptions'
 import { isAbortError, toErrorMessage } from './queryErrors'
 import { useWorkItemPatches } from './useWorkItemPatches'
@@ -46,15 +46,18 @@ export function useTriageItems({ adoQueryEngine, selectedTeam, options, enabled,
     return () => { active = false }
   }, [adoQueryEngine, canLoad, key, options, selectedTeam])
 
+  // An edit can take an item off the queue; it is kept, hidden, so an undo brings it back.
   useWorkItemPatches(adoQueryEngine, (patch) => setSnapshot((current) => {
     if (!current?.result) return current
-    const items = applyWorkItemPatch(current.result.items, patch)
-    return items === current.result.items ? current : { ...current, result: { ...current.result, items } }
+    const result = applyTriagePatch(current.result, patch)
+    return result === current.result ? current : { ...current, result }
   }))
 
   const current = canLoad && snapshot?.engine === adoQueryEngine && snapshot.key === key ? snapshot : null
+  const loaded = current?.result ?? null
+  const triageResult = useMemo(() => (loaded ? getListedTriageResult(loaded) : EMPTY_RESULT), [loaded])
   return {
-    triageResult: current?.result ?? EMPTY_RESULT,
+    triageResult,
     triageLoading: canLoad && (!current || (current.result === null && current.error === null)),
     triageError: current?.error ?? null,
   }

@@ -9,8 +9,10 @@ const server = await createServer({ configFile: false, server: { middlewareMode:
 after(() => server.close())
 const { buildAdoQueryUrl, buildTriageQueryWiql, buildTriageWiql } = await server.ssrLoadModule('/src/ado/wiql.ts')
 const {
-  fetchTriageItems, getTriageReasons, hasRichTextContent, isUnderIteration, summarizeTriageHistory, toPlainText, TRIAGE_HISTORY_LIMIT,
+  applyTriagePatch, fetchTriageItems, getListedTriageResult, getTriageReasons, hasRichTextContent, isUnderIteration, summarizeTriageHistory,
+  toPlainText, TRIAGE_HISTORY_LIMIT,
 } = await server.ssrLoadModule('/src/ado/triageApi.ts')
+const { getWorkItemFields } = await server.ssrLoadModule('/src/ado/workItemPatch.ts')
 const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 const metadata: ProjectWorkItemTypeInfo = {
   states: [], workItemTypes: ['Bug', 'Task'],
@@ -274,6 +276,45 @@ test('no rules performs no requests, while item query failures reject explicitly
   await assert.rejects(() => fetchTriageItems({ request: async () => { throw new Error('HTTP 503') } }, team, options, metadata), /503/)
 })
 
+test('an edit works out again why each item is listed, so items it clears leave the listed queue until an undo', async () => {
+  const { client } = clientFor([raw(1), raw(2, { 'System.Tags': 'frontend' }), raw(3, { 'System.WorkItemType': 'Task', 'System.State': 'Done' })])
+  const loaded = await fetchTriageItems(client, team, options, metadata)
+  type Item = { id: number; workItemUrl: string; reasons: string[]; inInitialState?: boolean; tags: string[] }
+  const byId = (result: { items: Item[] }, id: number) => result.items.find((item) => item.id === id)!
+  const edit = (result: typeof loaded, id: number, fields: Record<string, unknown>, preview?: boolean) => {
+    const item = byId(result, id)
+    return applyTriagePatch(result, { id, workItemUrl: item.workItemUrl, fields: { ...getWorkItemFields(item), ...fields }, preview })
+  }
+  const listed = (result: typeof loaded) => getListedTriageResult(result).items.map((item: Item) => item.id)
+  assert.deepEqual(listed(loaded), [1, 2, 3])
+  assert.equal(getListedTriageResult(loaded), loaded, 'a queue with nothing cleared is returned as is')
+
+  const untagged = edit(loaded, 1, { tags: ['frontend'] })
+  assert.deepEqual(byId(untagged, 1).reasons, ['New bug'], 'removing the tag drops its reason')
+  assert.deepEqual(byId(untagged, 1).tags, ['frontend'])
+  assert.deepEqual(listed(untagged), [1, 2, 3], 'a new bug still needs triage')
+
+  const approved = edit(loaded, 2, { state: 'Approved' }, true)
+  assert.deepEqual(byId(approved, 2).reasons, [])
+  assert.equal(byId(approved, 2).inInitialState, false)
+  assert.deepEqual(listed(approved), [1, 3], 'an approved bug leaves while its edit is still saving')
+  const undone = edit(approved, 2, { state: 'Reported' })
+  assert.deepEqual(byId(undone, 2).reasons, ['New bug'])
+  assert.equal(byId(undone, 2).inInitialState, true)
+  assert.deepEqual(listed(undone), [1, 2, 3], 'an undo brings it back in its place')
+
+  assert.deepEqual(listed(edit(loaded, 2, { iterationPath: 'Project\\To Refine\\Later' })), [1, 3], 'an excluded sprint clears a new bug')
+  assert.deepEqual(listed(edit(loaded, 3, { tags: [] })), [1, 2], 'removing the only matching tag clears any item')
+  assert.deepEqual(listed(edit(loaded, 1, { state: 'Done' })), [2, 3], 'a finished state clears every reason')
+  assert.deepEqual(byId(edit(loaded, 1, { state: 'Unknown' }), 1).reasons, ['Tag: Triage', 'New bug'], 'an unknown state keeps the listed reasons')
+
+  const elsewhere = { id: 1, workItemUrl: 'https://dev.azure.com/other/Project/_workitems/edit/1', fields: { ...getWorkItemFields(byId(loaded, 1)), tags: [] } }
+  assert.equal(applyTriagePatch(loaded, elsewhere), loaded, 'the same ID in another organization is not this item')
+  const { rules: _rules, ...withoutRules } = loaded
+  const fieldsOnly = edit(withoutRules, 2, { state: 'Approved' })
+  assert.equal(byId(fieldsOnly, 2).reasons.length, 1, 'without the rules an edit changes only the fields')
+})
+
 test('query engine isolates normalized cache keys by team, scope and options, invalidates and retries failures', async (t) => {
   let queries = 0
   let fail = false
@@ -325,4 +366,27 @@ test('query engine ignores excluded iteration paths while the new-bug rule is of
   await engine.getTriageItems(team, { ...off, excludedIterationPaths: ['Project\\Elsewhere'] })
   assert.equal(bodies.length, 1, 'paths that are not in use share one cached query')
   assert.doesNotMatch(bodies[0], /IterationPath/)
+})
+
+test('query engine works out again whether a reloaded item is still listed, so a reopened page leaves out what an edit cleared', async (t) => {
+  const fields = { 'System.Title': 'Item 1', 'System.WorkItemType': 'Bug', 'System.State': 'Approved', 'System.Tags': 'Triage' }
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    const url = new URL(String(input))
+    if (url.pathname.endsWith('/workitemtypes')) {
+      return Response.json({ value: Object.entries(metadata.statesByType).map(([name, states]) => ({ name, states })) })
+    }
+    if (url.pathname.endsWith('/wiql')) return Response.json({ workItems: [{ id: 1 }] })
+    if (url.pathname.endsWith('/workitemicons')) return Response.json({ value: [] })
+    if (url.pathname.endsWith('/workitemsbatch')) return Response.json({ value: [{ id: 1, fields }] })
+    if (url.pathname.endsWith('/updates')) return Response.json({ value: [] })
+    // Someone else has since taken the Triage tag off.
+    if (url.pathname.endsWith('/_apis/wit/workitems/1')) return Response.json({ id: 1, rev: 2, fields: { ...fields, 'System.Tags': '' } })
+    throw new Error(`Unexpected request: ${url.pathname}`)
+  })
+  const engine = new AdoQueryEngine('fixture-token')
+  assert.deepEqual((await engine.getTriageItems(team, options)).items.map((item: { reasons: string[] }) => item.reasons), [['Tag: Triage']])
+  await engine.reloadWorkItem(team, 1)
+  const cached = await engine.getTriageItems(team, options)
+  assert.deepEqual(cached.items.map((item: { tags: string[]; reasons: string[] }) => [item.tags, item.reasons]), [[[], []]])
+  assert.deepEqual(getListedTriageResult(cached).items, [])
 })

@@ -14,7 +14,7 @@ import { TriageChecklist, TriageEffort, TriageImpact, TriageSeverity } from './T
 import { TriageEntryLine } from './TriageInbox'
 import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
-import { PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
+import { NotSet, PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { EditableFieldButton } from './WorkItemActions'
 import { PreviewSection, WorkItemPreviewDetails, WorkItemPreviewPanel, type PreviewLoad } from './WorkItemPreviewPanel'
 
@@ -86,6 +86,10 @@ export function TriagePreviewPanel({
       <span>
         <span className="label">Assigned</span>
         <EditableFieldButton item={item} field="assignedTo"><PersonLabel person={item.assignedTo} emptyLabel="Unassigned" /></EditableFieldButton>
+      </span>
+      <span>
+        <span className="label">Tags</span>
+        <EditableFieldButton item={item} field="tags">{item.tags.length ? item.tags.join(', ') : <NotSet />}</EditableFieldButton>
       </span>
     </>
   )

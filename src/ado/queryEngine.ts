@@ -16,7 +16,7 @@ import { fetchQualityAssuranceRawData, fetchSprintScopeChanges, fetchWorkItemsFo
 import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
 import type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
 import type { QualityAssuranceRawData } from './workItemsApi'
-import { fetchTriageItems } from './triageApi'
+import { applyTriagePatch, fetchTriageItems } from './triageApi'
 import type { TriageResult, WorkItemPreview } from './types'
 import { fetchWorkItemPreview, resolveAdoAttachmentRequest } from './workItemPreviewApi'
 import { getTriageQueryOptions, hasTriageRules, parseTriageOptions, type TriageQueryOptions } from '../features/standup/utils/triageOptions'
@@ -492,7 +492,7 @@ export class AdoQueryEngine {
     const apply = <T extends { id: number; workItemUrl?: string; title: string }>(items: T[]) => applyWorkItemPatch(items, patch)
     patchCachedValues(this.teamWorkItemsCache, apply)
     patchCachedValues(this.backlogBugsCache, apply)
-    patchCachedValues(this.triageItemsCache, (result) => ({ ...result, items: apply(result.items) }))
+    patchCachedValues(this.triageItemsCache, (result) => applyTriagePatch(result, patch))
     // The item's history and details now have a newer revision.
     this.clearWorkItemUpdatesCache(team, [id])
     // QA sorts items by their history, so a QA list holding the item also takes its new history.

@@ -16,7 +16,7 @@ import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { NotSet, PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewToggleButton } from './WorkItemPreviewPanel'
-import { EditableFieldButton, WorkItemActions } from './WorkItemActions'
+import { EditableFieldButton, EditTagsButton, WorkItemActions } from './WorkItemActions'
 import { getEditableRowProps, useWorkItemEditing } from './workItemEditingContext'
 import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { WorkItemTitle } from './WorkItemTitle'
@@ -135,10 +135,10 @@ export function TriageTable({
                     <TriageTypeIcon item={item} />
                     {match && onCompare ? (
                       <Box sx={titleStackSx}>
-                        <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} />
+                        <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} tagsAction={<EditTagsButton item={item} />} />
                         <TriageMatchStrip itemId={item.id} match={match} detail={describeTriageMatch(match, resolveSprint)} compact onCompare={onCompare} />
                       </Box>
-                    ) : <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} />}
+                    ) : <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} tagsAction={<EditTagsButton item={item} />} />}
                     <Box className="row-tools" sx={rowToolsSx}>
                       <WorkItemActions item={item} />
                       {preview ? <PreviewToggleButton id={item.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} /> : null}

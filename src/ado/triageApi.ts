@@ -7,6 +7,7 @@ import type { TriageEvent, TriageHistory, TriageItem, TriageResult, TriageTextFi
 import { buildAdoQueryUrl, buildTriageQueryWiql, buildTriageWiql } from './wiql'
 import { resolveUpdateTimestamp } from './workItemHistoryTimeline'
 import { fetchWorkItemIconMap } from './workItemIconsApi'
+import { applyWorkItemPatch, matchesWorkItemPatch, type WorkItemPatch } from './workItemPatch'
 import { getInitialState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
 import { chunkArray, EFFORT_FIELD_NAMES, fetchWorkItemIdsByWiql, getIconIdForWorkItemType, parseEffort, resolveEffort, resolveTags, WORK_ITEM_BATCH_LIMIT } from './workItemsApi'
 
@@ -253,5 +254,36 @@ export async function fetchTriageItems(
     return Number.isFinite(time) ? time : Infinity
   }
   items.sort((a, b) => (createdTime(a) - createdTime(b)) || a.id - b.id)
-  return { items, warnings: [...new Set(warnings)], queryUrl }
+  return { items, warnings: [...new Set(warnings)], queryUrl, rules: { options, metadata } }
+}
+
+/**
+ * The queue with an edited item's fields, and with whether it still meets the Triage rules worked out again from them.
+ * An item that no longer does keeps its place with no reasons, so the page hides it and an undo brings it back.
+ */
+export function applyTriagePatch(result: TriageResult, patch: WorkItemPatch): TriageResult {
+  const items = applyWorkItemPatch(result.items, patch)
+  if (items === result.items) return result
+  const { rules } = result
+  if (!rules) return { ...result, items }
+  return {
+    ...result,
+    items: items.map((item) => {
+      if (!matchesWorkItemPatch(item, patch)) return item
+      try {
+        const reasons = getTriageReasons(item, rules.options, rules.metadata)
+        const inInitialState = getInitialState(rules.metadata, item.workItemType)?.name.toLowerCase() === item.state.toLowerCase()
+        return { ...item, reasons, inInitialState }
+      } catch {
+        // A state the project's metadata does not know keeps the reasons the item was listed with.
+        return item
+      }
+    }),
+  }
+}
+
+/** The queue without the items an edit has taken off it since it loaded. */
+export function getListedTriageResult(result: TriageResult): TriageResult {
+  if (result.items.every((item) => item.reasons.length > 0)) return result
+  return { ...result, items: result.items.filter((item) => item.reasons.length > 0) }
 }
