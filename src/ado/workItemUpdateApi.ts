@@ -31,7 +31,7 @@ export type WorkItemFieldChanges = {
   effort?: number | null
 }
 
-type PatchOperation = { op: 'test' | 'add' | 'remove'; path: string; value?: unknown }
+type PatchOperation = { op: 'test' | 'add' | 'replace' | 'remove'; path: string; value?: unknown }
 
 export const EDITABLE_WORK_ITEM_FIELDS: readonly EditableWorkItemField[] = [
   'title', 'state', 'assignedTo', 'iterationPath', 'effort', 'severity', 'priority', 'tags',
@@ -241,7 +241,9 @@ export function buildWorkItemPatch(rev: number, changes: WorkItemFieldChanges, i
     const serialized = field === 'assignedTo' ? (value as IdentityRef).uniqueName!.trim()
       : field === 'tags' ? normalizeTags(value as string[]).join('; ')
         : typeof value === 'string' ? value.trim() : value
-    operations.push({ op: 'add', path, value: serialized })
+    // Azure DevOps merges tags given with add into the item's tags, so it could never remove one; replace sets the list.
+    const hasTags = field === 'tags' && typeof fields[reference] === 'string' && (fields[reference] as string).trim() !== ''
+    operations.push({ op: hasTags ? 'replace' : 'add', path, value: serialized })
   }
   return operations.length ? [{ op: 'test', path: '/rev', value: rev }, ...operations] : []
 }

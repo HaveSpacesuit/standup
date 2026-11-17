@@ -51,7 +51,11 @@ test('the patch is guarded by the revision, adds and trims values, and clears on
     { op: 'add', path: '/fields/System.Title', value: 'Renamed' },
     { op: 'add', path: '/fields/System.AssignedTo', value: 'bo@example.invalid' },
     { op: 'remove', path: '/fields/Microsoft.VSTS.Scheduling.Effort' },
-    { op: 'add', path: '/fields/System.Tags', value: 'A; b' },
+    { op: 'replace', path: '/fields/System.Tags', value: 'A; b' },
+  ])
+  assert.deepEqual(buildWorkItemPatch(3, { tags: ['b'] }, apiItem(3, { 'System.Tags': undefined })), [
+    { op: 'test', path: '/rev', value: 3 },
+    { op: 'add', path: '/fields/System.Tags', value: 'b' },
   ])
   assert.deepEqual(buildWorkItemPatch(3, { tags: [], priority: 2 }, item), [
     { op: 'test', path: '/rev', value: 3 },
@@ -94,7 +98,7 @@ test('saving reads the item, then patches only what changes against the revision
   assert.deepEqual(client.patches().map((call) => call.body), [[
     { op: 'test', path: '/rev', value: 4 },
     { op: 'add', path: '/fields/System.State', value: 'Resolved' },
-    { op: 'add', path: '/fields/System.Tags', value: 'A; B' },
+    { op: 'replace', path: '/fields/System.Tags', value: 'A; B' },
   ]])
   assert.equal(saved.fields.state, 'Resolved')
   assert.deepEqual(saved.fields.tags, ['A', 'B'])
@@ -102,6 +106,16 @@ test('saving reads the item, then patches only what changes against the revision
   const unchanged = fakeClient([apiItem(4)])
   assert.equal((await updateWorkItemFields(unchanged, team, 7, { state: 'active' })).item.rev, 4)
   assert.equal(unchanged.calls.length, 1)
+})
+
+test('removing one of several tags replaces the tag list, since Azure DevOps merges added tags', async () => {
+  const client = fakeClient([apiItem(4, { 'System.Tags': 'Frontend; Triage' })], () => apiItem(5, { 'System.Tags': 'Frontend' }))
+  const saved = await updateWorkItemFields(client, team, 7, { tags: ['Frontend'] }, { tags: ['Frontend', 'Triage'] })
+  assert.deepEqual(client.patches().map((call) => call.body), [[
+    { op: 'test', path: '/rev', value: 4 },
+    { op: 'replace', path: '/fields/System.Tags', value: 'Frontend' },
+  ]])
+  assert.deepEqual(saved.fields.tags, ['Frontend'])
 })
 
 test('a conflict or invalid value fails before anything is written', async () => {
