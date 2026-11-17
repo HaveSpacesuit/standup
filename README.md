@@ -690,7 +690,8 @@ search, sprints grouped as current, upcoming, and recent with the team's backlog
 suggestions with a box for any other value, the severity levels, the impact levels with what each
 means, and tags with suggestions from tags already loaded. A change shows on the item at once, in
 every view that lists it, while it saves. A toast confirms the save with **Undo**, or says why it
-failed and puts the item back; errors stay until dismissed.
+failed and puts the item back; errors stay until dismissed. Toasts are StrataKit status alerts
+(success, warning, error, or info) that follow the light or dark theme.
 
 Each save reads the item fresh and writes only the fields that change, guarded by the revision it read.
 If someone else changed one of those fields since the view loaded it, nothing is saved and the item
@@ -708,7 +709,8 @@ Triage queue) until the page refreshes.
 
 On both Development views, drag a card (press anywhere but its buttons and move at least 5 pixels) to
 another cell. The card's summary follows the pointer and says what the drop changes, or why the cell
-cannot take it. **Esc** cancels, and the board scrolls when the pointer nears its edge.
+cannot take it; a card released there stays put, and a warning toast says why. **Esc** cancels, and
+the board scrolls when the pointer nears its edge.
 
 - Another column changes the State. When the column shows more than one of the card's states (such as
   New and Approved in New), the cell splits into a band per state; release over the one you want. A
