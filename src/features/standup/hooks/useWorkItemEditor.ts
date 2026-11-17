@@ -62,7 +62,7 @@ export type WorkItemEditor = {
   toast: WorkItemEditToast | null
   dismissToast: () => void
   /** Shows a passing note, such as why a card can't be dropped where it was released. */
-  notify: (message: string) => void
+  notify: (message: string, tone?: WorkItemEditToast['tone']) => void
 }
 
 type EditorScope = { engine: AdoQueryEngine | null; orgName: string; projectName: string }
@@ -216,6 +216,6 @@ export function useWorkItemEditor({
     reload,
     toast,
     dismissToast: () => setState((previous) => ({ ...previous, toast: null })),
-    notify: (message) => showToast({ tone: 'info', message }),
+    notify: (message, tone = 'info') => showToast({ tone, message }),
   }), [options, lockedReason, canEdit, canReload, busy, write, reload, toast, showToast])
 }

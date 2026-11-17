@@ -18,6 +18,7 @@ Object.assign(globalThis, {
   window: dom.window, document: dom.window.document, Document: dom.window.Document,
   Element: dom.window.Element, HTMLElement: dom.window.HTMLElement, Node: dom.window.Node,
   ShadowRoot: dom.window.ShadowRoot, MutationObserver: dom.window.MutationObserver,
+  getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
   requestAnimationFrame: (callback: FrameRequestCallback) => setTimeout(() => callback(Date.now()), 16),
   cancelAnimationFrame: (handle: number) => clearTimeout(handle),
   IS_REACT_ACT_ENVIRONMENT: true,
@@ -140,6 +141,17 @@ async function dragCard(id: number, over: () => Element | null, finish: 'drop' |
 }
 const ghostText = () => document.querySelector('[data-board-drag-ghost]')?.textContent ?? ''
 
+const openMenu = (id: number) => act(async () => {
+  card(id).dispatchEvent(new dom.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 50 }))
+})
+
+/** Replaces a property for one test, such as the browser's clipboard, putting the original back afterwards. */
+function stubProperty(t: TestContext, target: object, key: string, value: unknown) {
+  const descriptor = Object.getOwnPropertyDescriptor(target, key)
+  Object.defineProperty(target, key, { configurable: true, writable: true, value })
+  t.after(() => (descriptor ? Object.defineProperty(target, key, descriptor) : Reflect.deleteProperty(target, key)))
+}
+
 test('the card menu opens a field editor; the change shows at once, saves, and can be undone', async (t) => {
   const { engine } = await render(t, [makeItem(1)])
   assert.equal(isIn(1, 'ana', 'New'), true)
@@ -226,4 +238,58 @@ test('a refused drop explains why, and Escape cancels a drag, without saving', a
   assert.equal(document.querySelector('[data-board-drag-ghost]') === null, true)
   assert.equal(engine.updates.length, 0)
   assert.equal(isIn(1, 'ana', 'New'), true)
+})
+
+test('Copy link copies the item as a link for rich editors and as plain text for the rest', async (t) => {
+  const written: Record<string, Blob>[] = []
+  stubProperty(t, globalThis, 'ClipboardItem', class {
+    items: Record<string, Blob>
+    constructor(items: Record<string, Blob>) { this.items = items }
+  })
+  stubProperty(t, globalThis.navigator, 'clipboard', {
+    write: async (items: { items: Record<string, Blob> }[]) => { written.push(...items.map((item) => item.items)) },
+  })
+  await render(t, [makeItem(1, { workItemType: 'Bug', title: 'Drive <root> & "toast"' })])
+
+  await openMenu(1)
+  await click(byText('[role="menu"] [role="menuitem"]', 'Copy link'))
+  await settle()
+  assert.equal(written.length, 1)
+  assert.equal(await written[0]['text/html'].text(),
+    '<a href="https://dev.azure.com/org/Project/_workitems/edit/1/">Bug 1</a>: Drive &lt;root&gt; &amp; &quot;toast&quot;')
+  assert.equal(await written[0]['text/plain'].text(), 'Bug 1: Drive <root> & "toast"')
+  assert.equal(toastText().includes('Copied link to Bug 1.'), true)
+})
+
+test('Copy link falls back to a copy event, and says so when the browser blocks every way of copying', async (t) => {
+  stubProperty(t, globalThis, 'ClipboardItem', undefined)
+  stubProperty(t, globalThis.navigator, 'clipboard', { writeText: async () => { throw new Error('Denied.') } })
+  const copied: Record<string, string> = {}
+  let allowCopy = true
+  // Like Chromium, which reports success but sends no copy event while nothing is selected.
+  stubProperty(t, document, 'execCommand', (command: string) => {
+    if (command !== 'copy' || !allowCopy) return false
+    if (!document.getSelection()?.toString()) return true
+    const event = new dom.window.Event('copy', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', { value: { setData: (type: string, value: string) => { copied[type] = value } } })
+    document.dispatchEvent(event)
+    return true
+  })
+  await render(t, [makeItem(1)])
+
+  await openMenu(1)
+  await click(byText('[role="menu"] [role="menuitem"]', 'Copy link'))
+  await settle()
+  assert.deepEqual(copied, {
+    'text/html': '<a href="https://dev.azure.com/org/Project/_workitems/edit/1/">Product Backlog Item 1</a>: Card 1',
+    'text/plain': 'Product Backlog Item 1: Card 1',
+  })
+  assert.equal(toastText().includes('Copied link to Product Backlog Item 1.'), true)
+  assert.equal(document.getSelection()?.toString(), '')
+
+  allowCopy = false
+  await openMenu(1)
+  await click(byText('[role="menu"] [role="menuitem"]', 'Copy link'))
+  await settle()
+  assert.equal(toastText().includes('Couldn’t copy the link to Product Backlog Item 1.'), true)
 })

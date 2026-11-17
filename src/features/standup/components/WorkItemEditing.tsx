@@ -20,6 +20,7 @@ import {
   RELOAD_SHORTCUT_KEY,
   type EditableWorkItem,
 } from '../utils/workItemEditing'
+import { copyRichText, formatWorkItemLink, getWorkItemLinkLabel } from '../utils/workItemLink'
 import {
   WORK_ITEM_MENU_ATTRIBUTE, workItemEditKey, WorkItemEditingContext, type EditAnchor, type WorkItemEditingApi,
 } from './workItemEditingContext'
@@ -145,6 +146,18 @@ function ItemMenu({ open, editor, onOpenField, onReload, onClose }: {
         <MenuItem aria-keyshortcuts={RELOAD_SHORTCUT_KEY} onClick={onReload}>
           <Box component="span" sx={{ flex: 1 }}>Reload from Azure DevOps</Box>
           <Kbd>{RELOAD_SHORTCUT_KEY}</Kbd>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            const label = getWorkItemLinkLabel(item)
+            copyRichText(formatWorkItemLink(item)).then(
+              () => editor.notify(`Copied link to ${label}.`, 'success'),
+              () => editor.notify(`Couldn’t copy the link to ${label}. The browser blocked clipboard access.`, 'error'),
+            )
+            onClose()
+          }}
+        >
+          Copy link
         </MenuItem>
         <MenuItem
           onClick={() => {
