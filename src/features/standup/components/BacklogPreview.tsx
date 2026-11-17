@@ -13,8 +13,10 @@ import {
   getImpactDescription,
   type RankedBacklogBug,
 } from '../utils/backlogValue'
+import type { EditableWorkItem } from '../utils/workItemEditing'
 import { BugEffort, BugImpact, BugSeverity, BugValue } from './BacklogTable'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
+import { EditableFieldButton } from './WorkItemActions'
 import { CreatedAge, PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewSection, WorkItemPreviewDetails, WorkItemPreviewPanel, type PreviewLoad } from './WorkItemPreviewPanel'
 
@@ -48,8 +50,9 @@ const listNames = (names: readonly string[]) =>
   names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 
 /** Why the bug ranks where it does: its Value, rank and tier, each input with what it scores, and any it assumed. */
-function BacklogValueBreakdown({ bug, totalBugCount, tierThresholds }: {
+function BacklogValueBreakdown({ bug, editItem, totalBugCount, tierThresholds }: {
   bug: RankedBacklogBug
+  editItem: EditableWorkItem
   totalBugCount: number
   tierThresholds: BacklogTierThresholds
 }) {
@@ -76,13 +79,16 @@ function BacklogValueBreakdown({ bug, totalBugCount, tierThresholds }: {
       </div>
       <dl>
         <dt>Severity</dt>
-        <dd><BugSeverity severity={bug.severity} /></dd>
+        <dd><EditableFieldButton item={editItem} field="severity"><BugSeverity severity={bug.severity} /></EditableFieldButton></dd>
         <dd className="term" data-assumed={assumed.severity ? '' : undefined}>→ {formatValueTerm(bug.severityScore)}</dd>
         <dt>Impact</dt>
-        <dd><BugImpact priority={bug.priority} score={bug.impactScore} />{impact ? <span className="detail">{impact}</span> : null}</dd>
+        <dd>
+          <EditableFieldButton item={editItem} field="priority"><BugImpact priority={bug.priority} score={bug.impactScore} /></EditableFieldButton>
+          {impact ? <span className="detail">{impact}</span> : null}
+        </dd>
         <dd className="term" data-assumed={assumed.impact ? '' : undefined}>→ {formatValueTerm(bug.impactScore)}</dd>
         <dt>Effort</dt>
-        <dd><BugEffort effort={bug.effort} />{assumed.effort ? null : ' pts'}</dd>
+        <dd><EditableFieldButton item={editItem} field="effort"><BugEffort effort={bug.effort} />{assumed.effort ? null : ' pts'}</EditableFieldButton></dd>
         <dd className="term" data-assumed={assumed.effort ? '' : undefined}>→ {formatValueTerm(bug.adjustedEffort)}</dd>
       </dl>
       <div className="formula">{describeBacklogValue(bug)[0]}</div>
@@ -133,19 +139,26 @@ export function BacklogPreviewPanel({
   }
 
   const item = { id: bug.id, title: bug.title, workItemType: 'Bug', workItemUrl: bug.workItemUrl }
+  const editItem = { ...bug, workItemType: 'Bug' }
   const facts = (
     <>
-      <span><span className="label">Sprint</span><SprintLabel sprint={bug.sprint} iterationPath={bug.iterationPath} /></span>
-      <span><span className="label">State</span><StateLabel state={bug.state} /></span>
-      <span><span className="label">Assigned</span><PersonLabel person={bug.assignedTo} emptyLabel={UNASSIGNED_LABEL} /></span>
+      <span>
+        <span className="label">Sprint</span>
+        <EditableFieldButton item={editItem} field="iterationPath"><SprintLabel sprint={bug.sprint} iterationPath={bug.iterationPath} /></EditableFieldButton>
+      </span>
+      <span><span className="label">State</span><EditableFieldButton item={editItem} field="state"><StateLabel state={bug.state} /></EditableFieldButton></span>
+      <span>
+        <span className="label">Assigned</span>
+        <EditableFieldButton item={editItem} field="assignedTo"><PersonLabel person={bug.assignedTo} emptyLabel={UNASSIGNED_LABEL} /></EditableFieldButton>
+      </span>
       <span><span className="label">Age</span><CreatedAge createdAt={bug.createdAt} /></span>
     </>
   )
 
   return (
-    <WorkItemPreviewPanel {...panel} item={item} facts={facts}>
+    <WorkItemPreviewPanel {...panel} item={item} facts={facts} editItem={editItem}>
       <PreviewSection heading="Value" iconHref={svgSortDescending}>
-        <BacklogValueBreakdown bug={bug} totalBugCount={totalBugCount} tierThresholds={tierThresholds} />
+        <BacklogValueBreakdown bug={bug} editItem={editItem} totalBugCount={totalBugCount} tierThresholds={tierThresholds} />
       </PreviewSection>
       <WorkItemPreviewDetails item={item} load={load} images={images} now={now} />
     </WorkItemPreviewPanel>

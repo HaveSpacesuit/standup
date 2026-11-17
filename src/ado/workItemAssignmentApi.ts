@@ -68,8 +68,8 @@ export async function assignWorkItem(
       ],
     })
   } catch (error) {
-    if (isAssignmentAccessError(error)) throw error
-    if (error instanceof AdoWriteError) throw new Error(`${error.message} The item may have changed; the list will be refreshed.`)
+    if (isAssignmentAccessError(error)) throw error instanceof AdoWriteError ? error.as('assignment') : error
+    if (error instanceof AdoWriteError) throw new Error(`${error.as('assignment').message} The item may have changed; the list will be refreshed.`)
     // A failed transport can follow a committed write. Never retry it; re-read the item to learn whether it was saved.
     const after = await client.request<WorkItemApiItem>(request).catch(() => null)
     if (after && isAssigned(after)) {

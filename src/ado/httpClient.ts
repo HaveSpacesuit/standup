@@ -25,28 +25,41 @@ export interface AdoRequestClient {
 export const ADO_AUTH_ERROR_MESSAGE =
   'Azure DevOps rejected the personal access token. It is likely expired, revoked, or missing the required scopes. Open Settings to enter a new PAT.'
 
-function writeErrorMessage(status: number): string {
+/** What a failed write was doing, which words its explanation. */
+export type AdoWriteAction = 'edit' | 'assignment'
+
+function writeErrorMessage(status: number, action: AdoWriteAction): string {
+  const [noun, feature, nothing] = action === 'assignment'
+    ? ['assignment', 'Quick assign', 'Nothing was assigned.']
+    : ['change', 'Editing work items', 'Nothing was changed.']
   // Writes follow a successful read with the same PAT, so a 401 here almost always means missing write scope, not expiry.
   if (status === 401) {
-    return `Azure DevOps rejected the assignment (HTTP 401). Your PAT can read work items but is most likely missing the Work Items (Read & write) scope. ${QUICK_ASSIGN_PAT_FIX} Nothing was assigned.`
+    return `Azure DevOps rejected the ${noun} (HTTP 401). Your PAT can read work items but is most likely missing the Work Items (Read & write) scope. ${QUICK_ASSIGN_PAT_FIX} ${nothing}`
   }
   if (status === 403) {
-    return `Azure DevOps denied the assignment (HTTP 403). Quick assign needs the Work Items (Read & write) PAT scope and permission to edit this work item. ${QUICK_ASSIGN_PAT_FIX} Nothing was assigned.`
+    return `Azure DevOps denied the ${noun} (HTTP 403). ${feature} needs the Work Items (Read & write) PAT scope and permission to edit this work item. ${QUICK_ASSIGN_PAT_FIX} ${nothing}`
   }
-  return `Azure DevOps could not save the assignment (HTTP ${status}). Refresh before trying again.`
+  return `Azure DevOps could not save the ${noun} (HTTP ${status}). Refresh before trying again.`
 }
 
 export class AdoWriteError extends Error {
   readonly status: number
+  readonly action: AdoWriteAction
 
-  constructor(status: number) {
-    super(writeErrorMessage(status))
+  constructor(status: number, action: AdoWriteAction = 'edit') {
+    super(writeErrorMessage(status, action))
     this.name = 'AdoWriteError'
     this.status = status
+    this.action = action
   }
 
   get accessDenied(): boolean {
     return this.status === 401 || this.status === 403
+  }
+
+  /** The same failure, explained in terms of what the caller was doing. */
+  as(action: AdoWriteAction): AdoWriteError {
+    return action === this.action ? this : new AdoWriteError(this.status, action)
   }
 }
 

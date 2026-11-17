@@ -40,6 +40,9 @@ import { useTriageItems } from './useTriageItems'
 import { useTriageSimilarSources, type TriageSimilarSources } from './useTriageSimilarSources'
 import { createWorkItemPreviewSource, type WorkItemPreviewSource } from './useWorkItemPreview'
 import { useQuickAssign, type QuickAssignController } from './useQuickAssign'
+import { useWorkItemEditor, type WorkItemEditor } from './useWorkItemEditor'
+import { DEFAULT_EFFORT_SUGGESTIONS } from '../utils/assignmentOptions'
+import { normalizeTags } from '../../../ado/workItemUpdateApi'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -53,6 +56,8 @@ type UseBoardViewModelArgs = {
 
 type UseBoardViewModelResult = {
   quickAssign: QuickAssignController
+  /** Edits and reloads single work items in place, in every view. */
+  workItemEditor: WorkItemEditor
   selectedTeamId: string
   onTeamChange: (teamId: string) => void
   onRefresh: () => void
@@ -370,6 +375,7 @@ export function useBoardViewModel({
   const {
     workItemStates: projectWorkItemStates,
     workItemTypes: projectWorkItemTypes,
+    workItemStatesByType: projectWorkItemStatesByType,
     workItemStatesLoading: projectWorkItemStatesLoading,
     workItemStatesError: projectWorkItemStatesError,
     retryWorkItemStates: retryProjectWorkItemStates,
@@ -510,6 +516,29 @@ export function useBoardViewModel({
     onRefresh: () => refreshCurrentView(false),
   })
 
+  const knownTags = useMemo(
+    () => normalizeTags([
+      ...workItems.flatMap((item) => item.tags ?? []),
+      ...backlogBugs.flatMap((bug) => bug.tags ?? []),
+      ...triageResult.items.flatMap((item) => item.tags),
+      ...qaBuckets.flatMap((bucket) => bucket.items.flatMap((item) => item.tags ?? [])),
+    ]),
+    [workItems, backlogBugs, triageResult.items, qaBuckets],
+  )
+  const teamEffortSuggestions = assignmentOptionsByTeam?.[effectiveTeam.id]?.effortSuggestions
+  const effortSuggestions = useMemo(() => teamEffortSuggestions ?? [...DEFAULT_EFFORT_SUGGESTIONS], [teamEffortSuggestions])
+  const workItemEditor = useWorkItemEditor({
+    engine: dataQueryEngine,
+    team: effectiveTeam,
+    statesByType: projectWorkItemStatesByType,
+    projectStates: projectWorkItemStates,
+    iterations: teamIterations,
+    members,
+    knownTags,
+    effortSuggestions,
+    tagRules,
+  })
+
   const teamManagementUrl = useTeamManagementUrl({
     adoQueryEngine: dataQueryEngine,
     patConfigured,
@@ -550,6 +579,7 @@ export function useBoardViewModel({
 
   return {
     quickAssign,
+    workItemEditor,
     selectedTeamId,
     onTeamChange,
     onRefresh,

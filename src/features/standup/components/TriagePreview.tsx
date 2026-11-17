@@ -15,6 +15,7 @@ import { TriageEntryLine } from './TriageInbox'
 import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
+import { EditableFieldButton } from './WorkItemActions'
 import { PreviewSection, WorkItemPreviewDetails, WorkItemPreviewPanel, type PreviewLoad } from './WorkItemPreviewPanel'
 
 const noteSx: SxProps<Theme> = { mt: 0.75, fontSize: 12, color: 'text.secondary' }
@@ -72,17 +73,25 @@ export function TriagePreviewPanel({
   const required = new Set(checks.flatMap((check) => TEXT_CHECKS[check] ?? []))
   const facts = (
     <>
-      <span><span className="label">Severity</span><TriageSeverity item={item} checks={checks} /></span>
-      <span><span className="label">Impact</span><TriageImpact item={item} checks={checks} /></span>
-      <span><span className="label">Effort</span><TriageEffort item={item} checks={checks} /></span>
-      <span><span className="label">Sprint</span><SprintLabel sprint={resolveSprint(item.iterationPath)} iterationPath={item.iterationPath} /></span>
-      <span><span className="label">State</span><StateLabel state={item.state} /></span>
-      <span><span className="label">Assigned</span><PersonLabel person={item.assignedTo} emptyLabel="Unassigned" /></span>
+      <span><span className="label">Severity</span><EditableFieldButton item={item} field="severity"><TriageSeverity item={item} checks={checks} /></EditableFieldButton></span>
+      <span><span className="label">Impact</span><EditableFieldButton item={item} field="priority"><TriageImpact item={item} checks={checks} /></EditableFieldButton></span>
+      <span><span className="label">Effort</span><EditableFieldButton item={item} field="effort"><TriageEffort item={item} checks={checks} /></EditableFieldButton></span>
+      <span>
+        <span className="label">Sprint</span>
+        <EditableFieldButton item={item} field="iterationPath">
+          <SprintLabel sprint={resolveSprint(item.iterationPath)} iterationPath={item.iterationPath} />
+        </EditableFieldButton>
+      </span>
+      <span><span className="label">State</span><EditableFieldButton item={item} field="state"><StateLabel state={item.state} /></EditableFieldButton></span>
+      <span>
+        <span className="label">Assigned</span>
+        <EditableFieldButton item={item} field="assignedTo"><PersonLabel person={item.assignedTo} emptyLabel="Unassigned" /></EditableFieldButton>
+      </span>
     </>
   )
 
   return (
-    <WorkItemPreviewPanel {...panel} item={item} facts={facts}>
+    <WorkItemPreviewPanel {...panel} item={item} facts={facts} editItem={item}>
       <PreviewSection heading="Why it's here" iconHref={svgInbox}>
         <TriageEntryLine item={item} clearing={clearing} ageFlagDays={ageFlagDays} waitingTags={waitingTags} now={now} />
         {clearing ? <Box sx={noteSx}>{clearing}</Box> : null}

@@ -215,7 +215,12 @@ export const KanbanBoard = memo(function KanbanBoard({
       (item) => workItemAssignees[item.id]?.kind === 'history-unavailable',
     )
 
-    const memberRows = getAssignmentMemberRows(members, selectedMemberFilter)
+    const memberRows = getAssignmentMemberRows(members, selectedMemberFilter).map((row): BoardRowData => ({
+      ...row,
+      drop: row.memberIdentity.uniqueName?.trim()
+        ? { label: row.label, changes: { assignedTo: row.memberIdentity }, unchangedReason: `Already assigned to ${row.label}` }
+        : { refusal: `${row.label}’s account isn’t known, so cards can’t be assigned to them here` },
+    }))
 
     return [
       ...memberRows,
@@ -224,15 +229,20 @@ export const KanbanBoard = memo(function KanbanBoard({
             key: '__unassigned__',
             label: 'Unassigned',
             isUnassigned: true,
+            drop: { label: 'Unassigned', changes: { assignedTo: null }, unchangedReason: 'Already unassigned' },
           }]
         : []),
       ...(hasUnavailableAssignees
         ? [{
             key: '__assignee_history_unavailable__',
             label: 'Assignee unavailable',
+            drop: { refusal: 'This lane holds cards whose assignee couldn’t be worked out; drop on a person or Unassigned instead' },
           }]
         : []),
-      ...qaStandupData.rows,
+      ...qaStandupData.rows.map((row): BoardRowData => ({
+        ...row,
+        drop: { refusal: 'Tester lanes show QA work; assign testers from the card’s menu' },
+      })),
     ]
   }, [boardItems, currentIterationName, isSprintLens, iterationWindow, members, qaStandupData.rows, rolledOverItemIds, selectedMemberFilter, shownItems, shownScope, teamIterations, workItemAssignees])
 

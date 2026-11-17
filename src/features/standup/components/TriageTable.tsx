@@ -16,6 +16,8 @@ import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { NotSet, PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewToggleButton } from './WorkItemPreviewPanel'
+import { EditableFieldButton, WorkItemActions } from './WorkItemActions'
+import { getEditableRowProps, useWorkItemEditing } from './workItemEditingContext'
 import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { WorkItemTitle } from './WorkItemTitle'
 import { workItemTitleCellSx } from './workItemTableDisplay'
@@ -48,9 +50,10 @@ const tableSx: SxProps<Theme> = { tableLayout: 'fixed' }
 const headCellSx: SxProps<Theme> = { bgcolor: 'background.paper', whiteSpace: 'nowrap', top: '-1px', zIndex: 3 }
 const noWrapSx: SxProps<Theme> = { whiteSpace: 'nowrap' }
 const wrapSx: SxProps<Theme> = { overflowWrap: 'anywhere' }
-const titleRowSx: SxProps<Theme> = { display: 'flex', alignItems: 'flex-start', gap: 1, '& > .preview-toggle': { ml: 'auto', my: -0.5 } }
+const titleRowSx: SxProps<Theme> = { display: 'flex', alignItems: 'flex-start', gap: 1, '& > .row-tools': { ml: 'auto', my: -0.5 } }
 // The match strip sits under the title, only as wide as its text.
 const titleStackSx: SxProps<Theme> = { display: 'grid', justifyItems: 'start', gap: 0.5, minWidth: 0 }
+const rowToolsSx: SxProps<Theme> = { display: 'inline-flex', alignItems: 'center', flex: '0 0 auto' }
 // Rows open the preview when clicked, and stop clear of the sticky header when the arrows scroll to them.
 const previewBodySx: SxProps<Theme> = {
   ...revealPreviewToggles('& > tr'),
@@ -92,6 +95,7 @@ export function TriageTable({
       ? { ...column, tip: `Working days since the item entered triage. It turns amber after ${ageFlagDays}, unless the item is waiting on someone else.` }
       : column)
   const minWidth = columns.reduce((total, column) => total + (column.width ?? TITLE_COLUMN_MIN_WIDTH), 0)
+  const editing = useWorkItemEditing()
 
   return (
     // Relative so the absolutely positioned visually hidden text is contained by this scroller, not the page.
@@ -109,7 +113,7 @@ export function TriageTable({
             ))}
           </TableRow>
         </TableHead>
-        <TableBody sx={preview ? previewBodySx : undefined}>
+        <TableBody sx={preview || editing ? previewBodySx : undefined}>
           {items.map((item) => {
             const checks = getTriageChecksFor(item, readinessChecks)
             const clearing = describeTriageClearing(item, excludedIterationPaths)
@@ -121,6 +125,7 @@ export function TriageTable({
                 hover={Boolean(preview)}
                 selected={selected}
                 data-preview-id={preview ? item.id : undefined}
+                {...getEditableRowProps(editing, item)}
                 onClick={preview ? (event) => {
                   if (isPreviewRowClick(event)) preview.onSelect(item.id)
                 } : undefined}
@@ -134,18 +139,29 @@ export function TriageTable({
                         <TriageMatchStrip itemId={item.id} match={match} detail={describeTriageMatch(match, resolveSprint)} compact onCompare={onCompare} />
                       </Box>
                     ) : <WorkItemTitle item={{ ...item, tags: getTriageTitleTags(item) }} />}
-                    {preview ? <PreviewToggleButton id={item.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} /> : null}
+                    <Box className="row-tools" sx={rowToolsSx}>
+                      <WorkItemActions item={item} />
+                      {preview ? <PreviewToggleButton id={item.id} selected={selected} panelId={preview.panelId} onToggle={preview.onToggle} /> : null}
+                    </Box>
                   </Box>
                 </TableCell>
                 <TableCell><TriageReasons item={item} clearing={clearing} /></TableCell>
                 {showReadiness ? <TableCell><TriageReadinessLabel item={item} checks={readinessChecks} clearing={clearing} /></TableCell> : null}
-                <TableCell sx={noWrapSx}><TriageSeverity item={item} checks={checks} /></TableCell>
-                <TableCell sx={noWrapSx}><TriageImpact item={item} checks={checks} /></TableCell>
-                <TableCell align="right" sx={noWrapSx}><TriageEffort item={item} checks={checks} /></TableCell>
+                <TableCell sx={noWrapSx}><EditableFieldButton item={item} field="severity"><TriageSeverity item={item} checks={checks} /></EditableFieldButton></TableCell>
+                <TableCell sx={noWrapSx}><EditableFieldButton item={item} field="priority"><TriageImpact item={item} checks={checks} /></EditableFieldButton></TableCell>
+                <TableCell align="right" sx={noWrapSx}><EditableFieldButton item={item} field="effort"><TriageEffort item={item} checks={checks} /></EditableFieldButton></TableCell>
                 <TableCell align="right" sx={noWrapSx}><TriageAgeLabel item={item} flagDays={ageFlagDays} waitingTags={waitingTags} /></TableCell>
-                <TableCell sx={noWrapSx}><SprintLabel sprint={resolveSprint(item.iterationPath)} iterationPath={item.iterationPath} /></TableCell>
-                <TableCell sx={noWrapSx}><StateLabel state={item.state} /></TableCell>
-                {showAssignee ? <TableCell><PersonLabel person={item.assignedTo} emptyLabel={UNASSIGNED_LABEL} /></TableCell> : null}
+                <TableCell sx={noWrapSx}>
+                  <EditableFieldButton item={item} field="iterationPath">
+                    <SprintLabel sprint={resolveSprint(item.iterationPath)} iterationPath={item.iterationPath} />
+                  </EditableFieldButton>
+                </TableCell>
+                <TableCell sx={noWrapSx}><EditableFieldButton item={item} field="state"><StateLabel state={item.state} /></EditableFieldButton></TableCell>
+                {showAssignee ? (
+                  <TableCell>
+                    <EditableFieldButton item={item} field="assignedTo"><PersonLabel person={item.assignedTo} emptyLabel={UNASSIGNED_LABEL} /></EditableFieldButton>
+                  </TableCell>
+                ) : null}
                 <TableCell><PersonLabel person={item.createdBy} emptyLabel={UNKNOWN_CREATOR_LABEL} /></TableCell>
                 {showParent ? (
                   <TableCell sx={wrapSx}>

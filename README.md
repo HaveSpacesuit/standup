@@ -495,7 +495,7 @@ the original data is retained until you explicitly save replacement options.
 
 The Backlog page ranks the selected team's open bugs by development value. It queries only Bugs (no PBIs) under the team's area path, across all sprints, and leaves out bugs in a closed, done, or removed state: those in the Bug type's Completed or Removed state categories, or Closed, Done, Removed, and Completed by name if the type reports none. The header is similar to Quality Assurance's: it has the bug count ("43 bugs", or "12 of 43 bugs" while the quick filter hides some), a quick filter, a **Plan a sprint** button, a **View** toggle for List or Map, the team selector (its menu ends with **Manage team**), a Backlog options button, a "Synced 5m ago" label once the backlog has loaded fresh from Azure DevOps, and a Refresh button that spins while the backlog loads.
 
-The table has no sorting or column filtering, and bug rows highlight when hovered. Selecting a bug row previews it beside the list, as described under **Preview panel** at the end of this section. Its only buttons are on the Value tier headers, each bug's eye button for that preview, and a checkbox per bug while planning a sprint, described below. The columns run from why a bug ranks where it does to who has it:
+The table has no sorting or column filtering, and bug rows highlight when hovered. Selecting a bug row previews it beside the list, as described under **Preview panel** at the end of this section. Its buttons are on the Value tier headers, each bug's eye button for that preview, Reload and Edit beside it, the Severity, Impact, Effort, sprint, state, and assignee values (each opens its editor, as described under [Editing work items](#editing-work-items)), and a checkbox per bug while planning a sprint, described below. The columns run from why a bug ranks where it does to who has it:
 
 - **#**: the bug's rank among all of the team's open bugs. It stays the same while the quick filter hides other bugs, so "#14" means the same thing filtered or not.
 - **Value**, with a sort icon in its header because the list is ordered by it. A short meter beside the number shows its size on a log scale, so each Severity or Impact level is an equal step. The meter's ends come from the formula (2.5 to 213.0), not the team's bugs, so a full bar means the same on every team. Hover the Value for its sum, such as "Value 96.8 = 4.8 × 8 ÷ 4 × 10", and where each term came from, including any input the Value assumed or raised. The tooltip's numbers are rounded to one decimal, or none for whole numbers.
@@ -663,6 +663,68 @@ on its health tile and in chart tooltips; leave it blank to use the default.
 
 Run the Tests data regression tests with `node --experimental-strip-types --test tests/*.test.ts`.
 
+### Editing work items
+
+Work items can be edited and reloaded where they are listed: Development (Developers and Sprint),
+Quality Assurance (Testers and Flow), Triage (Table and Inbox), Backlog (List), and the Triage and
+Backlog preview panels. The fields are State, Assigned To, Iteration (the sprint), Effort
+(`Microsoft.VSTS.Scheduling.Effort`), Severity, Impact (the Priority field), Tags, and Title.
+Severity is offered for Bugs and items that already have one, and Effort for everything except Tasks
+without one. Pull request cards cannot be edited.
+
+- **Cards**: hovering or focusing a card shows **Reload** and **Edit** (⋯) buttons on its top edge,
+  or its bottom edge when the column header covers the top (always shown, on touch screens). **Edit**, a
+  right-click, Shift+F10, or the Menu key opens the item's menu, which lists each field with its value,
+  then **Reload from Azure DevOps** and **Open in Azure DevOps**.
+- **Tables, Inbox cards, and preview panels**: each field's value is a button that opens its editor,
+  and rows and Inbox cards have the same **Reload** and **Edit** buttons and menu.
+- **Keys**: while a card, row, or preview panel has focus, **S** edits State, **A** Assigned To, **I**
+  Iteration, **E** Effort, **V** Severity, **P** Impact, **T** Tags, **F2** the title, and **R** reloads
+  the item. The same keys work inside the menu.
+
+Editors are small popovers: states grouped by category, team members (and Unassigned) with a
+search, sprints grouped as current, upcoming, and recent with the team's backlog, the team's effort
+suggestions with a box for any other value, the severity levels, the impact levels with what each
+means, and tags with suggestions from tags already loaded. A change shows on the item at once, in
+every view that lists it, while it saves. A toast confirms the save with **Undo**, or says why it
+failed and puts the item back; errors stay until dismissed.
+
+Each save reads the item fresh and writes only the fields that change, guarded by the revision it read.
+If someone else changed one of those fields since the view loaded it, nothing is saved and the item
+shows their value. Tag edits apply as additions and removals, so tags added meanwhile are kept. A
+failed write is never retried; when its response is lost, the item is re-read to learn whether it was
+saved, and other failures reload the item. Without the Work Items (Read & write) scope, editing turns
+off until the PAT changes or the page reloads, and the menu says why; reloading still works.
+
+**Reload** reads one item from Azure DevOps and updates it in every view without refreshing the page,
+for changes made elsewhere. The toast says which fields changed, or that the item is up to date. An
+edited or reloaded item updates where it is listed, but does not join or leave a list (such as the
+Triage queue) until the page refreshes.
+
+#### Drag and drop on Development
+
+On both Development views, drag a card (press anywhere but its buttons and move at least 5 pixels) to
+another cell. The card's summary follows the pointer and says what the drop changes, or why the cell
+cannot take it. **Esc** cancels, and the board scrolls when the pointer nears its edge.
+
+- Another column changes the State. When the column shows more than one of the card's states (such as
+  New and Approved in New), the cell splits into a band per state; release over the one you want. A
+  column fed by a tag rule, such as Blocked, also offers adding the tag while keeping the state, and a
+  move out of it removes tags whose rules would hold the card there. Removed states are left to the
+  menu.
+- Another developer's row (Developers) changes Assigned To; the Unassigned row unassigns it. Tester
+  rows and Assignee unavailable take no cards.
+- Another sprint's row (Sprint) changes the Iteration, and **Added during sprint** brings a card into
+  the current sprint. **Committed at start**, **Removed from sprint**, and **No sprint** take no cards;
+  move a card to the backlog from its menu.
+- Mouse and pen only. QA boards, replayed days, and pull request cards do not drag.
+
+#### Effort suggestions
+
+The Effort editor offers one-click values, 4, 8, 16, 24, and 40 by default. Each team can set its own
+(up to 10) under **Development options > Editing**; they apply on every page and are included in team
+exports.
+
 ### Team configuration
 
 Each team profile includes the Azure DevOps organization, project, area path, iteration path, team name, and repository. Teams can be managed in the UI and exported/imported as JSON for sharing between teammates.
@@ -694,7 +756,7 @@ vite.config.ts            # Vite configuration
 
 - Node.js 22+
 - npm 10+
-- An Azure DevOps account and PAT with read access to work items, pull requests, project/team metadata, and related APIs (plus Work Items (Read & write) to use Quick assign)
+- An Azure DevOps account and PAT with read access to work items, pull requests, project/team metadata, and related APIs (plus Work Items (Read & write) to edit work items or use Quick assign)
 
 ## Azure DevOps PAT requirements
 
@@ -708,13 +770,14 @@ The app validates a PAT before loading data. Grant these scopes:
 - Test Management (Read)
 - Work Items (Read & write)
 
-Work Items (Read) is enough to view the app. Quick assign on **Development > Developers** needs
+Work Items (Read) is enough to view the app and reload items. Editing work items (see
+[Editing work items](#editing-work-items)) and Quick assign on **Development > Developers** need
 **Work Items (Read & write)** (`vso.work_write`) and permission to edit the work item. To add it
 to an existing PAT, open **User settings > Personal access tokens** in Azure DevOps, edit the PAT,
 and set Work Items to Read & write; the token value does not change, so there is nothing to
 re-enter. Without the scope, Azure DevOps rejects the write with a 401 that the browser cannot
-read, so Quick assign re-reads the item. If nothing changed, it reports that the assignment was
-not saved and that the PAT is probably missing the scope.
+read, so the app re-reads the item. If nothing changed, it reports that the change was not saved
+and that the PAT is probably missing the scope.
 
 Hover or keyboard-focus a developer's **New** cell to reveal **Quick assign** (the action stays
 visible on touch devices). Select an item from the inline sprint-grouped list, then choose

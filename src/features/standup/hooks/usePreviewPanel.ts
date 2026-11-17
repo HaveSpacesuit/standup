@@ -30,7 +30,8 @@ export function isPreviewRowClick(event: MouseEvent<HTMLElement>): boolean {
   return !selection || selection.isCollapsed || !selection.toString().trim()
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
+/** Whether a key press or click comes from a text field, menu or dialog, which handles its own keys. */
+export function isTypingTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest(TYPING_TARGETS))
 }
 

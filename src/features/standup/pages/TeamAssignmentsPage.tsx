@@ -90,6 +90,8 @@ type TeamAssignmentsPageProps = {
   onCompactCardsChange?: (next: boolean) => void
   includeQaTestersInStandup: boolean
   onIncludeQaTestersInStandupChange: (next: boolean) => void
+  effortSuggestions?: number[]
+  onEffortSuggestionsChange?: (next: number[]) => void
   qaBuckets: QualityAssuranceBucket[]
   qaTesters: TeamMember[]
   qaBucketsLoading: boolean
@@ -161,6 +163,8 @@ export function TeamAssignmentsPage({
   onCompactCardsChange,
   includeQaTestersInStandup,
   onIncludeQaTestersInStandupChange,
+  effortSuggestions,
+  onEffortSuggestionsChange,
   qaBuckets,
   qaTesters,
   qaBucketsLoading,
@@ -389,6 +393,8 @@ export function TeamAssignmentsPage({
             onCompactCardsChange={onCompactCardsChange}
             includeQaTestersInStandup={includeQaTestersInStandup}
             onIncludeQaTestersInStandupChange={onIncludeQaTestersInStandupChange}
+            effortSuggestions={effortSuggestions}
+            onEffortSuggestionsChange={onEffortSuggestionsChange}
             teamIterations={teamIterations}
             teamIterationsLoading={teamIterationsLoading}
           />
