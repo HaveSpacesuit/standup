@@ -7,8 +7,9 @@ import svgStatusSuccess from '@stratakit/icons/status-success.svg'
 import type { TriageItem, WorkItemPreviewTextField } from '../../../ado/types'
 import type { WorkItemPreviewImages } from '../hooks/useWorkItemPreview'
 import type { BacklogSprintResolver } from '../utils/backlogSprint'
+import { TRIAGE_CLEARED_NOTE } from '../utils/triageDisplay'
 import type { TriageCheck, TriageReadinessChecks } from '../utils/triageOptions'
-import { describeTriageClearing, getTriageChecksFor, hasTriageChecks } from '../utils/triageRules'
+import { describeTriageClearing, getTriageChecksFor, hasTriageChecks, isTriageCleared } from '../utils/triageRules'
 import type { TriageMatch } from '../utils/triageSimilar'
 import { TriageChecklist, TriageEffort, TriageImpact, TriageSeverity } from './TriageFields'
 import { TriageEntryLine } from './TriageInbox'
@@ -70,6 +71,7 @@ export function TriagePreviewPanel({
 
   const checks = getTriageChecksFor(item, readinessChecks)
   const clearing = describeTriageClearing(item, excludedIterationPaths)
+  const cleared = isTriageCleared(item)
   const required = new Set(checks.flatMap((check) => TEXT_CHECKS[check] ?? []))
   const facts = (
     <>
@@ -98,9 +100,9 @@ export function TriagePreviewPanel({
     <WorkItemPreviewPanel {...panel} item={item} facts={facts} editItem={item}>
       <PreviewSection heading="Why it's here" iconHref={svgInbox}>
         <TriageEntryLine item={item} clearing={clearing} ageFlagDays={ageFlagDays} waitingTags={waitingTags} now={now} />
-        {clearing ? <Box sx={noteSx}>{clearing}</Box> : null}
+        {cleared || clearing ? <Box sx={noteSx}>{cleared ? TRIAGE_CLEARED_NOTE : clearing}</Box> : null}
       </PreviewSection>
-      {hasTriageChecks(readinessChecks) ? (
+      {hasTriageChecks(readinessChecks) && !cleared ? (
         <PreviewSection heading="Readiness" iconHref={svgStatusSuccess}>
           <TriageChecklist item={item} checks={readinessChecks} clearing="" />
         </PreviewSection>

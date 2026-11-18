@@ -259,7 +259,9 @@ export async function fetchTriageItems(
 
 /**
  * The queue with an edited item's fields, and with whether it still meets the Triage rules worked out again from them.
- * An item that no longer does keeps its place with no reasons, so the page hides it and an undo brings it back.
+ * An item that no longer does is cleared: it keeps its place with no reasons, and with the reasons and tags it was
+ * listed with, so the page can show it as cleared until it reloads. An undo, or any edit that meets the rules again,
+ * lists it as before.
  */
 export function applyTriagePatch(result: TriageResult, patch: WorkItemPatch): TriageResult {
   const items = applyWorkItemPatch(result.items, patch)
@@ -268,12 +270,17 @@ export function applyTriagePatch(result: TriageResult, patch: WorkItemPatch): Tr
   if (!rules) return { ...result, items }
   return {
     ...result,
-    items: items.map((item) => {
+    items: items.map((item, index) => {
       if (!matchesWorkItemPatch(item, patch)) return item
       try {
         const reasons = getTriageReasons(item, rules.options, rules.metadata)
         const inInitialState = getInitialState(rules.metadata, item.workItemType)?.name.toLowerCase() === item.state.toLowerCase()
-        return { ...item, reasons, inInitialState }
+        const { clearedFrom, ...listed } = item
+        if (reasons.length) return { ...listed, reasons, inInitialState }
+        // Patching keeps each item's index, so the item before this edit is at the same place in the old queue.
+        const before = result.items[index]
+        const from = clearedFrom ?? (before.reasons.length ? { reasons: before.reasons, tags: before.tags } : undefined)
+        return from ? { ...listed, reasons, inInitialState, clearedFrom: from } : { ...listed, reasons, inInitialState }
       } catch {
         // A state the project's metadata does not know keeps the reasons the item was listed with.
         return item
@@ -282,7 +289,7 @@ export function applyTriagePatch(result: TriageResult, patch: WorkItemPatch): Tr
   }
 }
 
-/** The queue without the items an edit has taken off it since it loaded. */
+/** The queue without its cleared items, as a fresh load would list it. */
 export function getListedTriageResult(result: TriageResult): TriageResult {
   if (result.items.every((item) => item.reasons.length > 0)) return result
   return { ...result, items: result.items.filter((item) => item.reasons.length > 0) }

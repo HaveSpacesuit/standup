@@ -276,10 +276,10 @@ test('no rules performs no requests, while item query failures reject explicitly
   await assert.rejects(() => fetchTriageItems({ request: async () => { throw new Error('HTTP 503') } }, team, options, metadata), /503/)
 })
 
-test('an edit works out again why each item is listed, so items it clears leave the listed queue until an undo', async () => {
+test('an edit works out again why each item is listed, so items it clears stay, marked with how they were listed, until an undo', async () => {
   const { client } = clientFor([raw(1), raw(2, { 'System.Tags': 'frontend' }), raw(3, { 'System.WorkItemType': 'Task', 'System.State': 'Done' })])
   const loaded = await fetchTriageItems(client, team, options, metadata)
-  type Item = { id: number; workItemUrl: string; reasons: string[]; inInitialState?: boolean; tags: string[] }
+  type Item = { id: number; workItemUrl: string; reasons: string[]; inInitialState?: boolean; tags: string[]; clearedFrom?: unknown }
   const byId = (result: { items: Item[] }, id: number) => result.items.find((item) => item.id === id)!
   const edit = (result: typeof loaded, id: number, fields: Record<string, unknown>, preview?: boolean) => {
     const item = byId(result, id)
@@ -293,15 +293,21 @@ test('an edit works out again why each item is listed, so items it clears leave 
   assert.deepEqual(byId(untagged, 1).reasons, ['New bug'], 'removing the tag drops its reason')
   assert.deepEqual(byId(untagged, 1).tags, ['frontend'])
   assert.deepEqual(listed(untagged), [1, 2, 3], 'a new bug still needs triage')
+  assert.equal(byId(untagged, 1).clearedFrom, undefined)
 
   const approved = edit(loaded, 2, { state: 'Approved' }, true)
   assert.deepEqual(byId(approved, 2).reasons, [])
   assert.equal(byId(approved, 2).inInitialState, false)
-  assert.deepEqual(listed(approved), [1, 3], 'an approved bug leaves while its edit is still saving')
+  assert.deepEqual(approved.items.map((item: Item) => item.id), [1, 2, 3], 'a cleared item keeps its place')
+  assert.deepEqual(byId(approved, 2).clearedFrom, { reasons: ['New bug'], tags: ['frontend'] }, 'with how it was listed')
+  assert.deepEqual(listed(approved), [1, 3], 'a fresh load would leave out an approved bug, even while its edit is still saving')
+  const retagged = edit(approved, 2, { tags: ['frontend', 'later'] })
+  assert.deepEqual(byId(retagged, 2).clearedFrom, { reasons: ['New bug'], tags: ['frontend'] }, 'a further edit keeps how it was first listed')
   const undone = edit(approved, 2, { state: 'Reported' })
   assert.deepEqual(byId(undone, 2).reasons, ['New bug'])
   assert.equal(byId(undone, 2).inInitialState, true)
-  assert.deepEqual(listed(undone), [1, 2, 3], 'an undo brings it back in its place')
+  assert.equal('clearedFrom' in byId(undone, 2), false, 'an undo lists it as before')
+  assert.deepEqual(listed(undone), [1, 2, 3])
 
   assert.deepEqual(listed(edit(loaded, 2, { iterationPath: 'Project\\To Refine\\Later' })), [1, 3], 'an excluded sprint clears a new bug')
   assert.deepEqual(listed(edit(loaded, 3, { tags: [] })), [1, 2], 'removing the only matching tag clears any item')

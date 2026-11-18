@@ -5,7 +5,7 @@ import { UNASSIGNED_LABEL } from '../utils/backlogFilter'
 import type { BacklogSprintResolver } from '../utils/backlogSprint'
 import { formatTriageParent, getTriageTitleTags, UNKNOWN_CREATOR_LABEL } from '../utils/triageDisplay'
 import type { TriageReadinessChecks } from '../utils/triageOptions'
-import { describeTriageClearing, getTriageChecksFor, hasTriageChecks } from '../utils/triageRules'
+import { describeTriageClearing, getTriageChecksFor, hasTriageChecks, isTriageCleared } from '../utils/triageRules'
 import type { TriageMatch } from '../utils/triageSimilar'
 import { isPreviewRowClick } from '../hooks/usePreviewPanel'
 import { AppTooltip } from './AppTooltip'
@@ -54,8 +54,18 @@ const titleRowSx: SxProps<Theme> = { display: 'flex', alignItems: 'flex-start', 
 // The match strip sits under the title, only as wide as its text.
 const titleStackSx: SxProps<Theme> = { display: 'grid', justifyItems: 'start', gap: 0.5, minWidth: 0 }
 const rowToolsSx: SxProps<Theme> = { display: 'inline-flex', alignItems: 'center', flex: '0 0 auto' }
+// A cleared row is recessed into the page with a positive edge, like a cleared Inbox card, at full contrast so it can
+// still be edited. StrataKit's layered row background outranks sx, so the recess is an image over it, and it steps aside
+// for the selected and hover tints.
+const CLEARED_ROW_FILL = 'linear-gradient(var(--stratakit-color-bg-page-depth), var(--stratakit-color-bg-page-depth))'
+const clearedRowSx = {
+  '& > tr.cleared:not(.Mui-selected, .MuiTableRow-hover:hover)': { backgroundImage: CLEARED_ROW_FILL },
+  '& > tr.cleared > th': { boxShadow: 'inset 3px 0 0 var(--stratakit-color-border-positive-base)' },
+}
+const bodySx: SxProps<Theme> = clearedRowSx
 // Rows open the preview when clicked, and stop clear of the sticky header when the arrows scroll to them.
 const previewBodySx: SxProps<Theme> = {
+  ...clearedRowSx,
   ...revealPreviewToggles('& > tr'),
   '& > tr[data-preview-id]': { cursor: 'pointer', scrollMarginTop: 40 },
 }
@@ -66,7 +76,8 @@ type TriageTableProps = {
   ageFlagDays: number
   /**
    * Whether to show the Assigned to and Parent columns. New items rarely have either, so the page hides a column no
-   * item in the queue fills; it decides from the whole queue so the columns hold still while the quick filter changes.
+   * item in the queue fills, except Assigned to while items can be assigned from it. It decides from the whole queue so
+   * the columns hold still while the quick filter changes.
    */
   showAssignee?: boolean
   showParent?: boolean
@@ -113,7 +124,7 @@ export function TriageTable({
             ))}
           </TableRow>
         </TableHead>
-        <TableBody sx={preview || editing ? previewBodySx : undefined}>
+        <TableBody sx={preview || editing ? previewBodySx : bodySx}>
           {items.map((item) => {
             const checks = getTriageChecksFor(item, readinessChecks)
             const clearing = describeTriageClearing(item, excludedIterationPaths)
@@ -122,6 +133,7 @@ export function TriageTable({
             return (
               <TableRow
                 key={item.id}
+                className={isTriageCleared(item) ? 'cleared' : undefined}
                 hover={Boolean(preview)}
                 selected={selected}
                 data-preview-id={preview ? item.id : undefined}

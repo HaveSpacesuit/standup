@@ -194,7 +194,13 @@ export type TriageItem = {
   tags: string[]
   /** Whether each rich-text field has content; a field left out is treated as empty. */
   filledText?: Partial<Record<TriageTextField, boolean>>
+  /** The Triage rules the item meets; empty once an edit since the queue loaded has cleared it. */
   reasons: string[]
+  /**
+   * Set while the item is cleared: the reasons and tags it was listed with before the edit that cleared it, which keep
+   * its place, Inbox group and age until the queue reloads.
+   */
+  clearedFrom?: { reasons: string[]; tags: string[] }
   workItemUrl: string
   parent?: { id: number; title?: string; workItemUrl: string; unavailable: boolean }
   /** Missing when the history could not be loaded; ages then count from the item's creation. */

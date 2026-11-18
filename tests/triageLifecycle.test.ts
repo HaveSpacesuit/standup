@@ -66,6 +66,50 @@ test('hook suppresses stale team, settings and PAT results without canceling sha
   assert.equal(state!.triageResult.items[0].id, 3)
 })
 
+test('hook leaves out the items cleared before the queue loaded, and keeps those an edit clears until it reloads', async (t) => {
+  const metadata = {
+    states: [], workItemTypes: ['Bug'],
+    statesByType: { bug: [{ name: 'New', category: 'Proposed' }, { name: 'Done', category: 'Completed' }] },
+  }
+  const url = (id: number) => `https://dev.azure.com/org/Project/_workitems/edit/${id}`
+  const item = (id: number, tags: string[], extra = {}) => ({
+    id, title: `Item ${id}`, workItemType: 'Bug', state: 'New', tags, reasons: tags.length ? ['Tag: Triage'] : [], workItemUrl: url(id), ...extra,
+  })
+  const queue = (...items: ReturnType<typeof item>[]): TriageResult => ({ items, warnings: [], rules: { options: defaults, metadata } })
+  // The engine's cache keeps item 1, which an edit cleared while the page was last open.
+  let served = queue(item(1, []), item(2, ['Triage']), item(3, ['Triage']))
+  let publish: (patch: unknown) => void = () => {}
+  const engine = {
+    getTriageItems: async () => served,
+    subscribeWorkItemPatches: (listener: (patch: unknown) => void) => {
+      publish = listener
+      return () => {}
+    },
+  }
+  let reloadNonce = 0
+  let state: ReturnType<typeof useTriageItems>
+  function Hook() {
+    state = useTriageItems({ adoQueryEngine: engine, selectedTeam: team, options: defaults, enabled: true, reloadNonce })
+    return null
+  }
+  const root = createRoot(document.createElement('div'))
+  t.after(() => act(() => root.unmount()))
+  const render = () => act(async () => root.render(createElement(Hook)))
+  type Listed = { id: number; reasons: string[]; clearedFrom?: unknown }
+  const listed = () => state!.triageResult.items.map(({ id, reasons, clearedFrom }: Listed) => [id, reasons, clearedFrom])
+
+  await render()
+  assert.deepEqual(listed(), [[2, ['Tag: Triage'], undefined], [3, ['Tag: Triage'], undefined]], 'a reopened page lists only what a fresh load would')
+
+  await act(async () => publish({ id: 2, workItemUrl: url(2), fields: { title: 'Item 2', state: 'New', tags: [] } }))
+  assert.deepEqual(listed(), [[2, [], { reasons: ['Tag: Triage'], tags: ['Triage'] }], [3, ['Tag: Triage'], undefined]], 'an edit leaves it in place, cleared')
+
+  served = queue(item(1, []), item(2, [], { clearedFrom: { reasons: ['Tag: Triage'], tags: ['Triage'] } }), item(3, ['Triage']))
+  reloadNonce = 1
+  await render()
+  assert.deepEqual(listed(), [[3, ['Tag: Triage'], undefined]], 'a refresh leaves it out')
+})
+
 test('Board routes manual/automatic refresh to Triage only, tracks fresh sync time, and disables no-rule fetches', async (t) => {
   let now = Date.now()
   t.mock.method(Date, 'now', () => now)

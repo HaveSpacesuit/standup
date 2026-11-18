@@ -15,6 +15,7 @@ import type { TriageSimilarSources } from '../hooks/useTriageSimilarSources'
 import { useWorkItemPreview, type WorkItemPreviewSource } from '../hooks/useWorkItemPreview'
 import { createBacklogSprintResolver } from '../utils/backlogSprint'
 import { getTriageQueryOptions, hasTriageRules, type TriageOptions } from '../utils/triageOptions'
+import { isTriageCleared } from '../utils/triageRules'
 import { describeEmptyTriage, filterTriageItems, formatTriageCount } from '../utils/triageDisplay'
 import { groupTriageInbox } from '../utils/triageInbox'
 import { addTriageNotDuplicate, loadTriageNotDuplicates } from '../utils/triageNotDuplicates'
@@ -35,6 +36,7 @@ import { TriageOptionsDialog } from '../components/TriageOptionsDialog'
 import { TriagePreviewPanel } from '../components/TriagePreview'
 import { TriageCompareDialog } from '../components/TriageSimilar'
 import { TriageTable } from '../components/TriageTable'
+import { useWorkItemEditing } from '../components/workItemEditingContext'
 import { previewPanelId, type PreviewControls } from '../components/workItemPreviewDisplay'
 
 type Props = {
@@ -110,10 +112,15 @@ export function TriagePage(props: Props) {
     () => filterTriageItems(result.items, filter, resolveSprint, options.readinessChecks, matches),
     [result.items, filter, resolveSprint, options.readinessChecks, matches],
   )
+  // Cleared items stay listed until the queue reloads, but the count is of those still in triage.
+  const totalCount = useMemo(() => result.items.filter((item) => !isTriageCleared(item)).length, [result.items])
+  const shownCleared = items.filter(isTriageCleared).length
   const compareItem = compareId === null ? undefined : result.items.find((item) => item.id === compareId)
   const compareMatch = compareId === null ? undefined : matches.get(compareId)
-  // From the whole queue, not the filtered rows, so the columns hold still while typing in the quick filter.
-  const showAssignee = result.items.some((item) => item.assignedTo)
+  // From the whole queue, not the filtered rows, so the columns hold still while typing in the quick filter. Assigned to
+  // also shows while items can be assigned from it.
+  const editing = useWorkItemEditing()
+  const showAssignee = result.items.some((item) => item.assignedTo || editing?.editor.canEdit(item))
   const showParent = result.items.some((item) => item.parent)
   const canLoad = props.patConfigured && props.teamOptions.length > 0
   const rulesEnabled = hasTriageRules(options)
@@ -214,7 +221,7 @@ export function TriagePage(props: Props) {
     <>
       <PageToolbar iconHref={svgCategory} title="Triage" isPageTitle wrap>
         <Typography variant="body-sm" color="text.secondary" aria-live="polite">
-          {showCount ? formatTriageCount(items.length, result.items.length) : ''}
+          {showCount ? formatTriageCount(items.length - shownCleared, totalCount, shownCleared) : ''}
         </Typography>
         <QuickFilterField
           label="Quick filter triage items" value={filter} onChange={setFilter} onClear={() => setFilter('')}

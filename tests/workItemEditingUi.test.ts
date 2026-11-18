@@ -35,7 +35,7 @@ const { applyWorkItemPatch, getWorkItemFields, workItemUrlFor } = await server.s
 const { applyFieldChanges } = await server.ssrLoadModule('/src/ado/workItemUpdateApi.ts')
 const { TriageTable } = await server.ssrLoadModule('/src/features/standup/components/TriageTable.tsx')
 const { TriageInbox } = await server.ssrLoadModule('/src/features/standup/components/TriageInbox.tsx')
-const { applyTriagePatch, getListedTriageResult, getTriageReasons } = await server.ssrLoadModule('/src/ado/triageApi.ts')
+const { applyTriagePatch, getTriageReasons } = await server.ssrLoadModule('/src/ado/triageApi.ts')
 const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
 
 const team = { orgName: 'org', projectName: 'Project', iterationPath: 'Project' }
@@ -330,7 +330,8 @@ function TriageHarness({ engine, initialItems, view }: { engine: ReturnType<type
     members: [ana, bo], knownTags: ['Triage', 'frontend'], effortSuggestions: [3, 5], tagRules: [],
   })
   const props = {
-    items: getListedTriageResult(result).items, resolveSprint: createBacklogSprintResolver([]), ageFlagDays: 2,
+    // As on the page, an item an edit clears stays listed until the queue reloads.
+    items: result.items, resolveSprint: createBacklogSprintResolver([]), ageFlagDays: 2,
     readinessChecks: { bug: [], other: [] }, excludedIterationPaths: [], waitingTags: [],
   }
   return createElement(WorkItemEditingProvider, { editor },
@@ -351,24 +352,29 @@ async function renderTriage(t: TestContext, items: TriageItem[], view: 'table' |
 const listedIds = () => [...document.querySelectorAll('[data-work-item-menu]')].map((button) => Number(button.getAttribute('data-work-item-menu')?.split('#').at(-1)))
 const menuButtonFor = (id: number) => document.querySelector(`[data-work-item-menu="${workItemUrlFor(team, id).toLowerCase()}#${id}"]`)
 
-test('a Triage row’s tag chip removes the tag in place, and an item it clears leaves the queue until an undo', async (t) => {
+test('a Triage row’s tag chip removes the tag in place, and an item it clears stays, marked cleared, until an undo', async (t) => {
   const engine = await renderTriage(t, [makeTriageItem(1, { state: 'Approved', tags: ['frontend', 'Triage'] }), makeTriageItem(2)], 'table')
   assert.deepEqual(listedIds(), [1, 2])
+  const row = () => menuButtonFor(1)!.closest('tr')!
   const remove = document.querySelector<HTMLElement>('[aria-label="Remove the “Triage” tag from #1"]')!
   assert.equal(remove !== null, true)
 
   await act(async () => remove.focus())
   await click(remove)
-  assert.deepEqual(listedIds(), [2], 'the approved bug no longer needs triage once untagged')
+  assert.deepEqual(listedIds(), [1, 2], 'the approved bug no longer needs triage once untagged, but stays in its place')
+  assert.equal(row().classList.contains('cleared'), true)
+  assert.equal(row().querySelector('[aria-label="Why it is listed"]'), null)
+  assert.equal(row().textContent!.includes('Cleared'), true)
   await settle()
   assert.deepEqual(engine.updates, [{ id: 1, changes: { tags: ['frontend'] }, expected: { tags: ['frontend', 'Triage'] } }])
   assert.equal(toastText().includes('#1: Tags → frontend.'), true)
-  assert.equal(document.activeElement === menuButtonFor(2), true, 'focus moves on to the next item')
+  assert.equal(document.activeElement === menuButtonFor(1), true, 'focus stays with the item')
 
   await click(byText('.MuiSnackbar-root .MuiAlert-action button', 'Undo'))
   await settle()
   assert.deepEqual(engine.updates[1], { id: 1, changes: { tags: ['frontend', 'Triage'] }, expected: { tags: ['frontend'] } })
   assert.deepEqual(listedIds(), [1, 2])
+  assert.equal(row().classList.contains('cleared'), false)
   assert.equal(document.querySelector('[aria-label="Remove the “Triage” tag from #1"]') !== null, true, 'its reason is back too')
 
   const addTag = document.querySelector<HTMLElement>('.edit-tags[aria-label="Tags: no tags. Change"]')!
@@ -377,9 +383,10 @@ test('a Triage row’s tag chip removes the tag in place, and an item it clears 
   assert.equal(document.querySelector('[role="dialog"]')?.textContent?.includes('Edit tags'), true)
 })
 
-test('a Triage card always offers its state, and a new bug moved on from its first state leaves the inbox', async (t) => {
+test('a Triage card always offers its state, and a new bug moved on from its first state stays in the inbox, marked cleared', async (t) => {
   const engine = await renderTriage(t, [makeTriageItem(1), makeTriageItem(2)], 'inbox')
   const card = () => document.querySelector<HTMLElement>('[data-triage-card="1"]')
+  const summary = () => document.querySelector('[aria-label="Triage summary"]')!.textContent!
   const state = card()!.querySelector<HTMLElement>('[data-edit-field="state"]')!
   assert.equal(state.textContent, 'New', 'shown even though the item is still in its first state')
 
@@ -388,11 +395,35 @@ test('a Triage card always offers its state, and a new bug moved on from its fir
   await click(byText('[role="menuitemradio"]', 'Approved'))
   await settle()
   assert.deepEqual(engine.updates, [{ id: 1, changes: { state: 'Approved' }, expected: { state: 'New' } }])
-  assert.equal(card() === null, true)
-  assert.deepEqual(listedIds(), [2])
-  assert.equal(document.querySelector('[aria-label="Triage summary"]')?.textContent?.startsWith('1 in triage'), true)
+  assert.deepEqual(listedIds(), [1, 2], 'it keeps its place')
+  assert.equal(card()!.classList.contains('cleared'), true)
+  assert.equal(card()!.textContent!.includes('leaves the list when Triage next refreshes'), true)
+  assert.equal(summary().startsWith('1 in triage'), true)
+  assert.equal(summary().endsWith('1 cleared'), true)
+  assert.equal(document.querySelector('#triage-inbox-todo')!.textContent!.endsWith('1longest in triage first'), true, 'the group counts what is left')
 
   await click(byText('.MuiSnackbar-root .MuiAlert-action button', 'Undo'))
   await settle()
   assert.deepEqual(listedIds(), [1, 2])
+  assert.equal(card()!.classList.contains('cleared'), false)
+  assert.equal(summary().includes('cleared'), false)
 })
+
+for (const view of ['table', 'inbox'] as const) {
+  test(`an unassigned Triage ${view === 'table' ? 'row' : 'card'} assigns the item in place, and it stays in the queue`, async (t) => {
+    const engine = await renderTriage(t, [makeTriageItem(1), makeTriageItem(2)], view)
+    const assignee = () => menuButtonFor(1)!.closest('tr, [data-triage-card]')!.querySelector<HTMLElement>('[data-edit-field="assignedTo"]')!
+    assert.equal(assignee().getAttribute('aria-label'), 'Assigned to: Unassigned. Change')
+    assert.equal(assignee().textContent, 'Unassigned')
+
+    await click(assignee())
+    assert.equal(document.querySelector('[role="dialog"] input[aria-label="Search team members"]') !== null, true)
+    // Each choice starts with its avatar's initial.
+    await click([...document.querySelectorAll('[role="menuitemradio"]')].find((choice) => choice.textContent === 'BBo')!)
+    await settle()
+    assert.deepEqual(engine.updates.map((update) => [update.id, update.changes.assignedTo?.uniqueName]), [[1, bo.uniqueName]])
+    assert.equal(toastText().includes('#1: Assigned to → Bo.'), true)
+    assert.deepEqual(listedIds(), [1, 2], 'being assigned does not take an item off the queue')
+    assert.equal(assignee().getAttribute('aria-label'), 'Assigned to: Bo. Change')
+  })
+}

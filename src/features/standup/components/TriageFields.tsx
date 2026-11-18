@@ -7,10 +7,10 @@ import svgInspection from '@stratakit/icons/inspection.svg'
 import svgStatusSuccess from '@stratakit/icons/status-success.svg'
 import svgTag from '@stratakit/icons/tag.svg'
 import type { TriageItem } from '../../../ado/types'
-import { describeTriageAge, READY_TO_CLEAR_LABEL } from '../utils/triageDisplay'
+import { describeTriageAge, READY_TO_CLEAR_LABEL, TRIAGE_CLEARED_LABEL, TRIAGE_CLEARED_NOTE } from '../utils/triageDisplay'
 import { getTriageEntry, getTriageItemAge } from '../utils/triageInbox'
 import type { TriageCheck, TriageReadinessChecks } from '../utils/triageOptions'
-import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks, type TriageReason } from '../utils/triageRules'
+import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks, isTriageCleared, type TriageReason } from '../utils/triageRules'
 import { getEditableFields } from '../utils/workItemEditing'
 import { AppTooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
@@ -24,6 +24,7 @@ import { METER_TRACK_COLOR } from './workItemTableDisplay'
 const SEVERITY_UNSET_TIP = 'Severity is not set yet.'
 const IMPACT_UNSET_TIP = 'Impact (the Priority field) is not set yet.'
 const EFFORT_UNSET_TIP = 'Effort is not set yet.'
+const TRIAGE_CLEARED_TIP = 'It stays here until Triage next refreshes.'
 
 // The type icon hangs beside the title, centered on its first line, so wrapped title and tag lines stay aligned with
 // the id rather than running under the icon.
@@ -84,6 +85,13 @@ const readyChipSx: SxProps<Theme> = {
   cursor: 'help',
 }
 const readyIconStyle = { ...reasonIconStyle, color: 'var(--stratakit-color-icon-positive-base)' }
+
+// Outlined rather than filled, so it reads as done rather than as the "Ready to clear" still to act on.
+const clearedChipSx: SxProps<Theme> = {
+  ...readyChipSx,
+  bgcolor: 'transparent',
+  border: '1px solid var(--stratakit-color-border-positive-base)',
+}
 
 // Each missing field reads as the dashed "?" the Severity, Impact and Effort cells use, shrunk to sit beside its name.
 const missingMarkSx = {
@@ -159,8 +167,12 @@ function ReadyChip({ item, readiness, clearing }: { item: TriageItem; readiness:
   )
 }
 
-/** "Ready to clear" once every check for the item's type passes, otherwise the fields still missing. */
+/**
+ * "Ready to clear" once every check for the item's type passes, otherwise the fields still missing. Nothing once the item
+ * is cleared.
+ */
 export function TriageReadinessLabel({ item, checks, clearing }: { item: TriageItem; checks: TriageReadinessChecks; clearing: string }) {
+  if (isTriageCleared(item)) return null
   const readiness = getTriageReadiness(item, checks)
   if (readiness.ready) return <ReadyChip item={item} readiness={readiness} clearing={clearing} />
   return (
@@ -176,9 +188,11 @@ export function TriageReadinessLabel({ item, checks, clearing }: { item: TriageI
 
 /**
  * A card's readiness line: "Ready to clear", or each check with a tick or the dashed "?", then what takes the item off
- * the queue. Only the clearing text while no type has readiness checks.
+ * the queue. Only the clearing text while no type has readiness checks, and only that the item leaves on a refresh once
+ * it is cleared.
  */
 export function TriageChecklist({ item, checks, clearing }: { item: TriageItem; checks: TriageReadinessChecks; clearing: string }) {
+  if (isTriageCleared(item)) return <Box sx={checklistSx}><span>{TRIAGE_CLEARED_NOTE}</span></Box>
   const readiness = getTriageReadiness(item, checks)
   const showChecks = hasTriageChecks(checks)
   if (!showChecks && !clearing) return null
@@ -224,6 +238,20 @@ function describeReason(reason: TriageReason, item: TriageItem): string {
     : `Listed because it is a bug still in its first state, ${item.state}.`
 }
 
+/** "Cleared", for an item an edit has taken off the queue, saying what it was listed for and that it leaves on a refresh. */
+function TriageClearedChip({ item }: { item: TriageItem }) {
+  const was = item.clearedFrom ? getTriageReasonDetails(item.clearedFrom).map((reason) => reason.label) : []
+  const lines = ['No longer meets the Triage rules.', was.length ? `It was listed for: ${was.join(', ')}.` : '', TRIAGE_CLEARED_TIP]
+  return (
+    <AppTooltip title={<TipLines lines={lines.filter(Boolean)} />} describeChild>
+      <Box component="span" sx={clearedChipSx}>
+        <Icon href={svgStatusSuccess} alt="" style={readyIconStyle} />
+        {TRIAGE_CLEARED_LABEL}
+      </Box>
+    </AppTooltip>
+  )
+}
+
 /** Takes the tag off the item in one click; the toast offers Undo. Renders nothing when the item's tags can't be edited. */
 function RemoveReasonTagButton({ item, tag }: { item: TriageItem; tag: string }) {
   const editing = useWorkItemEditing()
@@ -236,7 +264,7 @@ function RemoveReasonTagButton({ item, tag }: { item: TriageItem; tag: string })
         aria-label={`Remove the “${tag}” tag from #${item.id}`}
         onClick={(event) => {
           event.stopPropagation()
-          // Without its last reason the item leaves the list, taking this button with it.
+          // The chip goes with its tag, taking this button with it, and with the last one the item shows as cleared.
           const restoreFocus = prepareFocusRestore(workItemEditKey(item))
           void editor.save(item, { tags: item.tags.filter((name) => name.toLowerCase() !== tag.toLowerCase()) })
           requestAnimationFrame(restoreFocus)
@@ -248,7 +276,9 @@ function RemoveReasonTagButton({ item, tag }: { item: TriageItem; tag: string })
   )
 }
 
+/** Why the item is listed, each tag reason with a button that removes the tag; once the item is cleared, "Cleared". */
 export function TriageReasons({ item, clearing }: { item: TriageItem; clearing: string }) {
+  if (isTriageCleared(item)) return <TriageClearedChip item={item} />
   const reasons = getTriageReasonDetails(item)
   if (reasons.length === 0) return <NotSet />
   return (

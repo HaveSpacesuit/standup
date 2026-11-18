@@ -368,17 +368,25 @@ skipped); after two weeks it switches to calendar time such as `3w`, as on Backl
 triage when it was created, or later if it qualified later: when its matched tag was last added, or
 when a new bug last moved back into its first state. A rule that began within an hour of creation
 counts from creation. Its tooltip gives the date the item entered triage and the working-day count.
-Assigned to and Parent are hidden while no item in the
-queue has one, since new items rarely do; the choice is made from the whole queue, so the columns
-stay put while the quick filter changes. Sprint places the iteration against the team's sprints as
-Backlog does (This sprint, Next sprint, a sprint name, or Backlog). Missing Severity, Impact, and
-Effort are flagged with a dashed `?`, as on Backlog, when they are one of the item type's readiness
-checks, and otherwise shown as a dash; unassigned items show a muted Unassigned. Triage has no Value
-score or raised-effort marker. Item and parent links open
+Parent is hidden while no item in the queue has one, since new items rarely do, and so is Assigned to
+unless you can edit, so an unassigned item can be assigned from its row; the choice is made from the
+whole queue, so the columns stay put while the quick filter changes. Sprint places the iteration
+against the team's sprints as Backlog does (This sprint, Next sprint, a sprint name, or Backlog).
+Missing Severity, Impact, and Effort are flagged with a dashed `?`, as on Backlog, when they are one
+of the item type's readiness checks, and otherwise shown as a dash; unassigned items show a muted
+Unassigned. Triage has no Value score or raised-effort marker. Item and parent links open
 Azure DevOps for edits. An unavailable parent's known ID/link is retained with an explicit warning.
 Quick filtering searches the displayed text, including tags, why items are listed, readiness
 (**Ready to clear** or the missing field names), creator, type, sprint label, parent, and the
 similar-item match (such as **Possible regression of 2160021**); `/` and Ctrl/Cmd+F focus it.
+
+An edit that clears an item, such as removing its last matched tag or moving a new bug to Approved,
+does not take it off the page at once. It stays where it is until Triage next refreshes, so you can
+keep editing it. Its Why chips give way to a green-outlined **Cleared** chip, whose tooltip names the
+rules it was listed for. The row or card is recessed, with a green edge, and its readiness and age
+flag are dropped. Cleared items are left out of the counts: the header reads `3 items · 1 cleared`.
+Refresh, automatic refresh, or opening the page again drops them. **Undo**, or an edit that makes the
+item qualify again, restores it.
 
 #### Table and Inbox
 
@@ -386,7 +394,8 @@ The **View** toggle in the toolbar switches between **Table**, the default, and 
 the same items, after the quick filter, as a daily to-do list. A summary line counts the items in
 triage, those new since your last visit, those ready to clear (when there are readiness checks), those
 waiting on others, and, in amber, those in triage at least the age flag's working days without
-waiting. The items follow in up to three groups, each longest in triage first:
+waiting, then any cleared since the last refresh. The items follow in up to three groups, each longest
+in triage first; a cleared item keeps its place and is not counted in its group:
 
 - **New since your last visit**: items that entered triage after you last had the team's Triage page
   open on an earlier day. Reloading or refreshing later the same day keeps the same group, so it
@@ -397,15 +406,16 @@ waiting. The items follow in up to three groups, each longest in triage first:
 
 Each card shows the type icon, ID, linked title, and the item's other tags, then how it arrived:
 **Filed** with when and by whom, or **Tagged “Triage”** or **Moved to New** with when, by whom, and
-the created date. The Why chips follow, then the state, the assignee, and the parent link, each only
-when it differs from a fresh item, except that the state always shows while you can edit, to change
-it in place. Cards have the Table's **+ Tag** button and **×** on tag chips. A waiting item says
+the created date. The Why chips follow, then the state and the parent link, each only when it
+differs from a fresh item, except that the state always shows while you can edit, to change it in
+place. Cards have the Table's **+ Tag** button and **×** on tag chips. A waiting item says
 which tag it carries and since when; once someone other than whoever added the tag comments after it
 was added, the card shows **replied** with the comment's start in a tooltip. An item past the age
 flag says how many working days it has been in triage. Below, a checklist marks each readiness check
 filled or missing (or shows **Ready to clear**, with a green edge on the card) beside what clears the
-item. Severity, Impact, Effort, and the sprint (unless Backlog) sit to the right, folding under the
-title when the page is narrow.
+item. Severity, Impact, Effort, the sprint, and the assignee sit to the right, folding under the
+title when the page is narrow. A Backlog sprint or a missing assignee leaves its place empty, or,
+while you can edit, shows a muted **No sprint** or **Unassigned** that opens its editor.
 
 To tell when each item entered triage and whether anyone replied, the page reads each item's update
 history and, when it has comments, its newest comment. History loads for up to 100 items; beyond
@@ -455,8 +465,9 @@ with the keyboard.
 The panel's header shows the item's type, ID, and title, then its Severity, Impact, Effort, sprint,
 state, assignee, and tags as the Table shows them. Below that:
 
-- **Why it's here**: how the item arrived, as the Inbox card says, and what clears it.
-- **Readiness**: the readiness checklist, when there are readiness checks.
+- **Why it's here**: how the item arrived, as the Inbox card says, and what clears it. For a cleared
+  item, that it leaves on the next refresh.
+- **Readiness**: the readiness checklist, when there are readiness checks and the item is not cleared.
 - **Similar**: the closest match, with **Compare**, when there is one.
 - The item's text from Azure DevOps. A Bug leads with **Repro steps**, then System info, Description,
   and Acceptance criteria; other types lead with Description. Empty fields are left out unless a
@@ -711,7 +722,8 @@ off until the PAT changes or the page reloads, and the menu says why; reloading 
 for changes made elsewhere. The toast says which fields changed, or that the item is up to date. An
 edited or reloaded item updates where it is listed. The Triage queue also checks it against its
 rules again: an item that no longer qualifies, such as one whose Triage tag was removed or a new bug
-moved to Approved or into an excluded sprint, leaves the queue at once, and **Undo** brings it back.
+moved to Approved or into an excluded sprint, stays in place marked **Cleared** until Triage next
+refreshes, and **Undo** restores it (see [Triage view](#triage-view)).
 Otherwise items do not join or leave a list until the page refreshes, so an item that newly
 qualifies for triage joins on the next refresh.
 

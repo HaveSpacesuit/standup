@@ -24,7 +24,7 @@ const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { TriageInbox } = await server.ssrLoadModule('/src/features/standup/components/TriageInbox.tsx')
 const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
 const {
-  formatTriageCreated, formatTriageMoment, formatTriageVisit, formatTriageWhen, getTriageEntry, getTriageItemAge,
+  countTriageGroup, formatTriageCreated, formatTriageMoment, formatTriageVisit, formatTriageWhen, getTriageEntry, getTriageItemAge,
   getTriageWaiting, groupTriageInbox, summarizeTriageInbox,
 } = await server.ssrLoadModule('/src/features/standup/utils/triageInbox.ts')
 
@@ -104,8 +104,25 @@ test('the Inbox groups items new since the last visit, still to triage and waiti
     'empty groups are left out')
 
   const groups = groupTriageInbox(items, ['Needs Info'], lastVisit)
-  assert.deepEqual(summarizeTriageInbox(groups, checks, 2, ['Needs Info'], now), { total: 5, newCount: 1, ready: 3, waiting: 1, stale: 2 })
+  assert.deepEqual(summarizeTriageInbox(groups, checks, 2, ['Needs Info'], now), { total: 5, newCount: 1, ready: 3, waiting: 1, stale: 2, cleared: 0 })
   assert.equal(summarizeTriageInbox(groups, { bug: [], other: [] }, 2, ['Needs Info'], now).ready, undefined, 'no checks, no ready count')
+})
+
+test('a cleared item keeps the place, group and entry it was listed with, but is neither flagged nor counted as in triage', () => {
+  // Since the queue loaded, its Triage tag came off, and for `waiting` the tag that had it waiting too.
+  const clear = (item: TriageItem, tags: string[]): TriageItem => ({ ...item, tags, reasons: [], clearedFrom: { reasons: item.reasons, tags: item.tags } })
+  const untagged = clear(tagged, ['UI'])
+  const answered = clear(waiting, [])
+  const done = clear(stale, [])
+  assert.deepEqual(getTriageEntry(untagged), getTriageEntry(tagged), 'it still entered when it was tagged')
+  assert.equal(getTriageItemAge(done, 2, [], now)?.flagged, false)
+  assert.equal(getTriageItemAge(done, 2, [], now)?.workingDays, getTriageItemAge(stale, 2, [], now)?.workingDays)
+
+  const groups = groupTriageInbox([filed, untagged, moved, answered, done], ['Needs Info'], lastVisit)
+  assert.deepEqual(groups.map(({ key, items: grouped }: { key: string; items: TriageItem[] }) => [key, grouped.map(({ id }) => id), countTriageGroup({ key, items: grouped })]), [
+    ['new', [1], 1], ['todo', [5, 3, 2], 1], ['waiting', [4], 0],
+  ])
+  assert.deepEqual(summarizeTriageInbox(groups, checks, 2, ['Needs Info'], now), { total: 2, newCount: 1, ready: 1, waiting: 0, stale: 1, cleared: 3 })
 })
 
 test('Inbox times read naturally: relative today, then yesterday, the weekday and the date', () => {
@@ -204,5 +221,18 @@ test('each card says how the item arrived, why it is listed, what it is waiting 
     assert.deepEqual([...card(3).querySelectorAll('ul[aria-label="Readiness checks"] li')].map((check) => check.textContent), ['?Severity: missing'])
     assert.match(card(3).textContent!, /Clears when you move it out of New\./)
     assert.match(squash(card(1).querySelector('.card-fields')!.textContent), /S2 · High/)
+  } finally { dom.window.close() }
+})
+
+test('a card names its assignee among its fields, not in the meta line, and leaves the slot empty while unassigned and read-only', () => {
+  const dom = renderInbox({ items: [{ ...tagged, assignedTo: person('Bo') }, moved] })
+  try {
+    const doc = dom.window.document
+    const card = (id: number) => doc.querySelector(`[data-triage-card="${id}"]`)!
+    const assignee = card(2).querySelector('.card-fields > .assignee')!
+    assert.equal(assignee.querySelector('[aria-hidden="true"]')?.textContent, 'B', 'a decorative avatar, as in the Table')
+    assert.equal(assignee.textContent, 'BBo')
+    assert.doesNotMatch(card(2).querySelector('.card-meta')!.textContent!, /Assigned|Bo/)
+    assert.equal(card(3).querySelector('.card-fields > .assignee')!.textContent, '')
   } finally { dom.window.close() }
 })
