@@ -282,7 +282,9 @@ someone who isn't a tester goes to **Everyone else**, which starts collapsed beh
 lanes. Each of those two lanes appears only when it has cards. Testers are the members chosen on the
 QA options Testers tab. When none are chosen, they are inferred from recent QA history: people who
 pick up testing work, or verify or send back other people's handoffs, more often than they hand work
-to QA. An info button beside the Testers heading notes inferred testers and opens that tab, and if no
+to QA. This includes testers outside the selected team's member list, so their assignments appear
+in their own lane and under Testing in Flow rather than Needs a tester.
+An info button beside the Testers heading notes inferred testers and opens that tab, and if no
 testers are found the view says so and offers Choose testers. **Flow** shows the columns without
 lanes and splits Ready for QA into Needs a tester and Testing. While QA data loads, the skeleton
 mirrors the current view.

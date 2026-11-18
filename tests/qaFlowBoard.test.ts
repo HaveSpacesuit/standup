@@ -35,6 +35,7 @@ const { default: checkmarkIcon } = await server.ssrLoadModule('@stratakit/icons/
 const { getItemHistory, getQaLaneFlags, getQaStandupOrder, columnCaption } = await server.ssrLoadModule('/src/features/standup/components/qaBoardModel.ts')
 const { bucketQualityAssuranceItems, resolveQualityAssuranceProjectConfig } =
   await server.ssrLoadModule('/src/features/standup/utils/qualityAssuranceBuckets.ts')
+const { resolveQaTesters } = await server.ssrLoadModule('/src/features/standup/utils/qaTesters.ts')
 
 const ago = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 const tester = { displayName: 'Taylor Reed', uniqueName: 'taylor@example.test' }
@@ -329,6 +330,59 @@ test('QA testers view gives each tester a lane, followed by work without a teste
     assert.ok(document.querySelector('[data-collapsed-cell]'))
   })
 })
+
+for (const view of ['testers', 'flow'] as const) {
+  test(`QA ${view} recognizes an assigned tester outside the selected team's roster`, () => {
+    const developer = { displayName: 'Dana Developer', uniqueName: 'dana@example.test' }
+    const assigned = { ...ready, assignedTo: tester }
+    const unassigned = { ...ready, id: 506, assignedTo: undefined }
+    const itemUpdates: Record<number, WorkItemUpdate[]> = {
+      [assigned.id]: [
+        {
+          revisedBy: developer,
+          fields: {
+            'System.State': { oldValue: 'Active', newValue: 'Available for Testing' },
+            'System.AssignedTo': { oldValue: developer, newValue: developer },
+          },
+        },
+        {
+          revisedBy: developer,
+          fields: { 'System.AssignedTo': { oldValue: developer, newValue: tester } },
+        },
+      ],
+    }
+    const { testers, inferred } = resolveQaTesters({
+      configuredNames: [],
+      teamMembers: [developer],
+      updatesByItemId: itemUpdates,
+      stateGroups: { testing: ['Available for Testing'], development: ['Active'], done: ['Done'] },
+    })
+    withDocument(render(view, false, {
+      testers,
+      testersInferred: inferred,
+      updatesByItemId: itemUpdates,
+      buckets: [{ id: 'needs-testing', title: 'Ready for QA', items: [assigned, unassigned] }],
+      boardItems: [],
+    }), (document) => {
+      assert.match(document.body.textContent ?? '', /Needs a tester 1/)
+      assert.doesNotMatch(document.body.textContent ?? '', /No QA testers found/)
+      const card = document.querySelector(`[data-qa-card="${assigned.id}"]`)
+      assert.ok(card)
+      assert.doesNotMatch(card.textContent ?? '', /Needs a tester/)
+      if (view === 'testers') {
+        assert.ok(document.querySelector('[data-lane="Taylor Reed"]'))
+        assert.ok(document.querySelector(`[data-qa-cell="Taylor Reed:needs-testing"] [data-qa-card="${assigned.id}"]`))
+        assert.ok(document.querySelector(`[data-qa-cell="__needs_tester__:needs-testing"] [data-qa-card="${unassigned.id}"]`))
+      } else {
+        const body = document.querySelector('[data-qa-column="needs-testing"] [data-qa-column-body]')
+        assert.ok(body)
+        const testingHeading = [...body.children].find((element) => element.textContent === 'Testing · 1')
+        assert.ok(testingHeading)
+        assert.equal(testingHeading.nextElementSibling?.contains(card), true)
+      }
+    })
+  })
+}
 
 test('QA testers view leaves out the shared lanes when they have no cards', () => {
   withDocument(render('testers', false, { boardItems: [], buckets: [] }), (document) => {
