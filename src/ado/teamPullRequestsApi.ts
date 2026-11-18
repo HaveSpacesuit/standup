@@ -233,6 +233,64 @@ async function fetchPullRequestItems(
   return mappedItems.filter((item): item is WorkItemSummary => item !== null)
 }
 
+/** A pull request card read fresh, with the pull request's status: lower-cased, or `draft` while it is one. */
+export type PullRequestCardRead = {
+  /** Null once the board no longer shows the pull request: back to draft, or abandoned. */
+  card: WorkItemSummary | null
+  status: string
+}
+
+/**
+ * One pull request's card as Azure DevOps has it now, read by ID. A completed pull request keeps its card, in Done.
+ *
+ * @param pullRequest The card's pull request as the board shows it, whose icon and repository name fill any gaps.
+ */
+export async function fetchPullRequestCard(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  pullRequest: Pick<WorkItemPullRequestSummary, 'id' | 'repositoryId' | 'repositoryName' | 'iconUrl'>,
+  signal?: AbortSignal,
+): Promise<PullRequestCardRead> {
+  const project = encodeURIComponent(team.projectName)
+  const [current, workItemIconMap, projectId] = await Promise.all([
+    client.request<PullRequestApiResponse>({
+      method: 'GET',
+      orgName: team.orgName,
+      path: pullRequest.repositoryId
+        ? `/${project}/_apis/git/repositories/${encodeURIComponent(pullRequest.repositoryId)}/pullrequests/${pullRequest.id}`
+        : `/${project}/_apis/git/pullrequests/${pullRequest.id}`,
+      params: {
+        'api-version': '7.1',
+      },
+      signal,
+    }),
+    fetchWorkItemIconMap(client, team.orgName, signal).catch(() => ({})),
+    fetchProjectId(client, team.orgName, team.projectName, signal),
+  ])
+  if (current?.pullRequestId !== pullRequest.id) {
+    throw new Error(`Azure DevOps did not return pull request ${pullRequest.id}.`)
+  }
+
+  const status = current.isDraft === true ? 'draft' : current.status?.trim().toLowerCase() ?? ''
+  if (status !== 'active' && status !== 'completed') {
+    return { card: null, status }
+  }
+
+  const repositoryId = current.repository?.id?.trim() || pullRequest.repositoryId
+  const [policies, readyForReviewAt] = await Promise.all([
+    fetchPullRequestPolicies(client, team, pullRequest.id, projectId, signal),
+    fetchPullRequestReadyForReviewAt(client, team, repositoryId, pullRequest.id, signal),
+  ])
+  const card = mapPullRequestToWorkItemSummary(
+    current,
+    { ...team, repoName: pullRequest.repositoryName ?? repositoryId ?? '' },
+    getPullRequestIconUrl(workItemIconMap) ?? pullRequest.iconUrl,
+    policies,
+    readyForReviewAt,
+  )
+  return { card, status }
+}
+
 export async function fetchUnlinkedActivePullRequestItems(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName' | 'repoName'>,

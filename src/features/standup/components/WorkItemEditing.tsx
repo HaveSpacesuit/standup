@@ -12,12 +12,16 @@ import {
   FIELD_EDIT_LABELS,
   FIELD_SHORTCUT_KEYS,
   getEditableFields,
+  getItemLabel,
   getShortcutAction,
-  isEditableWorkItem,
+  hasItemActions,
+  isPullRequestCard,
   RELOAD_SHORTCUT_KEY,
   type EditableWorkItem,
 } from '../utils/workItemEditing'
-import { copyRichText, formatWorkItemLink, getWorkItemLinkLabel } from '../utils/workItemLink'
+import {
+  copyRichText, formatPullRequestLink, formatWorkItemLink, getPullRequestLinkLabel, getWorkItemLinkLabel, type ClipboardContent,
+} from '../utils/workItemLink'
 import {
   prepareFocusRestore, workItemEditKey, WorkItemEditingContext, type EditAnchor, type WorkItemEditingApi,
 } from './workItemEditingContext'
@@ -64,7 +68,7 @@ function EditorHeader({ id, label, item, shortcut }: { id?: string; label: strin
     <Box sx={headerSx}>
       <Typography id={id} variant="body-sm" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</Typography>
       <Typography variant="body-sm" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0 }}>
-        #{item.id} · {item.title}
+        {getItemLabel(item)} · {item.title}
       </Typography>
       {shortcut ? <Kbd>{shortcut}</Kbd> : null}
     </Box>
@@ -90,8 +94,21 @@ function ItemMenu({ open, editor, onOpenField, onReload, onClose }: {
 }) {
   const { item } = open
   const fields = getWorkItemFields(item)
+  const pullRequestCard = isPullRequestCard(item)
+  const editableFields = pullRequestCard ? [] : getEditableFields(item)
   const canEdit = editor.canEdit(item)
   const labelId = useId()
+  const copyLink = (content: ClipboardContent, label: string) => {
+    copyRichText(content).then(
+      () => editor.notify(`Copied link to ${label}.`, 'success'),
+      () => editor.notify(`Couldn’t copy the link to ${label}. The browser blocked clipboard access.`, 'error'),
+    )
+    onClose()
+  }
+  const openInAzureDevOps = () => {
+    window.open(pullRequestCard ? item.pullRequest.url : item.workItemUrl, '_blank', 'noopener,noreferrer')
+    onClose()
+  }
   return (
     <Popover
       open
@@ -100,7 +117,7 @@ function ItemMenu({ open, editor, onOpenField, onReload, onClose }: {
       onClose={onClose}
       slotProps={{ paper: { sx: { minWidth: 280, maxWidth: 380 } } }}
     >
-      <EditorHeader id={labelId} label="Edit" item={item} />
+      <EditorHeader id={labelId} label={pullRequestCard ? 'Pull request' : 'Edit'} item={item} />
       <MenuList
         autoFocusItem
         aria-labelledby={labelId}
@@ -109,14 +126,14 @@ function ItemMenu({ open, editor, onOpenField, onReload, onClose }: {
         onKeyDownCapture={(event) => {
           if (isTypingTarget(event.target) && !(event.target instanceof Element && event.target.closest('[role="menu"]'))) return
           const action = getShortcutAction(event)
-          if (!action) return
+          if (!action || (action.kind === 'field' && pullRequestCard)) return
           event.preventDefault()
           event.stopPropagation()
           if (action.kind === 'reload') onReload()
-          else if (canEdit && getEditableFields(item).includes(action.field)) onOpenField(action.field)
+          else if (canEdit && editableFields.includes(action.field)) onOpenField(action.field)
         }}
       >
-        {getEditableFields(item).map((field) => (
+        {editableFields.map((field) => (
           <MenuItem
             key={field}
             disabled={!canEdit}
@@ -131,33 +148,30 @@ function ItemMenu({ open, editor, onOpenField, onReload, onClose }: {
             <Kbd>{FIELD_SHORTCUT_KEYS[field]}</Kbd>
           </MenuItem>
         ))}
-        <Divider />
+        {editableFields.length ? <Divider /> : null}
         <MenuItem aria-keyshortcuts={RELOAD_SHORTCUT_KEY} onClick={onReload}>
           <Box component="span" sx={{ flex: 1 }}>Reload from Azure DevOps</Box>
           <Kbd>{RELOAD_SHORTCUT_KEY}</Kbd>
         </MenuItem>
         <MenuItem
-          onClick={() => {
-            const label = getWorkItemLinkLabel(item)
-            copyRichText(formatWorkItemLink(item)).then(
-              () => editor.notify(`Copied link to ${label}.`, 'success'),
-              () => editor.notify(`Couldn’t copy the link to ${label}. The browser blocked clipboard access.`, 'error'),
-            )
-            onClose()
-          }}
+          onClick={() => pullRequestCard
+            ? copyLink(formatPullRequestLink(item.pullRequest), getPullRequestLinkLabel(item.pullRequest))
+            : copyLink(formatWorkItemLink(item), getWorkItemLinkLabel(item))}
         >
           Copy link
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            window.open(item.workItemUrl, '_blank', 'noopener,noreferrer')
-            onClose()
-          }}
-        >
-          Open in Azure DevOps
-        </MenuItem>
+        {pullRequestCard ? null : item.activePullRequests?.map((pullRequest) => (
+          <MenuItem
+            key={`${pullRequest.repositoryId ?? ''}#${pullRequest.id}`}
+            onClick={() => copyLink(formatPullRequestLink(pullRequest), getPullRequestLinkLabel(pullRequest))}
+          >
+            <Box component="span" sx={{ flex: 1, whiteSpace: 'nowrap' }}>Copy link to PR {pullRequest.id}</Box>
+            <Box component="span" sx={menuValueSx}>{pullRequest.title}</Box>
+          </MenuItem>
+        ))}
+        <MenuItem onClick={openInAzureDevOps}>Open in Azure DevOps</MenuItem>
       </MenuList>
-      {editor.lockedReason ? (
+      {editor.lockedReason && !pullRequestCard ? (
         <Typography variant="caption-sm" color="text.secondary" sx={{ display: 'block', px: 1.5, pb: 1, maxWidth: 340 }}>
           Editing is off. {editor.lockedReason}
         </Typography>
@@ -249,7 +263,7 @@ export function WorkItemEditingProvider({ editor, children }: { editor: WorkItem
 
   const api = useMemo<WorkItemEditingApi>(() => {
     const openMenu = (item: EditableWorkItem, anchor: EditAnchor) => {
-      if (isEditableWorkItem(item)) setOpen({ kind: 'menu', item, position: toPosition(anchor) })
+      if (hasItemActions(item)) setOpen({ kind: 'menu', item, position: toPosition(anchor) })
     }
     const openField = (item: EditableWorkItem, field: EditableWorkItemField, anchor: EditAnchor) => {
       if (editor.canEdit(item)) setOpen({ kind: 'field', item, field, position: toPosition(anchor) })
@@ -259,7 +273,7 @@ export function WorkItemEditingProvider({ editor, children }: { editor: WorkItem
       openMenu,
       openField,
       handleContextMenu: (item, event) => {
-        if (event.defaultPrevented || isTypingTarget(event.target) || !isEditableWorkItem(item)) return
+        if (event.defaultPrevented || isTypingTarget(event.target) || !hasItemActions(item)) return
         event.preventDefault()
         event.stopPropagation()
         // Shift+F10 and the Menu key raise the event without a pointer position; open under the focused element instead.
@@ -267,7 +281,7 @@ export function WorkItemEditingProvider({ editor, children }: { editor: WorkItem
         openMenu(item, fromKeyboard && event.target instanceof Element ? event.target : { top: event.clientY, left: event.clientX })
       },
       handleKeyDown: (item, event) => {
-        if (event.defaultPrevented || isTypingTarget(event.target) || !isEditableWorkItem(item)) return
+        if (event.defaultPrevented || isTypingTarget(event.target) || !hasItemActions(item)) return
         const action = getShortcutAction(event)
         if (!action) return
         if (action.kind === 'field' && (!editor.canEdit(item) || !getEditableFields(item).includes(action.field))) return

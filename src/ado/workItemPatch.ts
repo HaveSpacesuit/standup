@@ -1,5 +1,6 @@
 import type { TeamProfile } from '../appSettings'
 import type { IdentityRef } from './identity'
+import type { LinkedPullRequests, WorkItemPullRequestSummary, WorkItemSummary } from './types'
 import { normalizeTags, type WorkItemFields } from './workItemUpdateApi'
 import { resolveStatusFromStateAndTags, type WorkItemStatus } from './workItemStatus'
 
@@ -13,6 +14,8 @@ export type WorkItemPatch = {
   changedAt?: string
   /** Shown while an edit saves, or to undo it after a failed save; Azure DevOps has not confirmed these fields. */
   preview?: boolean
+  /** The item's linked pull requests, when the patch comes from a reload that read them too. */
+  pullRequests?: LinkedPullRequests
 }
 
 /** Any list item that shows a work item's editable fields: board cards, backlog bugs and triage items. */
@@ -30,6 +33,8 @@ export type PatchableWorkItem = {
   sprintName?: string
   status?: WorkItemStatus
   recentActivityAt?: string
+  activePullRequests?: WorkItemPullRequestSummary[]
+  linkedPullRequestIds?: number[]
 }
 
 export function workItemUrlFor(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id: number): string {
@@ -61,6 +66,11 @@ export function patchWorkItem<T extends PatchableWorkItem>(item: T, patch: WorkI
   // Board lists derive status with the default tag rules, like a fresh load; the board applies the team's rules on top.
   if ('status' in item) next.status = resolveStatusFromStateAndTags(next.state, next.tags?.join(';'))
   if (patch.changedAt && 'recentActivityAt' in item) next.recentActivityAt = patch.changedAt
+  // Only lists that show pull requests, such as board and QA cards, take them.
+  if (patch.pullRequests && 'activePullRequests' in item) {
+    next.activePullRequests = patch.pullRequests.active
+    next.linkedPullRequestIds = patch.pullRequests.linkedIds
+  }
   return next
 }
 
@@ -73,6 +83,29 @@ export function applyWorkItemPatch<T extends PatchableWorkItem>(items: T[], patc
     return patchWorkItem(item, patch)
   })
   return changed ? next : items
+}
+
+/** A pull request card as Azure DevOps now has it, for every list of the board's pull request cards. */
+export type PullRequestPatch = {
+  id: number
+  repositoryId?: string
+  /** Null once the board no longer shows the pull request: back to draft, or abandoned. */
+  card: WorkItemSummary | null
+  /** The pull request's status, lower-cased, or `draft` while it is one. */
+  status: string
+}
+
+/** Whether the item is the patch's pull request card. Repository IDs are unique, unlike pull request IDs across organizations. */
+export function matchesPullRequestPatch(item: Pick<WorkItemSummary, 'kind' | 'pullRequest'>, patch: Pick<PullRequestPatch, 'id' | 'repositoryId'>): boolean {
+  return item.kind === 'pull-request'
+    && item.pullRequest?.id === patch.id
+    && (item.pullRequest.repositoryId?.toLowerCase() ?? '') === (patch.repositoryId?.toLowerCase() ?? '')
+}
+
+/** The list with the pull request's card replaced, or removed once it left the board; the same list when it does not hold the card. */
+export function applyPullRequestPatch(items: WorkItemSummary[], patch: PullRequestPatch): WorkItemSummary[] {
+  if (!items.some((item) => matchesPullRequestPatch(item, patch))) return items
+  return items.flatMap((item) => (matchesPullRequestPatch(item, patch) ? (patch.card ? [patch.card] : []) : [item]))
 }
 
 /** The editable fields of a listed item, as the view shows them. */

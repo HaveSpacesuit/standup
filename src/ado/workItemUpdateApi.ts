@@ -257,13 +257,17 @@ function workItemRequest(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id:
   return { orgName: team.orgName, path: `/${encodeURIComponent(team.projectName)}/_apis/wit/workitems/${id}` }
 }
 
-/** The item as Azure DevOps has it now, in one request. */
+/** The item as Azure DevOps has it now, in one request; with its relations, such as linked pull requests, when asked. */
 export async function readWorkItem(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
   id: number,
+  options: { relations?: boolean } = {},
 ): Promise<WorkItemReadResult> {
-  const item = await client.request<WorkItemApiItem>(workItemRequest(team, id))
+  const item = await client.request<WorkItemApiItem>({
+    ...workItemRequest(team, id),
+    ...(options.relations ? { params: { '$expand': 'relations' } } : {}),
+  })
   if (item?.id !== id) throw new Error(`Azure DevOps did not return work item ${id}.`)
   return { item, fields: readWorkItemFields(item) }
 }

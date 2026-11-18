@@ -4,9 +4,9 @@ import { after, test, type TestContext } from 'node:test'
 import { act, createElement, useState } from 'react'
 import { JSDOM } from 'jsdom'
 import { createServer } from 'vite'
-import type { TriageItem, TriageResult, WorkItemSummary } from '../src/ado/types.ts'
+import type { TriageItem, TriageResult, WorkItemPullRequestSummary, WorkItemSummary } from '../src/ado/types.ts'
 import type { WorkItemFieldChanges, WorkItemFields } from '../src/ado/workItemUpdateApi.ts'
-import type { PatchableWorkItem, WorkItemPatch } from '../src/ado/workItemPatch.ts'
+import type { PatchableWorkItem, PullRequestPatch, WorkItemPatch } from '../src/ado/workItemPatch.ts'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
 for (const name of ['localStorage', 'sessionStorage'] as const) {
@@ -30,8 +30,8 @@ const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { KanbanBoard } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoard.tsx')
 const { WorkItemEditingProvider } = await server.ssrLoadModule('/src/features/standup/components/WorkItemEditing.tsx')
 const { useWorkItemEditor } = await server.ssrLoadModule('/src/features/standup/hooks/useWorkItemEditor.ts')
-const { useWorkItemPatches } = await server.ssrLoadModule('/src/features/standup/hooks/useWorkItemPatches.ts')
-const { applyWorkItemPatch, getWorkItemFields, workItemUrlFor } = await server.ssrLoadModule('/src/ado/workItemPatch.ts')
+const { useWorkItemPatches, usePullRequestPatches } = await server.ssrLoadModule('/src/features/standup/hooks/useWorkItemPatches.ts')
+const { applyPullRequestPatch, applyWorkItemPatch, getWorkItemFields, workItemUrlFor } = await server.ssrLoadModule('/src/ado/workItemPatch.ts')
 const { applyFieldChanges } = await server.ssrLoadModule('/src/ado/workItemUpdateApi.ts')
 const { TriageTable } = await server.ssrLoadModule('/src/features/standup/components/TriageTable.tsx')
 const { TriageInbox } = await server.ssrLoadModule('/src/features/standup/components/TriageInbox.tsx')
@@ -51,6 +51,14 @@ const makeItem = (id: number, fields: Partial<WorkItemSummary> = {}): WorkItemSu
   id, title: `Card ${id}`, state: 'Approved', workItemType: 'Product Backlog Item', status: 'New', assignedTo: ana,
   iterationPath: 'Project\\S1', sprintName: 'S1', effort: 8, tags: [], workItemUrl: workItemUrlFor(team, id), ...fields,
 })
+const makePullRequest = (id: number, fields: Partial<WorkItemPullRequestSummary> = {}): WorkItemPullRequestSummary => ({
+  id, repositoryId: 'repo', repositoryName: 'Repo', title: 'Fix the toast', url: `https://dev.azure.com/org/Project/_git/Repo/pullrequest/${id}`,
+  status: 'active', ...fields,
+})
+/** A pull request card, as the Developers view shows a pull request linked to no work item. */
+const makePullRequestCard = (id: number, fields: Partial<WorkItemPullRequestSummary> = {}): WorkItemSummary => ({
+  id: -id, kind: 'pull-request', title: 'Fix the toast', status: 'Review', assignedTo: ana, pullRequest: makePullRequest(id, fields),
+})
 
 type Update = { id: number; changes: WorkItemFieldChanges; expected: Partial<WorkItemFields> }
 
@@ -58,15 +66,25 @@ type Update = { id: number; changes: WorkItemFieldChanges; expected: Partial<Wor
 function createFakeEngine(items: PatchableWorkItem[]) {
   const saved = new Map<number, WorkItemFields>(items.map((item) => [item.id, getWorkItemFields(item)]))
   const listeners = new Set<(patch: WorkItemPatch) => void>()
+  const pullRequestListeners = new Set<(patch: PullRequestPatch) => void>()
   const publish = (patch: WorkItemPatch) => listeners.forEach((listener) => listener(patch))
   const engine = {
     updates: [] as Update[],
     reloads: 0,
+    reloadOptions: [] as unknown[],
     failure: null as Error | null,
     gate: null as Promise<void> | null,
+    /** What a reload that asks for pull requests reads; `unavailable` when they can't be read. */
+    linkedPullRequests: undefined as WorkItemPatch['pullRequests'] | 'unavailable',
+    /** What reading a pull request card again finds. */
+    pullRequestRead: null as Pick<PullRequestPatch, 'card' | 'status'> | null,
     subscribeWorkItemPatches(listener: (patch: WorkItemPatch) => void) {
       listeners.add(listener)
       return () => listeners.delete(listener)
+    },
+    subscribePullRequestPatches(listener: (patch: PullRequestPatch) => void) {
+      pullRequestListeners.add(listener)
+      return () => pullRequestListeners.delete(listener)
     },
     previewWorkItemFields(scope: typeof team, id: number, fields: WorkItemFields) {
       publish({ id, workItemUrl: workItemUrlFor(scope, id), fields, preview: true })
@@ -80,11 +98,19 @@ function createFakeEngine(items: PatchableWorkItem[]) {
       publish(patch)
       return patch
     },
-    async reloadWorkItem(scope: typeof team, id: number) {
+    async reloadWorkItem(scope: typeof team, id: number, options: { pullRequests?: boolean } = {}) {
       engine.reloads++
+      engine.reloadOptions.push(options)
       if (engine.failure) throw engine.failure
-      const patch = { id, workItemUrl: workItemUrlFor(scope, id), fields: saved.get(id)! }
+      const patch: WorkItemPatch & { pullRequestsUnavailable?: boolean } = { id, workItemUrl: workItemUrlFor(scope, id), fields: saved.get(id)! }
+      if (options.pullRequests && engine.linkedPullRequests === 'unavailable') patch.pullRequestsUnavailable = true
+      else if (options.pullRequests && engine.linkedPullRequests) patch.pullRequests = engine.linkedPullRequests
       publish(patch)
+      return patch
+    },
+    async reloadPullRequest(_scope: typeof team, pullRequest: WorkItemPullRequestSummary) {
+      const patch = { id: pullRequest.id, repositoryId: pullRequest.repositoryId, ...engine.pullRequestRead! }
+      pullRequestListeners.forEach((listener) => listener(patch))
       return patch
     },
   }
@@ -94,6 +120,7 @@ function createFakeEngine(items: PatchableWorkItem[]) {
 function Harness({ engine, initialItems, tagRules }: { engine: ReturnType<typeof createFakeEngine>; initialItems: WorkItemSummary[]; tagRules: unknown[] }) {
   const [items, setItems] = useState(initialItems)
   useWorkItemPatches(engine, (patch: WorkItemPatch) => setItems((current) => applyWorkItemPatch(current, patch)))
+  usePullRequestPatches(engine, (patch: PullRequestPatch) => setItems((current) => applyPullRequestPatch(current, patch)))
   const editor = useWorkItemEditor({
     engine, team, statesByType: { 'product backlog item': pbiStates }, projectStates: pbiStates, iterations: [],
     members: [ana, bo], knownTags: [], effortSuggestions: [3, 5], tagRules,
@@ -156,6 +183,19 @@ function stubProperty(t: TestContext, target: object, key: string, value: unknow
   const descriptor = Object.getOwnPropertyDescriptor(target, key)
   Object.defineProperty(target, key, { configurable: true, writable: true, value })
   t.after(() => (descriptor ? Object.defineProperty(target, key, descriptor) : Reflect.deleteProperty(target, key)))
+}
+
+/** A clipboard that takes rich content, collecting each copy's forms by type. */
+function stubRichClipboard(t: TestContext) {
+  const written: Record<string, Blob>[] = []
+  stubProperty(t, globalThis, 'ClipboardItem', class {
+    items: Record<string, Blob>
+    constructor(items: Record<string, Blob>) { this.items = items }
+  })
+  stubProperty(t, globalThis.navigator, 'clipboard', {
+    write: async (items: { items: Record<string, Blob> }[]) => { written.push(...items.map((item) => item.items)) },
+  })
+  return written
 }
 
 test('the card menu opens a field editor; the change shows at once, saves, and can be undone', async (t) => {
@@ -250,14 +290,7 @@ test('a refused drop explains why, and Escape cancels a drag, without saving', a
 })
 
 test('Copy link copies the item as a link for rich editors and as plain text for the rest', async (t) => {
-  const written: Record<string, Blob>[] = []
-  stubProperty(t, globalThis, 'ClipboardItem', class {
-    items: Record<string, Blob>
-    constructor(items: Record<string, Blob>) { this.items = items }
-  })
-  stubProperty(t, globalThis.navigator, 'clipboard', {
-    write: async (items: { items: Record<string, Blob> }[]) => { written.push(...items.map((item) => item.items)) },
-  })
+  const written = stubRichClipboard(t)
   await render(t, [makeItem(1, { workItemType: 'Bug', title: 'Drive <root> & "toast"' })])
 
   await openMenu(1)
@@ -301,6 +334,70 @@ test('Copy link falls back to a copy event, and says so when the browser blocks 
   await click(byText('[role="menu"] [role="menuitem"]', 'Copy link'))
   await settle()
   assert.equal(toastText().includes('Couldn’t copy the link to Product Backlog Item 1.'), true)
+})
+
+const press = (id: number, key: string) => act(async () => {
+  card(id).dispatchEvent(new dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+})
+const menuItems = () => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((item) => item.textContent)
+
+test('a pull request card reloads with R, and its menu copies a link to the pull request, with no fields to edit', async (t) => {
+  const written = stubRichClipboard(t)
+  const { engine } = await render(t, [makePullRequestCard(456)])
+  assert.equal(card(-456).hasAttribute('data-draggable'), false)
+  assert.equal(card(-456).querySelector('[aria-label="Reload PR 456 from Azure DevOps (R)"]') !== null, true)
+
+  await openMenu(-456)
+  assert.equal(document.querySelector('.MuiPopover-paper')?.textContent?.includes('PR 456 · Fix the toast'), true)
+  assert.deepEqual(menuItems(), ['Reload from Azure DevOpsR', 'Copy link', 'Open in Azure DevOps'])
+  await click(byText('[role="menu"] [role="menuitem"]', 'Copy link'))
+  await settle()
+  assert.equal(await written[0]['text/html'].text(), '<a href="https://dev.azure.com/org/Project/_git/Repo/pullrequest/456">Pull request 456</a>: Fix the toast')
+  assert.equal(await written[0]['text/plain'].text(), 'Pull request 456: Fix the toast')
+  assert.equal(toastText().includes('Copied link to Pull request 456.'), true)
+
+  await press(-456, 's')
+  assert.equal(document.querySelector('[role="dialog"]'), null)
+
+  const checks = { state: 'failing', total: 1, passing: 0, pending: 0, failing: 1, failingNames: ['Build'], checks: [] } as const
+  engine.pullRequestRead = { card: makePullRequestCard(456, { checks }), status: 'active' }
+  await press(-456, 'r')
+  await settle()
+  assert.equal(toastText(), 'PR 456 reloaded: Checks changed.')
+
+  engine.pullRequestRead = { card: null, status: 'abandoned' }
+  await press(-456, 'r')
+  await settle()
+  assert.equal(toastText(), 'PR 456 was abandoned, so it left the board.')
+  assert.equal(card(-456), null)
+})
+
+test('reloading a card reads its pull requests too, and its menu copies a link to each', async (t) => {
+  const written = stubRichClipboard(t)
+  const { engine } = await render(t, [makeItem(1, { activePullRequests: [makePullRequest(456)], linkedPullRequestIds: [456] })])
+  const shownPullRequest = () => card(1).querySelector('a[href$="/pullrequest/456"]')
+  assert.notEqual(shownPullRequest(), null)
+
+  await openMenu(1)
+  await click(byText('[role="menu"] [role="menuitem"]', 'Copy link to PR 456'))
+  await settle()
+  assert.equal(await written[0]['text/plain'].text(), 'Pull request 456: Fix the toast')
+  assert.equal(toastText().includes('Copied link to Pull request 456.'), true)
+
+  engine.linkedPullRequests = 'unavailable'
+  await press(1, 'r')
+  await settle()
+  assert.equal(toastText(), '#1 is up to date, but its pull requests couldn’t be read. They show as they were.')
+  assert.equal(toastSeverity(), 'Warning')
+  assert.notEqual(shownPullRequest(), null)
+
+  // Completed since, so the card no longer shows it.
+  engine.linkedPullRequests = { active: [], linkedIds: [456] }
+  await press(1, 'r')
+  await settle()
+  assert.deepEqual(engine.reloadOptions, [{ pullRequests: true }, { pullRequests: true }])
+  assert.equal(toastText(), '#1 reloaded: Pull requests changed.')
+  assert.equal(shownPullRequest(), null)
 })
 
 const bugStates = [

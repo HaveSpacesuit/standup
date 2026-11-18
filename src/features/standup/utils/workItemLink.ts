@@ -1,4 +1,5 @@
 export type WorkItemLinkSource = { id: number; title: string; workItemUrl?: string; workItemType?: string }
+export type PullRequestLinkSource = { id: number; title: string; url?: string }
 
 /** The same content in two forms: rich editors paste the HTML, plain-text ones the text. */
 export type ClipboardContent = { text: string; html: string }
@@ -13,9 +14,20 @@ export function getWorkItemLinkLabel(item: Pick<WorkItemLinkSource, 'id' | 'work
 
 /** Formats an item the way Azure DevOps copies it: "Bug 123: Title", with the label linked to the item. */
 export function formatWorkItemLink(item: WorkItemLinkSource): ClipboardContent {
-  const label = getWorkItemLinkLabel(item)
-  const title = item.title.trim()
   const url = item.workItemUrl && !item.workItemUrl.endsWith('/') ? `${item.workItemUrl}/` : item.workItemUrl
+  return formatLink(getWorkItemLinkLabel(item), item.title, url)
+}
+
+/** How a link names a pull request, such as "Pull request 456". */
+export const getPullRequestLinkLabel = (pullRequest: Pick<PullRequestLinkSource, 'id'>) => `Pull request ${pullRequest.id}`
+
+/** Formats a pull request the same way: "Pull request 456: Title", with the label linked to the pull request. */
+export function formatPullRequestLink(pullRequest: PullRequestLinkSource): ClipboardContent {
+  return formatLink(getPullRequestLinkLabel(pullRequest), pullRequest.title, pullRequest.url)
+}
+
+function formatLink(label: string, rawTitle: string, url: string | undefined): ClipboardContent {
+  const title = rawTitle.trim()
   const link = url ? `<a href="${escapeHtml(url)}">${escapeHtml(label)}</a>` : escapeHtml(label)
   return {
     text: title ? `${label}: ${title}` : label,

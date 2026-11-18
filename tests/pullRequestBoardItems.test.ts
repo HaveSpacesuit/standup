@@ -19,7 +19,7 @@ const server = await createServer({
       export const useState = (initial) => {
         const slot = index++
         if (!(slot in state)) state[slot] = initial
-        return [state[slot], (value) => { state[slot] = value }]
+        return [state[slot], (value) => { state[slot] = typeof value === 'function' ? value(state[slot]) : value }]
       }
       export const useRef = (initial) => {
         const slot = index++
@@ -32,6 +32,12 @@ const server = await createServer({
 after(() => server.close())
 const { usePullRequestBoardItems } = await server.ssrLoadModule('/src/features/standup/hooks/usePullRequestBoardItems.ts')
 const { beginRender, effects, state } = await server.ssrLoadModule('\0pull-request-react')
+
+/** Runs every effect of the render (loading cards first, then the patch subscription), returning one cleanup. */
+function runEffects() {
+  const cleanups = effects.splice(0).map((effect: () => (() => void) | void) => effect())
+  return () => cleanups.forEach((cleanup: (() => void) | void) => cleanup?.())
+}
 
 test('repository reload clears old cards while pending and ignores late results from the previous repository', async () => {
   state.length = 0
@@ -54,7 +60,7 @@ test('repository reload clears old cards while pending and ignores late results 
   function Render() {
     beginRender()
     usePullRequestBoardItems(args)
-    return effects.shift()()
+    return runEffects()
   }
   const settle = async () => {
     await Promise.resolve()
@@ -106,7 +112,7 @@ test('a card edited in place keeps the shown pull request cards without a loadin
   function Render() {
     beginRender()
     usePullRequestBoardItems(args)
-    const cleanup = effects.shift()()
+    const cleanup = runEffects()
     loading.push(state[1])
     return cleanup
   }
@@ -134,4 +140,41 @@ test('a card edited in place keeps the shown pull request cards without a loadin
   assert.deepEqual(state[0], [], 'a different set of cards is a new request')
   assert.deepEqual(loading, [true, false, true])
   cleanup()
+})
+
+test('a pull request card reloaded on its own changes in place, and leaves once it is off the board', async () => {
+  state.length = 0
+  const listeners = new Set<(patch: unknown) => void>()
+  const card = (id: number, title: string) => ({ id: -id, kind: 'pull-request', title, pullRequest: { id, repositoryId: 'repo', title, url: '' } })
+  const args = {
+    adoQueryEngine: {
+      getUnlinkedActivePullRequestItems: async () => [card(456, 'Old'), card(457, 'Other')],
+      subscribePullRequestPatches: (listener: (patch: unknown) => void) => {
+        listeners.add(listener)
+        return () => { listeners.delete(listener) }
+      },
+    },
+    selectedTeam: { id: 'team', orgName: 'org', projectName: 'project', repoName: 'SharePortal' },
+    members: [{ displayName: 'Team Member' }],
+    membersLoading: false,
+    membersError: null,
+    workItems: [],
+    workItemsLoading: false,
+    workItemsError: null,
+    currentIteration: null,
+  }
+  const titles = () => state[0].map((item: { title: string }) => item.title)
+  beginRender()
+  usePullRequestBoardItems(args)
+  const cleanup = runEffects()
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.deepEqual(titles(), ['Old', 'Other'])
+
+  listeners.forEach((listener) => listener({ id: 456, repositoryId: 'repo', card: card(456, 'New'), status: 'active' }))
+  assert.deepEqual(titles(), ['New', 'Other'])
+  listeners.forEach((listener) => listener({ id: 456, repositoryId: 'repo', card: null, status: 'abandoned' }))
+  assert.deepEqual(titles(), ['Other'])
+  cleanup()
+  assert.equal(listeners.size, 0)
 })

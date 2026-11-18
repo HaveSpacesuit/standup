@@ -14,7 +14,7 @@ const {
   WorkItemConflictError,
   WorkItemNotSavedError,
 } = await server.ssrLoadModule('/src/ado/workItemUpdateApi.ts')
-const { applyWorkItemPatch, patchWorkItem, workItemUrlFor } = await server.ssrLoadModule('/src/ado/workItemPatch.ts')
+const { applyPullRequestPatch, applyWorkItemPatch, patchWorkItem, workItemUrlFor } = await server.ssrLoadModule('/src/ado/workItemPatch.ts')
 const { AdoWriteError } = await server.ssrLoadModule('/src/ado/httpClient.ts')
 const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 
@@ -189,6 +189,80 @@ test('patches match items by ID and organization, and leave a list without the i
   assert.equal(applyWorkItemPatch(list, { id: 7, workItemUrl: url, fields }), list)
   const mine = [...list, { id: 7, workItemUrl: url.toUpperCase(), title: 'Card' }]
   assert.deepEqual(applyWorkItemPatch(mine, { id: 7, workItemUrl: url, fields }).map((item: { title: string }) => item.title), ['Same ID elsewhere', 'Renamed'])
+})
+
+test('a reload’s pull requests reach only cards that show them; a pull request card is replaced, or dropped once off the board', () => {
+  const shown = [{ id: 456, repositoryId: 'repo', title: 'Fix the toast', url: 'https://example.invalid/456' }]
+  const reload = { id: 7, workItemUrl: url, fields, pullRequests: { active: shown, linkedIds: [455, 456] } }
+  const card = patchWorkItem({ id: 7, workItemUrl: url, title: 'Card', activePullRequests: [], linkedPullRequestIds: [] }, reload)
+  assert.deepEqual([card.activePullRequests, card.linkedPullRequestIds], [shown, [455, 456]])
+  assert.equal('activePullRequests' in patchWorkItem({ id: 7, workItemUrl: url, title: 'Bug' }, reload), false)
+
+  const pullRequestCard = (title: string, repositoryId = 'Repo') =>
+    ({ id: -456, kind: 'pull-request', title, pullRequest: { id: 456, repositoryId, title, url: '' } })
+  const board = [{ id: 7, workItemUrl: url, title: 'Card' }, pullRequestCard('Old')]
+  const titles = (items: { title: string }[]) => items.map((item) => item.title)
+  assert.deepEqual(titles(applyPullRequestPatch(board, { id: 456, repositoryId: 'repo', card: pullRequestCard('New', 'repo'), status: 'active' })), ['Card', 'New'])
+  assert.deepEqual(titles(applyPullRequestPatch(board, { id: 456, repositoryId: 'repo', card: null, status: 'abandoned' })), ['Card'])
+  assert.equal(applyPullRequestPatch(board, { id: 456, repositoryId: 'other-repo', card: null, status: 'abandoned' }), board)
+})
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+
+test('reloading a card reads its work item’s pull requests too, keeping the shown ones when they can’t be read', async (t) => {
+  let pullRequestStatus = 200
+  const requested: string[] = []
+  t.mock.method(globalThis, 'fetch', async (input: URL) => {
+    const target = new URL(String(input))
+    requested.push(`${target.pathname}?$expand=${target.searchParams.get('$expand') ?? ''}`)
+    if (target.pathname === '/org/Project/_apis/wit/workitems/7') {
+      return json({ ...apiItem(4), relations: [{ rel: 'ArtifactLink', url: 'vstfs:///Git/PullRequestId/project%2Frepo%2F456' }] })
+    }
+    if (target.pathname === '/org/Project/_apis/git/repositories/repo/pullrequests/456') {
+      return json({ pullRequestId: 456, status: 'active', title: 'Fix the toast', repository: { id: 'repo', name: 'Repo' }, reviewers: [] }, pullRequestStatus)
+    }
+    // Icons, policies and review history are optional.
+    return json({}, 404)
+  })
+  const engine = new AdoQueryEngine('nonfunctional-test-token')
+  const published: unknown[] = []
+  engine.subscribeWorkItemPatches((patch: { pullRequests?: unknown }) => published.push(patch.pullRequests))
+
+  const reload = await engine.reloadWorkItem(team, 7, { pullRequests: true })
+  assert.equal(requested[0], '/org/Project/_apis/wit/workitems/7?$expand=relations')
+  assert.deepEqual(reload.pullRequests.linkedIds, [456])
+  assert.deepEqual(reload.pullRequests.active.map((pullRequest: { id: number; title: string }) => [pullRequest.id, pullRequest.title]), [[456, 'Fix the toast']])
+
+  pullRequestStatus = 500
+  const unavailable = await engine.reloadWorkItem(team, 7, { pullRequests: true })
+  assert.equal(unavailable.pullRequestsUnavailable, true)
+  assert.equal(unavailable.fields.title, 'Card')
+  assert.deepEqual(published, [reload.pullRequests, undefined])
+
+  requested.length = 0
+  await engine.reloadWorkItem(team, 7)
+  assert.deepEqual(requested, ['/org/Project/_apis/wit/workitems/7?$expand='])
+})
+
+test('reloading a pull request card replaces it, or takes it off the board once it is a draft or abandoned', async (t) => {
+  let current: Record<string, unknown> = {
+    pullRequestId: 456, status: 'active', title: 'Renamed', repository: { id: 'repo', name: 'Repo' }, createdBy: bo, reviewers: [],
+  }
+  t.mock.method(globalThis, 'fetch', async (input: URL) =>
+    new URL(String(input)).pathname === '/org/Project/_apis/git/repositories/repo/pullrequests/456' ? json(current) : json({}, 404))
+  const engine = new AdoQueryEngine('nonfunctional-test-token')
+  const published: { card: unknown; status: string }[] = []
+  engine.subscribePullRequestPatches((patch: { card: unknown; status: string }) => published.push(patch))
+  const pullRequest = { id: 456, repositoryId: 'repo', repositoryName: 'Repo' }
+
+  const reloaded = await engine.reloadPullRequest(team, pullRequest)
+  assert.deepEqual([reloaded.card.id, reloaded.card.kind, reloaded.card.title, reloaded.card.assignedTo.uniqueName], [-456, 'pull-request', 'Renamed', bo.uniqueName])
+  assert.equal(reloaded.card.pullRequest.url, 'https://dev.azure.com/org/Project/_git/Repo/pullrequest/456')
+  current = { ...current, isDraft: true }
+  assert.deepEqual(await engine.reloadPullRequest(team, pullRequest), { id: 456, repositoryId: 'repo', card: null, status: 'draft' })
+  current = { ...current, isDraft: false, status: 'abandoned' }
+  assert.equal((await engine.reloadPullRequest(team, pullRequest)).status, 'abandoned')
+  assert.deepEqual(published.map((patch) => patch.status), ['active', 'draft', 'abandoned'])
 })
 
 test('the engine shows saved, reloaded, previewed and conflicting values to every subscribed view', async (t) => {

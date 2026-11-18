@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import type { AdoQueryEngine } from '../../../ado/queryEngine'
+import type { AdoQueryEngine, PullRequestPatch } from '../../../ado/queryEngine'
 import type { TeamIterationOption, TeamMember } from '../../../ado/types'
 import { getWorkItemFields, patchWorkItem } from '../../../ado/workItemPatch'
 import type { TagRule } from '../../../ado/workItemStatus'
@@ -19,9 +19,15 @@ import {
 import type { TeamProfile } from '../../../appSettings'
 import {
   describeSavedChange,
+  getItemKey,
+  getItemLabel,
+  getPullRequestChanges,
   getRestoreChanges,
   getStatesForItem,
+  hasItemActions,
+  havePullRequestsChanged,
   isEditableWorkItem,
+  isPullRequestCard,
   type EditableWorkItem,
 } from '../utils/workItemEditing'
 import { toErrorMessage } from './queryErrors'
@@ -57,7 +63,10 @@ export type WorkItemEditor = {
   isBusy: (item: EditableWorkItem) => boolean
   /** Saves the changes and shows them at once, undoing them on screen when the save fails. Resolves whether it saved. */
   save: (item: EditableWorkItem, changes: WorkItemFieldChanges) => Promise<boolean>
-  /** Reads the item fresh from Azure DevOps, updating it in every view without reloading the page. */
+  /**
+   * Reads the item fresh from Azure DevOps, updating it in every view without reloading the page: a work item with the
+   * pull requests its card shows, or a pull request card's pull request.
+   */
   reload: (item: EditableWorkItem) => Promise<void>
   toast: WorkItemEditToast | null
   dismissToast: () => void
@@ -67,7 +76,17 @@ export type WorkItemEditor = {
 
 type EditorScope = { engine: AdoQueryEngine | null; orgName: string; projectName: string }
 
-const itemKey = (item: EditableWorkItem) => `${item.workItemUrl?.toLowerCase() ?? ''}#${item.id}`
+/** What a toast says once a pull request card is read again. */
+function describePullRequestReload(item: EditableWorkItem, patch: PullRequestPatch): string {
+  const label = getItemLabel(item)
+  if (!patch.card?.pullRequest) {
+    if (patch.status === 'draft') return `${label} is a draft again, so it left the board.`
+    if (patch.status === 'abandoned') return `${label} was abandoned, so it left the board.`
+    return `${label} left the board.`
+  }
+  const changed = item.pullRequest ? getPullRequestChanges(item.pullRequest, patch.card.pullRequest) : []
+  return changed.length ? `${label} reloaded: ${changed.join(', ')} changed.` : `${label} is up to date.`
+}
 
 function pickFields(fields: WorkItemFields, names: readonly EditableWorkItemField[]): Partial<WorkItemFields> {
   return Object.fromEntries(names.map((name) => [name, fields[name]])) as Partial<WorkItemFields>
@@ -127,12 +146,13 @@ export function useWorkItemEditor({
     })
   }, [scope])
 
-  const canReload = useCallback((item: EditableWorkItem) => Boolean(engine) && isEditableWorkItem(item), [engine])
-  const canEdit = useCallback((item: EditableWorkItem) => canReload(item) && !lockedReason, [canReload, lockedReason])
+  const canReload = useCallback((item: EditableWorkItem) => Boolean(engine) && hasItemActions(item), [engine])
+  // Pull request cards have no fields to edit.
+  const canEdit = useCallback((item: EditableWorkItem) => Boolean(engine) && isEditableWorkItem(item) && !lockedReason, [engine, lockedReason])
 
   const write = useCallback(async (item: EditableWorkItem, changes: WorkItemFieldChanges, undoable: boolean): Promise<boolean> => {
     if (!engine || !canEdit(item)) return false
-    const key = itemKey(item)
+    const key = getItemKey(item)
     if (busyKeys.current.has(key)) return false
     const before = getWorkItemFields(item)
     const fields = changedFields(before, changes)
@@ -172,23 +192,33 @@ export function useWorkItemEditor({
 
   const reload = useCallback(async (item: EditableWorkItem): Promise<void> => {
     if (!engine || !canReload(item)) return
-    const key = itemKey(item)
+    const key = getItemKey(item)
     if (busyKeys.current.has(key)) return
+    const label = getItemLabel(item)
     const before = getWorkItemFields(item)
     setBusy(key, true)
     try {
-      const patch = await engine.reloadWorkItem(team, item.id)
+      if (isPullRequestCard(item)) {
+        const patch = await engine.reloadPullRequest(team, item.pullRequest)
+        if (activeScope.current !== scope) return
+        showToast({ tone: 'info', message: describePullRequestReload(item, patch) })
+        return
+      }
+      // Only views that show an item's pull requests, such as board cards, read them again.
+      const withPullRequests = 'activePullRequests' in item
+      const patch = await engine.reloadWorkItem(team, item.id, { pullRequests: withPullRequests })
       if (activeScope.current !== scope) return
-      const changed = EDITABLE_WORK_ITEM_FIELDS.filter((field) => !sameFieldValue(field, before[field], patch.fields[field] as never))
-      showToast({
-        tone: 'info',
-        message: changed.length
-          ? `#${item.id} reloaded: ${changed.map((field) => WORK_ITEM_FIELD_LABELS[field]).join(', ')} changed.`
-          : `#${item.id} is up to date.`,
-      })
+      const changed = EDITABLE_WORK_ITEM_FIELDS
+        .filter((field) => !sameFieldValue(field, before[field], patch.fields[field] as never))
+        .map((field) => WORK_ITEM_FIELD_LABELS[field])
+      if (patch.pullRequests && havePullRequestsChanged(item.activePullRequests, patch.pullRequests.active)) changed.push('Pull requests')
+      const summary = changed.length ? `${label} reloaded: ${changed.join(', ')} changed` : `${label} is up to date`
+      showToast(patch.pullRequestsUnavailable
+        ? { tone: 'warning', message: `${summary}, but its pull requests couldn’t be read. They show as they were.` }
+        : { tone: 'info', message: `${summary}.` })
     } catch (error) {
       if (activeScope.current !== scope) return
-      showToast({ tone: 'error', message: `#${item.id} could not be reloaded. ${toErrorMessage(error, '')}`.trim() })
+      showToast({ tone: 'error', message: `${label} could not be reloaded. ${toErrorMessage(error, '')}`.trim() })
     } finally {
       setBusy(key, false)
     }
@@ -211,7 +241,7 @@ export function useWorkItemEditor({
     lockedReason,
     canEdit,
     canReload,
-    isBusy: (item) => busy.has(itemKey(item)),
+    isBusy: (item) => busy.has(getItemKey(item)),
     save: (item, changes) => write(item, changes, true),
     reload,
     toast,

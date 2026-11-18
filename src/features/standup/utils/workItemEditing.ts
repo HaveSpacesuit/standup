@@ -1,5 +1,5 @@
 import type { IdentityRef } from '../../../ado/identity'
-import type { TeamIterationOption, TeamMember } from '../../../ado/types'
+import type { TeamIterationOption, TeamMember, WorkItemPullRequestSummary } from '../../../ado/types'
 import type { ProjectWorkItemState } from '../../../ado/workItemTypesApi'
 import type { PatchableWorkItem } from '../../../ado/workItemPatch'
 import { getWorkItemFields } from '../../../ado/workItemPatch'
@@ -21,6 +21,8 @@ export type EditableWorkItem = PatchableWorkItem & {
   workItemType?: string
   /** Pull request cards have no work item to edit. */
   kind?: string
+  /** A pull request card's pull request. */
+  pullRequest?: WorkItemPullRequestSummary
 }
 
 /** The order fields appear in menus and panels. */
@@ -78,6 +80,58 @@ const typeName = (item: EditableWorkItem) => item.workItemType?.trim().toLowerCa
 /** Whether the item is a work item that can be edited, rather than a pull request card. */
 export function isEditableWorkItem(item: EditableWorkItem): boolean {
   return item.id > 0 && item.kind !== 'pull-request' && Boolean(item.workItemUrl)
+}
+
+/** Whether the item is a pull request card, which can be reloaded and linked to, but has no fields to edit. */
+export function isPullRequestCard(item: EditableWorkItem): item is EditableWorkItem & { pullRequest: WorkItemPullRequestSummary } {
+  return item.kind === 'pull-request' && Boolean(item.pullRequest)
+}
+
+/** Whether the item has Reload and a menu: every work item, and pull request cards. */
+export function hasItemActions(item: EditableWorkItem): boolean {
+  return isEditableWorkItem(item) || isPullRequestCard(item)
+}
+
+/** How buttons and messages name the item: "#123" for a work item, "PR 456" for a pull request card. */
+export function getItemLabel(item: EditableWorkItem): string {
+  return isPullRequestCard(item) ? `PR ${item.pullRequest.id}` : `#${item.id}`
+}
+
+/**
+ * Identifies the item in every view. Work item IDs repeat across organizations, so it includes the item's URL; a pull
+ * request card has its pull request's instead.
+ */
+export function getItemKey(item: EditableWorkItem): string {
+  return `${(item.workItemUrl ?? item.pullRequest?.url)?.toLowerCase() ?? ''}#${item.id}`
+}
+
+const PULL_REQUEST_ASPECTS: readonly [label: string, read: (pullRequest: WorkItemPullRequestSummary) => unknown][] = [
+  ['Title', (pullRequest) => pullRequest.title],
+  ['Status', (pullRequest) => pullRequest.status ?? ''],
+  ['Reviews', (pullRequest) => [pullRequest.approvalCount ?? 0, pullRequest.reviewState ?? '', pullRequest.reviewPolicy?.state ?? '', pullRequest.reviewPolicy?.requiredApprovals ?? 0]],
+  ['Checks', (pullRequest) => [pullRequest.checks?.state ?? '', pullRequest.checks?.passing ?? 0, pullRequest.checks?.pending ?? 0, pullRequest.checks?.failing ?? 0]],
+]
+
+/** What changed between two reads of a pull request, named for a toast: Title, Status, Reviews and Checks. */
+export function getPullRequestChanges(before: WorkItemPullRequestSummary, after: WorkItemPullRequestSummary): string[] {
+  return PULL_REQUEST_ASPECTS
+    .filter(([, read]) => JSON.stringify(read(before)) !== JSON.stringify(read(after)))
+    .map(([label]) => label)
+}
+
+const samePullRequest = (left: WorkItemPullRequestSummary, right: WorkItemPullRequestSummary) =>
+  left.id === right.id && (left.repositoryId?.toLowerCase() ?? '') === (right.repositoryId?.toLowerCase() ?? '')
+
+/** Whether a card's pull requests changed: one came or went, or one it shows changed. */
+export function havePullRequestsChanged(
+  before: readonly WorkItemPullRequestSummary[] = [],
+  after: readonly WorkItemPullRequestSummary[] = [],
+): boolean {
+  if (before.length !== after.length) return true
+  return after.some((pullRequest) => {
+    const previous = before.find((candidate) => samePullRequest(candidate, pullRequest))
+    return !previous || getPullRequestChanges(previous, pullRequest).length > 0
+  })
 }
 
 /** The fields worth offering for the item: Severity belongs to bugs, and tasks track remaining work rather than Effort. */

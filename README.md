@@ -687,7 +687,7 @@ Quality Assurance (Testers and Flow), Triage (Table and Inbox), Backlog (List), 
 Backlog preview panels. The fields are State, Assigned To, Iteration (the sprint), Effort
 (`Microsoft.VSTS.Scheduling.Effort`), Severity, Impact (the Priority field), Tags, and Title.
 Severity is offered for Bugs and items that already have one, and Effort for everything except Tasks
-without one. Pull request cards cannot be edited.
+without one. Pull request cards have no fields to edit, but can be reloaded and have a menu.
 
 - **Cards**: hovering or focusing a card shows **Reload** and **Edit** (⋯) buttons on its top edge,
   or its bottom edge when the column header covers the top (always shown, on touch screens). **Edit**, a
@@ -695,7 +695,11 @@ without one. Pull request cards cannot be edited.
   then **Reload from Azure DevOps**, **Copy link**, and **Open in Azure DevOps**. **Copy link** copies
   the item as Azure DevOps does, such as "Bug 123: Title": rich-text editors paste it with "Bug 123"
   linked to the item, and plain-text editors paste the same text without the link. It works without
-  edit access.
+  edit access. A card that shows pull requests also lists **Copy link to PR 456** for each, which
+  copies "Pull request 456: Title" the same way, linked to the pull request.
+- **Pull request cards** (on Developers, for pull requests linked to no work item): the same
+  **Reload** and **More** (⋯) buttons, right-click, Shift+F10, and **R** work, and the menu has
+  **Reload from Azure DevOps**, **Copy link** ("Pull request 456: Title"), and **Open in Azure DevOps**.
 - **Tables, Inbox cards, and preview panels**: each field's value is a button that opens its editor,
   and rows and Inbox cards have the same **Reload** and **Edit** buttons and menu. On Triage, **+ Tag**
   after an item's tags opens the Tags editor, and **×** on a Why tag chip removes that tag.
@@ -719,7 +723,14 @@ saved, and other failures reload the item. Without the Work Items (Read & write)
 off until the PAT changes or the page reloads, and the menu says why; reloading still works.
 
 **Reload** reads one item from Azure DevOps and updates it in every view without refreshing the page,
-for changes made elsewhere. The toast says which fields changed, or that the item is up to date. An
+for changes made elsewhere. The toast says which fields changed, or that the item is up to date. On a
+card that shows pull requests (Development and QA), Reload also reads the work item's linked pull
+requests, so one opened, completed, or abandoned since shows or leaves, and their reviews and checks
+update; when they can't be read, the fields still update and a warning says the pull requests show as
+they were. Reloading a pull request card reads its pull request: title, reviews, and checks update, a
+completed one moves to Done, and one abandoned or back to draft leaves the board. A pull request newly
+linked to a work item leaves the standalone cards once that work item is reloaded; one unlinked from
+its work item shows as its own card again after the next refresh. An
 edited or reloaded item updates where it is listed. The Triage queue also checks it against its
 rules again: an item that no longer qualifies, such as one whose Triage tag was removed or a new bug
 moved to Approved or into an excluded sprint, stays in place marked **Cleared** until Triage next

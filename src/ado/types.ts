@@ -56,6 +56,12 @@ export type WorkItemPullRequestSummary = {
   recentActivityAt?: string
 }
 
+/** A work item's linked pull requests: the active ones its card shows, and the ID of every linked one. */
+export type LinkedPullRequests = {
+  active: WorkItemPullRequestSummary[]
+  linkedIds: number[]
+}
+
 /** Shape of a Git pull request as returned by ADO's PR list/get endpoints — shared by every
  * call site that fetches PR details, so a new field only needs to be added in one place. */
 export type PullRequestApiResponse = {

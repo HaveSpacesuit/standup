@@ -1,7 +1,7 @@
 import type { TeamProfile } from '../appSettings'
 import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
-import type { WorkItemPullRequestSummary, WorkItemSummary, PullRequestApiResponse } from './types'
+import type { LinkedPullRequests, WorkItemPullRequestSummary, WorkItemSummary, PullRequestApiResponse } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
 import { buildIterationMembershipWiql, buildIterationScopedWiql, buildQaBucketCandidatesWiql } from './wiql'
 import { fetchPullRequestPolicies, fetchProjectId } from './policyEvaluationChecksApi'
@@ -68,6 +68,13 @@ export type WorkItemApiItem = {
     'Microsoft.VSTS.Scheduling.StoryPoints'?: unknown
     'Microsoft.VSTS.Scheduling.Size'?: unknown
   }
+  /** Only when the item is read with its relations expanded. */
+  relations?: WorkItemRelation[]
+}
+
+type WorkItemRelation = {
+  rel?: string
+  url?: string
 }
 
 type WorkItemRelationsBatchResponse = {
@@ -76,10 +83,7 @@ type WorkItemRelationsBatchResponse = {
 
 type WorkItemRelationsItem = {
   id?: number
-  relations?: Array<{
-    rel?: string
-    url?: string
-  }>
+  relations?: WorkItemRelation[]
 }
 
 type PullRequestListResponse = {
@@ -230,6 +234,42 @@ async function fetchRepositoryActiveAndCompletedPullRequests(
   return pullRequestsById
 }
 
+/** Whether a card shows the linked pull request: only active ones that are ready for review. */
+function isShownLinkedPullRequest(pullRequest: PullRequestApiResponse): boolean {
+  const status = typeof pullRequest.status === 'string' ? pullRequest.status.toLowerCase() : ''
+  return status === 'active' && pullRequest.isDraft !== true
+}
+
+/** A linked pull request as its work item's card shows it, with its policies and when it was last ready for review. */
+async function describeLinkedPullRequest(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  pullRequest: PullRequestApiResponse,
+  ref: PullRequestRef,
+  pullRequestIconUrl: string | undefined,
+  projectId: string | null,
+  signal?: AbortSignal,
+): Promise<WorkItemPullRequestSummary> {
+  const pullRequestId = pullRequest.pullRequestId ?? ref.pullRequestId
+  const [policies, readyForReviewAt] = await Promise.all([
+    fetchPullRequestPolicies(client, team, pullRequestId, projectId, signal),
+    fetchPullRequestReadyForReviewAt(client, team, ref.repositoryId, pullRequestId, signal),
+  ])
+
+  return {
+    id: pullRequestId,
+    repositoryId: ref.repositoryId,
+    repositoryName: pullRequest.repository?.name?.trim() || undefined,
+    title: pullRequest.title?.trim() || `Pull Request ${ref.pullRequestId}`,
+    url: buildPullRequestWebUrl(team.orgName, team.projectName, pullRequest, ref),
+    iconUrl: pullRequestIconUrl,
+    approvalCount: resolvePullRequestApprovalCount(pullRequest.reviewers),
+    reviewState: resolvePullRequestReviewState(pullRequest.reviewers),
+    ...policies,
+    recentActivityAt: readyForReviewAt ?? pullRequest.creationDate,
+  }
+}
+
 async function fetchActivePullRequestsByWorkItem(
   client: AdoRequestClient,
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
@@ -279,33 +319,14 @@ async function fetchActivePullRequestsByWorkItem(
     async ([key, ref]) => {
       try {
         const pullRequest = pullRequestsByRepository.get(ref.repositoryId)?.get(ref.pullRequestId)
-        if (!pullRequest) {
+        if (!pullRequest || !isShownLinkedPullRequest(pullRequest)) {
           return
         }
 
-        const status = typeof pullRequest.status === 'string' ? pullRequest.status.toLowerCase() : ''
-        if (status !== 'active' || pullRequest.isDraft === true) {
-          return
-        }
-
-        const pullRequestId = pullRequest.pullRequestId ?? ref.pullRequestId
-        const [policies, readyForReviewAt] = await Promise.all([
-          fetchPullRequestPolicies(client, team, pullRequestId, projectId, signal),
-          fetchPullRequestReadyForReviewAt(client, team, ref.repositoryId, pullRequestId, signal),
-        ])
-
-        activePullRequestMap.set(key, {
-          id: pullRequestId,
-          repositoryId: ref.repositoryId,
-          repositoryName: pullRequest.repository?.name?.trim() || undefined,
-          title: pullRequest.title?.trim() || `Pull Request ${ref.pullRequestId}`,
-          url: buildPullRequestWebUrl(team.orgName, team.projectName, pullRequest, ref),
-          iconUrl: pullRequestIconUrl,
-          approvalCount: resolvePullRequestApprovalCount(pullRequest.reviewers),
-          reviewState: resolvePullRequestReviewState(pullRequest.reviewers),
-          ...policies,
-          recentActivityAt: readyForReviewAt ?? pullRequest.creationDate,
-        })
+        activePullRequestMap.set(
+          key,
+          await describeLinkedPullRequest(client, team, pullRequest, ref, pullRequestIconUrl, projectId, signal),
+        )
       } catch {
         // Ignore PR lookup failures so work item rendering still succeeds.
       }
@@ -328,6 +349,65 @@ async function fetchActivePullRequestsByWorkItem(
   }
 
   return result
+}
+
+/** The pull requests a work item's relations link to, each once. */
+function parsePullRequestRefs(relations: WorkItemRelation[] | undefined): PullRequestRef[] {
+  const refs = new Map<string, PullRequestRef>()
+  for (const relation of relations ?? []) {
+    if (relation.rel !== 'ArtifactLink' || typeof relation.url !== 'string') {
+      continue
+    }
+
+    const parsed = parsePullRequestArtifactLink(relation.url)
+    if (parsed) {
+      refs.set(`${parsed.repositoryId.toLowerCase()}:${parsed.pullRequestId}`, parsed)
+    }
+  }
+
+  return [...refs.values()]
+}
+
+/**
+ * The pull requests linked to one work item, as Azure DevOps has them now, from the item read with its relations. Each
+ * is read by ID, so none is missed in a busy repository. Rejects when one can't be read, so its card keeps the pull
+ * requests it shows.
+ */
+export async function fetchLinkedPullRequests(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+  item: Pick<WorkItemApiItem, 'relations'>,
+  signal?: AbortSignal,
+): Promise<LinkedPullRequests> {
+  const refs = parsePullRequestRefs(item.relations)
+  if (refs.length === 0) {
+    return { active: [], linkedIds: [] }
+  }
+
+  const [workItemIconMap, projectId] = await Promise.all([
+    fetchWorkItemIconMap(client, team.orgName, signal).catch(() => ({})),
+    fetchProjectId(client, team.orgName, team.projectName, signal),
+  ])
+  const pullRequestIconUrl = getPullRequestIconUrl(workItemIconMap)
+  const summaries = await mapWithConcurrency(refs, PULL_REQUEST_LOOKUP_CONCURRENCY, async (ref) => {
+    const pullRequest = await client.request<PullRequestApiResponse>({
+      method: 'GET',
+      orgName: team.orgName,
+      path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(ref.repositoryId)}/pullrequests/${ref.pullRequestId}`,
+      params: {
+        'api-version': '7.1',
+      },
+      signal,
+    })
+    return isShownLinkedPullRequest(pullRequest)
+      ? describeLinkedPullRequest(client, team, pullRequest, ref, pullRequestIconUrl, projectId, signal)
+      : null
+  })
+
+  return {
+    active: summaries.filter((summary): summary is WorkItemPullRequestSummary => summary !== null),
+    linkedIds: refs.map((ref) => ref.pullRequestId),
+  }
 }
 
 /** Fetches PR artifact links for a set of work items via a separate Relations-expanded
@@ -361,19 +441,7 @@ async function fetchPullRequestRefsByWorkItem(
         continue
       }
 
-      const refs: PullRequestRef[] = []
-      for (const relation of item.relations ?? []) {
-        if (relation.rel !== 'ArtifactLink' || typeof relation.url !== 'string') {
-          continue
-        }
-
-        const parsed = parsePullRequestArtifactLink(relation.url)
-        if (parsed) {
-          refs.push(parsed)
-        }
-      }
-
-      refsByWorkItem.set(item.id, refs)
+      refsByWorkItem.set(item.id, parsePullRequestRefs(item.relations))
     }
   }
 
