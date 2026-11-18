@@ -1,7 +1,7 @@
 import './stratakitNodeGlobals.ts'
 import assert from 'node:assert/strict'
 import { after, test, type TestContext } from 'node:test'
-import { act, createElement, useState, type ComponentProps } from 'react'
+import { act, createElement, memo, useState, type ComponentProps } from 'react'
 import { createServer } from 'vite'
 import { JSDOM } from 'jsdom'
 
@@ -924,6 +924,51 @@ test('a quick filter match in a collapsed tier waits behind its Show button', as
   assert.equal(button(host, 'Show 1 bug in Minimal').textContent, 'Show 1', 'the header counts the matching bugs')
   await act(async () => button(host, 'Show 1 bug in Minimal').click())
   assert.deepEqual(listedIds(host), [103])
+})
+
+test('a tier larger than a screenful lists every bug once its rows have filled in', async (t) => {
+  const many = rankBacklogBugs(Array.from({ length: 65 }, (_, index) => ({
+    id: 1000 + index,
+    title: `Small bug ${index}`,
+    state: 'New',
+    createdAt: '2026-01-10T09:00:00Z',
+    iterationPath: 'Project',
+    workItemUrl: workItemUrl(1000 + index),
+  })))
+  const host = await render(t, { backlogOptions: createDefaultBacklogOptions(), bugs: many })
+
+  await act(async () => button(host, 'Show 65 bugs in Minimal').click())
+  assert.deepEqual(listedIds(host), many.map((bug: { id: number }) => bug.id))
+})
+
+test('re-rendering a table body leaves its memoized rows alone', async (t) => {
+  const { Table, TableBody, TableCell, TableRow } = await server.ssrLoadModule('@mui/material')
+  const { useTheme } = await server.ssrLoadModule('@mui/material/styles')
+  const { StableTableBody } = await server.ssrLoadModule('/src/features/standup/components/StableTableBody.tsx')
+  let cellRenders = 0
+  // Reads the theme as every MUI part of a row does, so a new theme from the body would re-render it.
+  function ThemedCell() {
+    useTheme()
+    cellRenders += 1
+    return createElement(TableCell, null, 'Cell')
+  }
+  const Row = memo(function Row() {
+    return createElement(TableRow, null, createElement(ThemedCell))
+  })
+  let rerender = () => {}
+  function Harness() {
+    const [tick, setTick] = useState(0)
+    rerender = () => setTick(tick + 1)
+    return createElement(Table, { 'data-tick': tick }, createElement(TableBody, { component: StableTableBody }, createElement(Row)))
+  }
+  const host = await mount(t, createElement(Harness))
+  const rendersAfterMount = cellRenders
+
+  await act(async () => rerender())
+  await act(async () => rerender())
+  assert.equal(host.querySelector('table')!.getAttribute('data-tick'), '2')
+  assert.equal(cellRenders, rendersAfterMount)
+  assert.ok(host.querySelector('tbody > tr')!.classList.contains('MuiTableRow-hover'), 'rows keep the hover highlight')
 })
 
 test('the options dialog sets the tier thresholds, applying them once all three make sense together', async (t) => {
