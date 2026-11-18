@@ -260,6 +260,7 @@ function RemoveReasonTagButton({ item, tag }: { item: TriageItem; tag: string })
   return (
     <AppTooltip title={`Remove the “${tag}” tag`} describeChild>
       <ButtonBase
+        nativeButton
         className="remove-tag"
         aria-label={`Remove the “${tag}” tag from #${item.id}`}
         onClick={(event) => {

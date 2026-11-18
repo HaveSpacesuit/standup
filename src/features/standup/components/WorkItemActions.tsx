@@ -211,7 +211,7 @@ export function EditableFieldButton({ item, field, children, sx }: {
   const editing = useWorkItemEditing()
   if (!editing || !canEditField(editing, item, field)) return <>{children}</>
   return (
-    <ButtonBase {...fieldButtonProps(editing, item, field)} sx={[fieldButtonSx, ...(Array.isArray(sx) ? sx : [sx])]}>
+    <ButtonBase nativeButton {...fieldButtonProps(editing, item, field)} sx={[fieldButtonSx, ...(Array.isArray(sx) ? sx : [sx])]}>
       {children}
     </ButtonBase>
   )
@@ -240,7 +240,7 @@ export function EditTagsButton({ item }: { item: EditableWorkItem }) {
   if (!editing || !canEditField(editing, item, 'tags')) return null
   return (
     <AppTooltip title={`Add or remove tags (${FIELD_SHORTCUT_KEYS.tags})`} describeChild>
-      <ButtonBase className={EDIT_TAGS_CLASS} {...fieldButtonProps(editing, item, 'tags')} sx={[fieldButtonSx, tagButtonSx]}>
+      <ButtonBase nativeButton className={EDIT_TAGS_CLASS} {...fieldButtonProps(editing, item, 'tags')} sx={[fieldButtonSx, tagButtonSx]}>
         <Icon href={svgAdd} alt="" style={tagButtonIconStyle} />
         Tag
       </ButtonBase>

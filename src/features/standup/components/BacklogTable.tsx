@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { memo, startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Box, Button, Checkbox, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
@@ -9,6 +9,7 @@ import { AppTooltip as Tooltip } from './AppTooltip'
 import { TipLines } from './TipLines'
 import { CreatedAge, ImpactBars, MissingValue, PersonLabel, SeverityChip, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewToggleButton } from './WorkItemPreviewPanel'
+import { StableTableBody } from './StableTableBody'
 import { EditableFieldButton, WorkItemActions } from './WorkItemActions'
 import { getEditableRowProps, useWorkItemEditing } from './workItemEditingContext'
 import { WorkItemTitle } from './WorkItemTitle'
@@ -526,6 +527,55 @@ const cutLineCellSx: SxProps<Theme> = {
   },
 }
 
+// Each row holds a dozen buttons and tooltips, so opening a tier of a hundred bugs at once kept the page busy for a
+// second or more. A tier shows a screenful of rows at once, then the rest a chunk at a time in transitions, which leave
+// the page responsive while they render.
+const FIRST_ROW_COUNT = 30
+const ROW_CHUNK_SIZE = 30
+
+/** How many of `total` rows to render: a screenful at once, then a chunk more per transition until all are shown. */
+function useRevealedRowCount(total: number) {
+  const [count, setCount] = useState(FIRST_ROW_COUNT)
+  useEffect(() => {
+    if (count < total) startTransition(() => setCount(count + ROW_CHUNK_SIZE))
+  }, [count, total])
+  return Math.min(count, total)
+}
+
+/** An open tier's rows, in one flat keyed list so the row that gains or loses the cut line below it keeps its focus. */
+function BacklogTierRows({ bugs, compact, highlightedBugIds, plan, preview, selectedId, columnCount }: {
+  bugs: RankedBacklogBug[]
+  compact: boolean
+  highlightedBugIds: ReadonlySet<number> | null
+  plan: BacklogTablePlan | null
+  preview: RowPreview | undefined
+  selectedId: number | null | undefined
+  columnCount: number
+}) {
+  const shown = useRevealedRowCount(bugs.length)
+  const lastPick = plan?.plan.picks.at(-1)
+  return bugs.slice(0, shown).flatMap((bug) => {
+    const pickState = plan ? getPickState(bug.id, plan) : undefined
+    const row = (
+      <BacklogRow
+        key={bug.id}
+        bug={bug}
+        compact={compact}
+        emphasis={highlightedBugIds ? (highlightedBugIds.has(bug.id) ? 'match' : 'dim') : undefined}
+        pickState={pickState}
+        running={plan ? describeRunning(bug, plan.plan, lastPick) : undefined}
+        onTogglePick={plan?.onTogglePick}
+        preview={preview}
+        selected={selectedId === bug.id}
+      />
+    )
+    return plan && bug.id === lastPick?.id ? [
+      row,
+      <CutLine key="cut-line" used={plan.plan.used} budget={plan.plan.budget} count={plan.plan.picks.length} columnCount={columnCount} />,
+    ] : [row]
+  })
+}
+
 /** A pick's running effort total, or why a bug ranked above the last pick was passed over; nothing below the line. */
 function describeRunning(bug: RankedBacklogBug, plan: BacklogPlan, lastPick: RankedBacklogBug | undefined): string | undefined {
   const total = plan.runningTotals.get(bug.id)
@@ -586,7 +636,6 @@ export const BacklogTable = memo(function BacklogTable({
   const columns = plan ? PLAN_COLUMNS : COLUMNS
   const columnWidths = columns.map((column) => column.key === 'assignee' && compact ? 112 : column.width)
   const minWidth = columnWidths.reduce<number>((total, width) => total + (width ?? BUG_COLUMN_MIN_WIDTH), 0)
-  const lastPick = plan?.plan.picks.at(-1)
   const { panelId, onSelect, onToggle } = preview ?? {}
   const rowPreview = useMemo<RowPreview | undefined>(
     () => panelId && onSelect && onToggle ? { panelId, onSelect, onToggle } : undefined,
@@ -647,6 +696,7 @@ export const BacklogTable = memo(function BacklogTable({
             return (
               <TableBody
                 key={group.key}
+                component={StableTableBody}
                 data-tier={group.key}
                 style={getBacklogTierStyle(group.key)}
                 sx={rowPreview || editing ? previewBodySx : undefined}
@@ -659,33 +709,17 @@ export const BacklogTable = memo(function BacklogTable({
                   pickedCount={pickedCount}
                   columnCount={columns.length}
                 />
-                {/* A flat keyed list, so the row that gains or loses the cut line below it keeps its focus. */}
-                {collapsed ? null : group.bugs.flatMap((bug) => {
-                  const pickState = plan ? getPickState(bug.id, plan) : undefined
-                  const row = (
-                    <BacklogRow
-                      key={bug.id}
-                      bug={bug}
-                      compact={compact}
-                      emphasis={highlightedBugIds ? (highlightedBugIds.has(bug.id) ? 'match' : 'dim') : undefined}
-                      pickState={pickState}
-                      running={plan ? describeRunning(bug, plan.plan, lastPick) : undefined}
-                      onTogglePick={plan?.onTogglePick}
-                      preview={rowPreview}
-                      selected={preview?.selectedId === bug.id}
-                    />
-                  )
-                  return plan && bug.id === lastPick?.id ? [
-                    row,
-                    <CutLine
-                      key="cut-line"
-                      used={plan.plan.used}
-                      budget={plan.plan.budget}
-                      count={plan.plan.picks.length}
-                      columnCount={columns.length}
-                    />,
-                  ] : [row]
-                })}
+                {collapsed ? null : (
+                  <BacklogTierRows
+                    bugs={group.bugs}
+                    compact={compact}
+                    highlightedBugIds={highlightedBugIds}
+                    plan={plan}
+                    preview={rowPreview}
+                    selectedId={preview?.selectedId}
+                    columnCount={columns.length}
+                  />
+                )}
               </TableBody>
             )
           })}
