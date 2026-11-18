@@ -87,6 +87,60 @@ test('picking up testing work counts as QA activity, even in the handoff update'
   assert.deepEqual(names(result.testers), ['Taylor Reed'])
 })
 
+test('a tester outside the selected team is inferred when assigned a handoff', () => {
+  const result = resolveQaTesters({
+    configuredNames: [],
+    teamMembers: [dev, otherDev],
+    updatesByItemId: {
+      1: [
+        update(dev, { assignedTo: [undefined, dev] }),
+        update(dev, { state: ['Committed', 'Available for Testing'] }),
+        update(dev, { assignedTo: [dev, tester] }),
+      ],
+      2: [update(otherDev, { state: ['Committed', 'Available for Testing'], assignedTo: [otherDev, tester] })],
+    },
+    stateGroups,
+  })
+
+  assert.deepEqual(names(result.testers), [tester.displayName])
+  assert.equal(result.testers[0].uniqueName, tester.uniqueName)
+  assert.equal(result.inferred, true)
+})
+
+test('external QA actors are inferred without inferring their developers or automation', () => {
+  const result = resolveQaTesters({
+    configuredNames: [],
+    teamMembers: [dev],
+    updatesByItemId: {
+      1: [
+        update(otherDev, { assignedTo: [undefined, otherDev] }),
+        update(automation, { state: ['Committed', 'Available for Testing'] }),
+        update(otherDev, { state: ['Available for Testing', 'Done'] }),
+      ],
+      2: [
+        update(dev, { assignedTo: [undefined, dev] }),
+        update(automation, { state: ['Committed', 'Available for Testing'] }),
+        update(tester, { state: ['Available for Testing', 'Done'] }),
+      ],
+      3: [
+        update(otherDev, { state: ['Committed', 'Available for Testing'] }),
+        update(otherDev, { state: ['Available for Testing', 'Done'] }),
+      ],
+    },
+    stateGroups,
+  })
+  assert.deepEqual(names(result.testers), [tester.displayName])
+})
+
+test('explicit tester selections still override inferred external testers', () => {
+  const updatesByItemId = {
+    1: [update(dev, { state: ['Committed', 'Available for Testing'], assignedTo: [dev, tester] })],
+  }
+  const args = { teamMembers: [dev, otherDev], updatesByItemId, stateGroups }
+  assert.deepEqual(names(resolveQaTesters({ ...args, configuredNames: [otherDev.displayName] }).testers), [otherDev.displayName])
+  assert.deepEqual(names(resolveQaTesters({ ...args, configuredNames: [tester.displayName] }).testers), [tester.displayName])
+})
+
 test('developers who only hand work to QA, or move their own work along, are not testers', () => {
   const result = resolveInferred({
     1: [

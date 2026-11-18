@@ -46,7 +46,7 @@ function isSameIdentity(left: IdentityRef | undefined, right: IdentityRef | unde
 }
 
 /**
- * Tallies each team member's QA activity across work item histories. Picking up testing work,
+ * Tallies QA activity, including testers outside the team's roster. Picking up testing work,
  * and verifying or sending back someone else's handoff, count as QA; moving work into testing
  * counts as a developer handoff.
  */
@@ -64,13 +64,19 @@ export function getQaActivityByMember(
       membersByKey.set(key, member)
     }
   }
+  const teamMemberKeys = new Set(membersByKey.keys())
 
   const activity = new Map<TeamMember, QaActivity>()
   const findMember = (identity: IdentityRef | undefined) => toIdentityKeys(identity)
     .map((key) => membersByKey.get(key))
     .find((member): member is TeamMember => member !== undefined)
   const credit = (identity: IdentityRef | undefined, kind: keyof QaActivity) => {
-    const member = findMember(identity)
+    let member = findMember(identity)
+    const displayName = identity?.displayName || identity?.uniqueName
+    if (!member && displayName) {
+      member = { ...identity, displayName }
+      for (const key of toIdentityKeys(member)) membersByKey.set(key, member)
+    }
     if (!member) {
       return
     }
@@ -98,7 +104,7 @@ export function getQaActivityByMember(
 
       if (testing.has(nextState) && !testing.has(previousState)) {
         credit(actor, 'handoffs')
-        developer = findMember(actor) ? actor : previousAssignee
+        developer = toIdentityKeys(actor).some((key) => teamMemberKeys.has(key)) ? actor : previousAssignee ?? actor
       }
 
       if (testing.has(previousState) && (development.has(nextState) || done.has(nextState))) {
@@ -120,21 +126,22 @@ export function getQaActivityByMember(
 }
 
 /**
- * The team's QA testers: the members chosen in QA options or, when none are chosen, the members
+ * The team's QA testers: the people chosen in QA options or, when none are chosen, the people
  * whose recent history shows more QA work than handoffs to QA.
  */
 export function resolveQaTesters({ configuredNames, teamMembers, updatesByItemId, stateGroups }: ResolveQaTestersArgs): ResolvedQaTesters {
+  const activity = getQaActivityByMember(teamMembers, updatesByItemId, stateGroups)
+  const candidates = [...new Set([...teamMembers, ...activity.keys()])]
   const selectedNames = new Set(configuredNames.map((name) => name.trim().toLowerCase()).filter(Boolean))
   if (selectedNames.size > 0) {
     return {
-      testers: teamMembers.filter((member) => selectedNames.has(member.displayName.trim().toLowerCase())),
+      testers: candidates.filter((member) => selectedNames.has(member.displayName.trim().toLowerCase())),
       inferred: false,
     }
   }
 
-  const activity = getQaActivityByMember(teamMembers, updatesByItemId, stateGroups)
   return {
-    testers: teamMembers.filter((member) => {
+    testers: candidates.filter((member) => {
       const entry = activity.get(member)
       return entry !== undefined && entry.qaActions > entry.handoffs
     }),
