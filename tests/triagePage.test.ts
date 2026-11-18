@@ -23,6 +23,7 @@ after(() => server.close())
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { TriagePage } = await server.ssrLoadModule('/src/features/standup/pages/TriagePage.tsx')
 const { StandupContent } = await server.ssrLoadModule('/src/features/standup/components/StandupContent.tsx')
+const { WorkItemEditingContext } = await server.ssrLoadModule('/src/features/standup/components/workItemEditingContext.ts')
 const { describeEmptyTriage, filterTriageItems, formatTriageCount, getTriageAge, getTriageTitleTags, getTriageVisibleText } = await server.ssrLoadModule('/src/features/standup/utils/triageDisplay.ts')
 const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
 const { describeTriageClearing, getTriageReadiness } = await server.ssrLoadModule('/src/features/standup/utils/triageRules.ts')
@@ -57,12 +58,18 @@ function props() {
     similar: { openBugs: [], closedBugs: [], loading: false, warnings: [] },
   }
 }
-function render(overrides: Record<string, unknown> = {}) {
-  return renderToStaticMarkup(createElement(Root, null, createElement(TriagePage, { ...props(), ...overrides })))
+/** Just enough of the editing controls to render with; `canEdit` is false once a write found the PAT read-only. */
+const editingWith = (canEdit: boolean) => ({
+  editor: { canEdit: () => canEdit, isBusy: () => false },
+  openMenu: noop, openField: noop, handleContextMenu: noop, handleKeyDown: noop,
+})
+function render(overrides: Record<string, unknown> = {}, editing: unknown = null) {
+  const page = createElement(TriagePage, { ...props(), ...overrides })
+  return renderToStaticMarkup(createElement(Root, null, editing ? createElement(WorkItemEditingContext.Provider, { value: editing }, page) : page))
 }
 /** The rendered document, without emotion's SSR <style> elements, which sit inside the markup and add to textContent. */
-function renderDocument(overrides: Record<string, unknown> = {}) {
-  const dom = new JSDOM(render(overrides))
+function renderDocument(overrides: Record<string, unknown> = {}, editing: unknown = null) {
+  const dom = new JSDOM(render(overrides, editing))
   for (const style of dom.window.document.querySelectorAll('style')) style.remove()
   return dom
 }
@@ -212,7 +219,7 @@ test('Clears when names what takes the item off the queue: its matched tags, and
   assert.equal(describeTriageClearing({ ...emptyBug, reasons: [] }, []), '')
 })
 
-test('Assigned to and Parent are hidden while no item in the queue has one, even if the quick filter hides that item', () => {
+test('without editing, Assigned to and Parent are hidden while no item in the queue has one, even if the quick filter hides that item', () => {
   const empty = renderDocument({ result: { items: [emptyBug, emptyStory], warnings: [] } })
   try {
     const table = empty.window.document.querySelector('table')!
@@ -225,6 +232,22 @@ test('Assigned to and Parent are hidden while no item in the queue has one, even
   try {
     assert.deepEqual(headersOf(assignedOnly.window.document.querySelector('table')!), COLUMN_HEADERS.filter((header) => header !== 'Parent'))
   } finally { assignedOnly.window.close() }
+})
+
+test('Assigned to also shows while items can be assigned from it, with each unassigned cell a button', () => {
+  const unassigned = { result: { items: [emptyBug, emptyStory], warnings: [] } }
+  const editable = renderDocument(unassigned, editingWith(true))
+  try {
+    const table = editable.window.document.querySelector('table')!
+    assert.deepEqual(headersOf(table), COLUMN_HEADERS.filter((header) => header !== 'Parent'))
+    const cell = cellsOf(table.querySelector('tbody tr')!)['Assigned to']
+    assert.equal(cell.querySelector('button[data-edit-field="assignedTo"]')?.getAttribute('aria-label'), 'Assigned to: Unassigned. Change')
+  } finally { editable.window.close() }
+
+  const locked = renderDocument(unassigned, editingWith(false))
+  try {
+    assert.deepEqual(headersOf(locked.window.document.querySelector('table')!), COLUMN_HEADERS.filter((header) => header !== 'Assigned to' && header !== 'Parent'))
+  } finally { locked.window.close() }
 })
 
 test('Why names each rule an item meets, and only the matched Triage tags leave the title', () => {
@@ -341,6 +364,8 @@ test('a clear queue says so with when it was checked and the rules it was checke
   assert.equal(describeEmptyTriage({ tags: [], includeNewBugs: true, excludedIterationPaths: [] }), "No bugs in this team's area are waiting in their initial state.")
   assert.deepEqual([[0, 0], [1, 1], [5, 5], [0, 1], [2, 5]].map(([shown, total]) => formatTriageCount(shown, total)),
     ['0 items', '1 item', '5 items', '0 of 1 item', '2 of 5 items'])
+  assert.deepEqual([[3, 3, 1], [0, 0, 2], [1, 3, 1]].map(([shown, total, cleared]) => formatTriageCount(shown, total, cleared)),
+    ['3 items · 1 cleared', '0 items · 2 cleared', '1 of 3 items · 1 cleared'])
 
   const dom = renderDocument({ options: { tags: [], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags: [] } })
   try {

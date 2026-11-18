@@ -6,7 +6,7 @@ import { formatAssignee, formatCreatedDate, getSeverityDisplay } from './backlog
 import { normalizeQuickFilterText } from './boardFilters'
 import { countWorkingDays, formatDayCount } from './sprintDates'
 import type { TriageQueryOptions, TriageReadinessChecks } from './triageOptions'
-import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks } from './triageRules'
+import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks, isTriageCleared } from './triageRules'
 import { formatTriageMatchLead, type TriageMatch } from './triageSimilar'
 
 /** Shown in muted text in place of an unknown creator. */
@@ -15,9 +15,17 @@ export const UNKNOWN_CREATOR_LABEL = 'Unknown'
 /** The Readiness column's label for an item whose checks all pass. */
 export const READY_TO_CLEAR_LABEL = 'Ready to clear'
 
-/** The Readiness column's text: "Ready to clear", or the checks still missing. Empty while no type has checks. */
+/** Marks an item an edit has taken off the queue, which stays listed until the page reloads. */
+export const TRIAGE_CLEARED_LABEL = 'Cleared'
+/** Says what becomes of a cleared item, on its card and in the preview panel. */
+export const TRIAGE_CLEARED_NOTE = 'No longer meets the Triage rules, so it leaves the list when Triage next refreshes.'
+
+/**
+ * The Readiness column's text: "Ready to clear", or the checks still missing. Empty while no type has checks, and for a
+ * cleared item, which no longer needs them.
+ */
 export function getTriageReadinessText(item: TriageItem, checks: TriageReadinessChecks): string[] {
-  if (!hasTriageChecks(checks)) return []
+  if (!hasTriageChecks(checks) || isTriageCleared(item)) return []
   const readiness = getTriageReadiness(item, checks)
   return readiness.ready ? [READY_TO_CLEAR_LABEL] : readiness.missing
 }
@@ -71,10 +79,10 @@ function shown(value: string | number | undefined): string {
 
 /**
  * The text each Triage column shows for an item, like Backlog's visible text: the type (the icon's name), the id, the
- * title, each tag, why the item is listed, its readiness, then the other columns as displayed, and its similar item
- * ("Possible regression of 2160021"). The quick filter searches exactly these strings, so it never matches hidden detail
- * such as the iteration path. Age is left out, as on Backlog: it grows as items get older, so a filter on it would stop
- * matching.
+ * title, each tag, why the item is listed (or "Cleared"), its readiness, then the other columns as displayed, and its
+ * similar item ("Possible regression of 2160021"). The quick filter searches exactly these strings, so it never matches
+ * hidden detail such as the iteration path. Age is left out, as on Backlog: it grows as items get older, so a filter on
+ * it would stop matching.
  */
 export function getTriageVisibleText(
   item: TriageItem,
@@ -88,7 +96,7 @@ export function getTriageVisibleText(
     String(item.id),
     item.title,
     ...item.tags,
-    ...getTriageReasonDetails(item).map((reason) => reason.label),
+    ...(isTriageCleared(item) ? [TRIAGE_CLEARED_LABEL] : getTriageReasonDetails(item).map((reason) => reason.label)),
     ...getTriageReadinessText(item, checks),
     getSeverityDisplay(item.severity)?.label ?? '',
     shown(item.priority),
@@ -120,10 +128,14 @@ export function filterTriageItems(
 
 const TAG_LIST_FORMAT = new Intl.ListFormat('en', { type: 'disjunction' })
 
-/** "1 item", "5 items", or "2 of 5 items" while the quick filter hides some, like Backlog's bug count. */
-export function formatTriageCount(shownCount: number, totalCount: number): string {
+/**
+ * "1 item", "5 items", or "2 of 5 items" while the quick filter hides some, like Backlog's bug count, counting the items
+ * still in triage; then how many are cleared, as in "3 items · 2 cleared".
+ */
+export function formatTriageCount(shownCount: number, totalCount: number, clearedCount = 0): string {
   const noun = totalCount === 1 ? 'item' : 'items'
-  return shownCount === totalCount ? `${totalCount} ${noun}` : `${shownCount} of ${totalCount} ${noun}`
+  const count = shownCount === totalCount ? `${totalCount} ${noun}` : `${shownCount} of ${totalCount} ${noun}`
+  return clearedCount ? `${count} · ${clearedCount} cleared` : count
 }
 
 /** The empty queue's message, naming each enabled rule that found nothing. */

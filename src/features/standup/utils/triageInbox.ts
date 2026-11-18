@@ -2,7 +2,7 @@ import type { IdentityRef } from '../../../ado/identity'
 import type { TriageEvent, TriageItem } from '../../../ado/types'
 import { getTriageAge } from './triageDisplay'
 import type { TriageReadinessChecks } from './triageOptions'
-import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks } from './triageRules'
+import { getTriageReadiness, getTriageReasonDetails, hasTriageChecks, isTriageCleared } from './triageRules'
 
 /** How the item arrived in triage: filed straight in, tagged later, or moved back into its first state later. */
 export type TriageEntry = TriageEvent & { kind: 'filed' | 'tagged' | 'moved'; tag?: string }
@@ -17,11 +17,11 @@ function toTime(at: string | undefined): number | undefined {
 /**
  * When the item entered triage: the earliest time a rule it meets now began to apply. A tag rule starts when the tag was
  * last added, and the new-bug rule when the bug last moved into its first state. Within an hour of creation, or without
- * history, the item counts as filed straight into triage.
+ * history, the item counts as filed straight into triage. A cleared item keeps the entry of the rules it was listed for.
  */
 export function getTriageEntry(item: TriageItem): TriageEntry | undefined {
   const created = toTime(item.createdAt)
-  const starts = getTriageReasonDetails(item).flatMap((reason): TriageEntry[] => {
+  const starts = getTriageReasonDetails(item.clearedFrom ?? item).flatMap((reason): TriageEntry[] => {
     const event = reason.kind === 'tag' ? item.history?.tagsAdded[reason.tag.toLowerCase()] : item.history?.stateSince
     if (!event || toTime(event.at) === undefined) return []
     return [reason.kind === 'tag' ? { ...event, kind: 'tagged', tag: reason.tag } : { ...event, kind: 'moved' }]
@@ -60,10 +60,13 @@ export function getTriageWaiting(item: TriageItem, waitingTags: readonly string[
   return { tags, since, reply: replied ? comment : undefined }
 }
 
-/** The item's age in triage, counted from when it entered; never flagged while it waits on someone else. */
+/**
+ * The item's age in triage, counted from when it entered; never flagged while it waits on someone else, nor once it is
+ * cleared.
+ */
 export function getTriageItemAge(item: TriageItem, flagDays: number, waitingTags: readonly string[], now = new Date()) {
   const age = getTriageAge(getTriageEntry(item)?.at, flagDays, now)
-  return age && getTriageWaiting(item, waitingTags) ? { ...age, flagged: false } : age
+  return age && (isTriageCleared(item) || getTriageWaiting(item, waitingTags)) ? { ...age, flagged: false } : age
 }
 
 export type TriageInboxGroupKey = 'new' | 'todo' | 'waiting'
@@ -71,21 +74,27 @@ export type TriageInboxGroup = { key: TriageInboxGroupKey; items: TriageItem[] }
 
 /**
  * The Inbox's groups, each longest in triage first: items that arrived since `lastVisit`, the rest still to triage, then
- * items waiting on others. Empty groups are left out, and with no earlier visit nothing counts as new.
+ * items waiting on others. Empty groups are left out, and with no earlier visit nothing counts as new. A cleared item
+ * is placed by the reasons and tags it was listed with, so its card holds still while it stays.
  */
 export function groupTriageInbox(items: readonly TriageItem[], waitingTags: readonly string[], lastVisit: number | null): TriageInboxGroup[] {
   const entered = new Map(items.map((item) => [item.id, toTime(getTriageEntry(item)?.at) ?? Infinity]))
   const sorted = [...items].sort((a, b) => (entered.get(a.id)! - entered.get(b.id)!) || a.id - b.id)
   const groups: Record<TriageInboxGroupKey, TriageItem[]> = { new: [], todo: [], waiting: [] }
   for (const item of sorted) {
-    const key = getTriageWaiting(item, waitingTags) ? 'waiting'
+    const listed = item.clearedFrom ? { ...item, tags: item.clearedFrom.tags } : item
+    const key = getTriageWaiting(listed, waitingTags) ? 'waiting'
       : lastVisit !== null && entered.get(item.id)! > lastVisit && entered.get(item.id)! !== Infinity ? 'new' : 'todo'
     groups[key].push(item)
   }
   return (['new', 'todo', 'waiting'] as const).flatMap((key) => groups[key].length ? [{ key, items: groups[key] }] : [])
 }
 
+/** The items in the group still in triage, leaving out those cleared since the queue loaded. */
+export const countTriageGroup = (group: TriageInboxGroup) => group.items.filter((item) => !isTriageCleared(item)).length
+
 export type TriageInboxSummary = {
+  /** The items still in triage; the rest are cleared. */
   total: number
   newCount: number
   /** Undefined while no type has readiness checks. */
@@ -93,8 +102,11 @@ export type TriageInboxSummary = {
   waiting: number
   /** Not waiting, and in triage `ageFlagDays` working days or more. */
   stale: number
+  /** Cleared since the queue loaded, and still shown until it reloads. */
+  cleared: number
 }
 
+/** The counts above the Inbox's groups. Every count but `cleared` leaves out the cleared items. */
 export function summarizeTriageInbox(
   groups: readonly TriageInboxGroup[],
   checks: TriageReadinessChecks,
@@ -102,14 +114,19 @@ export function summarizeTriageInbox(
   waitingTags: readonly string[],
   now = new Date(),
 ): TriageInboxSummary {
-  const items = groups.flatMap((group) => group.items)
-  const count = (key: TriageInboxGroupKey) => groups.find((group) => group.key === key)?.items.length ?? 0
+  const all = groups.flatMap((group) => group.items)
+  const items = all.filter((item) => !isTriageCleared(item))
+  const count = (key: TriageInboxGroupKey) => {
+    const group = groups.find((candidate) => candidate.key === key)
+    return group ? countTriageGroup(group) : 0
+  }
   return {
     total: items.length,
     newCount: count('new'),
     ready: hasTriageChecks(checks) ? items.filter((item) => getTriageReadiness(item, checks).ready).length : undefined,
     waiting: count('waiting'),
     stale: items.filter((item) => getTriageItemAge(item, ageFlagDays, waitingTags, now)?.flagged).length,
+    cleared: all.length - items.length,
   }
 }
 

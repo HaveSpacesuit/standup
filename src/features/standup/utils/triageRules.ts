@@ -7,6 +7,12 @@ export const NEW_BUG_REASON = 'New bug'
 
 export type TriageReason = { kind: 'tag'; tag: string; label: string } | { kind: 'new-bug'; label: string }
 
+/**
+ * Whether an edit since the queue loaded took the item off it. It stays listed, shown as cleared, until the queue
+ * reloads without it.
+ */
+export const isTriageCleared = (item: Pick<TriageItem, 'reasons'>) => item.reasons.length === 0
+
 /** Why the item is listed, one entry per rule it meets: each Triage tag it has ("Triage tag"), then "New bug". */
 export function getTriageReasonDetails(item: Pick<TriageItem, 'reasons'>): TriageReason[] {
   return item.reasons.flatMap((reason): TriageReason[] => {

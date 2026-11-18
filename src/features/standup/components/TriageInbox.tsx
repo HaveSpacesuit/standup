@@ -8,15 +8,16 @@ import svgInbox from '@stratakit/icons/inbox.svg'
 import svgLink from '@stratakit/icons/link.svg'
 import svgStatusSuccess from '@stratakit/icons/status-success.svg'
 import type { TriageItem } from '../../../ado/types'
+import { UNASSIGNED_LABEL } from '../utils/backlogFilter'
 import type { BacklogSprintResolver } from '../utils/backlogSprint'
 import { formatAssignee } from '../utils/backlogValue'
-import { formatTriageParent, getTriageTitleTags, UNKNOWN_CREATOR_LABEL } from '../utils/triageDisplay'
+import { formatTriageParent, getTriageTitleTags, TRIAGE_CLEARED_NOTE, UNKNOWN_CREATOR_LABEL } from '../utils/triageDisplay'
 import {
-  formatTriageCreated, formatTriageMoment, formatTriageVisit, formatTriageWhen, getTriageEntry, getTriageItemAge,
+  countTriageGroup, formatTriageCreated, formatTriageMoment, formatTriageVisit, formatTriageWhen, getTriageEntry, getTriageItemAge,
   getTriageWaiting, groupTriageInbox, summarizeTriageInbox, type TriageInboxGroupKey,
 } from '../utils/triageInbox'
 import type { TriageReadinessChecks } from '../utils/triageOptions'
-import { describeTriageClearing, getTriageChecksFor, getTriageReadiness, hasTriageChecks } from '../utils/triageRules'
+import { describeTriageClearing, getTriageChecksFor, getTriageReadiness, hasTriageChecks, isTriageCleared } from '../utils/triageRules'
 import type { TriageMatch } from '../utils/triageSimilar'
 import { isPreviewRowClick } from '../hooks/usePreviewPanel'
 import { AppTooltip } from './AppTooltip'
@@ -60,7 +61,7 @@ const summarySx: SxProps<Theme> = {
   listStyle: 'none',
   fontSize: 12.5,
   color: 'text.secondary',
-  '& > li': { display: 'inline-flex', alignItems: 'center', gap: 0.75 },
+  '& > li, & > li > .with-icon': { display: 'inline-flex', alignItems: 'center', gap: 0.75 },
   '& b': { color: 'text.primary', fontVariantNumeric: 'tabular-nums' },
   '& > li.attention, & > li.attention b': { color: ATTENTION_TEXT },
 }
@@ -122,6 +123,13 @@ const cardListSx: SxProps<Theme> = {
     boxShadow: 'inset 3px 0 0 var(--triage-edge, transparent), var(--stratakit-shadow-surface-xs)',
   },
   '& > li.ready': { '--triage-edge': 'var(--stratakit-color-border-positive-base)' },
+  // Recessed into the page, as done, but at full contrast so its fields can still be read and edited.
+  '& > li.cleared': {
+    '--triage-edge': 'var(--stratakit-color-border-positive-base)',
+    bgcolor: 'var(--stratakit-color-bg-page-depth)',
+    borderStyle: 'dashed',
+    boxShadow: 'inset 3px 0 0 var(--triage-edge)',
+  },
   '& > li[data-preview-id]': { cursor: 'pointer' },
   '& > li.selected': {
     borderColor: 'var(--stratakit-color-border-accent-base)',
@@ -142,16 +150,19 @@ const cardListSx: SxProps<Theme> = {
   '& .card-meta': metaSx,
   '& .card-fields': {
     display: 'grid',
-    gridTemplateColumns: '104px 40px 72px 128px',
+    gridTemplateColumns: '104px 40px 72px 128px 144px',
     alignItems: 'center',
     gap: 1.25,
     pt: '1px',
     fontSize: 12,
   },
   '& .card-fields .effort-label': { color: TERTIARY_TEXT_COLOR, mr: 0.5 },
-  '@container (max-width: 880px)': {
+  '@container (max-width: 1040px)': {
     '& > li': { gridTemplateColumns: '16px minmax(0, 1fr)' },
     '& .card-fields': { gridColumn: 2, display: 'flex', flexWrap: 'wrap', gap: '6px 16px' },
+    // Each folded field is as wide as its button less the button's negative margins, so the button's 100% cap would
+    // cut sprint names short and wrap people's names.
+    '& .card-fields [data-edit-field]': { maxWidth: 'none' },
   },
 }
 
@@ -247,8 +258,8 @@ function StaleText({ item, ageFlagDays, waitingTags, now }: { item: TriageItem; 
   )
 }
 
-// Only what differs from a fresh item: a state other than the type's first, someone assigned, or a parent. An editable
-// item always shows its state, so it can be moved on from the card.
+// Only what differs from a fresh item: a state other than the type's first, or a parent. An editable item always shows
+// its state, so it can be moved on from the card.
 const showsState = (item: TriageItem) => item.inInitialState === undefined ? item.state !== 'New' : !item.inInitialState
 
 /**
@@ -292,14 +303,15 @@ function TriageInboxCard({
 }: CardProps) {
   const checks = getTriageChecksFor(item, readinessChecks)
   const clearing = describeTriageClearing(item, excludedIterationPaths)
-  const ready = hasTriageChecks(readinessChecks) && getTriageReadiness(item, readinessChecks).ready
+  const cleared = isTriageCleared(item)
+  const ready = !cleared && hasTriageChecks(readinessChecks) && getTriageReadiness(item, readinessChecks).ready
   // The waiting tags are named in the meta line, like the Triage tags in the Why chips.
   const waiting = new Set(waitingTags.map((tag) => tag.toLowerCase()))
   const tags = getTriageTitleTags(item).filter((tag) => !waiting.has(tag.toLowerCase()))
   const sprint = resolveSprint(item.iterationPath)
   const match = matches?.get(item.id)
   const selected = preview?.selectedId === item.id
-  const className = [ready ? 'ready' : '', selected ? 'selected' : ''].filter(Boolean).join(' ')
+  const className = [cleared ? 'cleared' : ready ? 'ready' : '', selected ? 'selected' : ''].filter(Boolean).join(' ')
   const editing = useWorkItemEditing()
   const canEdit = editing?.editor.canEdit(item) ?? false
 
@@ -324,14 +336,6 @@ function TriageInboxCard({
           <EntryText item={item} now={now} />
           <TriageReasons item={item} clearing={clearing} />
           {showsState(item) || canEdit ? <><Separator /><EditableFieldButton item={item} field="state"><StateLabel state={item.state} /></EditableFieldButton></> : null}
-          {item.assignedTo ? (
-            <>
-              <Separator />
-              <span className="with-icon">
-                Assigned to <EditableFieldButton item={item} field="assignedTo"><PersonLabel person={item.assignedTo} emptyLabel="" /></EditableFieldButton>
-              </span>
-            </>
-          ) : null}
           {item.parent ? (
             <>
               <Separator />
@@ -362,6 +366,11 @@ function TriageInboxCard({
             <EditableFieldButton item={item} field="iterationPath"><SprintLabel sprint={sprint} iterationPath={item.iterationPath} /></EditableFieldButton>
           ) : canEdit ? (
             <EditableFieldButton item={item} field="iterationPath"><span className="effort-label">No sprint</span></EditableFieldButton>
+          ) : null}
+        </span>
+        <span className="assignee">
+          {item.assignedTo || canEdit ? (
+            <EditableFieldButton item={item} field="assignedTo"><PersonLabel person={item.assignedTo} emptyLabel={UNASSIGNED_LABEL} /></EditableFieldButton>
           ) : null}
         </span>
       </div>
@@ -412,6 +421,16 @@ export function TriageInbox({ items, lastVisit, now = new Date(), ...cardProps }
               <b>{summary.stale}</b> in triage {ageFlagDays}+ working {ageFlagDays === 1 ? 'day' : 'days'}
             </li>
           ) : null}
+          {summary.cleared ? (
+            <li>
+              <AppTooltip title={TRIAGE_CLEARED_NOTE} describeChild>
+                <span className="with-icon">
+                  <Icon href={svgStatusSuccess} alt="" style={{ ...smallIconStyle, color: 'var(--stratakit-color-icon-positive-base)' }} />
+                  <b>{summary.cleared}</b> cleared
+                </span>
+              </AppTooltip>
+            </li>
+          ) : null}
         </Box>
         {groups.map((group) => {
           const title = group.key === 'todo' && !hasNew ? 'To triage' : GROUP_TITLES[group.key]
@@ -420,7 +439,7 @@ export function TriageInbox({ items, lastVisit, now = new Date(), ...cardProps }
             <section key={group.key} aria-labelledby={headingId}>
               <Box component="h2" id={headingId} sx={headingSx}>
                 {title}
-                <span className="count">{group.items.length}</span>
+                <span className="count">{countTriageGroup(group)}</span>
                 {subtitles[group.key] ? <span className="subtitle">{subtitles[group.key]}</span> : null}
               </Box>
               <Box component="ul" role="list" aria-label={title} sx={cardListSx}>

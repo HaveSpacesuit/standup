@@ -132,6 +132,16 @@ Prepare data that exercises both populated and empty states:
       Bugs and dashed on other types; there is no Matched by column.
 - [ ] Verify type icons, creator, effort (including zero), and parent ID/title; item and parent links
       open Azure DevOps. Inaccessible parents retain known IDs/links and show an explicit warning.
+- [ ] With edit access and no item assigned, confirm the Table still shows Assigned to and each Inbox
+      card shows a muted Unassigned after the sprint. Pick a team member there (or press A) and confirm
+      the item updates in place, stays in the queue, and Undo restores it. Without write access, confirm
+      the column hides again while nobody is assigned and unassigned cards leave the slot empty.
+- [ ] Remove an item's only Triage tag with its chip's **×** (and, separately, move a new bug to
+      Approved). In the Table and Inbox, light and dark, confirm the item stays in place with a
+      **Cleared** chip, a recessed row or card with a green edge, no readiness or age flag, and focus on
+      its menu button. Confirm the header reads `N items · 1 cleared`, the Inbox summary adds **1 cleared**
+      and the group count drops, and the item can still be edited. Undo restores it; Refresh, automatic
+      refresh, and leaving and reopening Triage each drop it.
 - [ ] Filter by creator, parent, type, tag and sprint label; test `/` and Ctrl/Cmd+F and clearing the filter.
 - [ ] Disable both rules; confirm the No Triage rules card, that its button opens Triage options, and
       that no Triage query runs. Check the loading skeleton, the Nothing to triage card (naming the

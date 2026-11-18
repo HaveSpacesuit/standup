@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import { applyTriagePatch, getListedTriageResult } from '../../../ado/triageApi'
 import type { TriageResult } from '../../../ado/types'
@@ -34,7 +34,8 @@ export function useTriageItems({ adoQueryEngine, selectedTeam, options, enabled,
     setSnapshot({ engine: adoQueryEngine, key, result: null, error: null })
     adoQueryEngine.getTriageItems(selectedTeam, options).then(
       (result) => {
-        if (active) setSnapshot({ engine: adoQueryEngine, key, result, error: null })
+        // The engine's cache keeps the items edits have cleared, so a reopened page leaves them out like a fresh load.
+        if (active) setSnapshot({ engine: adoQueryEngine, key, result: getListedTriageResult(result), error: null })
       },
       (cause: unknown) => {
         if (active) setSnapshot({
@@ -46,7 +47,7 @@ export function useTriageItems({ adoQueryEngine, selectedTeam, options, enabled,
     return () => { active = false }
   }, [adoQueryEngine, canLoad, key, options, selectedTeam])
 
-  // An edit can take an item off the queue; it is kept, hidden, so an undo brings it back.
+  // An edit can clear an item; it stays, shown as cleared, until the queue loads again, and an undo lists it as before.
   useWorkItemPatches(adoQueryEngine, (patch) => setSnapshot((current) => {
     if (!current?.result) return current
     const result = applyTriagePatch(current.result, patch)
@@ -54,10 +55,8 @@ export function useTriageItems({ adoQueryEngine, selectedTeam, options, enabled,
   }))
 
   const current = canLoad && snapshot?.engine === adoQueryEngine && snapshot.key === key ? snapshot : null
-  const loaded = current?.result ?? null
-  const triageResult = useMemo(() => (loaded ? getListedTriageResult(loaded) : EMPTY_RESULT), [loaded])
   return {
-    triageResult,
+    triageResult: current?.result ?? EMPTY_RESULT,
     triageLoading: canLoad && (!current || (current.result === null && current.error === null)),
     triageError: current?.error ?? null,
   }
