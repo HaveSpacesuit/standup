@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AdoQueryEngine, CurrentIterationInfo, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
+import { applyPullRequestPatch } from '../../../ado/workItemPatch'
 import type { TeamProfile } from '../../../appSettings'
 import { isAbortError, toErrorMessage } from './queryErrors'
+import { usePullRequestPatches } from './useWorkItemPatches'
 
 type UsePullRequestBoardItemsArgs = {
   adoQueryEngine: AdoQueryEngine | null
@@ -98,6 +100,9 @@ export function usePullRequestBoardItems({
       abortController.abort()
     }
   }, [adoQueryEngine, currentIteration, members, membersError, membersLoading, selectedTeam, workItems, workItemsError, workItemsLoading])
+
+  // A card reloaded on its own changes in place, or leaves once it's abandoned or a draft again.
+  usePullRequestPatches(adoQueryEngine, (patch) => setPullRequestBoardItems((current) => applyPullRequestPatch(current, patch)))
 
   return {
     pullRequestBoardItems,

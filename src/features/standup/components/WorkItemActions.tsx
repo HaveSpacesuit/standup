@@ -9,7 +9,14 @@ import svgRefresh from '@stratakit/icons/refresh.svg'
 import { getWorkItemFields } from '../../../ado/workItemPatch'
 import { WORK_ITEM_FIELD_LABELS, type EditableWorkItemField } from '../../../ado/workItemUpdateApi'
 import {
-  describeFieldValue, FIELD_SHORTCUT_KEYS, getEditableFields, isEditableWorkItem, RELOAD_SHORTCUT_KEY, type EditableWorkItem,
+  describeFieldValue,
+  FIELD_SHORTCUT_KEYS,
+  getEditableFields,
+  getItemLabel,
+  hasItemActions,
+  isPullRequestCard,
+  RELOAD_SHORTCUT_KEY,
+  type EditableWorkItem,
 } from '../utils/workItemEditing'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
@@ -39,17 +46,18 @@ const floatingSx: SxProps<Theme> = {
 
 /**
  * Reload and More for one item. Reload reads the item fresh from Azure DevOps and updates it in place; More opens its
- * menu of fields to edit. Renders nothing outside a WorkItemEditingProvider.
+ * menu of fields to edit, or a pull request card's links. Renders nothing outside a WorkItemEditingProvider.
  */
 export function WorkItemActions({ item, floating = false }: { item: EditableWorkItem; floating?: boolean }) {
   const editing = useWorkItemEditing()
-  if (!editing || !isEditableWorkItem(item)) return null
+  if (!editing || !hasItemActions(item)) return null
   const { editor } = editing
   const busy = editor.isBusy(item)
+  const label = getItemLabel(item)
   return (
     <Box
       role="group"
-      aria-label={`Actions for #${item.id}`}
+      aria-label={`Actions for ${label}`}
       className={WORK_ITEM_ACTIONS_CLASS}
       data-busy={busy ? '' : undefined}
       // Keeps a click from also selecting the row or following the card's link.
@@ -58,7 +66,7 @@ export function WorkItemActions({ item, floating = false }: { item: EditableWork
     >
       <IconButton
         size="small"
-        label={busy ? `Updating #${item.id}…` : `Reload #${item.id} from Azure DevOps (${RELOAD_SHORTCUT_KEY})`}
+        label={busy ? `Updating ${label}…` : `Reload ${label} from Azure DevOps (${RELOAD_SHORTCUT_KEY})`}
         aria-keyshortcuts={RELOAD_SHORTCUT_KEY}
         aria-busy={busy || undefined}
         onClick={() => void editor.reload(item)}
@@ -67,7 +75,7 @@ export function WorkItemActions({ item, floating = false }: { item: EditableWork
       </IconButton>
       <IconButton
         size="small"
-        label={`Edit #${item.id} (Shift+F10)`}
+        label={isPullRequestCard(item) ? `More actions for ${label} (Shift+F10)` : `Edit ${label} (Shift+F10)`}
         aria-haspopup="menu"
         aria-keyshortcuts="Shift+F10"
         {...{ [WORK_ITEM_MENU_ATTRIBUTE]: workItemEditKey(item) }}
@@ -130,7 +138,8 @@ function placeFloatingActions(card: HTMLElement) {
 
 /**
  * Makes a board card editable: its menu on right-click or Shift+F10, field keys while focus is in it, and Reload and
- * More on hover. Without editing it renders the card alone.
+ * More on hover. A pull request card gets the menu, R and the buttons, but no fields. Without editing it renders the
+ * card alone.
  */
 export function EditableWorkItemCard({ item, enabled = true, dragProps, dragging = false, children }: {
   item: EditableWorkItem
@@ -143,7 +152,7 @@ export function EditableWorkItemCard({ item, enabled = true, dragProps, dragging
   children: ReactNode
 }) {
   const editing = useWorkItemEditing()
-  if (!editing || !enabled || !isEditableWorkItem(item)) return <>{children}</>
+  if (!editing || !enabled || !hasItemActions(item)) return <>{children}</>
   const draggable = Boolean(dragProps) && editing.editor.canEdit(item)
   return (
     <Box

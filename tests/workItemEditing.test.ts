@@ -12,9 +12,11 @@ const {
   getEditableFields,
   getIterationGroups,
   getPeopleChoices,
+  getPullRequestChanges,
   getRestoreChanges,
   getShortcutAction,
   getStateGroups,
+  havePullRequestsChanged,
 } = await server.ssrLoadModule('/src/features/standup/utils/workItemEditing.ts')
 const { getSprintLensRows, SCOPE_ADDED_ROW_KEY, SCOPE_COMMITTED_ROW_KEY, SCOPE_REMOVED_ROW_KEY, NO_SPRINT_ROW_KEY } =
   await server.ssrLoadModule('/src/features/standup/utils/sprintLens.ts')
@@ -243,4 +245,15 @@ test('a copied link names the item like Azure DevOps does, even without a type, 
     html: `<a href="${url}">Task 5</a>`,
   })
   assert.deepEqual(formatWorkItemLink({ id: 5, title: 'A & B', workItemType: 'Bug' }), { text: 'Bug 5: A & B', html: 'Bug 5: A &amp; B' })
+})
+
+test('a pull request counts as changed by what its card shows, not by how it was read', () => {
+  const before = { id: 456, repositoryId: 'repo', title: 'Fix', url: 'https://dev.azure.com/org/Project/_git/Repo/pullrequest/456', approvalCount: 0 }
+  // The batch read and the read by ID build the URL from different names, and the activity time moves on its own.
+  const reread = { ...before, repositoryId: 'REPO', url: 'https://dev.azure.com/org/Project/_git/repo/pullrequest/456', recentActivityAt: 'later' }
+  assert.deepEqual(getPullRequestChanges(before, reread), [])
+  assert.equal(havePullRequestsChanged([before], [reread]), false)
+  assert.deepEqual(getPullRequestChanges(before, { ...reread, approvalCount: 1, title: 'Fix it' }), ['Title', 'Reviews'])
+  assert.equal(havePullRequestsChanged([before], [reread, { ...before, id: 457 }]), true)
+  assert.equal(havePullRequestsChanged([before], [{ ...before, repositoryId: 'other' }]), true)
 })

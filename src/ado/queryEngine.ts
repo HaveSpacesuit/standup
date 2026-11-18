@@ -3,18 +3,18 @@ import type { AdoRequestOptions } from './httpClient'
 import { AdoHttpClient } from './httpClient'
 import { assignWorkItem, isAssignmentAccessError } from './workItemAssignmentApi'
 import { readWorkItem, updateWorkItemFields, WorkItemConflictError, type WorkItemFieldChanges, type WorkItemFields, type WorkItemReadResult } from './workItemUpdateApi'
-import { applyWorkItemPatch, workItemUrlFor, type WorkItemPatch } from './workItemPatch'
+import { applyPullRequestPatch, applyWorkItemPatch, workItemUrlFor, type PullRequestPatch, type WorkItemPatch } from './workItemPatch'
 import type { IdentityRef } from './identity'
 import type { TagRule } from './workItemStatus'
 import { WorkItemAssigneeResolver } from './assigneeResolver'
 import { fetchIterationWindowInfo, fetchTeamIterations } from './teamIterationsApi'
 import { fetchTeamMembers } from './teamMembersApi'
-import { fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
+import { fetchPullRequestCard, fetchUnlinkedActivePullRequestItems } from './teamPullRequestsApi'
 import { fetchTeamSubjectDescriptor } from './teamSettingsApi'
 import { fetchBacklogBugs, fetchRecentlyClosedBugs, resolveClosedBugStates, resolveCompletedBugStates } from './backlogApi'
-import { fetchQualityAssuranceRawData, fetchSprintScopeChanges, fetchWorkItemsForCurrentAndNextIteration, type SprintScopeChanges } from './workItemsApi'
+import { fetchLinkedPullRequests, fetchQualityAssuranceRawData, fetchSprintScopeChanges, fetchWorkItemsForCurrentAndNextIteration, type SprintScopeChanges } from './workItemsApi'
 import { fetchProjectWorkItemTypeInfo, type ProjectWorkItemState, type ProjectWorkItemTypeInfo } from './workItemTypesApi'
-import type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
+import type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, LinkedPullRequests, ResolvedWorkItemAssignee, TeamIterationOption, TeamMember, TeamMemberLookup, WorkItemPullRequestSummary, WorkItemSummary, WorkItemUpdate, WorkItemUpdatesResponse } from './types'
 import type { QualityAssuranceRawData } from './workItemsApi'
 import { applyTriagePatch, fetchTriageItems } from './triageApi'
 import type { TriageResult, WorkItemPreview } from './types'
@@ -24,7 +24,10 @@ import { getTriageQueryOptions, hasTriageRules, parseTriageOptions, type TriageQ
 export type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
 export type { SprintScopeChanges } from './workItemsApi'
-export type { WorkItemPatch } from './workItemPatch'
+export type { WorkItemPatch, PullRequestPatch } from './workItemPatch'
+
+/** A reloaded work item; `pullRequestsUnavailable` when its linked pull requests were asked for but couldn't be read. */
+export type WorkItemReload = WorkItemPatch & { pullRequestsUnavailable?: boolean }
 
 // Shared cache-key builders so a getter and its corresponding `clear*Cache` method can never
 // drift apart and silently stop invalidating (each key shape is defined in exactly one place).
@@ -98,6 +101,7 @@ export class AdoQueryEngine {
   private readonly workItemPreviewCache = new Map<string, Promise<WorkItemPreview>>()
   private readonly attachmentCache = new Map<string, Promise<Blob>>()
   private readonly workItemPatchListeners = new Set<(patch: WorkItemPatch) => void>()
+  private readonly pullRequestPatchListeners = new Set<(patch: PullRequestPatch) => void>()
   constructor(pat: string, defaultApiVersion = '7.1') {
     this.client = new AdoHttpClient(pat, defaultApiVersion)
     // Route through getWorkItemUpdates so the assignee resolver shares its cache instead of
@@ -464,9 +468,48 @@ export class AdoQueryEngine {
     }
   }
 
-  /** Reads one work item fresh from Azure DevOps and shows it in every cached list and subscribed view. */
-  async reloadWorkItem(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id: number): Promise<WorkItemPatch> {
-    return this.publishWorkItem(team, id, await readWorkItem(this.client, team, id))
+  /**
+   * Reads one work item fresh from Azure DevOps and shows it in every cached list and subscribed view. With
+   * `pullRequests`, its linked pull requests are read too, for cards that show them; when those can't be read, the
+   * fields are still shown and the cards keep the pull requests they had.
+   */
+  async reloadWorkItem(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    id: number,
+    options: { pullRequests?: boolean } = {},
+  ): Promise<WorkItemReload> {
+    const read = await readWorkItem(this.client, team, id, { relations: options.pullRequests })
+    if (!options.pullRequests) return this.publishWorkItem(team, id, read)
+    let pullRequests: LinkedPullRequests | undefined
+    try {
+      pullRequests = await fetchLinkedPullRequests(this.client, team, read.item)
+    } catch {
+      return { ...this.publishWorkItem(team, id, read), pullRequestsUnavailable: true }
+    }
+    return this.publishWorkItem(team, id, read, pullRequests)
+  }
+
+  /**
+   * Reads one pull request card fresh from Azure DevOps and shows it in every cached list and subscribed view, or takes
+   * it off them once the board no longer shows it.
+   */
+  async reloadPullRequest(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    pullRequest: Pick<WorkItemPullRequestSummary, 'id' | 'repositoryId' | 'repositoryName' | 'iconUrl'>,
+  ): Promise<PullRequestPatch> {
+    const { card, status } = await fetchPullRequestCard(this.client, team, pullRequest)
+    const patch: PullRequestPatch = { id: pullRequest.id, repositoryId: pullRequest.repositoryId, card, status }
+    patchCachedValues(this.unlinkedPullRequestItemsCache, (items) => applyPullRequestPatch(items, patch))
+    for (const listener of this.pullRequestPatchListeners) listener(patch)
+    return patch
+  }
+
+  /** Calls the listener with each pull request card reloaded, so views holding it can update it in place. */
+  subscribePullRequestPatches(listener: (patch: PullRequestPatch) => void): () => void {
+    this.pullRequestPatchListeners.add(listener)
+    return () => {
+      this.pullRequestPatchListeners.delete(listener)
+    }
   }
 
   /**
@@ -486,9 +529,15 @@ export class AdoQueryEngine {
     }
   }
 
-  private publishWorkItem(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id: number, { item, fields }: WorkItemReadResult): WorkItemPatch {
+  private publishWorkItem(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    id: number,
+    { item, fields }: WorkItemReadResult,
+    pullRequests?: LinkedPullRequests,
+  ): WorkItemPatch {
     const changedAt = (item.fields as Record<string, unknown> | undefined)?.['System.ChangedDate']
     const patch: WorkItemPatch = { id, workItemUrl: workItemUrlFor(team, id), fields, changedAt: typeof changedAt === 'string' ? changedAt : undefined }
+    if (pullRequests) patch.pullRequests = pullRequests
     const apply = <T extends { id: number; workItemUrl?: string; title: string }>(items: T[]) => applyWorkItemPatch(items, patch)
     patchCachedValues(this.teamWorkItemsCache, apply)
     patchCachedValues(this.backlogBugsCache, apply)
