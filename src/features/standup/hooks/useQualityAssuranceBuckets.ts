@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { WorkItemUpdate } from '../../../ado/types'
 import type { TeamProfile } from '../../../appSettings'
@@ -46,7 +46,8 @@ export function useQualityAssuranceBuckets({
   const [rawData, setRawData] = useState<QualityAssuranceRawData | null>(null)
   const [qaBucketsLoading, setQaBucketsLoading] = useState(false)
   const [qaBucketsError, setQaBucketsError] = useState<string | null>(null)
-
+  // The latest history read for each saved item; an older read, or one from before a reload, is stale when it answers.
+  const historyReads = useRef({ next: 0, latest: new Map<string, number>() })
   // Stable string key from the include allow-list, so the fetch effect only re-runs
   // when the set of included work item types actually changes.
   const includeWorkItemTypesKey = useMemo(() => {
@@ -67,6 +68,7 @@ export function useQualityAssuranceBuckets({
   }, [includeIterationPaths])
 
   useEffect(() => {
+    historyReads.current.latest.clear()
     if (!adoQueryEngine) {
       setRawData(null)
       setQaBucketsLoading(false)
@@ -123,18 +125,27 @@ export function useQualityAssuranceBuckets({
     setRawData((current) => current && { ...current, candidates: applyWorkItemPatch(current.candidates, patch) })
     if (patch.preview) return
     // QA sorts items by their history, which the save just extended.
+    const reads = historyReads.current
+    const key = `${patch.id}:${patch.workItemUrl.toLowerCase()}`
+    const read = ++reads.next
+    reads.latest.set(key, read)
+    const isLatest = () => reads.latest.get(key) === read
     adoQueryEngine.getQualityAssuranceItemHistory(selectedTeam, rawData, patch.id).then((history) => {
-      setRawData((current) => {
-        if (!current || !current.candidates.some((item) => matchesWorkItemPatch(item, patch))) return current
-        const updatesByItemId = { ...current.updatesByItemId }
-        const updates = history.updatesByItemId[patch.id]
-        if (updates) updatesByItemId[patch.id] = updates
-        else delete updatesByItemId[patch.id]
-        const failedUpdateItemIds = current.failedUpdateItemIds.filter((id) => id !== patch.id)
-        if (history.failedUpdateItemIds.includes(patch.id)) failedUpdateItemIds.push(patch.id)
-        return { ...current, updatesByItemId, failedUpdateItemIds }
-      })
-    }, () => undefined)
+      if (!isLatest()) return
+      reads.latest.delete(key)
+      setRawData((current) => {
+        if (!current || !current.candidates.some((item) => matchesWorkItemPatch(item, patch))) return current
+        const updatesByItemId = { ...current.updatesByItemId }
+        const updates = history.updatesByItemId[patch.id]
+        if (updates) updatesByItemId[patch.id] = updates
+        else delete updatesByItemId[patch.id]
+        const failedUpdateItemIds = current.failedUpdateItemIds.filter((id) => id !== patch.id)
+        if (history.failedUpdateItemIds.includes(patch.id)) failedUpdateItemIds.push(patch.id)
+        return { ...current, updatesByItemId, failedUpdateItemIds }
+      })
+    }, () => {
+      if (isLatest()) reads.latest.delete(key)
+    })
   })
 
   const qaBuckets = useMemo<QualityAssuranceBucket[]>(() => {
