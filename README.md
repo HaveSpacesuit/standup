@@ -720,6 +720,10 @@ every view that lists it, while it saves. A toast confirms the save with **Undo*
 failed and puts the item back; errors stay until dismissed. Toasts are StrataKit status alerts
 (success, warning, error, or info) that follow the light or dark theme.
 
+The sprint picker keeps each sprint's name and adds **Current sprint**, **Next sprint**, and
+**Previous sprint** beside the matching choices. Next uses the earliest upcoming sprint by start
+date, and Previous is the most recent past sprint, so you can plan work without knowing the sprint number.
+
 Each save reads the item fresh and writes only the fields that change, guarded by the revision it read.
 If someone else changed one of those fields since the view loaded it, nothing is saved and the item
 shows their value. Tag edits apply as additions and removals, so tags added meanwhile are kept. A

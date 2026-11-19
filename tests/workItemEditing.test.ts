@@ -29,6 +29,7 @@ const { formatWorkItemLink } = await server.ssrLoadModule('/src/features/standup
 
 type Item = import('../src/features/standup/utils/workItemEditing.ts').EditableWorkItem
 type DropOption = import('../src/features/standup/utils/workItemEditing.ts').DropOption
+type IterationGroup = import('../src/features/standup/utils/workItemEditing.ts').IterationGroup
 
 const ana = { displayName: 'Ana', uniqueName: 'ana@example.invalid' }
 const bo = { displayName: 'Bo', uniqueName: 'bo@example.invalid' }
@@ -88,6 +89,27 @@ test('sprint choices: current, upcoming by start, the last three past sprints, t
     ['other', ['S0']], ['current', ['S5']], ['future', ['S6', 'S7']], ['past', ['S4', 'S3', 'S2']], ['backlog', ['P (no sprint)']],
   ])
   assert.equal(getIterationGroups(iterations, 'P', 'p\\s5').some((group: { key: string }) => group.key === 'other'), false)
+  assert.deepEqual(groups.flatMap((group: IterationGroup) => group.choices.filter((choice) => choice.detail).map(({ name, detail }) => [name, detail])), [
+    ['S5', 'Current sprint'], ['S6', 'Next sprint'], ['S4', 'Previous sprint'],
+  ])
+})
+
+test('relative sprint labels follow dates across years, skipping an undated Future bucket when finding next', () => {
+  const iterations = [
+    { name: 'Future', path: 'P\\Future', timeFrame: 'future' },
+    { name: '2027 02', path: 'P\\2027 02', timeFrame: 'future', startDate: '2027-01-15' },
+    { name: '2026 25', path: 'P\\2026 25', timeFrame: 'past', startDate: '2026-12-01' },
+    { name: '2027 01', path: 'P\\2027 01', timeFrame: 'future', startDate: '2027-01-01' },
+    { name: '2026 26', path: 'P\\2026 26', timeFrame: 'current', startDate: '2026-12-15' },
+    { name: '2026 24', path: 'P\\2026 24', timeFrame: 'past', startDate: '2026-11-15' },
+  ]
+  const groups: IterationGroup[] = getIterationGroups(iterations, 'P', 'P\\Future')
+  assert.deepEqual(groups.flatMap((group) => group.choices.filter((choice) => choice.detail).map(({ name, detail }) => [name, detail])), [
+    ['2026 26', 'Current sprint'], ['2027 01', 'Next sprint'], ['2026 25', 'Previous sprint'],
+  ])
+  assert.equal(groups.find((group) => group.key === 'future')!.choices[0].name, 'Future', 'existing choice order is preserved')
+  const noSprints: IterationGroup[] = getIterationGroups([], 'P', 'P\\Unlisted')
+  assert.equal(noSprints.flatMap((group) => group.choices).some((choice) => choice.detail), false)
 })
 
 test('people choices skip members without an account and keep an assignee from outside the team', () => {
