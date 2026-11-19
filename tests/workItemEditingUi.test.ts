@@ -325,6 +325,38 @@ test('a refused drop explains why, and Escape cancels a drag, without saving', a
   assert.equal(isIn(1, 'ana', 'New'), true)
 })
 
+test('Escape keeps the title link suppressed until release, while pointer cancellation and blur clean up the guard', async (t) => {
+  await render(t, [makeItem(1)])
+  stubProperty(t, document, 'elementFromPoint', () => cell('ana', 'New'))
+  const titleLink = () => card(1).querySelector<HTMLAnchorElement>('a[href]')!
+  const startAndEscape = async () => {
+    await act(async () => { card(1).dispatchEvent(pointer('pointerdown', 10, 10)) })
+    await act(async () => { dom.window.dispatchEvent(pointer('pointermove', 30, 30)) })
+    await act(async () => {
+      dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    })
+  }
+
+  await startAndEscape()
+  await act(async () => { dom.window.dispatchEvent(pointer('pointerup', 32, 32)) })
+  const releasedClick = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })
+  titleLink().dispatchEvent(releasedClick)
+  assert.equal(releasedClick.defaultPrevented, true, 'releasing after Esc cannot follow the title link')
+  await settle()
+
+  await startAndEscape()
+  await act(async () => { dom.window.dispatchEvent(pointer('pointercancel', 32, 32)) })
+  const cancelledClick = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })
+  titleLink().dispatchEvent(cancelledClick)
+  assert.equal(cancelledClick.defaultPrevented, false, 'pointer cancellation removes the pending guard')
+
+  await startAndEscape()
+  await act(async () => { dom.window.dispatchEvent(new dom.window.Event('blur')) })
+  const blurredClick = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })
+  titleLink().dispatchEvent(blurredClick)
+  assert.equal(blurredClick.defaultPrevented, false, 'blur removes the pending guard')
+})
+
 test('Copy link copies the item as a link for rich editors and as plain text for the rest', async (t) => {
   const written = stubRichClipboard(t)
   await render(t, [makeItem(1, { workItemType: 'Bug', title: 'Drive <root> & "toast"' })])

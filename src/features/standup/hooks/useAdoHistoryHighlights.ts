@@ -212,8 +212,9 @@ async function fetchPullRequestDetails(
     historyLookup = new Map()
     pullRequestDetailsByHistory.set(history, historyLookup)
   }
-  const kept = historyLookup.get(cacheKey)
+  const kept = historyLookup.get(cacheKey) ?? lookup.get(cacheKey)
   if (kept) {
+    historyLookup.set(cacheKey, kept)
     return kept
   }
 
@@ -226,9 +227,10 @@ async function fetchPullRequestDetails(
     },
   }).catch(() => null)
   lookup.set(cacheKey, request)
+  historyLookup.set(cacheKey, request)
   const details = await request
-  if (details) {
-    historyLookup.set(cacheKey, request)
+  if (!details && historyLookup.get(cacheKey) === request) {
+    historyLookup.delete(cacheKey)
   }
   return details
 }
