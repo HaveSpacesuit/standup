@@ -265,6 +265,32 @@ test('reloading a pull request card replaces it, or takes it off the board once 
   assert.deepEqual(published.map((patch) => patch.status), ['active', 'draft', 'abandoned'])
 })
 
+test('a list still loading when an item saves or reloads shows the item as Azure DevOps now has it', async (t) => {
+  let releaseList!: () => void
+  const listGate = new Promise<void>((resolve) => { releaseList = resolve })
+  t.mock.method(globalThis, 'fetch', async (input: URL) => {
+    const { pathname } = new URL(String(input))
+    if (pathname.endsWith('/_apis/wit/workitemtypes')) return json({ value: [] })
+    if (pathname.endsWith('/_apis/wit/wiql')) return json({ workItems: [{ id: 7 }] })
+    if (pathname.endsWith('/_apis/wit/workitemsbatch')) {
+      await listGate
+      return json({ value: [apiItem(4)] })
+    }
+    if (pathname === '/org/Project/_apis/wit/workitems/7') return json(apiItem(5, { 'System.Title': 'Renamed' }))
+    return json({}, 404)
+  })
+  const engine = new AdoQueryEngine('nonfunctional-test-token')
+  const profile = { ...team, id: 'team', areaPath: 'Project' }
+  const titles = (bugs: { title: string }[]) => bugs.map((bug) => bug.title)
+
+  // The list read the item before the reload; the reload answers first.
+  const loading = engine.getBacklogBugs(profile)
+  await engine.reloadWorkItem(team, 7)
+  releaseList()
+  assert.deepEqual(titles(await loading), ['Renamed'])
+  assert.deepEqual(titles(await engine.getBacklogBugs(profile)), ['Renamed'])
+})
+
 test('the engine shows saved, reloaded, previewed and conflicting values to every subscribed view', async (t) => {
   let current = apiItem(4, { 'System.State': 'Done', 'System.ChangedDate': '2026-03-02T00:00:00Z' })
   let writes = 0
