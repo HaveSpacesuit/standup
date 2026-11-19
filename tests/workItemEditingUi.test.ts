@@ -7,6 +7,7 @@ import { createServer } from 'vite'
 import type { TriageItem, TriageResult, WorkItemPullRequestSummary, WorkItemSummary } from '../src/ado/types.ts'
 import type { WorkItemFieldChanges, WorkItemFields } from '../src/ado/workItemUpdateApi.ts'
 import type { PatchableWorkItem, PullRequestPatch, WorkItemPatch } from '../src/ado/workItemPatch.ts'
+import type { FieldEditorProps } from '../src/features/standup/components/WorkItemFieldEditors.tsx'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
 for (const name of ['localStorage', 'sessionStorage'] as const) {
@@ -29,6 +30,7 @@ after(async () => { await server.close(); dom.window.close() })
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { KanbanBoard } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoard.tsx')
 const { WorkItemEditingProvider } = await server.ssrLoadModule('/src/features/standup/components/WorkItemEditing.tsx')
+const { WorkItemFieldEditor } = await server.ssrLoadModule('/src/features/standup/components/WorkItemFieldEditors.tsx')
 const { useWorkItemEditor } = await server.ssrLoadModule('/src/features/standup/hooks/useWorkItemEditor.ts')
 const { useWorkItemPatches, usePullRequestPatches } = await server.ssrLoadModule('/src/features/standup/hooks/useWorkItemPatches.ts')
 const { applyPullRequestPatch, applyWorkItemPatch, getWorkItemFields, workItemUrlFor } = await server.ssrLoadModule('/src/ado/workItemPatch.ts')
@@ -197,6 +199,40 @@ function stubRichClipboard(t: TestContext) {
   })
   return written
 }
+
+test('the shared sprint picker shows relative labels beside names and saves the chosen path', async (t) => {
+  const changes: WorkItemFieldChanges[] = []
+  const props: FieldEditorProps = {
+    item: makeItem(1),
+    options: {
+      statesFor: () => [], backlogPath: 'Project', members: [], knownTags: [], effortSuggestions: [], tagRules: [],
+      iterations: [
+        { name: 'S1', path: 'Project\\S1', timeFrame: 'current', startDate: '2026-12-15', finishDate: '2026-12-31' },
+        { name: 'Future', path: 'Project\\Future', timeFrame: 'future', startDate: undefined, finishDate: undefined },
+        { name: 'S2', path: 'Project\\S2', timeFrame: 'future', startDate: '2027-01-01', finishDate: '2027-01-14' },
+        { name: 'S0', path: 'Project\\S0', timeFrame: 'past', startDate: '2026-12-01', finishDate: '2026-12-14' },
+      ],
+    },
+    onSave: (change) => changes.push(change),
+    onCancel: () => {},
+  }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => { await act(async () => root.unmount()); host.remove() })
+  await act(async () => root.render(createElement(Root, null, createElement(WorkItemFieldEditor, { ...props, field: 'iterationPath' }))))
+
+  const choice = (name: string) => byText('[role="menuitemradio"]', name)
+  for (const [name, label] of [['S1', 'Current sprint'], ['S2', 'Next sprint'], ['S0', 'Previous sprint']]) {
+    assert.equal(choice(name).lastElementChild?.textContent, label)
+    assert.equal(choice(name).firstElementChild?.textContent, name, 'the sprint name is still shown separately')
+  }
+  assert.equal(choice('S1').getAttribute('aria-checked'), 'true')
+  assert.equal(choice('S2').getAttribute('aria-checked'), 'false', 'relative labels do not change selection')
+  assert.equal(choice('Future').textContent, 'Future', 'the undated bucket is not the next sprint')
+  await click(choice('S2'))
+  assert.deepEqual(changes, [{ iterationPath: 'Project\\S2' }])
+})
 
 test('the card menu opens a field editor; the change shows at once, saves, and can be undone', async (t) => {
   const { engine } = await render(t, [makeItem(1)])

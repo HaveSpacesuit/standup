@@ -105,6 +105,7 @@ function SprintEditor({ item, options, onSave }: FieldEditorProps) {
         choices: group.choices.map((choice) => ({
           key: choice.path,
           label: choice.name,
+          detail: choice.detail,
           selected: sameText(choice.path, item.iterationPath),
           changes: { iterationPath: choice.path },
         })),

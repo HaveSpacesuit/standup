@@ -14,6 +14,7 @@ import {
   type WorkItemFields,
 } from '../../../ado/workItemUpdateApi'
 import { getImpactDescription } from './backlogValue'
+import { findNextIteration } from './backlogSprint'
 import { formatEffortPoints } from './sprintEffortTotals'
 
 /** Any listed work item a view can edit: board cards, QA cards, backlog bugs and triage items. */
@@ -186,7 +187,7 @@ function rank(category: string): number {
   return index === -1 ? STATE_CATEGORY_ORDER.length : index
 }
 
-export type IterationChoice = { path: string; name: string }
+export type IterationChoice = { path: string; name: string; detail?: string }
 export type IterationGroup = { key: string; label: string; choices: IterationChoice[] }
 
 const RECENT_PAST_SPRINTS = 3
@@ -202,14 +203,22 @@ export function getIterationGroups(
   currentPath: string | undefined,
 ): IterationGroup[] {
   const byStart = (left: TeamIterationOption, right: TeamIterationOption) => (left.startDate ?? '').localeCompare(right.startDate ?? '')
-  const toChoice = (iteration: TeamIterationOption): IterationChoice => ({ path: iteration.path, name: iteration.name })
+  const next = findNextIteration(iterations)
+  const recent = iterations.filter((iteration) => iteration.timeFrame === 'past').sort(byStart).reverse().slice(0, RECENT_PAST_SPRINTS)
+  const toChoice = (iteration: TeamIterationOption): IterationChoice => ({
+    path: iteration.path,
+    name: iteration.name,
+    detail: iteration.timeFrame === 'current' ? 'Current sprint'
+      : iteration === next ? 'Next sprint'
+      : iteration === recent[0] ? 'Previous sprint' : undefined,
+  })
   const groups: IterationGroup[] = [
     { key: 'current', label: 'Current', choices: iterations.filter((iteration) => iteration.timeFrame === 'current').map(toChoice) },
     { key: 'future', label: 'Upcoming', choices: iterations.filter((iteration) => iteration.timeFrame === 'future').sort(byStart).map(toChoice) },
     {
       key: 'past',
       label: 'Recent',
-      choices: iterations.filter((iteration) => iteration.timeFrame === 'past').sort(byStart).reverse().slice(0, RECENT_PAST_SPRINTS).map(toChoice),
+      choices: recent.map(toChoice),
     },
   ]
   const backlog = backlogPath.trim()
