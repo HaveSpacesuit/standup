@@ -151,6 +151,70 @@ test('overlapping history runs share a pending PR detail read, and a failed read
   retryCleanup?.()
 })
 
+test('a failed shared PR detail read is evicted from every work-item history', async () => {
+  effects.length = 0
+  state.length = 0
+  const requests: Array<{
+    resolve: (value: { creationDate: string; isDraft: boolean }) => void
+    reject: (error: Error) => void
+  }> = []
+  const relation = {
+    rel: 'ArtifactLink',
+    url: 'vstfs:///Git/PullRequestId/project-id%2Frepo-id%2F678975',
+  }
+  const histories = [101, 102].map(() => [
+    { id: 1, revisedDate: '2026-10-01T12:00:00Z' },
+    { id: 2, revisedDate: '2026-10-02T12:00:00Z', relations: { added: [relation] } },
+  ])
+  const args = {
+    adoQueryEngine: {
+      async getWorkItemUpdates(_team: unknown, itemId: number) {
+        return histories[itemId - 101]
+      },
+      request<T>() {
+        return new Promise<T>((resolve, reject) => {
+          requests.push({
+            resolve: (value) => resolve(value as T),
+            reject,
+          })
+        })
+      },
+    },
+    team: { orgName: 'example-org', projectName: 'example-project', repoName: 'repo' },
+    tagRules: [] as unknown[],
+    workItems: [101, 102].map((id) => ({ id, title: `Work item ${id}`, status: 'Active' })),
+  }
+  let result: ReturnType<typeof useAdoHistoryHighlights>
+  function Render() {
+    beginRender()
+    result = useAdoHistoryHighlights(args)
+    return effects.shift()?.()
+  }
+  const settleHistory = () => new Promise((resolve) => setImmediate(resolve))
+
+  const firstCleanup = Render()
+  await settleHistory()
+  assert.equal(requests.length, 1, 'both distinct histories share one pending request')
+  requests[0].reject(new Error('offline'))
+  await settleHistory()
+  await settleHistory()
+  firstCleanup?.()
+
+  args.tagRules = [{ id: 'changed', tag: 'changed', action: 'unlisted' }]
+  const retryCleanup = Render()
+  await settleHistory()
+  assert.equal(requests.length, 2, 'the second history must not keep the failed shared result')
+  requests[1].resolve({ creationDate: '2026-09-30T12:00:00Z', isDraft: true })
+  await settleHistory()
+  await settleHistory()
+
+  beginRender()
+  result = useAdoHistoryHighlights(args)
+  effects.length = 0
+  assert.equal(result!.changeDetailsByItemId[102]?.reason, undefined, 'the retried detail identifies the attachment as a draft')
+  retryCleanup?.()
+})
+
 const { getCardChangeDetail } = await server.ssrLoadModule('/src/features/standup/hooks/useAdoHistoryHighlights.ts')
 
 const HOUR_MS = 60 * 60 * 1000
