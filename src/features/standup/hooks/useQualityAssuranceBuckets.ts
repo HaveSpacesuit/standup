@@ -124,9 +124,16 @@ export function useQualityAssuranceBuckets({
     if (patch.preview) return
     // QA sorts items by their history, which the save just extended.
     adoQueryEngine.getQualityAssuranceItemHistory(selectedTeam, rawData, patch.id).then((history) => {
-      setRawData((current) => current && current.candidates.some((item) => matchesWorkItemPatch(item, patch))
-        ? { ...current, ...history }
-        : current)
+      setRawData((current) => {
+        if (!current || !current.candidates.some((item) => matchesWorkItemPatch(item, patch))) return current
+        const updatesByItemId = { ...current.updatesByItemId }
+        const updates = history.updatesByItemId[patch.id]
+        if (updates) updatesByItemId[patch.id] = updates
+        else delete updatesByItemId[patch.id]
+        const failedUpdateItemIds = current.failedUpdateItemIds.filter((id) => id !== patch.id)
+        if (history.failedUpdateItemIds.includes(patch.id)) failedUpdateItemIds.push(patch.id)
+        return { ...current, updatesByItemId, failedUpdateItemIds }
+      })
     }, () => undefined)
   })
 
