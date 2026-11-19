@@ -193,7 +193,13 @@ export function useBoardDrag({ enabled, scrollerRef, resolve, onDrop, onRefused 
       placeGhost(ghostRef.current, current.x, current.y)
     }
     const onUp = (up: PointerEvent) => {
-      if (up.pointerId === session.current?.pointerId) end(true, true)
+      const current = session.current
+      if (up.pointerId !== current?.pointerId) return
+      // Release over the state picker's band that is under the pointer now, even if it rendered after the last move.
+      current.x = up.clientX
+      current.y = up.clientY
+      hitTest()
+      end(true, true)
     }
     const onCancel = (cancel: PointerEvent) => {
       if (cancel.pointerId === session.current?.pointerId) end(false, false, true)
@@ -235,6 +241,11 @@ export function useBoardDrag({ enabled, scrollerRef, resolve, onDrop, onRefused 
     if (!enabled) end(false, false, true)
   }, [enabled, end])
   useEffect(() => () => end(false, false, true), [end])
+  // A column offering several states renders a band for each once the card enters it; point at the band under the pointer.
+  const result = drag?.result
+  useEffect(() => {
+    if (result?.kind === 'options' && result.options.length > 1) hitTest()
+  }, [result, hitTest])
 
   /** Props for a card's wrapper that let it be dragged from this cell. */
   const getDragProps = (source: BoardDragSource): BoardDragProps | undefined => (enabled ? {
