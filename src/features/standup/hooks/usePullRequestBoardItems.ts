@@ -37,7 +37,8 @@ export function usePullRequestBoardItems({
   const [pullRequestBoardItems, setPullRequestBoardItems] = useState<WorkItemSummary[]>([])
   const [pullRequestBoardItemsLoading, setPullRequestBoardItemsLoading] = useState(false)
   const [pullRequestBoardItemsError, setPullRequestBoardItemsError] = useState<string | null>(null)
-  // The request the shown cards answer. A card edited in place, such as by Quick assign, repeats it without blanking the board.
+  // The request the shown cards answer. The engine caches the cards per repository, not per set of work item cards, so
+  // a card edited in place or a tag rule that hides or reveals cards repeats the request without blanking the board.
   const shownRequest = useRef<string | null>(null)
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export function usePullRequestBoardItems({
     const abortController = new AbortController()
     const request = JSON.stringify([
       selectedTeam.id, selectedTeam.orgName, selectedTeam.projectName, selectedTeam.repoName,
-      currentIteration?.startDate, currentIteration?.finishDate, workItems.map((item) => item.id),
+      currentIteration?.startDate, currentIteration?.finishDate,
     ])
     if (shownRequest.current !== request) {
       shownRequest.current = null

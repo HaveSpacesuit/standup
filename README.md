@@ -17,6 +17,10 @@ The default view is a standup-style Kanban board that:
 - highlights recent changes or project-specific work-item activity
 - adds PR-only cards for pull requests in the selected repository that are not already linked to visible work items
 
+In Development options, a tag rule's typed match applies once typing pauses, on Enter, or on leaving
+the field, so the board is filtered again once per change rather than on every keystroke. A rule
+with no match yet applies to nothing.
+
 Development board cards show only what the card's row, column, and the current sprint do not already
 say. Each card has a leading edge in its column's color, the work item type, ID, effort, and a
 two-line title. States of three or more words use the first three words' initials in badges and

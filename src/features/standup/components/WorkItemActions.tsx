@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from 'react'
+import { memo, type MouseEvent, type ReactNode } from 'react'
 import { Box, ButtonBase, CircularProgress, IconButton } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -20,6 +20,7 @@ import {
 } from '../utils/workItemEditing'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
+import { haveSameDataProps } from '../utils/sameData'
 import { useWorkItemEditing, WORK_ITEM_MENU_ATTRIBUTE, workItemEditKey, type WorkItemEditingApi } from './workItemEditingContext'
 import type { BoardDragProps } from '../hooks/useBoardDrag'
 
@@ -46,9 +47,10 @@ const floatingSx: SxProps<Theme> = {
 
 /**
  * Reload and More for one item. Reload reads the item fresh from Azure DevOps and updates it in place; More opens its
- * menu of fields to edit, or a pull request card's links. Renders nothing outside a WorkItemEditingProvider.
+ * menu of fields to edit, or a pull request card's links. Renders nothing outside a WorkItemEditingProvider. Compared by
+ * value, since a board draws a pair for every card.
  */
-export function WorkItemActions({ item, floating = false }: { item: EditableWorkItem; floating?: boolean }) {
+export const WorkItemActions = memo(function WorkItemActions({ item, floating = false }: { item: EditableWorkItem; floating?: boolean }) {
   const editing = useWorkItemEditing()
   if (!editing || !hasItemActions(item)) return null
   const { editor } = editing
@@ -85,7 +87,7 @@ export function WorkItemActions({ item, floating = false }: { item: EditableWork
       </IconButton>
     </Box>
   )
-}
+}, haveSameDataProps)
 
 const cardSx: SxProps<Theme> = {
   position: 'relative',

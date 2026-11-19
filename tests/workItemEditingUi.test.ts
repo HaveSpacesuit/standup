@@ -524,3 +524,38 @@ for (const view of ['table', 'inbox'] as const) {
     assert.equal(assignee().getAttribute('aria-label'), 'Assigned to: Bo. Change')
   })
 }
+
+test('cards keep the same editing controls when the tag rules change or a toast shows; the options follow the rules', async (t) => {
+  const { useWorkItemEditing, useWorkItemEditOptions } = await server.ssrLoadModule('/src/features/standup/components/workItemEditingContext.ts')
+  const seen: { editing: unknown; options: { tagRules: unknown[] } | null }[] = []
+  let notify: ((message: string) => void) | undefined
+  function Probe() {
+    const editing = useWorkItemEditing()
+    seen.push({ editing, options: useWorkItemEditOptions() })
+    notify = editing?.editor.notify
+    return null
+  }
+  const fixed = {
+    engine: createFakeEngine([]), team, statesByType: {}, projectStates: pbiStates, iterations: [],
+    members: [ana], knownTags: [], effortSuggestions: [3, 5],
+  }
+  function OptionsHarness({ tagRules }: { tagRules: unknown[] }) {
+    const editor = useWorkItemEditor({ ...fixed, tagRules })
+    return createElement(WorkItemEditingProvider, { editor }, createElement(Probe))
+  }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => { await act(async () => root.unmount()); host.remove() })
+  const noRules: unknown[] = []
+  const rules = [{ id: 'rule', tag: 'outdated', action: 'unlisted' }]
+  await act(async () => root.render(createElement(Root, null, createElement(OptionsHarness, { tagRules: noRules }))))
+  await act(async () => root.render(createElement(Root, null, createElement(OptionsHarness, { tagRules: rules }))))
+  await act(async () => notify?.('Copied'))
+  assert.equal(toastText(), 'Copied')
+
+  assert.ok(seen.length >= 3)
+  assert.ok(seen.every(({ editing }) => editing === seen[0].editing), 'one editing api across rule and toast changes')
+  assert.deepEqual(seen[0].options?.tagRules, [])
+  assert.equal(seen.at(-1)?.options?.tagRules, rules)
+})

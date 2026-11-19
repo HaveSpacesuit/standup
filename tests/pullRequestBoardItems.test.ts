@@ -137,8 +137,12 @@ test('a card edited in place keeps the shown pull request cards without a loadin
   cleanup()
   args.workItems = [...args.workItems, { id: 3 }]
   cleanup = Render()
-  assert.deepEqual(state[0], [], 'a different set of cards is a new request')
-  assert.deepEqual(loading, [true, false, true])
+  assert.equal(state[0], refreshedItems, 'a tag rule that reveals a card keeps the shown cards while they are read again')
+  const revealedItems = [{ id: -682197 }]
+  pending[2](revealedItems)
+  await settle()
+  assert.equal(state[0], revealedItems)
+  assert.deepEqual(loading, [true, false, false])
   cleanup()
 })
 

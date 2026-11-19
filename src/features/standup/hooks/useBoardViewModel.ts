@@ -23,7 +23,7 @@ import { useTeamDataSyncedAt } from './useTeamDataSyncedAt'
 import { useAutoRefresh } from './useAutoRefresh'
 import { DEFAULT_AUTO_REFRESH, type AutoRefreshOptions } from '../utils/autoRefresh'
 import { applyTagRulesToItem } from '../utils/boardFilters'
-import type { TagRule } from '../../../ado/workItemStatus'
+import { normalizeTagRulePattern, type TagRule } from '../../../ado/workItemStatus'
 import type { QaOptions } from '../utils/qaOptions'
 import { resolveSelectedIterationPaths } from '../utils/qaOptions'
 import { resolveQualityAssuranceProjectConfig } from '../utils/qualityAssuranceBuckets'
@@ -171,6 +171,10 @@ export function useBoardViewModel({
     setTagRules,
     setTagRulesForTeam,
   } = useBoardPreferences(teamProfiles)
+  // A rule without a match applies to nothing, so adding one, or picking its action, leaves the board alone. Keyed by
+  // value, like the triage options.
+  const boardTagRulesKey = JSON.stringify(tagRules.filter((rule) => normalizeTagRulePattern(rule.tag)))
+  const boardTagRules = useMemo(() => JSON.parse(boardTagRulesKey) as TagRule[], [boardTagRulesKey])
 
   const forceRefreshRef = useRef(false)
   const activeView = useActiveAppView()
@@ -235,8 +239,8 @@ export function useBoardViewModel({
   const teamIterationsError = teamMetadataIterationsError ?? iterationWindowError
 
   const filteredWorkItems = useMemo(
-    () => workItems.map((item) => applyTagRulesToItem(item, tagRules)).filter((item): item is WorkItemSummary => item !== null),
-    [workItems, tagRules],
+    () => workItems.map((item) => applyTagRulesToItem(item, boardTagRules)).filter((item): item is WorkItemSummary => item !== null),
+    [workItems, boardTagRules],
   )
 
   const { pullRequestBoardItems, pullRequestBoardItemsLoading, pullRequestBoardItemsError } = usePullRequestBoardItems({
@@ -404,7 +408,7 @@ export function useBoardViewModel({
   const { highlightsByItemId: changeHighlightsByItemId, changeDetailsByItemId } = useAdoHistoryHighlights({
     adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
-    tagRules,
+    tagRules: boardTagRules,
     workItems: boardItems,
     cardHighlightOptions: assignmentCardHighlightOptions,
   })
@@ -422,7 +426,7 @@ export function useBoardViewModel({
     team: effectiveTeam,
     currentIteration,
     includeWorkItemTypes: selectedAssignmentWorkItemTypes,
-    tagRules,
+    tagRules: boardTagRules,
     members,
     quickFilterInput,
     selectedMemberFilter,
@@ -432,7 +436,7 @@ export function useBoardViewModel({
   const { points: effortFlowPoints, isLoading: effortFlowLoading, journeysByItemId, departuresByItemId, sprintForecast } = useEffortFlowHistory({
     adoQueryEngine: scopedQueryEngine,
     team: historyHighlightTeam,
-    tagRules,
+    tagRules: boardTagRules,
     workItems: currentSprintBoardItems,
     historyWorkItems: visibleBoardItems,
     iterationWindow,
@@ -509,7 +513,7 @@ export function useBoardViewModel({
     team: effectiveTeam,
     items: boardItems,
     iterations: teamIterations,
-    tagRules,
+    tagRules: boardTagRules,
     scopeKey: JSON.stringify([selectedAssignmentIterationPaths, selectedAssignmentWorkItemTypes, useDefaultAssignmentIterationWindow]),
     // The engine already wrote the assignment into its cached lists, so the board updates in place without a reload.
     onAssigned: updateWorkItem,
@@ -536,7 +540,7 @@ export function useBoardViewModel({
     members,
     knownTags,
     effortSuggestions,
-    tagRules,
+    tagRules: boardTagRules,
   })
 
   const teamManagementUrl = useTeamManagementUrl({

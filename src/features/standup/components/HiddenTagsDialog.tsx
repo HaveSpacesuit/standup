@@ -35,6 +35,7 @@ import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
 import { DEFAULT_EFFORT_SUGGESTIONS } from '../utils/assignmentOptions'
 import { readStringArraySelectValue } from '../utils/selectValues'
 import { EffortSuggestionsEditor } from './EffortSuggestionsEditor'
+import { TagMatchField } from './TagMatchField'
 
 type HiddenTagsDialogProps = {
   open: boolean
@@ -499,14 +500,13 @@ export function HiddenTagsDialog({
                         alignItems: 'center',
                         minWidth: 0,
                       }}>
-                        <TextField
-                          size="small"
+                        <TagMatchField
                           placeholder="Tag match"
                           value={rule.tag}
-                          onChange={(event) => {
-                            const nextRules = [...tagRules]
-                            nextRules[index] = { ...rule, tag: event.target.value }
-                            onChange(nextRules)
+                          onCommit={(tag) => {
+                            if (tag !== rule.tag) {
+                              onChange(tagRules.map((candidate) => (candidate.id === rule.id ? { ...candidate, tag } : candidate)))
+                            }
                           }}
                           sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
                         />

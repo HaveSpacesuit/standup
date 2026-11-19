@@ -7,6 +7,7 @@ import type {
 } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
 import { mapWithConcurrency } from '../../../ado/concurrency'
+import { isSameData } from '../utils/sameData'
 import { isAbortError, toErrorMessage } from './queryErrors'
 
 const ASSIGNEE_RESOLUTION_CONCURRENCY = 8
@@ -45,13 +46,14 @@ export function useWorkItemAssignees({
   const [assigneesError, setAssigneesError] = useState<string | null>(null)
   const [historyRetryNonce, setHistoryRetryNonce] = useState(0)
   const historyRetryInProgress = useRef(false)
-  // The cards the shown assignees cover. A card edited in place, such as by Quick assign, re-resolves without blanking the board.
-  const resolvedItemIds = useRef<string | null>(null)
+  // The cards the shown assignees cover, kept until the board reloads. A card edited in place, such as by Quick assign, or
+  // one a tag rule hides and reveals again, re-resolves without blanking the board; only an unseen card shows loading.
+  const resolvedItemIds = useRef(new Set<number>())
 
   useEffect(() => {
     if (!adoQueryEngine) {
       historyRetryInProgress.current = false
-      resolvedItemIds.current = null
+      resolvedItemIds.current = new Set()
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -60,7 +62,7 @@ export function useWorkItemAssignees({
 
     if (membersLoading || workItemsLoading) {
       historyRetryInProgress.current = false
-      resolvedItemIds.current = null
+      resolvedItemIds.current = new Set()
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -69,7 +71,7 @@ export function useWorkItemAssignees({
 
     if (membersError || workItemsError) {
       historyRetryInProgress.current = false
-      resolvedItemIds.current = null
+      resolvedItemIds.current = new Set()
       setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
@@ -78,15 +80,12 @@ export function useWorkItemAssignees({
 
     if (workItems.length === 0) {
       historyRetryInProgress.current = false
-      resolvedItemIds.current = null
-      setWorkItemAssignees({})
       setAssigneesLoading(false)
       setAssigneesError(null)
       return
     }
 
     const abortController = new AbortController()
-    const itemIds = workItems.map((item) => item.id).join(',')
 
     const memberLookup = members.reduce<Record<string, string>>((lookup, member) => {
       const canonical = member.displayName
@@ -97,7 +96,7 @@ export function useWorkItemAssignees({
       return lookup
     }, {})
 
-    if (!historyRetryInProgress.current && resolvedItemIds.current !== itemIds) {
+    if (!historyRetryInProgress.current && workItems.some((item) => !resolvedItemIds.current.has(item.id))) {
       setAssigneesLoading(true)
     }
     setAssigneesError(null)
@@ -122,18 +121,21 @@ export function useWorkItemAssignees({
 
         const mapped = resolved.reduce<Record<number, ResolvedWorkItemAssignee>>((acc, item) => {
           acc[item.id] = item.assignee
+          resolvedItemIds.current.add(item.id)
           return acc
         }, {})
 
-        resolvedItemIds.current = itemIds
-        setWorkItemAssignees(mapped)
+        // Equal assignees keep the shown map, so a tag rule that hides or reveals cards doesn't re-render the board again.
+        setWorkItemAssignees((current) => (resolved.every((item) => isSameData(current[item.id], item.assignee, 2))
+          ? current
+          : { ...current, ...mapped }))
       })
       .catch((error: unknown) => {
         if (abortController.signal.aborted || isAbortError(error)) {
           return
         }
 
-        resolvedItemIds.current = null
+        resolvedItemIds.current = new Set()
         setWorkItemAssignees({})
         setAssigneesError(
           toErrorMessage(error, 'Unknown error while resolving work item assignees.'),
@@ -161,8 +163,9 @@ export function useWorkItemAssignees({
     historyRetryNonce,
   ])
 
-  const unavailableCount = Object.values(workItemAssignees)
-    .filter((assignee) => assignee.kind === 'history-unavailable').length
+  // Assignees of hidden cards stay resolved for when they return, so only the shown cards count.
+  const unavailableCount = workItems
+    .filter((item) => workItemAssignees[item.id]?.kind === 'history-unavailable').length
 
   return {
     workItemAssignees,

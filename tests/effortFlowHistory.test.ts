@@ -331,3 +331,36 @@ for (const transition of ['empty history', 'missing query engine'] as const) {
     assert.deepEqual(settled.journeysByItemId, {})
   })
 }
+
+test('a tag rule change keeps the shown chart and journeys while the history is read again', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 26).getTime() })
+  const getWorkItemUpdates = t.mock.fn(async () => [
+    revision('2026-10-16T12:00:00', 'New'),
+    revision('2026-10-21T12:00:00', 'Active'),
+  ])
+  const args: HookArgs = {
+    ...baseArgs,
+    adoQueryEngine: { getWorkItemUpdates } as HookArgs['adoQueryEngine'],
+    workItems: [{ ...item, status: 'Active', effort: 8, createdAt: '2026-10-16' }],
+    iterationWindow: {
+      current: { name: 'Sprint', fullName: 'Project\\Sprint', startDate: '2026-10-19', finishDate: '2026-10-30' },
+      next: null,
+    },
+  }
+  const hook = createHookHarness(t)
+  hook.update(args)
+  await new Promise((resolve) => setImmediate(resolve))
+  const shown = hook.read(args)
+  assert.equal(shown.sprintForecast.status, 'ready')
+  assert.ok(shown.journeysByItemId[123])
+
+  const ruled: HookArgs = { ...args, tagRules: [{ id: 'rule', tag: 'outdated', action: 'unlisted' }] }
+  const refreshing = hook.update(ruled)
+  assert.equal(refreshing.isLoading, true)
+  assert.deepEqual(refreshing.points, shown.points)
+  assert.deepEqual(refreshing.journeysByItemId, shown.journeysByItemId)
+  assert.equal(refreshing.sprintForecast.status, 'loading', 'the forecast waits for history read with the new rules')
+
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(hook.read(ruled).sprintForecast.status, 'ready')
+})

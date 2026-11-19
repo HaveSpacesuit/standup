@@ -10,6 +10,7 @@ import {
 } from '../../../ado/workItemStatus'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { DEFAULT_CARD_HIGHLIGHT_OPTIONS } from '../utils/cardHighlightOptions'
+import { isSameData } from '../utils/sameData'
 import { getAssignmentChangeReason } from '../utils/assignmentChange'
 
 export type ChangeHighlightState = 'new' | 'stale' | 'none'
@@ -70,6 +71,12 @@ type PullRequestDetailsResponse = {
 }
 
 type PullRequestDetailsLookup = Map<string, Promise<PullRequestDetailsResponse | null>>
+
+// Highlights recompute whenever the cards or tag rules change. A card's PR votes are kept with the PR it holds, and
+// attached-PR details with the card's history, so a recompute reuses them, while a reloaded card or history brings new
+// objects that fetch again. The requests omit the run's abort signal because later runs share them.
+const voteMomentsByPullRequest = new WeakMap<object, Promise<VoteMoment[]>>()
+const pullRequestDetailsByHistory = new WeakMap<object, PullRequestDetailsLookup>()
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -196,54 +203,66 @@ async function fetchPullRequestDetails(
   team: UseAdoHistoryHighlightsArgs['team'],
   repositoryId: string,
   pullRequestId: number,
-  signal: AbortSignal,
+  history: object,
   lookup: PullRequestDetailsLookup,
 ): Promise<PullRequestDetailsResponse | null> {
   const cacheKey = JSON.stringify([team.orgName, team.projectName, repositoryId, pullRequestId])
-  const cached = lookup.get(cacheKey)
-  if (cached) {
-    return cached
+  let historyLookup = pullRequestDetailsByHistory.get(history)
+  if (!historyLookup) {
+    historyLookup = new Map()
+    pullRequestDetailsByHistory.set(history, historyLookup)
+  }
+  const kept = historyLookup.get(cacheKey)
+  if (kept) {
+    return kept
   }
 
-  const request = adoQueryEngine.request<PullRequestDetailsResponse>({
+  const request = lookup.get(cacheKey) ?? adoQueryEngine.request<PullRequestDetailsResponse>({
     method: 'GET',
     orgName: team.orgName,
     path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${pullRequestId}`,
     params: {
       'api-version': '7.1',
     },
-    signal,
   }).catch(() => null)
   lookup.set(cacheKey, request)
-  return request
+  const details = await request
+  if (details) {
+    historyLookup.set(cacheKey, request)
+  }
+  return details
 }
 
-async function fetchPullRequestVoteMoments(
+function fetchPullRequestVoteMoments(
   adoQueryEngine: AdoQueryEngine,
   team: UseAdoHistoryHighlightsArgs['team'],
-  repositoryId: string | undefined,
-  pullRequestId: number,
-  signal: AbortSignal,
+  pullRequest: { id: number; repositoryId?: string } | undefined,
 ): Promise<VoteMoment[]> {
-  if (!repositoryId) {
-    return []
+  const repositoryId = pullRequest?.repositoryId
+  if (!pullRequest || !repositoryId) {
+    return Promise.resolve([])
   }
 
-  try {
-    const response = await adoQueryEngine.request<PullRequestThreadsResponse>({
-      method: 'GET',
-      orgName: team.orgName,
-      path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${pullRequestId}/threads`,
-      params: {
-        'api-version': '7.1',
-      },
-      signal,
+  const kept = voteMomentsByPullRequest.get(pullRequest)
+  if (kept) {
+    return kept
+  }
+
+  const moments = adoQueryEngine.request<PullRequestThreadsResponse>({
+    method: 'GET',
+    orgName: team.orgName,
+    path: `/${encodeURIComponent(team.projectName)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${pullRequest.id}/threads`,
+    params: {
+      'api-version': '7.1',
+    },
+  })
+    .then((response) => getVoteUpdateMoments(response.value ?? []))
+    .catch(() => {
+      voteMomentsByPullRequest.delete(pullRequest)
+      return []
     })
-
-    return getVoteUpdateMoments(response.value ?? [])
-  } catch {
-    return []
-  }
+  voteMomentsByPullRequest.set(pullRequest, moments)
+  return moments
 }
 
 async function computeWorkItemHighlight(
@@ -374,7 +393,7 @@ async function computeWorkItemHighlight(
         team,
         earliestAttachment.repositoryId,
         parsed.pullRequestId,
-        signal,
+        itemUpdates,
         pullRequestDetailsLookup,
       )
 
@@ -413,13 +432,7 @@ async function computeWorkItemHighlight(
   let lastChangeReason = lastTrackedReason
 
   for (const pullRequest of item.activePullRequests ?? []) {
-    const voteMoments = await fetchPullRequestVoteMoments(
-      adoQueryEngine,
-      team,
-      pullRequest.repositoryId,
-      pullRequest.id,
-      signal,
-    )
+    const voteMoments = await fetchPullRequestVoteMoments(adoQueryEngine, team, pullRequest)
 
     const latestVote = getLatestVote(voteMoments)
 
@@ -454,18 +467,11 @@ async function computePullRequestHighlight(
   adoQueryEngine: AdoQueryEngine,
   team: UseAdoHistoryHighlightsArgs['team'],
   item: WorkItemSummary,
-  signal: AbortSignal,
   cardHighlightOptions: CardHighlightOptions = DEFAULT_CARD_HIGHLIGHT_OPTIONS,
 ): Promise<HighlightResult> {
   const pullRequest = item.pullRequest
   const baselineAt = item.recentActivityAt
-  const voteMoments = await fetchPullRequestVoteMoments(
-    adoQueryEngine,
-    team,
-    pullRequest?.repositoryId,
-    pullRequest?.id ?? Math.abs(item.id),
-    signal,
-  )
+  const voteMoments = await fetchPullRequestVoteMoments(adoQueryEngine, team, pullRequest)
 
   const latestVote = getLatestVote(voteMoments)
 
@@ -497,7 +503,7 @@ export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workIt
     Promise.all(
       workItems.map(async (item) => {
         const result = item.kind === 'pull-request'
-          ? await computePullRequestHighlight(adoQueryEngine, team, item, abortController.signal, cardHighlightOptions)
+          ? await computePullRequestHighlight(adoQueryEngine, team, item, cardHighlightOptions)
           : await computeWorkItemHighlight(
             adoQueryEngine,
             team,
@@ -516,7 +522,9 @@ export function useAdoHistoryHighlights({ adoQueryEngine, team, tagRules, workIt
           return
         }
 
-        setResults(Object.fromEntries(entries))
+        const next = Object.fromEntries(entries)
+        // Keeping equal results lets the board skip a render, such as when a tag rule changes nothing here.
+        setResults((current) => (isSameData(current, next, 2) ? current : next))
       })
       .catch(() => {
         if (!abortController.signal.aborted) {
