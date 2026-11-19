@@ -168,11 +168,11 @@ function ReadyChip({ item, readiness, clearing }: { item: TriageItem; readiness:
 }
 
 /**
- * "Ready to clear" once every check for the item's type passes, otherwise the fields still missing. Nothing once the item
- * is cleared.
+ * "Ready to clear" once every check for the item's type passes, otherwise the fields still missing. "Cleared" once an
+ * edit has taken the item off the queue.
  */
 export function TriageReadinessLabel({ item, checks, clearing }: { item: TriageItem; checks: TriageReadinessChecks; clearing: string }) {
-  if (isTriageCleared(item)) return null
+  if (isTriageCleared(item)) return <TriageClearedChip item={item} />
   const readiness = getTriageReadiness(item, checks)
   if (readiness.ready) return <ReadyChip item={item} readiness={readiness} clearing={clearing} />
   return (

@@ -130,10 +130,11 @@ export function TriageTable({
             const clearing = describeTriageClearing(item, excludedIterationPaths)
             const match = matches?.get(item.id)
             const selected = preview?.selectedId === item.id
+            const cleared = isTriageCleared(item)
             return (
               <TableRow
                 key={item.id}
-                className={isTriageCleared(item) ? 'cleared' : undefined}
+                className={cleared ? 'cleared' : undefined}
                 hover={Boolean(preview)}
                 selected={selected}
                 data-preview-id={preview ? item.id : undefined}
@@ -157,7 +158,8 @@ export function TriageTable({
                     </Box>
                   </Box>
                 </TableCell>
-                <TableCell><TriageReasons item={item} clearing={clearing} /></TableCell>
+                {/* A cleared item no longer meets any rule, so "Cleared" goes under Readiness, or under Why while that is hidden. */}
+                <TableCell>{cleared && showReadiness ? null : <TriageReasons item={item} clearing={clearing} />}</TableCell>
                 {showReadiness ? <TableCell><TriageReadinessLabel item={item} checks={readinessChecks} clearing={clearing} /></TableCell> : null}
                 <TableCell sx={noWrapSx}><EditableFieldButton item={item} field="severity"><TriageSeverity item={item} checks={checks} /></EditableFieldButton></TableCell>
                 <TableCell sx={noWrapSx}><EditableFieldButton item={item} field="priority"><TriageImpact item={item} checks={checks} /></EditableFieldButton></TableCell>
