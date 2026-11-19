@@ -313,6 +313,19 @@ test('a column with several of the card’s states saves the one pointed at', as
   assert.deepEqual(engine.updates.map((update) => update.changes), [{ state: 'Approved' }])
 })
 
+test('the state picked is the band under the pointer, both when the bands appear and where the card is released', async (t) => {
+  const { engine } = await render(t, [makeItem(1, { state: 'Committed', status: 'Active' })])
+  const band = (slot: number) => cell('ana', 'New').querySelector(`[data-drop-slot="${slot}"]`)
+  // The bands cover the cell once they render: Approved where the card enters, New where it is released.
+  stubProperty(t, document, 'elementFromPoint', (x: number) => (x === 30 ? band(1) : band(0)) ?? cell('ana', 'New'))
+  await act(async () => { card(1).dispatchEvent(pointer('pointerdown', 10, 10)) })
+  await act(async () => { dom.window.dispatchEvent(pointer('pointermove', 30, 30)) })
+  assert.equal(ghostText().includes('State → Approved'), true, 'the band under the still pointer is picked once it renders')
+  await act(async () => { dom.window.dispatchEvent(pointer('pointerup', 40, 30)) })
+  await settle()
+  assert.deepEqual(engine.updates.map((update) => update.changes), [{ state: 'New' }])
+})
+
 test('a refused drop explains why, and Escape cancels a drag, without saving', async (t) => {
   const { engine } = await render(t, [makeItem(1)])
   await dragCard(1, () => cell('ana', 'Review'))
