@@ -25,6 +25,7 @@ Object.assign(globalThis, {
   IS_REACT_ACT_ENVIRONMENT: true,
 })
 const { createRoot } = await import('react-dom/client')
+const { createPortal } = await import('react-dom')
 const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false }, ssr: { noExternal: [/^@stratakit\//] } })
 after(async () => { await server.close(); dom.window.close() })
 const { Root } = await server.ssrLoadModule('@stratakit/mui')
@@ -37,6 +38,7 @@ const { applyPullRequestPatch, applyWorkItemPatch, getWorkItemFields, workItemUr
 const { applyFieldChanges } = await server.ssrLoadModule('/src/ado/workItemUpdateApi.ts')
 const { TriageTable } = await server.ssrLoadModule('/src/features/standup/components/TriageTable.tsx')
 const { TriageInbox } = await server.ssrLoadModule('/src/features/standup/components/TriageInbox.tsx')
+const { WorkItemPreviewPanel } = await server.ssrLoadModule('/src/features/standup/components/WorkItemPreviewPanel.tsx')
 const { applyTriagePatch, getTriageReasons } = await server.ssrLoadModule('/src/ado/triageApi.ts')
 const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
 
@@ -368,6 +370,52 @@ test('Escape keeps the title link suppressed until release, while pointer cancel
   const blurredClick = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true })
   titleLink().dispatchEvent(blurredClick)
   assert.equal(blurredClick.defaultPrevented, false, 'blur removes the pending guard')
+})
+
+test('the preview opens its item menu anywhere in the panel, while links and selected text in its details keep the browser’s', async (t) => {
+  const item = makeItem(1)
+  const engine = createFakeEngine([item])
+  function PreviewHarness() {
+    const editor = useWorkItemEditor({
+      engine, team, statesByType: { 'product backlog item': pbiStates }, projectStates: pbiStates, iterations: [],
+      members: [ana, bo], knownTags: [], effortSuggestions: [3, 5], tagRules: [],
+    })
+    return createElement(WorkItemEditingProvider, { editor }, createElement(WorkItemPreviewPanel, {
+      panelId: 'preview', panelRef: { current: null }, width: 400, onResize: () => {}, onClose: () => {}, id: 1, editItem: item,
+      item: { id: 1, title: item.title, workItemType: item.workItemType, workItemUrl: item.workItemUrl },
+    }, createElement('p', null, 'Steps with ', createElement('a', { href: 'https://example.test/' }, 'a link')),
+    createElement('p', null, 'Expected result'),
+    createPortal(createElement('div', { id: 'preview-popup' }, 'A popup the panel opened'), document.body)))
+  }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => { await act(async () => root.unmount()); host.remove(); dom.window.getSelection()?.removeAllRanges() })
+  await act(async () => root.render(createElement(Root, null, createElement(PreviewHarness))))
+
+  const details = document.querySelector<HTMLElement>('[aria-label="Preview details"]')!
+  const [paragraph, otherParagraph] = details.querySelectorAll('p')
+  const contextMenu = async (target: Element, at = { clientX: 40, clientY: 50 }) => {
+    const event = new dom.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, ...at })
+    await act(async () => { target.dispatchEvent(event) })
+    return event.defaultPrevented
+  }
+
+  // Shift+F10 or the Menu key in the focused details region.
+  assert.equal(await contextMenu(details, { clientX: 0, clientY: 0 }), true)
+  assert.equal(document.querySelector('[role="menu"]') !== null, true)
+  assert.equal(await contextMenu(paragraph), true)
+  assert.equal(await contextMenu(paragraph.querySelector('a')!), false, 'a link in the details keeps the browser’s menu')
+  // Select "Steps", as dragging over part of the text would.
+  const selected = document.createRange()
+  selected.setStart(paragraph.firstChild!, 0)
+  selected.setEnd(paragraph.firstChild!, 5)
+  dom.window.getSelection()!.removeAllRanges()
+  dom.window.getSelection()!.addRange(selected)
+  assert.equal(await contextMenu(paragraph), false, 'selected text keeps the browser’s menu, to copy it')
+  assert.equal(await contextMenu(otherParagraph), true, 'text selected elsewhere does not')
+  assert.equal(await contextMenu(document.querySelector('aside h2')!), true)
+  assert.equal(await contextMenu(document.getElementById('preview-popup')!), false, 'popups bubble through React but are not in the panel')
 })
 
 test('Copy link copies the item as a link for rich editors and as plain text for the rest', async (t) => {

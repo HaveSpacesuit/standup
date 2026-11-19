@@ -253,6 +253,24 @@ function PanelResizer({ panelRef, width, onResize }: {
   )
 }
 
+/**
+ * Whether a right-click or the Menu key in the panel opens the item's menu. Links and selected text in the item's
+ * details keep the browser's menu, to open or copy them; popups the panel opens bubble here through React but sit
+ * outside it.
+ */
+function opensItemMenu(panel: HTMLElement, details: HTMLElement | null, target: EventTarget): boolean {
+  if (!(target instanceof Node) || !panel.contains(target)) return false
+  if (!details?.contains(target)) return true
+  const element = target instanceof Element ? target : target.parentElement
+  if (element?.closest('a[href]')) return false
+  const selection = window.getSelection()
+  if (!selection || selection.isCollapsed) return true
+  for (let index = 0; index < selection.rangeCount; index++) {
+    if (selection.getRangeAt(index).intersectsNode(target)) return false
+  }
+  return true
+}
+
 type WorkItemPreviewPanelProps = {
   /** The panel's id, which each item's preview button controls. */
   panelId: string
@@ -281,6 +299,7 @@ export function WorkItemPreviewPanel({
   panelId, panelRef, width, onResize, onClose, id, item, facts, editItem, missingTitle = 'Not in this list', children,
 }: WorkItemPreviewPanelProps) {
   const titleId = useId()
+  const detailsRef = useRef<HTMLElement | null>(null)
   const editing = useWorkItemEditing()
   const editable = editing && editItem && isEditableWorkItem(editItem) ? { editing, item: editItem } : null
   return (
@@ -293,9 +312,12 @@ export function WorkItemPreviewPanel({
       sx={panelSx}
       style={{ width }}
       onKeyDown={editable ? (event) => editable.editing.handleKeyDown(editable.item, event) : undefined}
+      onContextMenu={editable ? (event) => {
+        if (opensItemMenu(event.currentTarget, detailsRef.current, event.target)) editable.editing.handleContextMenu(editable.item, event)
+      } : undefined}
     >
       <PanelResizer panelRef={panelRef} width={width} onResize={onResize} />
-      <Box sx={headSx} onContextMenu={editable ? (event) => editable.editing.handleContextMenu(editable.item, event) : undefined}>
+      <Box sx={headSx}>
         <div className="top">
           {item ? <TriageTypeIcon item={item} /> : null}
           <span className="id">{id}</span>
@@ -318,7 +340,7 @@ export function WorkItemPreviewPanel({
         </Typography>
         {item && facts ? <div className="facts">{facts}</div> : null}
       </Box>
-      <Box sx={bodySx} tabIndex={0} role="region" aria-label="Preview details">{children}</Box>
+      <Box ref={detailsRef} sx={bodySx} tabIndex={0} role="region" aria-label="Preview details">{children}</Box>
       <Box sx={footSx}>
         <Icon href={svgKeyboard} alt="" style={smallIconStyle} />
         <span><kbd>↑</kbd><kbd>↓</kbd> previous / next</span>
