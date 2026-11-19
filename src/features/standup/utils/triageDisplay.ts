@@ -79,7 +79,7 @@ function shown(value: string | number | undefined): string {
 
 /**
  * The text each Triage column shows for an item, like Backlog's visible text: the type (the icon's name), the id, the
- * title, each tag, why the item is listed (or "Cleared"), its readiness, then the other columns as displayed, and its
+ * title, each tag, why the item is listed, its readiness (or "Cleared"), then the other columns as displayed, and its
  * similar item ("Possible regression of 2160021"). The quick filter searches exactly these strings, so it never matches
  * hidden detail such as the iteration path. Age is left out, as on Backlog: it grows as items get older, so a filter on
  * it would stop matching.
@@ -96,8 +96,8 @@ export function getTriageVisibleText(
     String(item.id),
     item.title,
     ...item.tags,
-    ...(isTriageCleared(item) ? [TRIAGE_CLEARED_LABEL] : getTriageReasonDetails(item).map((reason) => reason.label)),
-    ...getTriageReadinessText(item, checks),
+    ...getTriageReasonDetails(item).map((reason) => reason.label),
+    ...(isTriageCleared(item) ? [TRIAGE_CLEARED_LABEL] : getTriageReadinessText(item, checks)),
     getSeverityDisplay(item.severity)?.label ?? '',
     shown(item.priority),
     shown(item.effort),

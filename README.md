@@ -386,9 +386,10 @@ similar-item match (such as **Possible regression of 2160021**); `/` and Ctrl/Cm
 
 An edit that clears an item, such as removing its last matched tag or moving a new bug to Approved,
 does not take it off the page at once. It stays where it is until Triage next refreshes, so you can
-keep editing it. Its Why chips give way to a green-outlined **Cleared** chip, whose tooltip names the
-rules it was listed for. The row or card is recessed, with a green edge, and its readiness and age
-flag are dropped. Cleared items are left out of the counts: the header reads `3 items · 1 cleared`.
+keep editing it. Its Why chips and readiness give way to a green-outlined **Cleared** chip, whose
+tooltip names the rules it was listed for. In the table the chip sits under Readiness, or under Why
+when there are no readiness checks. The row or card is recessed, with a green edge, and its age flag
+is dropped. Cleared items are left out of the counts: the header reads `3 items · 1 cleared`.
 Refresh, automatic refresh, or opening the page again drops them. **Undo**, or an edit that makes the
 item qualify again, restores it.
 

@@ -206,6 +206,23 @@ test('Readiness lists what each item still needs, or says it is ready to clear',
   } finally { hidden.window.close() }
 })
 
+test('a cleared item says Cleared under Readiness, leaving Why empty, or under Why while Readiness is hidden', () => {
+  const cleared: TriageItem = { ...emptyBug, reasons: [], clearedFrom: { reasons: ['New bug'], tags: [] } }
+  const dom = renderDocument({ result: { items: [cleared], warnings: [] } })
+  try {
+    const row = dom.window.document.querySelector('tbody tr')!
+    assert.equal(row.classList.contains('cleared'), true)
+    assert.equal(cellsOf(row).Readiness.textContent, 'Cleared')
+    assert.equal(cellsOf(row).Why.textContent, '')
+  } finally { dom.window.close() }
+
+  const hidden = renderDocument({ result: { items: [cleared], warnings: [] }, options: { ...props().options, readinessChecks: noChecks } })
+  try {
+    assert.equal(cellsOf(hidden.window.document.querySelector('tbody tr')!).Why.textContent, 'Cleared')
+  } finally { hidden.window.close() }
+  assert.deepEqual(filterTriageItems([cleared], 'cleared', createBacklogSprintResolver([]), noChecks), [cleared], 'the quick filter still finds it')
+})
+
 test('Clears when names what takes the item off the queue: its matched tags, and leaving the first state for a new bug', () => {
   assert.equal(describeTriageClearing(item, []), 'Clears when you remove the “Triage” tag and move it out of Reported.')
   assert.equal(describeTriageClearing(emptyStory, ['Project\\Backlog']), 'Clears when you remove the “Triage” tag.',
