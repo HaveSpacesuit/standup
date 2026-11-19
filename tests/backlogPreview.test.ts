@@ -42,6 +42,7 @@ const { Root } = await server.ssrLoadModule('@stratakit/mui')
 const { BacklogPage } = await server.ssrLoadModule('/src/features/standup/pages/BacklogPage.tsx')
 const { getAssumedValueInputs, rankBacklogBugs } = await server.ssrLoadModule('/src/features/standup/utils/backlogValue.ts')
 const { createDefaultBacklogOptions } = await server.ssrLoadModule('/src/features/standup/utils/backlogOptions.ts')
+const { createWorkItemPreviewSource } = await server.ssrLoadModule('/src/features/standup/hooks/useWorkItemPreview.ts')
 
 const workItemUrl = (id: number) => `https://dev.azure.com/org/Project/_workitems/edit/${id}`
 const bug = (id: number, title: string, fields: Partial<BacklogBug> = {}): BacklogBug => ({
@@ -185,6 +186,50 @@ test('clicking a row previews it, and the arrows follow the ranked rows, skippin
   assert.equal(panelTitle(), 'Typo', 'an expanded tier joins the order')
   await press('Escape')
   assert.equal(panel() === null, true)
+})
+
+test('the open preview loads again once Azure DevOps confirms a change to its bug, showing the old details meanwhile', async (t) => {
+  type Patch = { id: number; workItemUrl: string; preview?: boolean }
+  const listeners = new Set<(patch: Patch) => void>()
+  const requested: number[] = []
+  let revision = 1
+  let gate: Promise<void> | null = null
+  const engine = {
+    getWorkItemPreview: async (_team: unknown, id: number): Promise<WorkItemPreview> => {
+      requested.push(id)
+      const seen = revision
+      if (gate) await gate
+      return { id, text: { reproSteps: `<p>Steps for ${id}, revision ${seen}</p>` }, attachments: [], comments: [], commentCount: 0, links: [], hyperlinks: [], developmentLinks: 0 }
+    },
+    getWorkItemAttachment: () => null,
+    subscribeWorkItemPatches: (listener: (patch: Patch) => void) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+  const publish = (patch: Patch) => act(async () => listeners.forEach((listener) => listener(patch)))
+  const source = createWorkItemPreviewSource(engine, { id: 'a', orgName: 'org', projectName: 'Project' }, 'a')
+  const { host } = await renderPage(t, { preview: source })
+  await click(toggleFor(host, 201))
+  assert.match(panel()!.textContent!, /Steps for 201, revision 1/)
+  const loads = () => requested.filter((id) => id === 201).length
+  assert.equal(loads(), 1)
+
+  revision = 2
+  // Unconfirmed edits, other bugs, and the same ID in another organization leave the preview as it is.
+  await publish({ id: 201, workItemUrl: workItemUrl(201), preview: true })
+  await publish({ id: 202, workItemUrl: workItemUrl(202) })
+  await publish({ id: 201, workItemUrl: 'https://dev.azure.com/other/Project/_workitems/edit/201' })
+  assert.equal(loads(), 1)
+
+  let release!: () => void
+  gate = new Promise((resolve) => { release = resolve })
+  await publish({ id: 201, workItemUrl: workItemUrl(201).toUpperCase() })
+  assert.equal(loads(), 2)
+  assert.match(panel()!.textContent!, /Steps for 201, revision 1/)
+  assert.doesNotMatch(panel()!.textContent!, /Loading details/)
+  await act(async () => release())
+  assert.match(panel()!.textContent!, /Steps for 201, revision 2/)
 })
 
 test('a bug that leaves the backlog says so, and Down moves on to the next', async (t) => {

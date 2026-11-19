@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { TeamProfile } from '../../../appSettings'
 import type { AdoQueryEngine } from '../../../ado/queryEngine'
 import type { WorkItemPreview } from '../../../ado/types'
+import { matchesWorkItemPatch, workItemUrlFor } from '../../../ado/workItemPatch'
 import { resolveAdoAttachmentRequest } from '../../../ado/workItemPreviewApi'
 import { toErrorMessage } from './queryErrors'
 
@@ -18,13 +19,18 @@ export type WorkItemPreviewSource = {
   load: (id: number) => Promise<WorkItemPreview>
   /** A preview already loaded from this source, shown at once when moving back to an item. */
   peek: (id: number) => WorkItemPreview | undefined
+  /**
+   * Calls back each time Azure DevOps confirms the item's fields, saved or reloaded on any page, since its details may
+   * have changed too.
+   */
+  subscribe?: (id: number, onChange: () => void) => () => void
   images: WorkItemPreviewImages
 }
 
 const PEEK_LIMIT = 60
 
 export function createWorkItemPreviewSource(
-  engine: Pick<AdoQueryEngine, 'getWorkItemPreview' | 'getWorkItemAttachment'>,
+  engine: Pick<AdoQueryEngine, 'getWorkItemPreview' | 'getWorkItemAttachment'> & Partial<Pick<AdoQueryEngine, 'subscribeWorkItemPatches'>>,
   team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
   key: string,
 ): WorkItemPreviewSource {
@@ -38,6 +44,13 @@ export function createWorkItemPreviewSource(
       return preview
     }),
     peek: (id) => loaded.get(id),
+    subscribe: (id, onChange) => {
+      if (typeof engine.subscribeWorkItemPatches !== 'function') return () => undefined
+      const item = { id, workItemUrl: workItemUrlFor(team, id) }
+      return engine.subscribeWorkItemPatches((patch) => {
+        if (!patch.preview && matchesWorkItemPatch(item, patch)) onChange()
+      })
+    },
     images: {
       canLoad: (src) => resolveAdoAttachmentRequest(src, team.orgName) !== null,
       load: (src) => engine.getWorkItemAttachment(src, team.orgName),
@@ -49,12 +62,18 @@ type PreviewState = { requestKey: string; preview?: WorkItemPreview; error?: str
 
 /**
  * Loads the selected item's preview, then quietly loads the next one so moving down the list is instant. A failed load
- * can be retried; a successful one is kept until the page refreshes.
+ * can be retried; a successful one is kept until the page refreshes or Azure DevOps confirms a change to the item, when
+ * it loads again behind the details already shown.
  */
 export function useWorkItemPreview(source: WorkItemPreviewSource | null | undefined, id: number | null, nextId?: number) {
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<PreviewState | null>(null)
   const requestKey = source && id !== null ? `${source.key}:${id}:${attempt}` : ''
+
+  useEffect(() => {
+    if (!source?.subscribe || id === null) return undefined
+    return source.subscribe(id, () => setAttempt((value) => value + 1))
+  }, [source, id])
 
   useEffect(() => {
     if (!source || id === null) return undefined

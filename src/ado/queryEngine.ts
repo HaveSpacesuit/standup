@@ -70,15 +70,33 @@ function clearTeamEntries(cache: Map<string, unknown>, teamId?: string): void {
   }
 }
 
+// Each cached value's patched replacement, so callers already awaiting a load get the edits published while it ran.
+const patchedValues = new WeakMap<Promise<unknown>, Promise<unknown>>()
+
 /** Rewrites every cached value in place. An entry whose load fails is dropped so it can be loaded again. */
 function patchCachedValues<T>(cache: Map<string, Promise<T>>, patch: (value: T) => T | Promise<T>): void {
   for (const [key, cached] of cache) {
     const patched = cached.then(patch)
+    patchedValues.set(cached, patched)
     cache.set(key, patched)
     patched.catch(() => {
       if (cache.get(key) === patched) cache.delete(key)
     })
   }
+}
+
+/** A cached value with every patch published since it was asked for; a patch that fails leaves the value as it was. */
+async function withLaterPatches<T>(cached: Promise<T>): Promise<T> {
+  let value = await cached
+  for (let next = patchedValues.get(cached); next; next = patchedValues.get(cached)) {
+    cached = next as Promise<T>
+    try {
+      value = await cached
+    } catch {
+      break
+    }
+  }
+  return value
 }
 
 
@@ -118,7 +136,7 @@ export class AdoQueryEngine {
     if (!forceRefresh) {
       const cached = cache.get(cacheKey)
       if (cached) {
-        return cached
+        return withLaterPatches(cached)
       }
     }
 
@@ -129,7 +147,7 @@ export class AdoQueryEngine {
       throw error
     })
     cache.set(cacheKey, promise)
-    return promise
+    return withLaterPatches(promise)
   }
 
   private async getProjectWorkItemTypeInfo(
