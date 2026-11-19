@@ -74,6 +74,9 @@ export type WorkItemEditor = {
   notify: (message: string, tone?: WorkItemEditToast['tone']) => void
 }
 
+/** What cards and rows use to edit their item. Their methods keep their identity while the options and toast change. */
+export type WorkItemEditorActions = Pick<WorkItemEditor, 'lockedReason' | 'canEdit' | 'canReload' | 'isBusy' | 'save' | 'reload' | 'notify'>
+
 type EditorScope = { engine: AdoQueryEngine | null; orgName: string; projectName: string }
 
 /** What a toast says once a pull request card is read again. */
@@ -235,17 +238,20 @@ export function useWorkItemEditor({
   }), [statesByType, projectStates, iterations, team.iterationPath, members, knownTags, effortSuggestions, tagRules])
 
   const { busy, toast } = current
-  // Every card reads the editor from context, so it changes only when something its methods use does.
+  const isBusy = useCallback((item: EditableWorkItem) => busy.has(getItemKey(item)), [busy])
+  const save = useCallback((item: EditableWorkItem, changes: WorkItemFieldChanges) => write(item, changes, true), [write])
+  const dismissToast = useCallback(() => setState((previous) => ({ ...previous, toast: null })), [])
+  const notify = useCallback((message: string, tone: WorkItemEditToast['tone'] = 'info') => showToast({ tone, message }), [showToast])
   return useMemo<WorkItemEditor>(() => ({
     options,
     lockedReason,
     canEdit,
     canReload,
-    isBusy: (item) => busy.has(getItemKey(item)),
-    save: (item, changes) => write(item, changes, true),
+    isBusy,
+    save,
     reload,
     toast,
-    dismissToast: () => setState((previous) => ({ ...previous, toast: null })),
-    notify: (message, tone = 'info') => showToast({ tone, message }),
-  }), [options, lockedReason, canEdit, canReload, busy, write, reload, toast, showToast])
+    dismissToast,
+    notify,
+  }), [options, lockedReason, canEdit, canReload, isBusy, save, reload, toast, dismissToast, notify])
 }

@@ -24,6 +24,7 @@ import { getJourneyTrail, type SprintJourney } from '../utils/sprintJourney'
 import { formatSprintDate } from '../utils/sprintDates'
 import type { SprintRemoval } from '../utils/sprintLens'
 import { getStatusColumnColor } from '../utils/statusColumnStyles'
+import { haveSameDataProps } from '../utils/sameData'
 import type { WorkItemCardHighlightState } from './workItemCardDisplay'
 import {
   getDevelopmentCardModel,
@@ -499,4 +500,4 @@ export const DevelopmentCard = memo(function DevelopmentCard({
       {card}
     </Tooltip>
   )
-})
+}, haveSameDataProps)

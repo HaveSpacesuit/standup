@@ -6,7 +6,7 @@ import svgDismiss from '@stratakit/icons/dismiss.svg'
 import { getWorkItemFields } from '../../../ado/workItemPatch'
 import { WORK_ITEM_FIELD_LABELS, type EditableWorkItemField, type WorkItemFieldChanges } from '../../../ado/workItemUpdateApi'
 import { isTypingTarget } from '../hooks/usePreviewPanel'
-import type { WorkItemEditor, WorkItemEditToast } from '../hooks/useWorkItemEditor'
+import type { WorkItemEditor, WorkItemEditorActions, WorkItemEditToast } from '../hooks/useWorkItemEditor'
 import {
   describeFieldValue,
   FIELD_EDIT_LABELS,
@@ -23,7 +23,7 @@ import {
   copyRichText, formatPullRequestLink, formatWorkItemLink, getPullRequestLinkLabel, getWorkItemLinkLabel, type ClipboardContent,
 } from '../utils/workItemLink'
 import {
-  prepareFocusRestore, workItemEditKey, WorkItemEditingContext, type EditAnchor, type WorkItemEditingApi,
+  prepareFocusRestore, workItemEditKey, WorkItemEditingContext, WorkItemEditOptionsContext, type EditAnchor, type WorkItemEditingApi,
 } from './workItemEditingContext'
 import { WIDE_FIELD_EDITORS, WorkItemFieldEditor } from './WorkItemFieldEditors'
 
@@ -261,15 +261,21 @@ function EditToast({ toast, onClose }: { toast: WorkItemEditToast | null; onClos
 export function WorkItemEditingProvider({ editor, children }: { editor: WorkItemEditor; children: ReactNode }) {
   const [open, setOpen] = useState<OpenEditor | null>(null)
 
+  // Every card reads this, so it leaves out the options and toast, which only the menu, editors and board drops use.
+  const { lockedReason, canEdit, canReload, isBusy, save, reload, notify } = editor
+  const actions = useMemo<WorkItemEditorActions>(
+    () => ({ lockedReason, canEdit, canReload, isBusy, save, reload, notify }),
+    [lockedReason, canEdit, canReload, isBusy, save, reload, notify],
+  )
   const api = useMemo<WorkItemEditingApi>(() => {
     const openMenu = (item: EditableWorkItem, anchor: EditAnchor) => {
       if (hasItemActions(item)) setOpen({ kind: 'menu', item, position: toPosition(anchor) })
     }
     const openField = (item: EditableWorkItem, field: EditableWorkItemField, anchor: EditAnchor) => {
-      if (editor.canEdit(item)) setOpen({ kind: 'field', item, field, position: toPosition(anchor) })
+      if (actions.canEdit(item)) setOpen({ kind: 'field', item, field, position: toPosition(anchor) })
     }
     return {
-      editor,
+      editor: actions,
       openMenu,
       openField,
       handleContextMenu: (item, event) => {
@@ -284,14 +290,14 @@ export function WorkItemEditingProvider({ editor, children }: { editor: WorkItem
         if (event.defaultPrevented || isTypingTarget(event.target) || !hasItemActions(item)) return
         const action = getShortcutAction(event)
         if (!action) return
-        if (action.kind === 'field' && (!editor.canEdit(item) || !getEditableFields(item).includes(action.field))) return
+        if (action.kind === 'field' && (!actions.canEdit(item) || !getEditableFields(item).includes(action.field))) return
         event.preventDefault()
         event.stopPropagation()
-        if (action.kind === 'reload') void editor.reload(item)
+        if (action.kind === 'reload') void actions.reload(item)
         else openField(item, action.field, event.target instanceof Element ? event.target : event.currentTarget)
       },
     }
-  }, [editor])
+  }, [actions])
 
   const close = () => {
     if (!open) return
@@ -303,7 +309,9 @@ export function WorkItemEditingProvider({ editor, children }: { editor: WorkItem
 
   return (
     <WorkItemEditingContext.Provider value={api}>
-      {children}
+      <WorkItemEditOptionsContext.Provider value={editor.options}>
+        {children}
+      </WorkItemEditOptionsContext.Provider>
       {open?.kind === 'menu' ? (
         <ItemMenu
           open={open}

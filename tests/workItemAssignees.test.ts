@@ -77,3 +77,53 @@ test('a card edited in place re-resolves assignees without blanking them or show
   assert.deepEqual(loading, [true, false, true], 'a different set of cards is a new resolution')
   cleanup()
 })
+
+test('a card a tag rule hides and reveals again keeps its assignee, without loading or a new map', async () => {
+  state.length = 0
+  const loading: boolean[] = []
+  const args = {
+    adoQueryEngine: {
+      resolveWorkItemAssignee: async (_team: unknown, _lookup: unknown, item: Card) => (item.id === 2
+        ? { kind: 'history-unavailable', displayName: null }
+        : { kind: 'member', displayName: 'Developer' }),
+    },
+    team: { orgName: 'org', projectName: 'project' },
+    members: [{ displayName: 'Developer' }],
+    membersLoading: false,
+    membersError: null,
+    workItems: [{ id: 1 }, { id: 2 }] as Card[],
+    workItemsLoading: false,
+    workItemsError: null,
+  }
+  let warning: string | null = null
+  function Render() {
+    beginRender()
+    warning = useWorkItemAssignees(args).assigneesHistoryWarning
+    const cleanup = effects.shift()()
+    loading.push(state[1])
+    return cleanup
+  }
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  let cleanup = Render()
+  await settle()
+  const shown = state[0]
+
+  cleanup()
+  args.workItems = [{ id: 1 }]
+  cleanup = Render()
+  await settle()
+  assert.equal(state[0], shown, 'equal assignees keep the shown map')
+  beginRender()
+  assert.equal(useWorkItemAssignees(args).assigneesHistoryWarning, null, 'a hidden card is not counted')
+  effects.length = 0
+
+  cleanup()
+  args.workItems = [{ id: 1 }, { id: 2 }]
+  cleanup = Render()
+  await settle()
+  assert.equal(state[0], shown)
+  assert.match(warning ?? '', /unavailable for 1 item,/)
+  assert.deepEqual(loading, [true, false, false])
+  cleanup()
+})

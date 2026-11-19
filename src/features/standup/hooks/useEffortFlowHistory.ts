@@ -164,11 +164,13 @@ export function useEffortFlowHistory({
   }, [boardHistoryWorkItems, removedWorkItems])
   const [historySnapshot, setHistorySnapshot] = useState<HistorySnapshot | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const historyIsCurrent = historySnapshot?.queryEngine === adoQueryEngine
-    && historySnapshot?.team === team
-    && historySnapshot?.tagRules === tagRules
-    && historySnapshot?.items === historyWorkItems
-  const timelinesByItemId = historyIsCurrent ? historySnapshot.timelines : EMPTY_TIMELINES
+  // While the history is recomputed for new cards or tag rules, the board's last snapshot stays shown instead of
+  // blanking the chart and journeys for a render; only the forecast waits for the current history.
+  const historyIsShown = historySnapshot?.queryEngine === adoQueryEngine && historySnapshot?.team === team
+  const historyIsCurrent = historyIsShown
+    && historySnapshot.tagRules === tagRules
+    && historySnapshot.items === historyWorkItems
+  const timelinesByItemId = historyIsShown ? historySnapshot.timelines : EMPTY_TIMELINES
 
   useEffect(() => {
     if (!adoQueryEngine || historyWorkItems.length === 0) {
@@ -349,7 +351,7 @@ export function useEffortFlowHistory({
 
   const journeysByItemId = useMemo<Record<number, SprintJourney>>(() => {
     const sprintStart = parseDateOnly(iterationWindow.current?.startDate)
-    if (!sprintStart || !historyIsCurrent) {
+    if (!sprintStart || !historyIsShown) {
       return {}
     }
 
@@ -374,11 +376,11 @@ export function useEffortFlowHistory({
     }
 
     return result
-  }, [historyIsCurrent, historySnapshot, iterationWindow, sprintScope, timelinesByItemId, workItems])
+  }, [historyIsShown, historySnapshot, iterationWindow, sprintScope, timelinesByItemId, workItems])
 
   const departuresByItemId = useMemo<Record<number, SprintDeparture>>(() => {
     const sprintStart = parseDateOnly(iterationWindow.current?.startDate)
-    if (!sprintStart || !historyIsCurrent || removedWorkItems.length === 0) {
+    if (!sprintStart || !historyIsShown || removedWorkItems.length === 0) {
       return EMPTY_DEPARTURES
     }
 
@@ -410,7 +412,7 @@ export function useEffortFlowHistory({
     }
 
     return result
-  }, [historyIsCurrent, historySnapshot, iterationWindow, removedWorkItems, timelinesByItemId])
+  }, [historyIsShown, historySnapshot, iterationWindow, removedWorkItems, timelinesByItemId])
 
   return { points, isLoading, journeysByItemId, departuresByItemId, sprintForecast }
 }

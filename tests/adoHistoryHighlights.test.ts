@@ -21,7 +21,7 @@ const server = await createServer({
       export const useState = (initial) => {
         const slot = stateIndex++
         if (!(slot in state)) state[slot] = initial
-        return [state[slot], (value) => { state[slot] = value }]
+        return [state[slot], (value) => { state[slot] = typeof value === 'function' ? value(state[slot]) : value }]
       }
     ` : undefined,
   }],
@@ -244,4 +244,66 @@ test('aging level climbs one step per quarter of the stale threshold and is 4 on
   const untracked = getCardChangeDetail({ baselineAt: new Date(now - 3 * DAY_MS).toISOString() }, now, { freshDays: 1, staleDays: 6 })
   assert.equal(untracked.agingLevel, 2, 'with no tracked change, idle time counts from the first revision')
   assert.equal(untracked.reason, undefined)
+})
+
+test('a tag rule change reuses the cards’ PR details and votes, keeps equal results, and retries a failed vote read', async () => {
+  effects.length = 0
+  state.length = 0
+  let detailRequests = 0
+  let threadRequests = 0
+  let threadsFail = true
+  const relation = { rel: 'ArtifactLink', url: 'vstfs:///Git/PullRequestId/project-id%2Frepo-id%2F42' }
+  const history = [
+    { id: 1, revisedDate: '2026-10-01T12:00:00Z' },
+    { id: 2, revisedDate: '2026-10-02T12:00:00Z', relations: { added: [relation] } },
+  ]
+  const args = {
+    adoQueryEngine: {
+      async getWorkItemUpdates() {
+        return history
+      },
+      async request<T>(options: AdoRequestOptions) {
+        if (!options.path.endsWith('/threads')) {
+          detailRequests += 1
+          return { creationDate: '2026-09-30T12:00:00Z', isDraft: false } as T
+        }
+        threadRequests += 1
+        if (threadsFail) throw new Error('offline')
+        return { value: [] } as T
+      },
+    },
+    team: { orgName: 'example-org', projectName: 'example-project', repoName: 'repo' },
+    tagRules: [] as unknown[],
+    workItems: [{
+      id: 101,
+      title: 'Work item 101',
+      status: 'Active',
+      recentActivityAt: '2026-10-01T12:00:00Z',
+      activePullRequests: [{ id: 42, repositoryId: 'repo-id' }],
+    }],
+  }
+  function Render() {
+    beginRender()
+    useAdoHistoryHighlights(args)
+    return effects.shift()?.()
+  }
+  async function renderAndSettle() {
+    const cleanup = Render()
+    await new Promise((resolve) => setImmediate(resolve))
+    cleanup?.()
+  }
+
+  await renderAndSettle()
+  const shown = state[0]
+  assert.deepEqual([detailRequests, threadRequests], [1, 1])
+
+  threadsFail = false
+  args.tagRules = [{ id: 'rule', tag: 'outdated', action: 'unlisted' }]
+  await renderAndSettle()
+  assert.deepEqual([detailRequests, threadRequests], [1, 2], 'only the failed vote read is repeated')
+  assert.equal(state[0], shown, 'equal results keep the shown highlights')
+
+  args.tagRules = []
+  await renderAndSettle()
+  assert.deepEqual([detailRequests, threadRequests], [1, 2])
 })

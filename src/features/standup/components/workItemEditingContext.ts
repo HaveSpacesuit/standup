@@ -1,13 +1,14 @@
 import { createContext, useContext, type KeyboardEvent, type MouseEvent } from 'react'
 import type { EditableWorkItemField } from '../../../ado/workItemUpdateApi'
-import type { WorkItemEditor } from '../hooks/useWorkItemEditor'
+import type { WorkItemEditOptions, WorkItemEditorActions } from '../hooks/useWorkItemEditor'
 import { getItemKey, isEditableWorkItem, type EditableWorkItem } from '../utils/workItemEditing'
 
 /** Where a menu or editor opens: under an element, or at a point such as a right-click. */
 export type EditAnchor = Element | { top: number; left: number }
 
 export type WorkItemEditingApi = {
-  editor: WorkItemEditor
+  /** Without the options and toast, so every card isn't drawn again when a tag rule changes or a toast shows. */
+  editor: WorkItemEditorActions
   openMenu: (item: EditableWorkItem, anchor: EditAnchor) => void
   openField: (item: EditableWorkItem, field: EditableWorkItemField, anchor: EditAnchor) => void
   /** Opens the item's menu on right-click, Shift+F10 or the Menu key; text fields keep the browser's menu. */
@@ -21,6 +22,13 @@ export const WorkItemEditingContext = createContext<WorkItemEditingApi | null>(n
 /** The editing controls for cards and rows; null outside a WorkItemEditingProvider, where items are read-only. */
 export function useWorkItemEditing(): WorkItemEditingApi | null {
   return useContext(WorkItemEditingContext)
+}
+
+export const WorkItemEditOptionsContext = createContext<WorkItemEditOptions | null>(null)
+
+/** The states, sprints and tag rules the editors offer, such as where a board card can be dropped. */
+export function useWorkItemEditOptions(): WorkItemEditOptions | null {
+  return useContext(WorkItemEditOptionsContext)
 }
 
 /** Marks each item's More button, so focus can return to it when the card moves while a menu is open. */

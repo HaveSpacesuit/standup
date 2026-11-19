@@ -29,7 +29,7 @@ import { formatEffortPoints } from '../utils/sprintEffortTotals'
 import { ColumnFlowLine } from './ColumnFlowLine'
 import { DevelopmentCard } from './DevelopmentCard'
 import { EditableWorkItemCard } from './WorkItemActions'
-import { useWorkItemEditing } from './workItemEditingContext'
+import { useWorkItemEditing, useWorkItemEditOptions } from './workItemEditingContext'
 import { BoardDragGhost, DropSlots } from './BoardDragLayer'
 import { getDropCellState, getDropCellSx } from './boardDropDisplay'
 import { JourneyGhostLayer } from './JourneyGhostLayer'
@@ -170,8 +170,9 @@ export function KanbanBoardGrid({
 
   // Dragging a card to another lane or column edits it: the lane's assignee or sprint, and the column's state.
   const editor = useWorkItemEditing()?.editor
+  const editOptions = useWorkItemEditOptions()
   const rowsByKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows])
-  const resolveDrop = useCallback((source: BoardDragSource, target: BoardDropTarget): BoardDropResult => (editor
+  const resolveDrop = useCallback((source: BoardDragSource, target: BoardDropTarget): BoardDropResult => (editor && editOptions
     ? getBoardDropResult({
         item: source.item,
         fromLaneKey: source.laneKey,
@@ -179,10 +180,10 @@ export function KanbanBoardGrid({
         toLane: rowsByKey.get(target.laneKey)?.drop,
         fromColumn: source.column,
         toColumn: target.column,
-        states: editor.options.statesFor(source.item),
-        tagRules: editor.options.tagRules,
+        states: editOptions.statesFor(source.item),
+        tagRules: editOptions.tagRules,
       })
-    : { kind: 'none' }), [editor, rowsByKey])
+    : { kind: 'none' }), [editor, editOptions, rowsByKey])
   const dragEnabled = Boolean(editor && !editor.lockedReason && cardsAsOf === undefined)
   const { drag, getDragProps, setGhost } = useBoardDrag({
     enabled: dragEnabled,
