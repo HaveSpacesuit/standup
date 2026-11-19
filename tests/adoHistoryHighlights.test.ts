@@ -89,6 +89,68 @@ test('one history load shares linked PR detail requests across work items', asyn
   refreshCleanup?.()
 })
 
+test('overlapping history runs share a pending PR detail read, and a failed read can be retried', async () => {
+  effects.length = 0
+  state.length = 0
+  const requests: Array<{
+    resolve: (value: { creationDate: string; isDraft: boolean }) => void
+    reject: (error: Error) => void
+  }> = []
+  const relation = {
+    rel: 'ArtifactLink',
+    url: 'vstfs:///Git/PullRequestId/project-id%2Frepo-id%2F678974',
+  }
+  const history = [
+    { id: 1, revisedDate: '2026-10-01T12:00:00Z' },
+    { id: 2, revisedDate: '2026-10-02T12:00:00Z', relations: { added: [relation] } },
+  ]
+  const args = {
+    adoQueryEngine: {
+      async getWorkItemUpdates() { return history },
+      request<T>() {
+        return new Promise<T>((resolve, reject) => {
+          requests.push({
+            resolve: (value) => resolve(value as T),
+            reject,
+          })
+        })
+      },
+    },
+    team: { orgName: 'example-org', projectName: 'example-project', repoName: 'repo' },
+    tagRules: [] as unknown[],
+    workItems: [{ id: 104, title: 'Overlapping history', status: 'Active' }],
+  }
+  function Render() {
+    beginRender()
+    useAdoHistoryHighlights(args)
+    return effects.shift()?.()
+  }
+  const settleHistory = () => new Promise((resolve) => setImmediate(resolve))
+
+  const firstCleanup = Render()
+  await settleHistory()
+  assert.equal(requests.length, 1)
+
+  args.tagRules = [{ id: 'changed', tag: 'changed', action: 'unlisted' }]
+  const secondCleanup = Render()
+  await settleHistory()
+  assert.equal(requests.length, 1, 'the second run awaits the same pending request')
+
+  requests[0].reject(new Error('offline'))
+  await settleHistory()
+  await settleHistory()
+  firstCleanup?.()
+  secondCleanup?.()
+
+  args.tagRules = []
+  const retryCleanup = Render()
+  await settleHistory()
+  assert.equal(requests.length, 2, 'the failed history lookup is evicted for a later retry')
+  requests[1].resolve({ creationDate: '2026-09-30T12:00:00Z', isDraft: false })
+  await settleHistory()
+  retryCleanup?.()
+})
+
 const { getCardChangeDetail } = await server.ssrLoadModule('/src/features/standup/hooks/useAdoHistoryHighlights.ts')
 
 const HOUR_MS = 60 * 60 * 1000

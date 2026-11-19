@@ -50,14 +50,37 @@ type Session = {
 
 const targetKey = (target: BoardDropTarget | null) => (target ? `${target.laneKey}|${target.column ?? '*'}` : '')
 
-/** Swallows the click that follows a drag, so dropping a card doesn't also follow its title link. */
-function suppressNextClick() {
+/** Swallows a drag's click, waiting for pointer release when Esc cancels before the mouse is up. */
+function suppressNextClick(pointerId: number, alreadyReleased: boolean) {
   const stop = (event: MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
+    cleanup()
   }
-  window.addEventListener('click', stop, { capture: true, once: true })
-  window.setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 0)
+  const cleanup = () => {
+    window.removeEventListener('click', stop, true)
+    window.removeEventListener('pointerup', onPointerUp, true)
+    window.removeEventListener('pointercancel', onPointerCancel, true)
+    window.removeEventListener('blur', cleanup)
+    if (releaseTimer !== undefined) window.clearTimeout(releaseTimer)
+  }
+  const onPointerUp = (event: PointerEvent) => {
+    if (event.pointerId !== pointerId) return
+    window.removeEventListener('pointerup', onPointerUp, true)
+    releaseTimer = window.setTimeout(cleanup, 0)
+  }
+  const onPointerCancel = (event: PointerEvent) => {
+    if (event.pointerId === pointerId) cleanup()
+  }
+  let releaseTimer: number | undefined
+  window.addEventListener('click', stop, true)
+  window.addEventListener('pointercancel', onPointerCancel, true)
+  window.addEventListener('blur', cleanup)
+  if (alreadyReleased) {
+    releaseTimer = window.setTimeout(cleanup, 0)
+  } else {
+    window.addEventListener('pointerup', onPointerUp, true)
+  }
 }
 
 function readTarget(element: Element | null): { target: BoardDropTarget | null; slot: number | null } {
@@ -118,7 +141,7 @@ export function useBoardDrag({ enabled, scrollerRef, resolve, onDrop, onRefused 
     }
   }, [update])
 
-  const end = useCallback((commit: boolean) => {
+  const end = useCallback((commit: boolean, alreadyReleased = false, pointerCancelled = false) => {
     const current = session.current
     if (!current) return
     session.current = null
@@ -126,7 +149,7 @@ export function useBoardDrag({ enabled, scrollerRef, resolve, onDrop, onRefused 
     cancelAnimationFrame(current.frame)
     setDrag(null)
     if (!current.started) return
-    suppressNextClick()
+    if (!pointerCancelled) suppressNextClick(current.pointerId, alreadyReleased)
     const result = commit ? current.state?.result : null
     if (result?.kind === 'options') {
       const option = result.options[current.state?.slot ?? 0] ?? result.options[0]
@@ -170,10 +193,10 @@ export function useBoardDrag({ enabled, scrollerRef, resolve, onDrop, onRefused 
       placeGhost(ghostRef.current, current.x, current.y)
     }
     const onUp = (up: PointerEvent) => {
-      if (up.pointerId === session.current?.pointerId) end(true)
+      if (up.pointerId === session.current?.pointerId) end(true, true)
     }
     const onCancel = (cancel: PointerEvent) => {
-      if (cancel.pointerId === session.current?.pointerId) end(false)
+      if (cancel.pointerId === session.current?.pointerId) end(false, false, true)
     }
     const onKeyDown = (key: KeyboardEvent) => {
       if (key.key !== 'Escape' || !session.current?.started) return
@@ -182,7 +205,7 @@ export function useBoardDrag({ enabled, scrollerRef, resolve, onDrop, onRefused 
       key.stopPropagation()
       end(false)
     }
-    const onBlur = () => end(false)
+    const onBlur = () => end(false, false, true)
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onCancel)
@@ -209,9 +232,9 @@ export function useBoardDrag({ enabled, scrollerRef, resolve, onDrop, onRefused 
   }, [end, hitTest, scrollTick, update])
 
   useEffect(() => {
-    if (!enabled) end(false)
+    if (!enabled) end(false, false, true)
   }, [enabled, end])
-  useEffect(() => () => end(false), [end])
+  useEffect(() => () => end(false, false, true), [end])
 
   /** Props for a card's wrapper that let it be dragged from this cell. */
   const getDragProps = (source: BoardDragSource): BoardDragProps | undefined => (enabled ? {
