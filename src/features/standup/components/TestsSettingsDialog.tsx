@@ -316,24 +316,32 @@ export function TestsSettingsDialog({
           </Typography>
           {error && <Alert severity="error">{error}</Alert>}
           {!pat && <Alert severity="warning">Add a PAT with Test Management (Read), Build (Read), and Release (Read) access in app Settings.</Alert>}
-          {pipelines.map((entry) => (
-            <Box key={entry.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: 1, borderColor: 'divider', pb: 1 }}>
-              <Typography variant="body-sm" sx={{ flex: 1, minWidth: 0 }}>
-                {entry.name} · {testStageLabel(entry.stageName)} ({entry.kind}, {entry.orgName}/{entry.projectName})
-              </Typography>
-              <TextField
-                size="small"
-                label="Short name"
-                defaultValue={entry.shortName ?? ''}
-                placeholder={defaultTestPipelineShortName(entry.name)}
-                onBlur={(event) => saveShortName(entry, event.target.value)}
-                onKeyDown={blurOnEnter}
-                slotProps={{ htmlInput: { maxLength: TEST_SHORT_NAME_MAX_LENGTH, 'aria-label': `Short name for ${entry.name} · ${testStageLabel(entry.stageName)}` }, inputLabel: { shrink: true } }}
-                sx={{ width: 150, flexShrink: 0 }}
-              />
-              <Button color="error" size="small" onClick={() => savePipelines(pipelines.filter((item) => item.id !== entry.id))}>Remove</Button>
-            </Box>
-          ))}
+          {pipelines.map((entry) => {
+            const shortNameId = `test-pipeline-short-name-${entry.id}`
+            return (
+              <Box key={entry.id} sx={{ display: 'flex', flexDirection: 'column', gap: 1, borderBottom: 1, borderColor: 'divider', pb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                  <Typography variant="body-sm" sx={{ flex: 1, minWidth: 0 }}>
+                    {entry.name} · {testStageLabel(entry.stageName)} ({entry.kind}, {entry.orgName}/{entry.projectName})
+                  </Typography>
+                  <Button color="error" size="small" onClick={() => savePipelines(pipelines.filter((item) => item.id !== entry.id))}>Remove</Button>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="body-sm" color="text.secondary" render={<label htmlFor={shortNameId} />}>Short name</Typography>
+                  <TextField
+                    id={shortNameId}
+                    size="small"
+                    defaultValue={entry.shortName ?? ''}
+                    placeholder={defaultTestPipelineShortName(entry.name)}
+                    onBlur={(event) => saveShortName(entry, event.target.value)}
+                    onKeyDown={blurOnEnter}
+                    slotProps={{ htmlInput: { maxLength: TEST_SHORT_NAME_MAX_LENGTH, 'aria-label': `Short name for ${entry.name} · ${testStageLabel(entry.stageName)}` } }}
+                    sx={{ width: 150, flexShrink: 0 }}
+                  />
+                </Box>
+              </Box>
+            )
+          })}
           <TextField label="Organization" value={orgName} onChange={(event) => setOrgName(event.target.value)} />
           <TextField label="Project" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
           <FormControl fullWidth>
