@@ -50,7 +50,7 @@ function TierSwatch({ tier }: { tier: BacklogTierKey }) {
     <Box
       component="span"
       aria-hidden="true"
-      sx={{ width: 4, height: 18, borderRadius: 999, bgcolor: BACKLOG_TIER_COLORS[tier], flex: 'none' }}
+      sx={{ width: 4, height: 14, borderRadius: 999, bgcolor: BACKLOG_TIER_COLORS[tier], flex: 'none' }}
     />
   )
 }
@@ -121,12 +121,16 @@ function TierThresholdFields({
         {THRESHOLD_FIELDS.map(({ key, name }) => {
           const invalid = problem?.invalid.has(key) ?? false
           return (
-            <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TierSwatch tier={key} />
+            <Box key={key}>
               <TextField
                 size="small"
                 type="number"
-                label={`${name} from Value`}
+                label={(
+                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, verticalAlign: 'top' }}>
+                    <TierSwatch tier={key} />
+                    {name} from Value
+                  </Box>
+                )}
                 value={draft[key]}
                 error={invalid}
                 onChange={(event) => handleChange(key, event.target.value)}
