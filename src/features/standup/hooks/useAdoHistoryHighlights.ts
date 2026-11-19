@@ -215,7 +215,11 @@ async function fetchPullRequestDetails(
   const kept = historyLookup.get(cacheKey) ?? lookup.get(cacheKey)
   if (kept) {
     historyLookup.set(cacheKey, kept)
-    return kept
+    const details = await kept
+    if (!details && historyLookup.get(cacheKey) === kept) {
+      historyLookup.delete(cacheKey)
+    }
+    return details
   }
 
   const request = lookup.get(cacheKey) ?? adoQueryEngine.request<PullRequestDetailsResponse>({
