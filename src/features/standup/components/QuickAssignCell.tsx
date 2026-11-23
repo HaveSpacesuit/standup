@@ -99,7 +99,7 @@ export function QuickAssignCell({ developer, controller }: { developer: Identity
                     sx={{
                       // MUI gives the radio input z-index 1; contain it so it scrolls beneath the sticky sprint header.
                       isolation: 'isolate',
-                      display: 'flex', gap: 1.25, alignItems: 'flex-start', px: 1, py: 1.25, m: 0.5,
+                      display: 'flex', gap: 1.25, alignItems: 'center', px: 1, py: 1.25, m: 0.5,
                       borderRadius: 1, cursor: controller.busy ? 'default' : 'pointer',
                       bgcolor: item.id === selected ? 'var(--stratakit-color-bg-glow-on-surface-accent-hover)' : undefined,
                       '&:hover': {
@@ -109,14 +109,14 @@ export function QuickAssignCell({ developer, controller }: { developer: Identity
                       '&:has(input:focus-visible)': { outline: '2px solid var(--stratakit-color-border-info-base)', outlineOffset: -2 },
                     }}
                   >
-                    <Radio name={id} value={item.id} checked={selected === item.id} disabled={controller.busy} onChange={() => setSelected(item.id)} sx={{ flexShrink: 0, mt: 0.25 }} />
+                    <Radio name={id} value={item.id} checked={selected === item.id} disabled={controller.busy} onChange={() => setSelected(item.id)} sx={{ flexShrink: 0, alignSelf: 'baseline' }} />
                     <Typography component="span" variant="body-sm" sx={{ flex: 1, minWidth: 0, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
                       <WorkItemTypeIcon item={item} />
                       {!item.workItemIconUrl ? <Box component="span" sx={visuallyHiddenSx}>{item.workItemType} </Box> : null}
                       <Box component="strong" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>{item.id}</Box>
                       {' '}{item.title}
                     </Typography>
-                    <Box component="span" sx={{ flexShrink: 0, mt: 0.25 }}>
+                    <Box component="span" sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                       {typeof item.effort === 'number' && Number.isFinite(item.effort)
                         ? <EffortBadge effort={item.effort} />
                         : <Typography component="span" variant="caption-md" color="text.secondary">Not estimated</Typography>}
