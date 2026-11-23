@@ -19,6 +19,7 @@ Object.assign(globalThis, {
   window: dom.window,
   document: dom.window.document,
   Document: dom.window.Document,
+  Element: dom.window.Element,
   HTMLElement: dom.window.HTMLElement,
   Node: dom.window.Node,
   ShadowRoot: dom.window.ShadowRoot,

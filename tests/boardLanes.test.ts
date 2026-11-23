@@ -46,14 +46,25 @@ function card(id: number, status: string, extra: Record<string, unknown> = {}) {
 }
 
 function pr(id: number, extra: Record<string, unknown> = {}) {
-  return { id, title: `PR ${id}`, url: `https://example.test/pr/${id}`, approvalCount: 2, checks: passingChecks, ...extra }
+  return {
+    id,
+    title: `PR ${id}`,
+    url: `https://example.test/pr/${id}`,
+    approvalCount: 2,
+    reviewPolicy: { requiredApprovals: 2, state: 'passing' },
+    checks: passingChecks,
+    ...extra,
+  }
 }
 
 const alexCells = {
   'alex:Blocked': [card(1, 'Blocked', { effort: 3 })],
   'alex:Active': [
     card(2, 'Active', { activePullRequests: [pr(20, { checks: failingChecks })] }),
-    card(3, 'Active', { activePullRequests: [pr(30, { approvalCount: 1 })], effort: undefined }),
+    card(3, 'Active', {
+      activePullRequests: [pr(30, { approvalCount: 1, reviewPolicy: { requiredApprovals: 2, state: 'pending' } })],
+      effort: undefined,
+    }),
   ],
   'alex:Review': [card(4, 'Review', { kind: 'pull-request', pullRequest: pr(40), effort: undefined })],
   'alex:Done': [card(5, 'Done', { effort: 8 }), card(6, 'Done')],
