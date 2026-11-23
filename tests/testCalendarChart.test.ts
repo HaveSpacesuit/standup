@@ -137,17 +137,17 @@ test('hovering a cell tips its day, run, and changes; clicking selects that day\
   await hover(cell(host, 'web', 28)!)
   assert.match(tip()!, /PWW E2E/)
   assert.match(tip()!, /Below usual · worst of 2 runs/)
-  assert.match(tip()!, /98% passed · 20 failed of 1,000/)
+  assert.match(tip()!, /98\.0% passed · 20 failed of 1,000/)
   assert.match(tip()!, /Click for run details/)
   await act(async () => cell(host, 'web', 28)!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
   assert.deepEqual(selected, [['web', 2914]])
 
   await hover(cell(host, 'smoke', axis.todayIndex)!)
   assert.match(tip()!, /Fewer tests ran/)
-  assert.match(tip()!, /100% passed · 0 failed of 121 \(usually ~1,000\)/)
+  assert.match(tip()!, /100\.0% passed · 0 failed of 121 \(usually ~1,000\)/)
 
   await hover(cell(host, 'view', axis.todayIndex)!)
-  assert.match(tip()!, /Sharp drop to 90%/)
+  assert.match(tip()!, /Sharp drop to 90\.0%/)
 
   await hover(cell(host, 'api', axis.todayIndex)!)
   assert.match(tip()!, /Not run yet today/)

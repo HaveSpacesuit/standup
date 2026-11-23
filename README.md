@@ -654,7 +654,7 @@ A health strip above the chart shows one tile per pipeline with runs (up to four
 - **Fewer tests** — the latest run executed fewer than 80% of the pipeline's usual test count.
 - **No recent runs** — no results for 2 or more working days; the sparkline hatches the idle days.
 
-The toolbar summarizes the statuses ("4 pipelines"; hover or focus it for counts). Click a tile (or a row's label in Rows or Calendar) to focus its pipeline: the other rows fade. Click it again or press Esc to clear focus. Health uses all runs that pass the pass rate filter.
+The toolbar summarizes the statuses ("4 pipelines"; hover or focus it for counts). Click a tile (or a row's label in Rows or Calendar) to focus its pipeline: the other rows fade. Click it again or press Esc to clear focus. Health uses all runs that pass the pass rate filter. Pass rate results always display one decimal place, such as 98.0%.
 
 A **Changes** panel beside the chart (below it when the page is narrower than 900px) lists what changed across the pipelines, newest first, so standup can start from "what's new" instead of scanning every line. Each change is compared with its pipeline's usual range:
 

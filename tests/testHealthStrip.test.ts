@@ -57,8 +57,8 @@ test('one tile per pipeline shows its latest pass rate, change, status, and a st
   const html = renderToStaticMarkup(createElement(Root, null, createElement(TestHealthStrip, props)))
   assert.match(html, /role="group" aria-label="Pipeline health"/)
   assert.match(html, /aria-label="PWW E2E: 99\.3%, Usual"/)
-  assert.match(html, /aria-label="WebView E2E: 90%, Sharp drop"/, 'a saved short name replaces the default')
-  assert.match(html, /aria-label="PWE Smoke: 100%, Fewer tests"/)
+  assert.match(html, /aria-label="WebView E2E: 90\.0%, Sharp drop"/, 'a saved short name replaces the default')
+  assert.match(html, /aria-label="PWE Smoke: 100\.0%, Fewer tests"/)
   assert.match(html, /aria-label="ADM Entire pipeline: 99\.1%, No recent runs"/)
   assert.match(html, /\+0\.1 vs median 99\.2%/)
   assert.match(html, /1,000 tests · 7 failed/)
@@ -67,7 +67,7 @@ test('one tile per pipeline shows its latest pass rate, change, status, and a st
   assert.match(html, /last result/)
   assert.equal(html.match(/aria-pressed="false"/g)?.length, 4)
   const describedBy = /aria-describedby="([^"]+)"/.exec(html)![1]
-  assert.match(html, new RegExp(`id="${describedBy}"[^>]*>Latest run is within or above this pipeline&#x27;s usual range, 99–99\\.4%`))
+  assert.match(html, new RegExp(`id="${describedBy}"[^>]*>Latest run is within or above this pipeline&#x27;s usual range, 99\\.0–99\\.4%`))
 })
 
 test('sparklines show the usual band, hatch the days since a stale run, and dot only flagged runs and the latest', () => {

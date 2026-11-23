@@ -216,7 +216,7 @@ test('failing tests load only when a change is opened, labelled against the prev
   assert.deepEqual(failingRequests().map((url) => url.searchParams.get('pipelineId')).sort(), ['14', '15'])
   const rows = [...details()!.querySelectorAll('[data-testid="tests-failing"] li')].map((item) => item.textContent)
   assert.deepEqual(rows, ['Suite.uploads a fileNew', 'Suite.opens a folderAgain'], 'tests new since the previous run come first')
-  assert.match(details()!.textContent!, /Sharp drop to 70%/)
+  assert.match(details()!.textContent!, /Sharp drop to 70\.0%/)
   assert.equal(details()!.querySelector('a[href*="buildId=15"]')?.getAttribute('target'), '_blank')
 
   await host.setActive(false)

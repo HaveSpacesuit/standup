@@ -7,9 +7,10 @@ import {
   testSeriesStyle, testWorkingDaysBetween, worstTestRunOn, type TestHealthEntry,
 } from '../src/features/standup/utils/testHealth.ts'
 
-test('pass rates keep one decimal, drop it for whole numbers, and never round a failing run up to 100%', () => {
-  assert.equal(formatPassRate(100), '100%')
-  assert.equal(formatPassRate(95), '95%')
+test('pass rates always show one decimal and never round a failing run up to 100.0%', () => {
+  assert.equal(formatPassRate(100), '100.0%')
+  assert.equal(formatPassRate(98.0477), '98.0%')
+  assert.equal(formatPassRate(99.0066), '99.0%')
   assert.equal(formatPassRate(90.86), '90.9%')
   assert.equal(formatPassRate(99.96), '99.9%')
 })
@@ -100,7 +101,7 @@ test("the usual range is the middle 80% of a pipeline's runs, and the latest run
   const health = healthWith(at(30, 993))
   assert.ok(Math.abs(health.usualLow - 99) < 1e-9)
   assert.ok(Math.abs(health.usualHigh - 99.4) < 1e-9)
-  assert.equal(formatTestUsualRange(health), '99–99.4%')
+  assert.equal(formatTestUsualRange(health), '99.0–99.4%')
   assert.equal(health.usualHighPosition < health.usualLowPosition, true, 'positions grow with failures')
   assert.equal(health.medianRate, 99.2)
   assert.equal(health.usualTotal, 1000)
@@ -109,7 +110,7 @@ test("the usual range is the middle 80% of a pipeline's runs, and the latest run
   assert.equal(health.latest.runId, 30)
   assert.deepEqual(health.runs.map((run) => run.index), health.runs.map((_, index) => index), 'runs are sorted oldest first')
   assert.equal(formatTestHealthDelta(health), '+0.1 vs median 99.2%')
-  assert.match(testHealthStatusTip(health, options, 60), /within or above this pipeline's usual range, 99–99\.4% \(the middle 80% of its runs in the last 60 days\)/)
+  assert.match(testHealthStatusTip(health, options, 60), /within or above this pipeline's usual range, 99\.0–99\.4% \(the middle 80% of its runs in the last 60 days\)/)
 })
 
 test('a run far past the median is a sharp drop, and sharp drops do not widen the usual range', () => {
@@ -118,12 +119,12 @@ test('a run far past the median is a sharp drop, and sharp drops do not widen th
   assert.equal(health.latest.cls, 'sharp')
   assert.ok(Math.abs(health.usualLow - 99) < 1e-9)
   assert.equal(formatTestHealthDelta(health), '−9.2 vs median 99.2%')
-  assert.match(testHealthStatusTip(health, options, 60), /\(90%\) failed far more tests than usual/)
+  assert.match(testHealthStatusTip(health, options, 60), /\(90\.0%\) failed far more tests than usual/)
 })
 
 test('a run clearly under the usual range is below usual; one just under it is noise', () => {
   assert.equal(healthWith(at(30, 975)).status, 'below')
-  assert.match(testHealthStatusTip(healthWith(at(30, 975)), options, 60), /\(97\.5%\) is below this pipeline's usual range of 99–99\.4%/)
+  assert.match(testHealthStatusTip(healthWith(at(30, 975)), options, 60), /\(97\.5%\) is below this pipeline's usual range of 99\.0–99\.4%/)
   assert.equal(healthWith(at(30, 988)).status, 'usual')
 })
 
@@ -199,12 +200,12 @@ test('a sharp drop is called out once per episode, and its recovery names the lo
   assert.deepEqual(summary(changes), ['drop@22', 'recover@26'])
   const [drop, recover] = changes
   assert.equal(drop.id, 'web:drop:22')
-  assert.equal(testChangeTitle(drop), 'Sharp drop to 90%')
-  assert.equal(testChangeDetail(drop, usualHealth), '100 failed of 1,000 · usually 99–99.4%')
+  assert.equal(testChangeTitle(drop), 'Sharp drop to 90.0%')
+  assert.equal(testChangeDetail(drop, usualHealth), '100 failed of 1,000 · usually 99.0–99.4%')
   assert.equal(recover.lowest!.runId, 23)
   assert.equal(recover.days, 4)
   assert.equal(testChangeTitle(recover), 'Recovered after 4 days')
-  assert.equal(testChangeDetail(recover, usualHealth), 'back to 99.3% · lowest was 85%')
+  assert.equal(testChangeDetail(recover, usualHealth), 'back to 99.3% · lowest was 85.0%')
 })
 
 test('failures after five clean runs are called out with the days since the last failure, unless they are a sharp drop', () => {

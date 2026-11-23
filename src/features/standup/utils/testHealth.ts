@@ -11,13 +11,13 @@ export const TEST_GAP_DAYS = 4
 export const passRatePosition = (percent: number) => Math.log10(1 + 100 - percent)
 export const passRateAtPosition = (position: number) => 101 - 10 ** position
 
-/** "99.4%", "100%"; never rounds a failing run up to 100%. */
+/** Displays one decimal place without rounding a failing run up to 100.0%. */
 export function formatPassRate(rate: number): string {
   let rounded = Math.round(rate * 10) / 10
   if (rounded >= 100 && rate < 100) {
     rounded = 99.9
   }
-  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`
+  return `${rounded.toFixed(1)}%`
 }
 
 export function formatTestCount(count: number): string {

@@ -60,7 +60,7 @@ test('changes are grouped into this sprint and earlier, newest first, each namin
   assert.deepEqual(items(doc, 'Earlier changes'), ['web:recover:9', 'web:drop:8'])
   const drop = doc.querySelector('button[data-change="view:drop:30"]')!
   assert.equal(drop.getAttribute('aria-pressed'), 'false')
-  assert.match(drop.textContent!, /^Sharp drop to 90%Oct 30WV · E2E · 100 failed of 1,000 · usually 99–99\.4%$/)
+  assert.match(drop.textContent!, /^Sharp drop to 90\.0%Oct 30WV · E2E · 100 failed of 1,000 · usually 99\.0–99\.4%$/)
   assert.match(doc.body.textContent!, /Detected against each pipeline’s usual range\. Select one to see its run\./)
 })
 
