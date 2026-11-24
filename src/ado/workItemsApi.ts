@@ -3,7 +3,9 @@ import { parseAssignedTo } from './identity'
 import type { AdoRequestClient } from './httpClient'
 import type { LinkedPullRequests, WorkItemPullRequestSummary, WorkItemSummary, PullRequestApiResponse } from './types'
 import { resolvePullRequestApprovalCount, resolvePullRequestReviewState } from './pullRequestReview'
-import { buildIterationMembershipWiql, buildIterationScopedWiql, buildQaBucketCandidatesWiql } from './wiql'
+import { buildAttentionItemsWiql, buildIterationMembershipWiql, buildIterationScopedWiql, buildQaBucketCandidatesWiql } from './wiql'
+import type { ProjectWorkItemTypeInfo } from './workItemTypesApi'
+import { attentionStateCategory, isOpenAttentionItem, matchingAttentionTags } from '../features/standup/utils/attentionTags'
 import { fetchPullRequestPolicies, fetchProjectId } from './policyEvaluationChecksApi'
 import { fetchPullRequestReadyForReviewAt } from './pullRequestReadyForReview'
 import { getPullRequestIconUrl, parsePullRequestArtifactLink, type PullRequestArtifactRef } from './adoShared'
@@ -453,6 +455,7 @@ export async function fetchWorkItemIdsByWiql(
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
   wiqlQuery: string,
   signal?: AbortSignal,
+  strict = false,
 ): Promise<number[]> {
   const wiqlResponse = await client.request<WiqlResponse>({
     method: 'POST',
@@ -467,6 +470,10 @@ export async function fetchWorkItemIdsByWiql(
     signal,
   })
 
+  if (strict && (!Array.isArray(wiqlResponse?.workItems)
+    || wiqlResponse.workItems.some((item) => !Number.isSafeInteger(item?.id) || item.id <= 0))) {
+    throw new Error('Azure DevOps returned an invalid work-item query response. Refresh to retry.')
+  }
   return (wiqlResponse.workItems ?? []).map((item) => item.id)
 }
 
@@ -485,7 +492,7 @@ async function fetchWorkItemSummariesByIds(
   team: Pick<TeamProfile, 'orgName' | 'projectName'>,
   ids: number[],
   signal?: AbortSignal,
-  options: { includePullRequests?: boolean } = {},
+  options: { includePullRequests?: boolean; strictAreaPath?: string } = {},
 ): Promise<WorkItemSummary[]> {
   const includePullRequests = options.includePullRequests ?? true
   if (ids.length === 0) {
@@ -505,6 +512,7 @@ async function fetchWorkItemSummariesByIds(
       body: {
         ids: idsChunk,
         fields: [
+          ...(options.strictAreaPath ? ['System.AreaPath'] : []),
           'System.Title',
           'System.CreatedDate',
           'System.ChangedDate',
@@ -526,6 +534,15 @@ async function fetchWorkItemSummariesByIds(
   )
 
   const workItemIconMap = await workItemIconMapPromise
+  if (options.strictAreaPath) {
+    const entries = batchResponses.flatMap((response) => response?.value ?? [])
+    const returnedIds = new Set(entries.map((item) => item.id))
+    if (entries.length !== ids.length || returnedIds.size !== ids.length || ids.some((id) => !returnedIds.has(id))
+      || entries.some((item) => ['System.Title', 'System.WorkItemType', 'System.State', 'System.AreaPath']
+        .some((field) => typeof item.fields?.[field as keyof NonNullable<WorkItemApiItem['fields']>] !== 'string'))) {
+      throw new Error('Azure DevOps returned incomplete attention items. Counts are unavailable; refresh to retry.')
+    }
+  }
   const pullRequestIconUrl = getPullRequestIconUrl(workItemIconMap)
   const pullRequestRefsByWorkItem = await (async () => {
     if (!includePullRequests) {
@@ -555,6 +572,12 @@ async function fetchWorkItemSummariesByIds(
   })()
 
   return batchResponses.flatMap((batchResponse) => batchResponse.value ?? [])
+    .filter((item) => {
+      if (!options.strictAreaPath) return true
+      const area = String(item.fields?.['System.AreaPath']).toLowerCase()
+      const root = options.strictAreaPath.toLowerCase()
+      return area === root || area.startsWith(`${root}\\`)
+    })
     .map((item): WorkItemSummary | null => {
       const summary = parseWorkItemSummary(item, team)
       if (!summary) return null
@@ -566,6 +589,24 @@ async function fetchWorkItemSummariesByIds(
       }
     })
     .filter((item): item is WorkItemSummary => item !== null)
+}
+
+export async function fetchAttentionItems(
+  client: AdoRequestClient,
+  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'areaPath'>,
+  tags: readonly string[],
+  metadata: ProjectWorkItemTypeInfo,
+): Promise<WorkItemSummary[]> {
+  if (!tags.length) return []
+  const query = buildAttentionItemsWiql(team.projectName, team.areaPath, tags, metadata)
+  const ids = [...new Set(await fetchWorkItemIdsByWiql(client, team, query, undefined, true))]
+  const items = await fetchWorkItemSummariesByIds(client, team, ids, undefined, { includePullRequests: false, strictAreaPath: team.areaPath })
+  for (const item of items) {
+    if (!attentionStateCategory(item, metadata.statesByType)) {
+      throw new Error(`The state of attention item #${item.id} could not be verified. Refresh to retry.`)
+    }
+  }
+  return items.filter((item) => isOpenAttentionItem(item, metadata.statesByType) && matchingAttentionTags(item, tags).length > 0)
 }
 
 export function parseWorkItemSummary(

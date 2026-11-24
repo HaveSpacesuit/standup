@@ -43,6 +43,9 @@ import { useQuickAssign, type QuickAssignController } from './useQuickAssign'
 import { useWorkItemEditor, type WorkItemEditor } from './useWorkItemEditor'
 import { DEFAULT_EFFORT_SUGGESTIONS } from '../utils/assignmentOptions'
 import { normalizeTags } from '../../../ado/workItemUpdateApi'
+import { useAttentionItems, type AttentionItemsState } from './useAttentionItems'
+import { DEFAULT_ATTENTION_TAGS } from '../utils/attentionTags'
+import type { ProjectWorkItemTypeInfo } from '../../../ado/workItemTypesApi'
 
 type UseBoardViewModelArgs = {
   pat: string | null
@@ -55,6 +58,11 @@ type UseBoardViewModelArgs = {
 }
 
 type UseBoardViewModelResult = {
+  qaAttention: AttentionItemsState
+  qaAttentionPreview: WorkItemPreviewSource | null
+  projectWorkItemStatesByType: ProjectWorkItemTypeInfo['statesByType']
+  qaBoardCoverageLoading: boolean
+  qaBoardCoverageError: boolean
   quickAssign: QuickAssignController
   /** Edits and reloads single work items in place, in every view. */
   workItemEditor: WorkItemEditor
@@ -292,6 +300,11 @@ export function useBoardViewModel({
   })
 
   const sprintFilter = qaOptionsByTeam?.[effectiveTeam.id]?.sprintFilter
+  const attentionTags = qaOptionsByTeam?.[effectiveTeam.id]?.attentionTags ?? DEFAULT_ATTENTION_TAGS
+  const qaAttention = useAttentionItems({
+    engine: dataQueryEngine, team: effectiveTeam, tags: attentionTags,
+    enabled: activeView === 'qa-activity', reloadNonce: qaReloadNonce,
+  })
   const selectedIterationPaths = useMemo(
     () => (sprintFilter ? resolveSelectedIterationPaths(sprintFilter, teamIterations) : []),
     [sprintFilter, teamIterations],
@@ -376,6 +389,12 @@ export function useBoardViewModel({
       )
       : null,
     [dataQueryEngine, previewTeamId, previewOrgName, previewProjectName, backlogReloadNonce],
+  )
+  const qaAttentionPreview = useMemo(
+    () => dataQueryEngine && previewTeamId && previewOrgName && previewProjectName
+      ? createWorkItemPreviewSource(dataQueryEngine, { id: previewTeamId, orgName: previewOrgName, projectName: previewProjectName }, `${previewTeamId}:attention:${qaReloadNonce}`)
+      : null,
+    [dataQueryEngine, previewTeamId, previewOrgName, previewProjectName, qaReloadNonce],
   )
 
   const {
@@ -472,6 +491,7 @@ export function useBoardViewModel({
     if (activeView === 'qa-activity') {
       adoQueryEngine.clearQualityAssuranceDataCache(selectedTeam.id)
       if (refreshMetadata) {
+        adoQueryEngine.clearProjectWorkItemTypesCache(selectedTeam)
         adoQueryEngine.clearTeamIterationsCache(selectedTeam.id)
         setIterationsReloadNonce((current) => current + 1)
       }
@@ -511,6 +531,7 @@ export function useBoardViewModel({
   }
   const onRefresh = () => refreshCurrentView(true)
   const quickAssign = useQuickAssign({
+    attentionTags,
     engine: scopedQueryEngine,
     team: effectiveTeam,
     items: boardItems,
@@ -528,8 +549,9 @@ export function useBoardViewModel({
       ...backlogBugs.flatMap((bug) => bug.tags ?? []),
       ...triageResult.items.flatMap((item) => item.tags),
       ...qaBuckets.flatMap((bucket) => bucket.items.flatMap((item) => item.tags ?? [])),
+      ...qaAttention.items.flatMap((item) => item.tags ?? []),
     ]),
-    [workItems, backlogBugs, triageResult.items, qaBuckets],
+    [workItems, backlogBugs, triageResult.items, qaBuckets, qaAttention.items],
   )
   const teamEffortSuggestions = assignmentOptionsByTeam?.[effectiveTeam.id]?.effortSuggestions
   const effortSuggestions = useMemo(() => teamEffortSuggestions ?? [...DEFAULT_EFFORT_SUGGESTIONS], [teamEffortSuggestions])
@@ -565,8 +587,8 @@ export function useBoardViewModel({
   })
   const { syncedAt: qaSyncedAt, markRefreshRequested: markQaRefreshRequested } = useTeamDataSyncedAt({
     teamId: activeView === 'qa-activity' ? selectedTeam?.id ?? '' : '',
-    isLoading: qaBucketsLoading,
-    failed: Boolean(teamIterationsError || qaBucketsError),
+    isLoading: qaBucketsLoading || qaAttention.loading,
+    failed: Boolean(teamIterationsError || qaBucketsError || qaAttention.error),
   })
   const { syncedAt: triageSyncedAt, markRefreshRequested: markTriageRefreshRequested } = useTeamDataSyncedAt({
     teamId: activeView === 'triage' && selectedTeam && hasTriageRules(triageOptions) && !triageSettings?.error ? triageScope : '',
@@ -579,11 +601,16 @@ export function useBoardViewModel({
     active: activeView !== 'tests' && Boolean(pat && selectedTeam) && (activeView !== 'triage' || (hasTriageRules(triageOptions) && !triageSettings?.error)),
     scope: `${activeView}:${activeView === 'triage' ? triageScope : selectedTeamId}`,
     syncedAt: activeView === 'triage' ? triageSyncedAt : activeView === 'backlog' ? backlogSyncedAt : activeView === 'qa-activity' ? qaSyncedAt : teamDataSyncedAt,
-    isLoading: activeView === 'triage' ? triageLoading : activeView === 'backlog' ? backlogBugsLoading : activeView === 'qa-activity' ? teamIterationsLoading || qaBucketsLoading : isTeamDataLoading,
+    isLoading: activeView === 'triage' ? triageLoading : activeView === 'backlog' ? backlogBugsLoading : activeView === 'qa-activity' ? teamIterationsLoading || qaBucketsLoading || qaAttention.loading : isTeamDataLoading,
     onRefresh: () => refreshCurrentView(false),
   })
 
   return {
+    qaAttention,
+    qaAttentionPreview,
+    projectWorkItemStatesByType,
+    qaBoardCoverageLoading: teamIterationsLoading || qaBucketsLoading || workItemsLoading,
+    qaBoardCoverageError: Boolean(teamIterationsError || qaBucketsError || qaHistoryWarning || workItemsError),
     quickAssign,
     workItemEditor,
     selectedTeamId,

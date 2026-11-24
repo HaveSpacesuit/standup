@@ -23,6 +23,7 @@ import { QaTesterLanes } from './QaTesterLanes'
 import {
   COLUMN_META,
   getColumnItems,
+  getQaComingItems,
   getItemHistory,
   getQaAttentionScore,
   getQaBoardLayout,
@@ -31,7 +32,6 @@ import {
   getQaStandupOrder,
   getSignalSet,
   matchesTester,
-  normalizeState,
   QA_ATTENTION_FACETS,
   QA_EVERYONE_ELSE_LANE,
   QA_NEEDS_TESTER_LANE,
@@ -331,12 +331,9 @@ export function QaFlowBoard({
   const [spokenKeys, setSpokenKeys] = useState<ReadonlySet<string>>(() => new Set())
   const currentIteration = teamIterations.find((iteration) => iteration.timeFrame === 'current' || iteration.name === currentIterationName)
   const allItems = useMemo(() => buckets.flatMap((bucket) => bucket.items), [buckets])
-  const qaItemIds = useMemo(() => new Set(allItems.map((item) => item.id)), [allItems])
   const comingItems = useMemo(
-    () => boardItems.filter((item) => !qaItemIds.has(item.id)
-      && item.sprintName === currentIterationName
-      && normalizeState(item.state) === 'in code review'),
-    [boardItems, currentIterationName, qaItemIds],
+    () => getQaComingItems(buckets, boardItems, currentIterationName),
+    [buckets, boardItems, currentIterationName],
   )
   const historyById = useMemo(() => new Map(
     allItems.map((item) => [item.id, getItemHistory(item, updatesByItemId[item.id] ?? [])]),

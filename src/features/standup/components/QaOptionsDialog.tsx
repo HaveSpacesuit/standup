@@ -27,6 +27,7 @@ import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import { normalizeCardHighlightOptions } from '../utils/cardHighlightOptions'
 import type { ProjectWorkItemState, TeamIterationOption, TeamMember } from '../../../ado/queryEngine'
 import { readStringArraySelectValue } from '../utils/selectValues'
+import { attentionTagError, DEFAULT_ATTENTION_TAGS } from '../utils/attentionTags'
 
 type QaOptionsDialogProps = {
   open: boolean
@@ -45,7 +46,7 @@ type QaOptionsDialogProps = {
   teamIterationsLoading: boolean
   teamMembers: TeamMember[]
   /** Opens on this tab rather than the first. */
-  initialTab?: 'testers'
+  initialTab?: 'testers' | 'attention'
 }
 
 type StateGroupKey = keyof QaStateGroupOverrides
@@ -59,8 +60,8 @@ const STATE_GROUP_SECTIONS: Array<{ key: StateGroupKey; label: string; descripti
 
 type RelativeSprintKey = 'current' | 'next' | 'nextNext'
 
-// The Testers tab is the last of the dialog's tabs.
 const TESTERS_TAB = 6
+const ATTENTION_TAB = 7
 
 /** Resolves the sprint name for a relative offset from the current iteration, for label display. */
 function resolveRelativeSprintName(iterations: TeamIterationOption[], offset: number): string | null {
@@ -117,6 +118,8 @@ export function QaOptionsDialog({
     normalizeCardHighlightOptions(cardHighlightOptions),
   )
   const [newTagInput, setNewTagInput] = useState('')
+  const [attentionInput, setAttentionInput] = useState('')
+  const [attentionError, setAttentionError] = useState<string | null>(null)
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
   const [tagGroupInputs, setTagGroupInputs] = useState<Record<StateGroupKey, string>>({
     testing: '', done: '', development: '', new: '',
@@ -135,9 +138,11 @@ export function QaOptionsDialog({
       })
       setCardHighlightDraft(normalizeCardHighlightOptions(cardHighlightOptions))
       setNewTagInput('')
+      setAttentionInput('')
+      setAttentionError(null)
       setNewIterationPathInput('')
       setTagGroupInputs({ testing: '', done: '', development: '', new: '' })
-      setActiveTab(initialTab === 'testers' ? TESTERS_TAB : 0)
+      setActiveTab(initialTab === 'testers' ? TESTERS_TAB : initialTab === 'attention' ? ATTENTION_TAB : 0)
       setAcceptDefaults(false)
     }
     // Only re-sync the draft when the dialog is (re)opened.
@@ -167,6 +172,11 @@ export function QaOptionsDialog({
   }), [teamIterations])
 
   const handleSave = () => {
+    if (attentionInput.trim()) {
+      setAttentionError('Add the pending tag or clear it before saving.')
+      setActiveTab(ATTENTION_TAB)
+      return
+    }
     if (acceptDefaults || serializeQaOptions(draft) !== serializeQaOptions(options)) {
       onChange(draft)
     }
@@ -321,9 +331,47 @@ export function QaOptionsDialog({
           <Tab label="Column classification" />
           <Tab label="Freshness" />
           <Tab label="Testers" />
+          <Tab label="Attention tags" />
         </Tabs>
 
         <Box sx={{ flex: 1, minWidth: 0, maxHeight: 480, overflowY: 'auto', pr: 0.5 }}>
+
+        {activeTab === ATTENTION_TAB && (
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            <Typography render={<h3 />} variant="body-md" sx={{ fontWeight: 700 }}>Attention tags</Typography>
+            <Typography variant="body-sm">Highlight open items carrying any of these Azure DevOps tags. Unlike column classification, these tags never move items into a QA column.</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {(draft.attentionTags ?? DEFAULT_ATTENTION_TAGS).map((tag) => (
+                <Chip key={tag} label={tag} size="small" deleteLabel={`Remove attention tag ${tag}`}
+                  onDelete={() => setDraft((current) => ({ ...current, attentionTags: (current.attentionTags ?? DEFAULT_ATTENTION_TAGS).filter((value) => value !== tag) }))} />
+              ))}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'start' }}>
+              <TextField
+                label="Add attention tag" size="small" fullWidth value={attentionInput}
+                error={Boolean(attentionError)}
+                helperText={attentionError ?? 'Exact names, ignoring case. Release does not match PreRelease.'}
+                onChange={(event) => { setAttentionInput(event.target.value); setAttentionError(null) }}
+              />
+              <Button onClick={() => {
+                const tag = attentionInput.trim()
+                const error = attentionTagError(attentionInput)
+                if (error) { setAttentionError(error); return }
+                const tags = draft.attentionTags ?? DEFAULT_ATTENTION_TAGS
+                if (tags.some((value) => value.toLowerCase() === tag.toLowerCase())) {
+                  setAttentionError('This tag is already configured.')
+                  return
+                }
+                setDraft((current) => ({ ...current, attentionTags: [...tags, tag] }))
+                setAttentionInput('')
+                setAttentionError(null)
+              }}>Add</Button>
+            </Box>
+            <Typography variant="body-sm">Attention checks this team's area and descendants across all iterations and open work item types. QA sprint, lookback, type, and hidden-tag filters do not apply.</Typography>
+            <Typography variant="body-sm">Badges also appear on eligible Development quick-assign items. Tags signal attention, not a confirmed blocker or release-readiness verdict.</Typography>
+            <Typography variant="body-sm" color="text.secondary">Saved for this team in this browser and included in team exports, not synced live. Removing all tags turns tracking off. Saving these settings does not change tags in Azure DevOps.</Typography>
+          </Box>
+        )}
 
         {activeTab === 0 && (
         <Box>

@@ -8,6 +8,8 @@ import svgSettings from '@stratakit/icons/settings.svg'
 import svgPlay from '@stratakit/icons/play.svg'
 import svgUsers from '@stratakit/icons/users.svg'
 import svgWorkflow from '@stratakit/icons/workflow.svg'
+import svgFlag from '@stratakit/icons/flag.svg'
+import type { QaPageView } from './qaBoardModel'
 import { PageToolbar } from './PageToolbar'
 import { QuickFilterField } from './QuickFilterField'
 import { TeamToolbarControls, type TeamOption } from './TeamToolbarControls'
@@ -25,8 +27,9 @@ type QualityAssuranceToolbarProps = {
   onRefresh: () => void
   onOpenOptions: () => void
   isLoading: boolean
-  view: 'flow' | 'testers'
-  onViewChange: (view: 'flow' | 'testers') => void
+  view: QaPageView
+  onViewChange: (view: QaPageView) => void
+  attentionCount?: number
   onStartStandup: () => void
   standupActive: boolean
 }
@@ -48,6 +51,7 @@ export function QualityAssuranceToolbar({
   onViewChange,
   onStartStandup,
   standupActive,
+  attentionCount,
 }: QualityAssuranceToolbarProps) {
   const hasConfiguredTeams = teamOptions.length > 0
 
@@ -55,7 +59,7 @@ export function QualityAssuranceToolbar({
     <PageToolbar iconHref={svgInspection} title="Quality Assurance" isPageTitle wrap>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
         <QuickFilterField
-          label="Quick filter cards"
+          label={view === 'attention' ? 'Find an attention item' : 'Quick filter cards'}
           value={quickFilterInput}
           onChange={onQuickFilterInputChange}
           onClear={onQuickFilterClear}
@@ -92,7 +96,7 @@ export function QualityAssuranceToolbar({
               size="small"
               exclusive
               value={view}
-              onChange={(_event, value: 'flow' | 'testers' | null) => {
+              onChange={(_event, value: QaPageView | null) => {
                 if (value) onViewChange(value)
               }}
               aria-label="QA board view"
@@ -102,6 +106,9 @@ export function QualityAssuranceToolbar({
               </ToggleButton>
               <ToggleButton value="flow" render={<Button size="small" startIcon={<Icon href={svgWorkflow} />} />}>
                 Flow
+              </ToggleButton>
+              <ToggleButton value="attention" render={<Button size="small" startIcon={<Icon href={svgFlag} />} />}>
+                Attention{attentionCount === undefined ? '' : ` ${attentionCount}`}
               </ToggleButton>
             </ToggleButtonGroup>
           </>

@@ -20,10 +20,13 @@ import { applyTriagePatch, fetchTriageItems } from './triageApi'
 import type { TriageResult, WorkItemPreview } from './types'
 import { fetchWorkItemPreview, resolveAdoAttachmentRequest } from './workItemPreviewApi'
 import { getTriageQueryOptions, hasTriageRules, parseTriageOptions, type TriageQueryOptions } from '../features/standup/utils/triageOptions'
+import { fetchAttentionItems } from './workItemsApi'
+import { parseAttentionTags } from '../features/standup/utils/attentionTags'
 
 export type { BacklogBug, ClosedBug, CurrentIterationInfo, IterationWindowInfo, TeamIterationOption, TeamMember, WorkItemSummary, WorkItemPullRequestSummary, ResolvedWorkItemAssignee, WorkItemUpdate } from './types'
 export type { ProjectWorkItemState } from './workItemTypesApi'
 export type { SprintScopeChanges } from './workItemsApi'
+export type AttentionItemsResult = { items: WorkItemSummary[]; syncedAt: number }
 export type { WorkItemPatch, PullRequestPatch } from './workItemPatch'
 
 /** A reloaded work item; `pullRequestsUnavailable` when its linked pull requests were asked for but couldn't be read. */
@@ -106,6 +109,8 @@ export class AdoQueryEngine {
   private readonly teamWorkItemsCache = new Map<string, Promise<WorkItemSummary[]>>()
   private readonly sprintScopeChangesCache = new Map<string, Promise<SprintScopeChanges>>()
   private readonly qaRawDataCache = new Map<string, Promise<QualityAssuranceRawData>>()
+  private readonly attentionItemsCache = new Map<string, Promise<AttentionItemsResult>>()
+  private attentionRevision = 0
   private readonly backlogBugsCache = new Map<string, Promise<BacklogBug[]>>()
   private readonly triageItemsCache = new Map<string, Promise<TriageResult>>()
   private readonly closedBugsCache = new Map<string, Promise<ClosedBug[]>>()
@@ -305,6 +310,7 @@ export class AdoQueryEngine {
   }
 
   clearQualityAssuranceDataCache(teamId?: string): void {
+    this.clearAttentionDataCache(teamId)
     if (teamId) {
       for (const key of this.qaRawDataCache.keys()) {
         if (key === teamId || key.startsWith(`${teamId}:`)) {
@@ -315,6 +321,31 @@ export class AdoQueryEngine {
     }
 
     this.qaRawDataCache.clear()
+  }
+
+  clearAttentionDataCache(teamId?: string): void {
+    this.attentionRevision++
+    clearTeamEntries(this.attentionItemsCache, teamId)
+  }
+
+  async getAttentionItems(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+    tags: readonly string[],
+  ): Promise<AttentionItemsResult> {
+    const normalized = parseAttentionTags(tags).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+    if (!normalized.length) return { items: [], syncedAt: Date.now() }
+    const key = `${backlogBugsCacheKey(team)}:${JSON.stringify(normalized.map((tag) => tag.toLowerCase()))}`
+    let revision: number
+    let result: AttentionItemsResult
+    do {
+      revision = this.attentionRevision
+      result = await this.getOrLoadCached(this.attentionItemsCache, key, async () => ({
+        items: await fetchAttentionItems(this.client, team, normalized, await this.getProjectWorkItemTypeInfo(team)),
+        syncedAt: Date.now(),
+      }))
+      // A save can admit an item absent from the old result or move one out of this area.
+    } while (revision !== this.attentionRevision)
+    return result
   }
 
   clearBacklogDataCache(teamId?: string): void {
@@ -456,6 +487,7 @@ export class AdoQueryEngine {
    * revision until the next refresh, so showing the assignment costs no history reads either.
    */
   private patchCachedAssignee(assigned: WorkItemSummary): void {
+    this.clearAttentionDataCache()
     const url = assigned.workItemUrl?.toLowerCase()
     const patch = <T extends { id: number; workItemUrl?: string; assignedTo?: IdentityRef }>(items: T[]): T[] =>
       items.map((item) => item.id === assigned.id && item.workItemUrl?.toLowerCase() === url ? { ...item, assignedTo: assigned.assignedTo } : item)
@@ -553,6 +585,7 @@ export class AdoQueryEngine {
     { item, fields }: WorkItemReadResult,
     pullRequests?: LinkedPullRequests,
   ): WorkItemPatch {
+    this.clearAttentionDataCache()
     const changedAt = (item.fields as Record<string, unknown> | undefined)?.['System.ChangedDate']
     const patch: WorkItemPatch = { id, workItemUrl: workItemUrlFor(team, id), fields, changedAt: typeof changedAt === 'string' ? changedAt : undefined }
     if (pullRequests) patch.pullRequests = pullRequests

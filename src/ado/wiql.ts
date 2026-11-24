@@ -57,6 +57,24 @@ export function buildTriageWiql(
   ].join('\n')
 }
 
+export function buildAttentionItemsWiql(
+  projectName: string,
+  areaPath: string,
+  tags: readonly string[],
+  metadata: ProjectWorkItemTypeInfo,
+): string {
+  if (!tags.length) throw new Error('Configure at least one attention tag before querying.')
+  return [
+    'SELECT [System.Id]',
+    'FROM WorkItems',
+    `WHERE [System.TeamProject] = ${quoteWiql(projectName)}`,
+    `  AND [System.AreaPath] UNDER ${quoteWiql(areaPath)}`,
+    `  AND (${tags.map((tag) => `[System.Tags] CONTAINS ${quoteWiql(tag)}`).join(' OR ')})`,
+    `  AND (${perTypeUnfinished(getTerminalStatesByType(metadata)).join(' OR ')})`,
+    'ORDER BY [System.Id] DESC',
+  ].join('\n')
+}
+
 /**
  * The same queue as `buildTriageWiql`, written to open as an Azure DevOps query in the browser: it selects columns worth
  * reading, sits on one line, and when no type reuses a finished state's name for an unfinished one, it leaves out the

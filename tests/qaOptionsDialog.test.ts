@@ -808,6 +808,61 @@ function setup(unreadable = false) {
   }
 }
 
+test('attention tags round-trip per-team exports, default old imports, and retain disabled configuration', () => {
+  const data = buildTeamDataExport({
+    teamProfile: { id: 'team', orgName: 'org', projectName: 'project', displayName: 'Team', areaPath: 'area', iterationPath: 'iteration', teamName: 'Team', repoName: 'repo' },
+    assignmentOptions: createDefaultAssignmentOptions(), assignmentTagRules: [],
+    qaOptions: { ...createDefaultQaOptions(), attentionTags: ['Customer focus'] },
+  })
+  assert.deepEqual(parseImportedTeamData(serializeTeamDataExport(data)).qaOptions.attentionTags, ['Customer focus'])
+  data.qaOptions.attentionTags = []
+  assert.deepEqual(parseImportedTeamData(serializeTeamDataExport(data)).qaOptions.attentionTags, [])
+  const legacy = JSON.parse(serializeTeamDataExport(data))
+  delete legacy.qaOptions.attentionTags
+  assert.deepEqual(parseImportedTeamData(JSON.stringify(legacy)).qaOptions.attentionTags, ['E2E', 'Release'])
+  legacy.qaOptions.attentionTags = ['bad;tag']
+  assert.throws(() => parseImportedTeamData(JSON.stringify(legacy)), /valid.*tag names/)
+})
+
+for (const closeVia of ['Save', 'Cancel', 'escapeKeyDown', 'backdropClick']) {
+  test(`Attention tags handle ${closeVia} without applying the draft early`, () => {
+    const dialog = setup()
+    ;(dialog.node((node) => node.type === 'Tabs').props.onChange as Function)(null, 7)
+    dialog.render()
+    dialog.change('Add attention tag', 'Customer focus')
+    ;(dialog.node((node) => node.type === 'Button' && node.props.children === 'Add').props.onClick as Function)()
+    dialog.render()
+    assert.deepEqual(dialog.calls, [])
+    assert.ok(dialog.node((node) => node.type === 'Chip' && node.props.label === 'Customer focus'))
+    if (closeVia === 'Save' || closeVia === 'Cancel') {
+      ;(dialog.node((node) => node.type === 'Button' && node.props.children === closeVia).props.onClick as Function)()
+    } else {
+      ;(dialog.node((node) => node.type === 'Dialog').props.onClose as Function)(null, closeVia)
+    }
+    assert.deepEqual(parseStoredQaOptions(dialog.storage.get(dialog.qaStorageKey) ?? null).attentionTags,
+      closeVia === 'Save' ? ['E2E', 'Release', 'Customer focus'] : ['E2E', 'Release'])
+  })
+}
+
+test('attention tag entry reports duplicate/invalid names and prevents silently dropping a pending tag on Save', () => {
+  const dialog = setup()
+  ;(dialog.node((node) => node.type === 'Tabs').props.onChange as Function)(null, 7)
+  dialog.render()
+  dialog.change('Add attention tag', 'release')
+  ;(dialog.node((node) => node.type === 'Button' && node.props.children === 'Add').props.onClick as Function)()
+  dialog.render()
+  assert.equal(dialog.node((node) => node.props.label === 'Add attention tag').props.helperText, 'This tag is already configured.')
+  dialog.change('Add attention tag', 'bad;tag')
+  ;(dialog.node((node) => node.type === 'Button' && node.props.children === 'Add').props.onClick as Function)()
+  dialog.render()
+  assert.equal(dialog.node((node) => node.props.label === 'Add attention tag').props.error, true)
+  dialog.change('Add attention tag', 'Customer')
+  ;(dialog.node((node) => node.type === 'Button' && node.props.children === 'Save').props.onClick as Function)()
+  dialog.render()
+  assert.deepEqual(dialog.calls, [])
+  assert.match(String(dialog.node((node) => node.props.label === 'Add attention tag').props.helperText), /pending tag/)
+})
+
 for (const closeVia of ['Save', 'Cancel', 'escapeKeyDown', 'backdropClick']) {
   test(`Freshness handles ${closeVia} without applying changes before Save`, () => {
     const dialog = setup()

@@ -252,6 +252,33 @@ than implying certainty.
 
 ### Quality assurance view
 
+**Attention tags** highlight open work worth watching without treating it as a confirmed blocker.
+Each team starts with **E2E** and **Release**; configure the list in **QA options > Attention tags**.
+Names match exactly, ignoring case: Release does not match PreRelease. Save applies the draft;
+Cancel, Escape, and backdrop dismissal discard it. An empty list turns tracking off and stays empty.
+Settings are saved per team in this browser and included in team exports, not synced live.
+Older settings and exports without this field receive the defaults. Saving configuration does
+not change tags on work items.
+
+The overview above Testers and Flow shows unique open matches and how many are absent from the
+current filtered QA board. Tag totals can overlap. **Attention**, beside Testers and Flow, lists
+all matching open work in the team's configured area and descendants, across **all iterations
+and types**, independently of QA lookback, sprint, type, and hidden-tag filters. It includes old,
+unscheduled, and not-yet-in-QA work without inserting it into misleading QA workflow columns.
+Collapse and viewport visibility do not affect coverage. Unavailable QA data makes coverage
+unknown rather than an exact count.
+
+The Attention list uses Backlog-style rows without Value ranking or groups: item type icon,
+ID/title and tags, Severity, Impact, Effort, Age, Sprint, State, Assigned to, and QA board visibility.
+Click a tag or an editable field's value to use the same editors as Backlog; fields unavailable
+for an item type stay read-only. Unassigned items come first.
+Filter by one tag or search without changing the ordinary board filters.
+Use the existing preview and item actions to inspect or edit work. Completed and removed state
+categories, or removal of the last matching tag, take items off the list. A reopened tagged item
+qualifies again. In-app saves recheck the list; external changes appear on refresh.
+Loading and failed checks never display a successful zero. **No open matches is not a
+release-readiness verdict.** The normal QA board remains usable if the attention check fails.
+
 The QA activity page surfaces recently created and changed work items for the QA side of standup,
 using the Development board's cards, lane heads, and Needs attention bar, with:
 
@@ -311,7 +338,7 @@ mirrors the current view.
 it switches to the Testers view, opens only the speaker's lane, and has the same Standup bar,
 shortcuts, and order options. Only testers take a turn, not Needs a tester or Everyone else. Most
 attention first ranks testers by their cards' QA signals, with failed testing weighing most and
-recent changes not at all. Switching to Flow or changing team ends it.
+recent changes not at all. Switching to Flow or Attention, or changing team, ends it.
 
 States can be shared between Back in development and Newly added. For these shared states, a
 recent transition into a QA-ready state takes precedence and routes the item to Back in development.
@@ -851,7 +878,8 @@ current sprint and the team's earliest future sprint as **Current sprint** and *
 Within each sprint,
 PBIs come first by effort descending and creation date ascending; Bugs follow by the Backlog
 value ranking. Rows use the cards' type icons, bold IDs, and numeric effort badges, without
-dates or value scores. Assignment changes only Assigned To:
+dates or value scores. Matching team Attention tags appear as badges on already-eligible rows;
+they do not add candidates, change ordering, or relax assignment rules. Assignment changes only Assigned To:
 state and sprint stay unchanged. After a successful assignment the picker closes, focus returns to
 **Quick assign**, and screen readers announce the assignment; reopen it to assign another item.
 The board updates in place: the card appears in the developer's New cell and leaves the list, and

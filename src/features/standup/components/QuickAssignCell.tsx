@@ -6,6 +6,8 @@ import type { IdentityRef } from '../../../ado/identity'
 import type { QuickAssignController } from '../hooks/useQuickAssign'
 import { EffortBadge, WorkItemTypeIcon } from './WorkItemCardParts'
 import { visuallyHiddenSx } from './developmentCardDisplay'
+import { AttentionTags } from './AttentionTags'
+import { matchingAttentionTags } from '../utils/attentionTags'
 
 const isSameDeveloper = (a: IdentityRef, b: IdentityRef) => a.uniqueName ? a.uniqueName === b.uniqueName : a.displayName === b.displayName
 
@@ -121,6 +123,7 @@ export function QuickAssignCell({ developer, controller }: { developer: Identity
                       {!item.workItemIconUrl ? <Box component="span" sx={visuallyHiddenSx}>{item.workItemType} </Box> : null}
                       <Box component="strong" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>{item.id}</Box>
                       {' '}{item.title}
+                      <AttentionTags tags={matchingAttentionTags(item, controller.attentionTags ?? [])} />
                     </Typography>
                     <Box component="span" sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                       {typeof item.effort === 'number' && Number.isFinite(item.effort)

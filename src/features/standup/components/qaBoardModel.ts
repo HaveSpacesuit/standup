@@ -18,6 +18,7 @@ import type { StandupOrderMode } from './standupOrder'
 
 export type QaColumnId = 'new' | 'coming' | 'needs-testing' | 'needs-development' | 'done' | 'history-unavailable'
 export type QaView = 'flow' | 'testers'
+export type QaPageView = QaView | 'attention'
 export type QaFacet = 'failed' | 'bounced' | 'unassigned' | 'waiting' | 'untriaged' | 'late' | 'changed'
 
 export type ItemHistory = {
@@ -201,6 +202,11 @@ export function getSignalSet(
 
 export function getColumnItems(buckets: QualityAssuranceBucket[], id: QaColumnId): WorkItemSummary[] {
   return buckets.find((bucket) => bucket.id === id)?.items ?? []
+}
+
+export function getQaComingItems(buckets: QualityAssuranceBucket[], boardItems: WorkItemSummary[], currentIterationName: string | null): WorkItemSummary[] {
+  const ids = new Set(buckets.flatMap((bucket) => bucket.items.map((item) => item.id)))
+  return boardItems.filter((item) => !ids.has(item.id) && item.sprintName === currentIterationName && normalizeState(item.state) === 'in code review')
 }
 
 export type QaColumnState = {

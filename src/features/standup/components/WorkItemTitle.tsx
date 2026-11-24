@@ -5,6 +5,7 @@ import { Icon } from '@stratakit/mui'
 import svgWindowPopout from '@stratakit/icons/window-popout.svg'
 import { AppTooltip as Tooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
+import { EditableFieldButton } from './WorkItemActions'
 
 type WorkItemTitleItem = { id: number; title: string; workItemUrl: string; tags?: string[] }
 
@@ -34,7 +35,8 @@ const tagListSx: SxProps<Theme> = {
 
 const mutedSx: SxProps<Theme> = { color: TERTIARY_TEXT_COLOR }
 
-function WorkItemTags({ tags, compact }: { tags: string[] | undefined; compact: boolean }) {
+function WorkItemTags({ item, compact, editable }: { item: WorkItemTitleItem; compact: boolean; editable: boolean }) {
+  const { tags } = item
   if (!tags || tags.length === 0) {
     return null
   }
@@ -53,7 +55,13 @@ function WorkItemTags({ tags, compact }: { tags: string[] | undefined; compact: 
             {index > 0 && ' '}
             <li>
               {/* MUI shows a badge whose content is a number above max as "99+", and that includes a tag like 2026. */}
-              <Badge variant="inline" type="outlined" size="small" max={Infinity} badgeContent={tag} />
+              {editable ? (
+                <EditableFieldButton item={item} field="tags">
+                  <Badge variant="inline" type="outlined" size="small" max={Infinity} badgeContent={tag}
+                    style={{ minWidth: 0, maxWidth: '100%', height: 'auto' }}
+                    slotProps={{ badge: { style: { minWidth: 0, maxWidth: '100%', height: 'auto', whiteSpace: 'normal', overflowWrap: 'anywhere', textAlign: 'start' } } }} />
+                </EditableFieldButton>
+              ) : <Badge variant="inline" type="outlined" size="small" max={Infinity} badgeContent={tag} />}
             </li>
           </Fragment>
         ))}
@@ -79,7 +87,13 @@ function WorkItemTags({ tags, compact }: { tags: string[] | undefined; compact: 
  * The id, then the title linking to the work item, then the tags and `tagsAction`, such as an EditTagsButton. Render
  * inside a cell styled with workItemTitleCellSx.
  */
-export function WorkItemTitle({ item, compact = false, tagsAction }: { item: WorkItemTitleItem; compact?: boolean; tagsAction?: ReactNode }) {
+export function WorkItemTitle({ item, compact = false, tagsAction, icon, editableTags = false }: {
+  item: WorkItemTitleItem
+  compact?: boolean
+  tagsAction?: ReactNode
+  icon?: ReactNode
+  editableTags?: boolean
+}) {
   const link = (
     <Link href={item.workItemUrl} target="_blank" rel="noreferrer noopener">
       <span className="work-item-title">{item.title}</span>
@@ -92,9 +106,10 @@ export function WorkItemTitle({ item, compact = false, tagsAction }: { item: Wor
 
   return (
     <Box sx={compact ? compactTitleSx : undefined}>
+      {icon}
       <span className="work-item-id">{item.id}</span>{' '}
       {compact ? <Tooltip title={item.title} describeChild>{link}</Tooltip> : link}
-      <WorkItemTags tags={item.tags} compact={compact} />
+      <WorkItemTags item={item} compact={compact} editable={editableTags} />
       {tagsAction ? <>{' '}{tagsAction}</> : null}
     </Box>
   )

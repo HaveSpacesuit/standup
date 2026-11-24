@@ -1,4 +1,5 @@
 import type { TeamIterationOption } from '../../../ado/types'
+import { parseAttentionTags } from './attentionTags.ts'
 
 /**
  * A general QA filter rule. General filters are tag-based: any item carrying a tag that
@@ -83,6 +84,8 @@ export function normalizeQaLookbackDays(value: number | undefined | null): numbe
 }
 
 export type QaOptions = {
+  /** Exact tags watched across all open work in the team's area, independent of QA filters. */
+  attentionTags: string[]
   /** Tag-based filters: items with a matching tag are hidden from all columns. */
   generalFilters: QaTagFilterRule[]
   /** Allow-list of work item types to display. Empty = show all types. */
@@ -205,6 +208,7 @@ export function parseStoredQaOptions(value: string | null): QaOptions {
 
 export function parseStoredQaOptionsWithRecovery(value: string | null): { options: QaOptions; unreadable: boolean } {
   const empty: QaOptions = {
+    attentionTags: parseAttentionTags(undefined),
     generalFilters: [],
     includeWorkItemTypes: [],
     testers: [],
@@ -235,6 +239,7 @@ export function parseStoredQaOptionsWithRecovery(value: string | null): { option
 
     return {
       options: {
+        attentionTags: parseAttentionTags(parsed.attentionTags),
         generalFilters,
         includeWorkItemTypes: parseStringArray(parsed.includeWorkItemTypes),
         testers: parseStringArray(parsed.testers),

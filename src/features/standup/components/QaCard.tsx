@@ -1,4 +1,7 @@
 import { useTheme } from '@mui/material'
+import { useContext } from 'react'
+import { QaAttentionTagsContext } from './qaAttentionTagsContext'
+import { isOpenAttentionItem, matchingAttentionTags } from '../utils/attentionTags'
 import type { TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import { getCardChangeDetail, getHighlightState, type CardChangeDetail } from '../hooks/useAdoHistoryHighlights'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
@@ -17,6 +20,7 @@ export function QaCard({ item, column, history, compact, currentIterationName, h
   testers: TeamMember[]
 }) {
   const theme = useTheme()
+  const attention = useContext(QaAttentionTagsContext)
   const meta = COLUMN_META[column]
   const owner = personForColumn(item, column, history, testers) ?? null
   const ownerLabel = column === 'new' ? 'Filed by'
@@ -37,6 +41,7 @@ export function QaCard({ item, column, history, compact, currentIterationName, h
 
   return (
     <DevelopmentCard
+      attentionTags={isOpenAttentionItem(item, attention.statesByType) ? matchingAttentionTags(item, attention.tags) : undefined}
       item={cardItem}
       highlightState={normalizedHighlight}
       changeDetail={changeDetail}

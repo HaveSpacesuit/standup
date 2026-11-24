@@ -40,15 +40,16 @@ const makeItem = (id: number, fields: Partial<WorkItemSummary> = {}): WorkItemSu
 })
 const engine = new AdoQueryEngine('nonfunctional-test-token')
 
-function Harness({ lens = 'people', emptyDeveloper = false, extraSprints = false }: { lens?: 'people' | 'sprint'; emptyDeveloper?: boolean; extraSprints?: boolean }) {
+function Harness({ lens = 'people', emptyDeveloper = false, extraSprints = false, attention = false }: { lens?: 'people' | 'sprint'; emptyDeveloper?: boolean; extraSprints?: boolean; attention?: boolean }) {
   const [scopeKey, setScopeKey] = useState('scope')
-  const [items, setItems] = useState([...(emptyDeveloper ? [] : [makeItem(100, { assignedTo: developer })]), makeItem(1), makeItem(2, { workItemType: 'Bug', workItemIconUrl: 'https://example.test/icons/insect', effort: undefined }),
+  const [items, setItems] = useState([...(emptyDeveloper ? [] : [makeItem(100, { assignedTo: developer })]), makeItem(1, { tags: attention ? ['release', 'E2E'] : [] }), makeItem(2, { workItemType: 'Bug', workItemIconUrl: 'https://example.test/icons/insect', effort: undefined, tags: attention ? ['Released'] : [] }),
     ...(extraSprints ? [
       makeItem(3, { iterationPath: 'Project\\S2', sprintName: 'S2' }),
       makeItem(4, { iterationPath: 'Project\\S3', sprintName: 'S3' }),
     ] : []),
   ])
   const controller = useQuickAssign({
+    attentionTags: attention ? ['E2E', 'Release'] : [],
     engine, team, items, iterations, tagRules: DEFAULT_TAG_RULES, scopeKey,
     onAssigned: (updated: WorkItemSummary) => setItems((current) => current.map((item) => item.id === updated.id ? updated : item)),
     onRefresh: () => setItems((current) => current.filter((item) => item.id !== 1)),
@@ -76,6 +77,17 @@ async function render(t: TestContext, props = {}) {
 const click = (element: Element) => act(async () => (element as HTMLElement).click())
 const button = (host: Element, text: string) => [...host.querySelectorAll('button')].find((item) => item.textContent?.trim() === text)!
 const trigger = (host: Element) => host.querySelector('[aria-label="Quick assign to Developer"]')!
+
+test('attention badges use exact names without adding or reordering eligible candidates', async (t) => {
+  const host = await render(t, { attention: true })
+  await click(trigger(host))
+  const rows = [...host.querySelectorAll('[role="radiogroup"] input')]
+  assert.deepEqual(rows.map((row) => row.getAttribute('value')), ['1', '2'])
+  const badges = rows[0].closest('label')!.querySelector('[aria-label="Attention tags"]')!
+  assert.match(badges.textContent!, /E2E.*Release/)
+  assert.equal(rows[1].closest('label')!.querySelector('[aria-label="Attention tags"]'), null)
+  assert.equal(button(host, 'Assign to Developer').disabled, true)
+})
 
 test('quick assign displays current and next sprint labels beside their group headings', async (t) => {
   const host = await render(t, { extraSprints: true })

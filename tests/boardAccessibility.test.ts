@@ -27,6 +27,7 @@ const { PageToolbar } = await server.ssrLoadModule('/src/features/standup/compon
 const { StandupToolbar } = await server.ssrLoadModule('/src/features/standup/components/StandupToolbar.tsx')
 const { QualityAssuranceToolbar } = await server.ssrLoadModule('/src/features/standup/components/QualityAssuranceToolbar.tsx')
 const { QualityAssurancePage } = await server.ssrLoadModule('/src/features/standup/pages/QualityAssurancePage.tsx')
+const { createDefaultQaOptions } = await server.ssrLoadModule('/src/features/standup/utils/standupOptionDefaults.ts')
 const { TeamToolbarControls } = await server.ssrLoadModule('/src/features/standup/components/TeamToolbarControls.tsx')
 const { KanbanBoardGrid } = await server.ssrLoadModule('/src/features/standup/components/KanbanBoardGrid.tsx')
 const { getBoardLayout } = await server.ssrLoadModule('/src/features/standup/utils/boardLayout.ts')
@@ -225,6 +226,8 @@ test('the QA page opens on Testers, listed first, and its Flow icon differs from
     quickFilterInput: '',
     quickFilterInputRef: { current: null },
     buckets: [],
+    boardItems: [],
+    qaOptions: createDefaultQaOptions(),
     isLoading: false,
     newItemsError: null,
     historyWarning: null,
@@ -232,7 +235,9 @@ test('the QA page opens on Testers, listed first, and its Flow icon differs from
   try {
     const toggles = (dom: JSDOM, label: string) => [...dom.window.document.querySelectorAll(`[aria-label="${label}"] button`)]
     const icon = (button: Element) => button.querySelector('use')?.getAttribute('href')
-    const [testers, flow] = toggles(qa, 'QA board view')
+    const [testers, flow, attention] = toggles(qa, 'QA board view')
+    assert.equal(attention.textContent, 'Attention')
+    assert.equal(attention.getAttribute('aria-pressed'), 'false')
     const [developers, sprint] = toggles(development, 'Assignments board view')
     assert.deepEqual([testers, flow].map((button) => [button.textContent, button.getAttribute('aria-pressed')]), [
       ['Testers', 'true'],

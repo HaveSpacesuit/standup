@@ -19,6 +19,7 @@ import type {
 } from './features/standup/utils/qaOptions'
 import { DEFAULT_ASSIGNMENT_SPRINT_FILTER, parseEffortSuggestions } from './features/standup/utils/assignmentOptions'
 import { DEFAULT_QA_LOOKBACK_DAYS, EMPTY_SPRINT_FILTER, normalizeQaLookbackDays } from './features/standup/utils/qaOptions'
+import { parseAttentionTags } from './features/standup/utils/attentionTags'
 import { createDefaultTriageOptions, parseTriageOptions, type TriageOptions } from './features/standup/utils/triageOptions'
 
 export type TeamDataExport = {
@@ -227,6 +228,7 @@ function parseQaOptions(value: unknown): QaOptions {
   }
 
   return {
+    attentionTags: parseAttentionTags(value.attentionTags),
     generalFilters: parseTagFilterRules(
       value.generalFilters ?? [],
       'Imported QA options generalFilters must be a tag-rule array.',

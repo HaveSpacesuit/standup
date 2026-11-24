@@ -8,6 +8,7 @@ import { getQuickAssignGroups, isQuickAssignable } from '../utils/quickAssign'
 import { toErrorMessage } from './queryErrors'
 
 export type QuickAssignController = {
+  attentionTags?: readonly string[]
   groups: ReturnType<typeof getQuickAssignGroups>
   developer: IdentityRef | null
   busy: boolean
@@ -20,7 +21,7 @@ export type QuickAssignController = {
 }
 
 export function useQuickAssign({
-  engine, team, items, iterations, tagRules, scopeKey, onAssigned, onRefresh,
+  engine, team, items, iterations, tagRules, scopeKey, onAssigned, onRefresh, attentionTags,
 }: {
   engine: AdoQueryEngine | null
   team: TeamProfile
@@ -30,6 +31,7 @@ export function useQuickAssign({
   scopeKey: string
   onAssigned: (item: WorkItemSummary) => void
   onRefresh: () => void
+  attentionTags?: readonly string[]
 }): QuickAssignController {
   const scope = useMemo(() => ({ engine, team, scopeKey, tagRules }), [engine, team, scopeKey, tagRules])
   const activeScope = useRef(scope)
@@ -44,6 +46,7 @@ export function useQuickAssign({
   const groups = useMemo(() => getQuickAssignGroups(items, iterations, tagRules), [items, iterations, tagRules])
   return {
     ...current,
+    attentionTags,
     groups,
     open: (developer) => {
       if (!pending.current) setState({ scope, developer, busy: false, error: null, success: null })

@@ -56,6 +56,11 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
   } = useStandupAppState()
 
   const {
+    qaAttention,
+    qaAttentionPreview,
+    projectWorkItemStatesByType,
+    qaBoardCoverageLoading,
+    qaBoardCoverageError,
     selectedTeamId,
     onTeamChange,
     onRefresh,
@@ -309,6 +314,10 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           rememberLastView,
         }}
         qualityAssurancePageProps={{
+          attention: qaAttention,
+          attentionPreview: qaAttentionPreview,
+          projectWorkItemStatesByType,
+          boardCoverageUnavailable: qaBoardCoverageLoading || qaBoardCoverageError,
           patConfigured,
           teamOptions: teamProfiles,
           selectedTeamId,

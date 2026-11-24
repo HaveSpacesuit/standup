@@ -8,6 +8,7 @@ import { memo } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
 import { WorkItemTags } from './WorkItemTags'
+import { AttentionTags } from './AttentionTags'
 import { RolloverSprintIndicator } from './RolloverSprintIndicator'
 import { DevelopmentCardStep } from './DevelopmentCardStep'
 import { DevelopmentPullRequestRow } from './DevelopmentPullRequestRow'
@@ -34,6 +35,7 @@ import {
 } from './developmentCardDisplay'
 
 type DevelopmentCardProps = {
+  attentionTags?: readonly string[]
   item: WorkItemSummary
   highlightState?: WorkItemCardHighlightState
   changeDetail?: CardChangeDetail
@@ -344,6 +346,7 @@ function DevelopmentCardHoverCard({
  * the details that are not already implied by the card's row, column, or the current sprint.
  */
 export const DevelopmentCard = memo(function DevelopmentCard({
+  attentionTags,
   item,
   highlightState = 'none',
   changeDetail,
@@ -474,6 +477,7 @@ export const DevelopmentCard = memo(function DevelopmentCard({
           </Box>
         ) : null}
         <CardTitle item={item} model={model} owner={owner} ownerLabel={ownerLabel} cancelled={cancelled} lines={compact ? 1 : 2} showTitleTooltip={!hoverCard} />
+        {attentionTags?.length ? <AttentionTags tags={attentionTags} /> : null}
         {compact
           ? <DevelopmentCardCompactLine item={item} model={model} accent={accent} />
           : <CardSections item={item} model={model} accent={accent} caption={caption} showNoSprintBadge={showNoSprintBadge} />}

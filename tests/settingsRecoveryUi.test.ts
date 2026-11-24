@@ -32,6 +32,7 @@ function render(teamProfilesUnreadable = false, qaOptionsUnreadable = false, act
     quickFilterInput: '',
     quickFilterInputRef: { current: null },
     buckets: [],
+    boardItems: [],
     isLoading: false,
     newItemsError: null,
     historyWarning: null,
