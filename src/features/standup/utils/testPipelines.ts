@@ -161,3 +161,47 @@ export function loadTestPipelines(): TestPipeline[] {
 export function saveTestPipelines(pipelines: TestPipeline[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(pipelines))
 }
+
+export type TestSettings = {
+  pipelines: TestPipeline[]
+  lookbackDays: number
+  passRateFilter: TestPassRateFilter
+  healthOptions: TestHealthOptions
+}
+
+export function saveTestSettings(next: TestSettings, previous: TestSettings): void {
+  testLookbackStart(next.lookbackDays)
+  validateTestPassRateFilter(next.passRateFilter)
+  validateTestHealthOptions(next.healthOptions)
+  const entries = [
+    { key: STORAGE_KEY, value: JSON.stringify(next.pipelines), previous: JSON.stringify(previous.pipelines) },
+    { key: LOOKBACK_STORAGE_KEY, value: String(next.lookbackDays), previous: String(previous.lookbackDays) },
+    { key: PASS_RATE_FILTER_STORAGE_KEY, value: JSON.stringify(next.passRateFilter), previous: JSON.stringify(previous.passRateFilter) },
+    { key: HEALTH_STORAGE_KEY, value: JSON.stringify(next.healthOptions), previous: JSON.stringify(previous.healthOptions) },
+  ].filter((entry) => entry.value !== entry.previous)
+  const originals = entries.map(({ key }) => ({ key, value: localStorage.getItem(key) }))
+  let written = 0
+  try {
+    for (const { key, value } of entries) {
+      localStorage.setItem(key, value)
+      written += 1
+    }
+  } catch (cause) {
+    const rollbackErrors: unknown[] = []
+    for (const { key, value } of originals.slice(0, written).reverse()) {
+      try {
+        if (value === null) localStorage.removeItem(key)
+        else localStorage.setItem(key, value)
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError)
+      }
+    }
+    if (rollbackErrors.length) {
+      throw new AggregateError(
+        [cause, ...rollbackErrors],
+        'Tests options could not be saved, and restoring previous browser settings also failed. Check browser storage before retrying.',
+      )
+    }
+    throw cause
+  }
+}

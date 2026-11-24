@@ -1,13 +1,14 @@
 import { useCallback } from 'react'
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { TeamProfile } from '../../../appSettings'
-import { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport } from '../../../teamDataTransfer'
+import { buildTeamDataExport, parseImportedTeamData, serializeTeamDataExport, type TeamDataExport } from '../../../teamDataTransfer'
 import type { AssignmentOptions } from '../utils/assignmentOptions'
 import { createDefaultBacklogOptions, type BacklogOptions } from '../utils/backlogOptions'
 import type { QaOptions } from '../utils/qaOptions'
 import { createDefaultAssignmentOptions, createDefaultQaOptions } from '../utils/standupOptionDefaults'
 import { loadStoredTagRulesForTeam } from './useBoardPreferences'
 import { createDefaultTriageOptions, type TriageOptions, type TriageSettings } from '../utils/triageOptions'
+import { validateTeamProfile } from '../utils/teamProfileValidation'
 
 type UseTeamDataTransferActionsArgs = {
   teamProfiles: TeamProfile[]
@@ -26,8 +27,8 @@ type UseTeamDataTransferActionsArgs = {
 }
 
 type UseTeamDataTransferActionsResult = {
-  handleExportTeamData: (teamId: string) => void
-  handleImportTeamData: (jsonText: string) => void
+  handleExportTeamData: (teamId: string, draftProfile?: TeamProfile, stagedImport?: TeamDataExport) => void
+  handleImportTeamData: (jsonText: string, finalDraftProfiles?: TeamProfile[]) => void
 }
 
 function toDownloadFileName(displayName: string): string {
@@ -49,22 +50,27 @@ export function useTeamDataTransferActions({
   setTagRulesForTeam,
   onTeamChange,
 }: UseTeamDataTransferActionsArgs): UseTeamDataTransferActionsResult {
-  const handleExportTeamData = useCallback((teamId: string) => {
-    const teamProfile = teamProfiles.find((team) => team.id === teamId)
+  const handleExportTeamData = useCallback((teamId: string, draftProfile?: TeamProfile, stagedImport?: TeamDataExport) => {
+    const teamProfile = draftProfile ?? teamProfiles.find((team) => team.id === teamId)
     if (!teamProfile) {
       throw new Error('Select a team before exporting team data.')
     }
-    if (triageSettingsByTeam[teamId]?.error) {
+    const validationError = validateTeamProfile(teamProfile)
+    if (validationError) throw new Error(validationError.message)
+    if (teamProfile.id !== teamId) throw new Error('The export profile must match the selected team.')
+    const importedData = stagedImport ? parseImportedTeamData(serializeTeamDataExport(stagedImport)) : undefined
+    if (importedData && importedData.teamProfile.id !== teamId) throw new Error('Imported data must match the selected team.')
+    if (!importedData && triageSettingsByTeam[teamId]?.error) {
       throw new Error('Resolve the saved Triage options error before exporting this team.')
     }
 
     const exportPayload = buildTeamDataExport({
       teamProfile,
-      assignmentOptions: assignmentOptionsByTeam[teamId] ?? createDefaultAssignmentOptions(),
-      assignmentTagRules: tagRulesByTeam[teamId] ?? loadStoredTagRulesForTeam(teamId),
-      qaOptions: qaOptionsByTeam[teamId] ?? createDefaultQaOptions(),
-      backlogOptions: backlogOptionsByTeam[teamId] ?? createDefaultBacklogOptions(),
-      triageOptions: triageSettingsByTeam[teamId]?.options ?? createDefaultTriageOptions(),
+      assignmentOptions: importedData?.assignmentOptions ?? assignmentOptionsByTeam[teamId] ?? createDefaultAssignmentOptions(),
+      assignmentTagRules: importedData?.assignmentTagRules ?? tagRulesByTeam[teamId] ?? loadStoredTagRulesForTeam(teamId),
+      qaOptions: importedData?.qaOptions ?? qaOptionsByTeam[teamId] ?? createDefaultQaOptions(),
+      backlogOptions: importedData?.backlogOptions ?? backlogOptionsByTeam[teamId] ?? createDefaultBacklogOptions(),
+      triageOptions: importedData?.triageOptions ?? triageSettingsByTeam[teamId]?.options ?? createDefaultTriageOptions(),
     })
     const exportText = serializeTeamDataExport(exportPayload)
     const blob = new Blob([exportText], { type: 'application/json' })
@@ -72,16 +78,27 @@ export function useTeamDataTransferActions({
     const link = document.createElement('a')
     link.href = downloadUrl
     link.download = toDownloadFileName(teamProfile.displayName)
-    link.click()
-    URL.revokeObjectURL(downloadUrl)
+    try {
+      link.click()
+    } finally {
+      URL.revokeObjectURL(downloadUrl)
+    }
   }, [assignmentOptionsByTeam, backlogOptionsByTeam, qaOptionsByTeam, tagRulesByTeam, teamProfiles, triageSettingsByTeam])
 
-  const handleImportTeamData = useCallback((jsonText: string) => {
+  const handleImportTeamData = useCallback((jsonText: string, finalDraftProfiles?: TeamProfile[]) => {
     const importedData = parseImportedTeamData(jsonText)
     const importedTeamId = importedData.teamProfile.id
-    const nextTeamProfiles = teamProfiles.some((team) => team.id === importedTeamId)
+    const nextTeamProfiles = finalDraftProfiles ?? (teamProfiles.some((team) => team.id === importedTeamId)
       ? teamProfiles.map((team) => (team.id === importedTeamId ? importedData.teamProfile : team))
-      : [...teamProfiles, importedData.teamProfile]
+      : [...teamProfiles, importedData.teamProfile])
+    const ids = new Set<string>()
+    for (const team of nextTeamProfiles) {
+      const validationError = validateTeamProfile(team)
+      if (validationError) throw new Error(validationError.message)
+      if (!team.id.trim() || ids.has(team.id)) throw new Error('Team IDs must be non-empty and unique.')
+      ids.add(team.id)
+    }
+    if (!ids.has(importedTeamId)) throw new Error('The imported team must be included in the saved team profiles.')
 
     replaceTeamProfiles(nextTeamProfiles)
     setAssignmentOptionsForTeam(importedTeamId, importedData.assignmentOptions)

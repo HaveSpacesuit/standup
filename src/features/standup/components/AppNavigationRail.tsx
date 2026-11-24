@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import {
   Alert,
   Box,
@@ -38,10 +38,12 @@ import svgHelp from '@stratakit/icons/help.svg'
 import svgInfo from '@stratakit/icons/info.svg'
 import { PAT_SCOPES, QUICK_ASSIGN_PAT_REQUIREMENT } from '../../../adoAuth'
 import { getTeamProfileLabel, type TeamProfile } from '../../../appSettings'
+import { parseImportedTeamData, type TeamDataExport } from '../../../teamDataTransfer'
 import { validateTeamProfile, type TeamProfileFormField } from '../utils/teamProfileValidation'
 import type { AppView } from '../hooks/useAppNavigation'
+import type { GlobalSettingsDraft } from '../hooks/useStandupAppState'
 import { AutoRefreshSettings } from './AutoRefreshSettings'
-import { DEFAULT_AUTO_REFRESH, type AutoRefreshOptions } from '../utils/autoRefresh'
+import { DEFAULT_AUTO_REFRESH, isValidRefreshMinutes, type AutoRefreshOptions } from '../utils/autoRefresh'
 
 function FieldHint({ tip }: { tip: string }) {
   return (
@@ -61,21 +63,15 @@ function FieldHint({ tip }: { tip: string }) {
 type AppNavigationRailProps = {
   activeView: AppView
   colorScheme: 'light' | 'dark'
-  onToggleColorScheme: () => void
   rememberLastView: boolean
-  onRememberLastViewChange: (next: boolean) => void
   autoRefresh?: AutoRefreshOptions
   autoRefreshError?: string | null
-  onAutoRefreshChange: (next: AutoRefreshOptions) => void
   patConfigured: boolean
   patValue: string
-  onPatSave: (pat: string) => void
-  onPatClear: () => void
-  onExportTeamData: (teamId: string) => void
-  onImportTeamData: (jsonText: string) => void
+  onExportTeamData: (teamId: string, teamProfile?: TeamProfile, importedData?: TeamDataExport) => void
   selectedTeamId: string
   teamProfiles: TeamProfile[]
-  onTeamProfilesChange: (teamProfiles: TeamProfile[]) => void
+  onSaveSettings: (draft: GlobalSettingsDraft) => void
   patCreationUrl: string
 }
 
@@ -117,21 +113,15 @@ function resolveEditableTeamProfile(teamProfiles: TeamProfile[], selectedTeamId:
 export function AppNavigationRail({
   activeView,
   colorScheme,
-  onToggleColorScheme,
   rememberLastView,
-  onRememberLastViewChange,
   autoRefresh = DEFAULT_AUTO_REFRESH,
   autoRefreshError = null,
-  onAutoRefreshChange,
   patConfigured,
   patValue,
-  onPatSave,
-  onPatClear,
   onExportTeamData,
-  onImportTeamData,
   selectedTeamId,
   teamProfiles,
-  onTeamProfilesChange,
+  onSaveSettings,
   patCreationUrl,
 }: AppNavigationRailProps) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
@@ -145,16 +135,34 @@ export function AppNavigationRail({
   const [draftPatValue, setDraftPatValue] = useState(patValue)
   const [patError, setPatError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SettingsTab>('azure-devops')
+  const [draftTeamProfiles, setDraftTeamProfiles] = useState(teamProfiles)
+  const [draftColorScheme, setDraftColorScheme] = useState(colorScheme)
+  const [draftRememberLastView, setDraftRememberLastView] = useState(rememberLastView)
+  const [draftAutoRefresh, setDraftAutoRefresh] = useState(autoRefresh)
+  const [draftRefreshMinutes, setDraftRefreshMinutes] = useState(String(autoRefresh.minutes))
+  const [isTeamDirty, setIsTeamDirty] = useState(false)
+  const [isPatCleared, setIsPatCleared] = useState(false)
+  const [draftImports, setDraftImports] = useState<Record<string, TeamDataExport>>({})
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
+  const settingsSessionRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const patInputRef = useRef<HTMLInputElement | null>(null)
   const teamFieldRefs = useRef<Partial<Record<TeamProfileFormField, HTMLInputElement | null>>>({})
 
-  useEffect(() => {
-    if (!isSettingsDialogOpen) {
-      return
-    }
-
+  const handleOpenSettings = () => {
+    settingsSessionRef.current += 1
     const activeTeamProfile = resolveEditableTeamProfile(teamProfiles, selectedTeamId)
+    setDraftTeamProfiles(teamProfiles)
+    setDraftColorScheme(colorScheme)
+    setDraftRememberLastView(rememberLastView)
+    setDraftAutoRefresh(autoRefresh)
+    setDraftRefreshMinutes(String(autoRefresh.minutes))
+    setDraftImports({})
+    setIsTeamDirty(false)
+    setIsPatCleared(false)
+    setSaveError(null)
+    setIsImporting(false)
     setEditingTeamId(activeTeamProfile.id)
     setDraftTeamProfile(activeTeamProfile)
     setIsCreatingTeam(teamProfiles.length === 0)
@@ -162,10 +170,17 @@ export function AppNavigationRail({
     setTeamValidationField(null)
     setDraftPatValue(patValue)
     setPatError(null)
-  }, [isSettingsDialogOpen, patValue, selectedTeamId, teamProfiles])
+    setActiveTab('azure-devops')
+    setIsSettingsDialogOpen(true)
+  }
+
+  const handleCloseSettings = () => {
+    settingsSessionRef.current += 1
+    setIsSettingsDialogOpen(false)
+  }
 
   const handleTeamSelection = (teamId: string) => {
-    const nextTeamProfile = teamProfiles.find((team) => team.id === teamId)
+    const nextTeamProfile = draftTeamProfiles.find((team) => team.id === teamId)
     if (!nextTeamProfile) {
       return
     }
@@ -173,11 +188,13 @@ export function AppNavigationRail({
     setEditingTeamId(teamId)
     setDraftTeamProfile(nextTeamProfile)
     setIsCreatingTeam(false)
+    setIsTeamDirty(false)
     setTeamError(null)
     setTeamValidationField(null)
   }
 
   const handleDraftFieldChange = (field: TeamProfileFormField, value: string) => {
+    setIsTeamDirty(true)
     setDraftTeamProfile((current) => ({
       ...current,
       [field]: value,
@@ -197,6 +214,7 @@ export function AppNavigationRail({
     setEditingTeamId(nextDraft.id)
     setDraftTeamProfile(nextDraft)
     setIsCreatingTeam(true)
+    setIsTeamDirty(true)
     setTeamError(null)
     setTeamValidationField(null)
   }
@@ -209,19 +227,18 @@ export function AppNavigationRail({
       return
     }
 
-    onPatSave(trimmedPat)
     setDraftPatValue(trimmedPat)
+    setIsPatCleared(false)
     setPatError(null)
   }
 
   const handleClearPat = () => {
-    setIsSettingsDialogOpen(false)
-    onPatClear()
     setDraftPatValue('')
+    setIsPatCleared(true)
     setPatError(null)
   }
 
-  const handleSaveTeam = () => {
+  const prepareTeamProfiles = (): TeamProfile[] | null => {
     const trimmedTeamProfile: TeamProfile = {
       ...draftTeamProfile,
       displayName: draftTeamProfile.displayName.trim(),
@@ -238,39 +255,56 @@ export function AppNavigationRail({
       setTeamError(validationError.message)
       setTeamValidationField(validationError.field)
       teamFieldRefs.current[validationError.field]?.focus()
-      return
+      setActiveTab('teams')
+      return null
     }
 
     const nextTeamProfiles = isCreatingTeam
-      ? [...teamProfiles, trimmedTeamProfile]
-      : teamProfiles.map((team) => (team.id === trimmedTeamProfile.id ? trimmedTeamProfile : team))
+      ? [...draftTeamProfiles, trimmedTeamProfile]
+      : draftTeamProfiles.map((team) => (team.id === trimmedTeamProfile.id ? trimmedTeamProfile : team))
 
-    onTeamProfilesChange(nextTeamProfiles)
+    return nextTeamProfiles
+  }
+
+  const handleSaveTeam = () => {
+    setIsTeamDirty(true)
+    const nextTeamProfiles = prepareTeamProfiles()
+    if (!nextTeamProfiles) return
+    const trimmedTeamProfile = nextTeamProfiles.find((team) => team.id === draftTeamProfile.id)!
+    setDraftTeamProfiles(nextTeamProfiles)
     setEditingTeamId(trimmedTeamProfile.id)
     setDraftTeamProfile(trimmedTeamProfile)
     setIsCreatingTeam(false)
+    setIsTeamDirty(false)
     setTeamError(null)
     setTeamValidationField(null)
   }
 
   const handleRemoveTeam = () => {
     if (isCreatingTeam) {
-      const fallbackTeam = resolveEditableTeamProfile(teamProfiles, selectedTeamId)
+      const fallbackTeam = resolveEditableTeamProfile(draftTeamProfiles, selectedTeamId)
       setEditingTeamId(fallbackTeam.id)
       setDraftTeamProfile(fallbackTeam)
-      setIsCreatingTeam(false)
+      setIsCreatingTeam(draftTeamProfiles.length === 0)
+      setIsTeamDirty(false)
       setTeamError(null)
       setTeamValidationField(null)
       return
     }
 
-    const nextTeamProfiles = teamProfiles.filter((team) => team.id !== draftTeamProfile.id)
-    onTeamProfilesChange(nextTeamProfiles)
+    const nextTeamProfiles = draftTeamProfiles.filter((team) => team.id !== draftTeamProfile.id)
+    setDraftTeamProfiles(nextTeamProfiles)
+    setDraftImports((current) => {
+      const next = { ...current }
+      delete next[draftTeamProfile.id]
+      return next
+    })
 
     const fallbackTeam = resolveEditableTeamProfile(nextTeamProfiles, selectedTeamId)
     setEditingTeamId(fallbackTeam.id)
     setDraftTeamProfile(fallbackTeam)
-    setIsCreatingTeam(false)
+    setIsCreatingTeam(nextTeamProfiles.length === 0)
+    setIsTeamDirty(false)
     setTeamError(null)
     setTeamValidationField(null)
   }
@@ -279,7 +313,10 @@ export function AppNavigationRail({
     try {
       setTeamError(null)
       setTeamValidationField(null)
-      onExportTeamData(editingTeamId)
+      const nextTeamProfiles = isTeamDirty ? prepareTeamProfiles() : draftTeamProfiles
+      if (!nextTeamProfiles) return
+      const profile = nextTeamProfiles.find((team) => team.id === editingTeamId)
+      onExportTeamData(editingTeamId, profile, draftImports[editingTeamId])
     } catch (error) {
       setTeamError(error instanceof Error ? error.message : 'Unable to export team data.')
     }
@@ -299,38 +336,110 @@ export function AppNavigationRail({
       return
     }
 
+    const session = settingsSessionRef.current
+    setIsImporting(true)
     try {
       const jsonText = await file.text()
-      onImportTeamData(jsonText)
+      if (session !== settingsSessionRef.current) return
+      const importedData = parseImportedTeamData(jsonText)
+      const importedProfile = importedData.teamProfile
+      setDraftImports((current) => {
+        const next = { ...current }
+        delete next[importedProfile.id]
+        return { ...next, [importedProfile.id]: importedData }
+      })
+      setDraftTeamProfiles((current) => current.some((team) => team.id === importedProfile.id)
+        ? current.map((team) => team.id === importedProfile.id ? importedProfile : team)
+        : [...current, importedProfile])
+      setEditingTeamId(importedProfile.id)
+      setDraftTeamProfile(importedProfile)
+      setIsCreatingTeam(false)
+      setIsTeamDirty(false)
       setTeamError(null)
       setTeamValidationField(null)
       setActiveTab('teams')
     } catch (error) {
+      if (session !== settingsSessionRef.current) return
       setTeamError(error instanceof Error ? error.message : 'Unable to import team data.')
       setTeamValidationField(null)
+    } finally {
+      if (session === settingsSessionRef.current) setIsImporting(false)
     }
   }
 
   const handleMoveTeam = (teamId: string, direction: 'up' | 'down') => {
-    const currentIndex = teamProfiles.findIndex((team) => team.id === teamId)
+    const currentIndex = draftTeamProfiles.findIndex((team) => team.id === teamId)
     if (currentIndex < 0) {
       return
     }
 
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    if (targetIndex < 0 || targetIndex >= teamProfiles.length) {
+    if (targetIndex < 0 || targetIndex >= draftTeamProfiles.length) {
       return
     }
 
-    const nextTeamProfiles = [...teamProfiles]
+    const nextTeamProfiles = [...draftTeamProfiles]
     const [movedTeam] = nextTeamProfiles.splice(currentIndex, 1)
     nextTeamProfiles.splice(targetIndex, 0, movedTeam)
-    onTeamProfilesChange(nextTeamProfiles)
+    setDraftTeamProfiles(nextTeamProfiles)
     setEditingTeamId(teamId)
     setDraftTeamProfile(movedTeam)
     setIsCreatingTeam(false)
+    setIsTeamDirty(false)
     setTeamError(null)
     setTeamValidationField(null)
+  }
+
+  const handleSaveSettings = () => {
+    setSaveError(null)
+    const trimmedPat = draftPatValue.trim()
+    if (!isPatCleared && draftPatValue !== patValue && !trimmedPat) {
+      setPatError('Azure DevOps PAT is required.')
+      setActiveTab('azure-devops')
+      patInputRef.current?.focus()
+      return
+    }
+    if (patError) {
+      setActiveTab('azure-devops')
+      return
+    }
+    if (draftAutoRefresh.enabled && (!draftRefreshMinutes.trim() || !isValidRefreshMinutes(Number(draftRefreshMinutes)))) {
+      setSaveError('Enter a whole number of minutes greater than 0.')
+      setActiveTab('display')
+      return
+    }
+    const nextTeamProfiles = isTeamDirty ? prepareTeamProfiles() : draftTeamProfiles
+    if (!nextTeamProfiles) return
+    if (teamError && !isTeamDirty) {
+      setActiveTab('teams')
+      return
+    }
+    const nextAutoRefresh = { ...draftAutoRefresh, minutes: draftAutoRefresh.enabled ? Number(draftRefreshMinutes) : draftAutoRefresh.minutes }
+    try {
+      const teamIds = new Set<string>()
+      for (const team of nextTeamProfiles) {
+        const validationError = validateTeamProfile(team)
+        if (validationError) throw new Error(validationError.message)
+        if (!team.id.trim() || teamIds.has(team.id)) throw new Error('Team IDs must be non-empty and unique.')
+        teamIds.add(team.id)
+      }
+      const pendingImports = Object.values(draftImports).flatMap((importedData) => {
+        const teamProfile = nextTeamProfiles.find((team) => team.id === importedData.teamProfile.id)
+        return teamProfile ? [parseImportedTeamData(JSON.stringify({ ...importedData, teamProfile }))] : []
+      })
+      onSaveSettings({
+        teamProfiles: nextTeamProfiles,
+        imports: pendingImports,
+        selectedTeamId,
+        rememberLastView: draftRememberLastView,
+        autoRefresh: nextAutoRefresh,
+        colorScheme: draftColorScheme !== colorScheme ? draftColorScheme : undefined,
+        pat: isPatCleared && patConfigured ? null : trimmedPat !== patValue && trimmedPat ? trimmedPat : undefined,
+      })
+      handleCloseSettings()
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Unable to save settings.')
+    }
   }
 
   return (
@@ -410,10 +519,7 @@ export function AppNavigationRail({
             <NavigationRail.Button
               icon={`${svgConfiguration}#icon-large`}
               label="Settings"
-              onClick={() => {
-                setActiveTab('azure-devops')
-                setIsSettingsDialogOpen(true)
-              }}
+              onClick={handleOpenSettings}
               style={{inlineSize: 'unset'}}
             />
           </NavigationRail.ListItem>
@@ -502,7 +608,7 @@ export function AppNavigationRail({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={isSettingsDialogOpen} onClose={() => setIsSettingsDialogOpen(false)} fullWidth maxWidth="md">
+      <Dialog open={isSettingsDialogOpen} onClose={handleCloseSettings} fullWidth maxWidth="md">
       <DialogTitle>Settings</DialogTitle>
       <DialogContent sx={{
         display: 'flex',
@@ -558,7 +664,7 @@ export function AppNavigationRail({
                     Azure DevOps access
                   </Typography>
                   <Typography variant="body-sm" color="text.secondary">
-                    Paste your own Azure DevOps PAT. It will be used for the current browser session only.
+                    Paste your own Azure DevOps PAT. It will be used for the current browser session only. Changes apply when you Save Settings.
                   </Typography>
                   <Typography variant="body-sm" color="text.secondary">
                     Need one?{' '}
@@ -578,6 +684,7 @@ export function AppNavigationRail({
                   value={draftPatValue}
                   onChange={(event) => {
                     setDraftPatValue(event.target.value)
+                    setIsPatCleared(false)
                     if (event.target.value.trim()) {
                       setPatError(null)
                     }
@@ -603,7 +710,7 @@ export function AppNavigationRail({
                 </Box>
 
                 <Stack direction="row" spacing={1}>
-                  <Button size="small" variant="contained" onClick={handleSavePat}>
+                  <Button size="small" variant="outlined" onClick={handleSavePat}>
                     Use PAT
                   </Button>
                   <Button size="small" color="error" onClick={handleClearPat}>
@@ -630,7 +737,7 @@ export function AppNavigationRail({
                     Teams
                   </Typography>
                   <Typography variant="body-sm" color="text.secondary">
-                    Team settings are stored in this browser&apos;s local storage. Import or export a team to share its configuration and per-team page options.
+                    Team settings are stored in this browser&apos;s local storage. Import or export a team to share its configuration and per-team page options. Save team stages an edit; Save Settings applies all changes. Cancel discards them.
                   </Typography>
                 </Box>
 
@@ -651,13 +758,13 @@ export function AppNavigationRail({
                       <Button variant="outlined" onClick={handleAddTeam}>
                         Add team
                       </Button>
-                      <Button variant="outlined" onClick={handleImportButtonClick}>
+                      <Button variant="outlined" onClick={handleImportButtonClick} disabled={isImporting}>
                         Import team data
                       </Button>
                     </Stack>
 
                     <List sx={{ border: 1, borderColor: 'divider', borderRadius: 1, py: 0, overflow: 'hidden', width: '100%' }}>
-                      {teamProfiles.map((team) => (
+                      {draftTeamProfiles.map((team) => (
                         <ListItemButton
                           key={team.id}
                           selected={!isCreatingTeam && team.id === editingTeamId}
@@ -675,7 +782,7 @@ export function AppNavigationRail({
                                 size="small"
                                 variant="text"
                                 aria-label={`Move ${getTeamProfileLabel(team)} up`}
-                                disabled={isCreatingTeam || teamProfiles[0]?.id === team.id}
+                                disabled={isCreatingTeam || draftTeamProfiles[0]?.id === team.id}
                                 onClick={(event) => {
                                   event.stopPropagation()
                                   handleMoveTeam(team.id, 'up')
@@ -688,7 +795,7 @@ export function AppNavigationRail({
                                 size="small"
                                 variant="text"
                                 aria-label={`Move ${getTeamProfileLabel(team)} down`}
-                                disabled={isCreatingTeam || teamProfiles[teamProfiles.length - 1]?.id === team.id}
+                                disabled={isCreatingTeam || draftTeamProfiles[draftTeamProfiles.length - 1]?.id === team.id}
                                 onClick={(event) => {
                                   event.stopPropagation()
                                   handleMoveTeam(team.id, 'down')
@@ -701,7 +808,7 @@ export function AppNavigationRail({
                           </Box>
                         </ListItemButton>
                       ))}
-                      {teamProfiles.length === 0 ? (
+                      {draftTeamProfiles.length === 0 ? (
                         <Box sx={{ px: 1.5, py: 1 }}>
                           <Typography variant="body-sm" color="text.secondary">
                             No teams configured yet.
@@ -808,7 +915,7 @@ export function AppNavigationRail({
                       <Button size="small" color="error" onClick={handleRemoveTeam}>
                         {isCreatingTeam ? 'Discard team' : 'Remove team'}
                       </Button>
-                      <Button size="small" variant="contained" onClick={handleSaveTeam}>
+                      <Button size="small" variant="outlined" onClick={handleSaveTeam}>
                         Save team
                       </Button>
                     </Stack>
@@ -835,8 +942,8 @@ export function AppNavigationRail({
                   control={(
                     <Switch
                       size="small"
-                      checked={colorScheme === 'dark'}
-                      onChange={onToggleColorScheme}
+                      checked={draftColorScheme === 'dark'}
+                      onChange={(_event, checked) => setDraftColorScheme(checked ? 'dark' : 'light')}
                     />
                   )}
                   label={<Typography variant="body-sm">Dark mode</Typography>}
@@ -848,8 +955,8 @@ export function AppNavigationRail({
                     control={(
                       <Switch
                         size="small"
-                        checked={rememberLastView}
-                        onChange={(_event, checked) => onRememberLastViewChange(checked)}
+                        checked={draftRememberLastView}
+                        onChange={(_event, checked) => setDraftRememberLastView(checked)}
                         slotProps={{ input: { 'aria-describedby': REMEMBER_LAST_VIEW_HELP_ID } }}
                       />
                     )}
@@ -859,14 +966,24 @@ export function AppNavigationRail({
                     When opening the site without a page route, return to your last page. Also reopen each page on its last view, such as Sprint, Flow, Inbox, Map, or Calendar. Explicit page routes take precedence. When off, the site defaults to Development and pages open on Developers, Testers, Table, List, and Rows.
                   </Typography>
                 </Box>
-                <AutoRefreshSettings options={autoRefresh} error={autoRefreshError} onChange={onAutoRefreshChange} />
+                <AutoRefreshSettings
+                  options={draftAutoRefresh}
+                  error={autoRefreshError}
+                  onChange={setDraftAutoRefresh}
+                  minutesValue={draftRefreshMinutes}
+                  onMinutesChange={setDraftRefreshMinutes}
+                />
               </Stack>
             ) : null}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button size="small" onClick={() => setIsSettingsDialogOpen(false)}>
-            Close
+          {saveError && <Alert severity="error" role="alert">{saveError}</Alert>}
+          <Button size="small" onClick={handleCloseSettings}>
+            Cancel
+          </Button>
+          <Button size="small" variant="contained" onClick={handleSaveSettings} disabled={isImporting}>
+            Save
           </Button>
         </DialogActions>
       </Dialog>

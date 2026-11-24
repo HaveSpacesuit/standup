@@ -102,6 +102,34 @@ function pathInput(opened: Element) {
 }
 const newBugsCheckbox = (opened: Element) => opened.querySelector<HTMLInputElement>('input[type="checkbox"]')!
 
+for (const dismiss of ['Cancel', 'Escape', 'backdrop']) {
+  test(`Triage options discard pending edits on ${dismiss} and reset on reopening`, async (t) => {
+    const saved: TriageOptions[] = []
+    const host = await renderPage(t, {
+      tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2,
+      readinessChecks, waitingTags, similarItems,
+    }, (options) => saved.push(options))
+    const opened = await openOptions(host)
+    await typeInto(tagInput(opened), 'Temporary')
+    await click(buttonNamed(tagGroup(opened), 'Add'))
+    await click(newBugsCheckbox(opened))
+    assert.deepEqual(saved, [])
+    if (dismiss === 'Cancel') {
+      await click(buttonNamed(opened, 'Cancel'))
+    } else if (dismiss === 'Escape') {
+      await act(async () => opened.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    } else {
+      await click(document.querySelector<HTMLElement>('.MuiBackdrop-root')!)
+    }
+    assert.equal(dialog(), null)
+    assert.deepEqual(saved, [])
+    const reopened = await openOptions(host)
+    assert.deepEqual(tagChips(reopened), ['Triage'])
+    assert.equal(tagInput(reopened).value, '')
+    assert.equal(newBugsCheckbox(reopened).checked, false)
+  })
+}
+
 test('Triage tags are pills edited with one input and an Add button, like QA tag filters', async (t) => {
   const saved: TriageOptions[] = []
   const host = await renderPage(t, { tags: ['Triage'], includeNewBugs: false, excludedIterationPaths: [], ageFlagDays: 2, readinessChecks, waitingTags, similarItems }, (options) => saved.push(options))

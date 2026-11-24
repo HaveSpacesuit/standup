@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   Alert, Autocomplete, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack, Tab, Tabs, TextField, Typography,
@@ -8,7 +8,7 @@ import { AdoHttpClient } from '../../../ado/httpClient'
 import { listTestPipelineDefinitions, listTestStages, type Definition, type StageOption } from '../../../ado/testPipelinesApi'
 import {
   TEST_SHORT_NAME_MAX_LENGTH, testLookbackStart, testStageLabel, validateTestHealthOptions, validateTestPassRateFilter,
-  type TestHealthOptions, type TestPassRateFilter, type TestPipeline, type TestPipelineKind,
+  type TestHealthOptions, type TestPassRateFilter, type TestPipeline, type TestPipelineKind, type TestSettings,
 } from '../utils/testPipelines'
 import { defaultTestPipelineShortName } from '../utils/testHealth'
 import { testPipelineErrorMessage } from '../utils/testPipelineErrors'
@@ -20,13 +20,10 @@ type Props = {
   defaultOrg: string
   defaultProject: string
   pipelines: TestPipeline[]
-  onChange: (pipelines: TestPipeline[]) => string | null
+  onSave: (settings: TestSettings) => string | null
   lookbackDays: number
-  onLookbackDaysChange: (days: number) => string | null
   passRateFilter: TestPassRateFilter
-  onPassRateFilterChange: (filter: TestPassRateFilter) => string | null
   healthOptions: TestHealthOptions
-  onHealthOptionsChange: (options: TestHealthOptions) => string | null
 }
 
 const blurOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -34,11 +31,17 @@ const blurOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
 }
 
 export function TestsSettingsDialog({
-  open, onClose, pat, defaultOrg, defaultProject, pipelines, onChange, lookbackDays, onLookbackDaysChange,
-  passRateFilter, onPassRateFilterChange,
-  healthOptions, onHealthOptionsChange,
+  open, onClose, pat, defaultOrg, defaultProject, pipelines: savedPipelines, onSave, lookbackDays, passRateFilter, healthOptions,
 }: Props) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [validationAttempt, setValidationAttempt] = useState(0)
+  useEffect(() => {
+    if (validationAttempt > 0) contentRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+  }, [validationAttempt])
+  const [pipelines, setPipelines] = useState(savedPipelines)
+  const [filterEnabled, setFilterEnabled] = useState(passRateFilter.enabled)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState(0)
   const [orgName, setOrgName] = useState(defaultOrg)
   const [projectName, setProjectName] = useState(defaultProject)
@@ -62,76 +65,100 @@ export function TestsSettingsDialog({
   const client = useMemo(() => pat ? new AdoHttpClient(pat) : null, [pat])
 
   useEffect(() => {
-    if (open) setActiveTab(0)
-  }, [open])
-
-  useEffect(() => {
     if (open) {
+      setActiveTab(0)
+      setPipelines(savedPipelines)
+      setFilterEnabled(passRateFilter.enabled)
+      setSaveError(null)
+      setValidationAttempt(0)
+      setOrgName(defaultOrg)
+      setProjectName(defaultProject)
+      setSelectedDefinition(null)
+      setSelectedStage(null)
+      setDefinitionSearch('')
       setStaleInput(String(healthOptions.staleDays))
       setFewerInput(String(healthOptions.fewerPercent))
       setStaleError(null)
       setFewerError(null)
-    }
-  }, [open, healthOptions.staleDays, healthOptions.fewerPercent])
-
-  const saveHealthOption = (field: keyof TestHealthOptions, input: string, setFieldError: (message: string | null) => void) => {
-    const next = { ...healthOptions, [field]: input.trim() ? Number(input) : Number.NaN }
-    if (next[field] === healthOptions[field]) return
-    try {
-      validateTestHealthOptions(next)
-      setFieldError(onHealthOptionsChange(next))
-    } catch (cause) {
-      setFieldError(cause instanceof Error ? cause.message : String(cause))
-    }
-  }
-
-  const saveShortName = (pipeline: TestPipeline, input: string) => {
-    const shortName = input.trim() || undefined
-    if (shortName === pipeline.shortName) return
-    savePipelines(pipelines.map((entry) => entry.id === pipeline.id ? { ...entry, shortName } : entry))
-  }
-
-  useEffect(() => {
-    if (open) {
       setLookbackInput(String(lookbackDays))
       setLookbackError(null)
-    }
-  }, [open, lookbackDays])
-
-  useEffect(() => {
-    if (open) {
       setThresholdInput(String(passRateFilter.threshold))
       setThresholdError(null)
     }
-  }, [open, passRateFilter.threshold])
+    // New drafts use the applied settings each time the dialog opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
-  const savePassRateFilter = (enabled = passRateFilter.enabled) => {
+  const checkHealthOption = (field: keyof TestHealthOptions, input: string, setFieldError: (message: string | null) => void) => {
+    const next = { ...healthOptions, [field]: input.trim() ? Number(input) : Number.NaN }
     try {
-      if (enabled && !thresholdInput.trim()) {
-        throw new Error('Enter a pass rate threshold between 0 and 100 inclusive.')
-      }
-      const next = { enabled, threshold: enabled ? Number(thresholdInput) : passRateFilter.threshold }
-      validateTestPassRateFilter(next)
-      setThresholdError(onPassRateFilterChange(next))
+      validateTestHealthOptions(next)
+      setFieldError(null)
+      return true
     } catch (cause) {
-      setThresholdError(cause instanceof Error ? cause.message : String(cause))
+      setFieldError(cause instanceof Error ? cause.message : String(cause))
+      return false
     }
   }
 
-  const saveLookback = () => {
+  const updateShortName = (pipeline: TestPipeline, input: string) => {
+    const shortName = input || undefined
+    updatePipelinesDraft(pipelines.map((entry) => entry.id === pipeline.id ? { ...entry, shortName } : entry))
+  }
+
+  const checkPassRateFilter = () => {
+    try {
+      if (filterEnabled && !thresholdInput.trim()) {
+        throw new Error('Enter a pass rate threshold between 0 and 100 inclusive.')
+      }
+      const next = { enabled: filterEnabled, threshold: filterEnabled ? Number(thresholdInput) : passRateFilter.threshold }
+      validateTestPassRateFilter(next)
+      setThresholdError(null)
+      return true
+    } catch (cause) {
+      setThresholdError(cause instanceof Error ? cause.message : String(cause))
+      return false
+    }
+  }
+
+  const checkLookback = () => {
     const days = Number(lookbackInput)
     try {
       testLookbackStart(days)
-      setLookbackError(onLookbackDaysChange(days))
+      setLookbackError(null)
+      return true
     } catch (cause) {
       setLookbackError(cause instanceof Error ? cause.message : String(cause))
+      return false
     }
   }
 
-  const savePipelines = (next: TestPipeline[]): boolean => {
-    const failure = onChange(next)
-    setError(failure)
-    return failure === null
+  const updatePipelinesDraft = (next: TestPipeline[]) => {
+    setPipelines(next)
+    setError(null)
+  }
+
+  const handleSave = () => {
+    const validLookback = checkLookback()
+    const validFilter = checkPassRateFilter()
+    const validStale = checkHealthOption('staleDays', staleInput, setStaleError)
+    const validFewer = checkHealthOption('fewerPercent', fewerInput, setFewerError)
+    if (!validLookback || !validFilter || !validStale || !validFewer) {
+      setActiveTab(0)
+      setValidationAttempt((attempt) => attempt + 1)
+      return
+    }
+    const nextPipelines = pipelines.map((entry) => ({ ...entry, shortName: entry.shortName?.trim() || undefined }))
+    const nextHealth = { staleDays: Number(staleInput), fewerPercent: Number(fewerInput) }
+    const nextFilter = { enabled: filterEnabled, threshold: filterEnabled ? Number(thresholdInput) : passRateFilter.threshold }
+    const failure = onSave({
+      pipelines: nextPipelines, lookbackDays: Number(lookbackInput), passRateFilter: nextFilter, healthOptions: nextHealth,
+    })
+    if (failure) {
+      setSaveError(failure)
+      return
+    }
+    onClose()
   }
 
   useEffect(() => {
@@ -200,7 +227,7 @@ export function TestsSettingsDialog({
       setError('This pipeline and stage are already configured.')
       return
     }
-    if (!savePipelines([...pipelines, pipeline])) return
+    updatePipelinesDraft([...pipelines, pipeline])
     setSelectedDefinition(null)
     setSelectedStage(null)
     setStages([])
@@ -210,7 +237,7 @@ export function TestsSettingsDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Test options</DialogTitle>
-      <DialogContent sx={{
+      <DialogContent ref={contentRef} sx={{
         display: 'flex',
         flexDirection: { xs: 'column', sm: 'row' },
         gap: { xs: 1, sm: 2 },
@@ -249,7 +276,7 @@ export function TestsSettingsDialog({
               setLookbackInput(event.target.value)
               setLookbackError(null)
             }}
-            onBlur={saveLookback}
+            onBlur={checkLookback}
             onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
               if (event.key === 'Enter') event.currentTarget.blur()
             }}
@@ -258,19 +285,22 @@ export function TestsSettingsDialog({
             slotProps={{ htmlInput: { min: 1, step: 1 } }}
           />
           <FormControlLabel
-            control={<Checkbox checked={passRateFilter.enabled} onChange={(_event, checked) => savePassRateFilter(checked)} />}
+            control={<Checkbox checked={filterEnabled} onChange={(_event, checked) => {
+              setFilterEnabled(checked)
+              setThresholdError(null)
+            }} />}
             label="Exclude results at or below a pass rate"
           />
           <TextField
             label="Pass rate threshold (%)"
             type="number"
-            disabled={!passRateFilter.enabled}
+            disabled={!filterEnabled}
             value={thresholdInput}
             onChange={(event) => {
               setThresholdInput(event.target.value)
               setThresholdError(null)
             }}
-            onBlur={() => savePassRateFilter()}
+            onBlur={checkPassRateFilter}
             onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
               if (event.key === 'Enter') event.currentTarget.blur()
             }}
@@ -287,7 +317,7 @@ export function TestsSettingsDialog({
               setStaleInput(event.target.value)
               setStaleError(null)
             }}
-            onBlur={() => saveHealthOption('staleDays', staleInput, setStaleError)}
+            onBlur={() => checkHealthOption('staleDays', staleInput, setStaleError)}
             onKeyDown={blurOnEnter}
             error={Boolean(staleError)}
             helperText={staleError ?? 'A pipeline with no results for this many working days shows No recent runs (1–30).'}
@@ -301,7 +331,7 @@ export function TestsSettingsDialog({
               setFewerInput(event.target.value)
               setFewerError(null)
             }}
-            onBlur={() => saveHealthOption('fewerPercent', fewerInput, setFewerError)}
+            onBlur={() => checkHealthOption('fewerPercent', fewerInput, setFewerError)}
             onKeyDown={blurOnEnter}
             error={Boolean(fewerError)}
             helperText={fewerError ?? "A run that executed fewer than this share of the pipeline's median test count shows Fewer tests."}
@@ -324,16 +354,16 @@ export function TestsSettingsDialog({
                   <Typography variant="body-sm" sx={{ flex: 1, minWidth: 0 }}>
                     {entry.name} · {testStageLabel(entry.stageName)} ({entry.kind}, {entry.orgName}/{entry.projectName})
                   </Typography>
-                  <Button color="error" size="small" onClick={() => savePipelines(pipelines.filter((item) => item.id !== entry.id))}>Remove</Button>
+                  <Button color="error" size="small" onClick={() => updatePipelinesDraft(pipelines.filter((item) => item.id !== entry.id))}>Remove</Button>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Typography variant="body-sm" color="text.secondary" render={<label htmlFor={shortNameId} />}>Short name</Typography>
                   <TextField
                     id={shortNameId}
                     size="small"
-                    defaultValue={entry.shortName ?? ''}
+                    value={entry.shortName ?? ''}
                     placeholder={defaultTestPipelineShortName(entry.name)}
-                    onBlur={(event) => saveShortName(entry, event.target.value)}
+                    onChange={(event) => updateShortName(entry, event.target.value)}
                     onKeyDown={blurOnEnter}
                     slotProps={{ htmlInput: { maxLength: TEST_SHORT_NAME_MAX_LENGTH, 'aria-label': `Short name for ${entry.name} · ${testStageLabel(entry.stageName)}` } }}
                     sx={{ width: 150, flexShrink: 0 }}
@@ -399,12 +429,16 @@ export function TestsSettingsDialog({
           {loadingStages && <Typography variant="body-sm">Loading stages… <CircularProgress size={16} /></Typography>}
           {!loadingStages && selectedDefinition && stages.length === 0 && !error
             && <Alert severity="info">No stages found. Run this pipeline and publish test results to Azure DevOps first.</Alert>}
-          <Button variant="contained" disabled={!selectedDefinition || !selectedStage || !pat} onClick={addPipeline}>Add pipeline</Button>
+          <Button variant="outlined" disabled={!selectedDefinition || !selectedStage || !pat} onClick={addPipeline}>Add pipeline</Button>
         </Stack>
         )}
         </Box>
       </DialogContent>
-      <DialogActions><Button onClick={onClose}>Close</Button></DialogActions>
+      {saveError ? <Alert severity="error" role="alert">{saveError}</Alert> : null}
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSave} variant="contained">Save</Button>
+      </DialogActions>
     </Dialog>
   )
 }

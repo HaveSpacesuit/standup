@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -34,6 +34,7 @@ import type { TeamIterationOption } from '../../../ado/queryEngine'
 import type { AssignmentSprintFilter } from '../utils/assignmentOptions'
 import { DEFAULT_EFFORT_SUGGESTIONS } from '../utils/assignmentOptions'
 import { readStringArraySelectValue } from '../utils/selectValues'
+import { isSameData } from '../utils/sameData'
 import { EffortSuggestionsEditor } from './EffortSuggestionsEditor'
 import { TagMatchField } from './TagMatchField'
 
@@ -103,35 +104,81 @@ function moveRule(tagRules: TagRule[], index: number, direction: -1 | 1): TagRul
 
 export function HiddenTagsDialog({
   open,
-  tagRules,
+  tagRules: savedTagRules,
   onClose,
-  onChange,
-  cardHighlightOptions,
-  onCardHighlightOptionsChange,
+  onChange: saveTagRules,
+  cardHighlightOptions: savedCardHighlightOptions,
+  onCardHighlightOptionsChange: saveCardHighlightOptions,
   projectWorkItemTypes = [],
   projectWorkItemTypesLoading = false,
   projectWorkItemStatesError,
   retryProjectWorkItemStates,
-  includeWorkItemTypes = [],
-  onIncludeWorkItemTypesChange,
-  sprintFilter = { current: true, next: true, nextNext: false, iterationPaths: [] },
-  onSprintFilterChange,
-  hideUsersWithNoActivity = false,
-  onHideUsersWithNoActivityChange,
-  hideUsersWithOnlyStaleDoneWork = false,
-  onHideUsersWithOnlyStaleDoneWorkChange,
-  compactCards = false,
-  onCompactCardsChange,
-  includeQaTestersInStandup = false,
-  onIncludeQaTestersInStandupChange,
-  effortSuggestions = DEFAULT_EFFORT_SUGGESTIONS_LIST,
-  onEffortSuggestionsChange,
+  includeWorkItemTypes: savedIncludeWorkItemTypes = [],
+  onIncludeWorkItemTypesChange: saveIncludeWorkItemTypes,
+  sprintFilter: savedSprintFilter = { current: true, next: true, nextNext: false, iterationPaths: [] },
+  onSprintFilterChange: saveSprintFilter,
+  hideUsersWithNoActivity: savedHideUsersWithNoActivity = false,
+  onHideUsersWithNoActivityChange: saveHideUsersWithNoActivity,
+  hideUsersWithOnlyStaleDoneWork: savedHideUsersWithOnlyStaleDoneWork = false,
+  onHideUsersWithOnlyStaleDoneWorkChange: saveHideUsersWithOnlyStaleDoneWork,
+  compactCards: savedCompactCards = false,
+  onCompactCardsChange: saveCompactCards,
+  includeQaTestersInStandup: savedIncludeQaTestersInStandup = false,
+  onIncludeQaTestersInStandupChange: saveIncludeQaTestersInStandup,
+  effortSuggestions: savedEffortSuggestions = DEFAULT_EFFORT_SUGGESTIONS_LIST,
+  onEffortSuggestionsChange: saveEffortSuggestions,
   teamIterations = [],
   teamIterationsLoading = false,
   title = 'Development options',
   description = 'Configure case-insensitive partial tag matches. Rules are applied from top to bottom, and can place an item in a specific column or hide it as unlisted.',
 }: HiddenTagsDialogProps) {
   const isMobile = useMediaQuery('(max-width:599.95px)')
+  const saved = {
+    tagRules: savedTagRules,
+    cardHighlightOptions: savedCardHighlightOptions,
+    includeWorkItemTypes: savedIncludeWorkItemTypes,
+    sprintFilter: savedSprintFilter,
+    hideUsersWithNoActivity: savedHideUsersWithNoActivity,
+    hideUsersWithOnlyStaleDoneWork: savedHideUsersWithOnlyStaleDoneWork,
+    compactCards: savedCompactCards,
+    includeQaTestersInStandup: savedIncludeQaTestersInStandup,
+    effortSuggestions: savedEffortSuggestions,
+  }
+  const [draft, setDraft] = useState(saved)
+  const {
+    tagRules, cardHighlightOptions, includeWorkItemTypes, sprintFilter, hideUsersWithNoActivity,
+    hideUsersWithOnlyStaleDoneWork, compactCards, includeQaTestersInStandup, effortSuggestions,
+  } = draft
+  const updateDraft = (changes: Partial<typeof draft>) => setDraft((current) => ({ ...current, ...changes }))
+  const onChange = (tagRules: TagRule[]) => updateDraft({ tagRules })
+  const onCardHighlightOptionsChange = (cardHighlightOptions: CardHighlightOptions) => updateDraft({ cardHighlightOptions })
+  const onIncludeWorkItemTypesChange = saveIncludeWorkItemTypes && ((includeWorkItemTypes: string[]) => updateDraft({ includeWorkItemTypes }))
+  const onSprintFilterChange = saveSprintFilter && ((sprintFilter: AssignmentSprintFilter) => updateDraft({ sprintFilter }))
+  const onHideUsersWithNoActivityChange = saveHideUsersWithNoActivity && ((hideUsersWithNoActivity: boolean) => updateDraft({ hideUsersWithNoActivity }))
+  const onHideUsersWithOnlyStaleDoneWorkChange = saveHideUsersWithOnlyStaleDoneWork && ((hideUsersWithOnlyStaleDoneWork: boolean) => updateDraft({ hideUsersWithOnlyStaleDoneWork }))
+  const onCompactCardsChange = saveCompactCards && ((compactCards: boolean) => updateDraft({ compactCards }))
+  const onIncludeQaTestersInStandupChange = saveIncludeQaTestersInStandup && ((includeQaTestersInStandup: boolean) => updateDraft({ includeQaTestersInStandup }))
+  const onEffortSuggestionsChange = saveEffortSuggestions && ((effortSuggestions: number[]) => updateDraft({ effortSuggestions }))
+  useEffect(() => {
+    if (open) {
+      setDraft(saved)
+      setNewIterationPathInput('')
+    }
+    // Keep in-progress edits until the dialog is reopened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+  const handleSave = () => {
+    if (!isSameData(tagRules, savedTagRules, 3)) saveTagRules(tagRules)
+    if (!isSameData(cardHighlightOptions, savedCardHighlightOptions, 2)) saveCardHighlightOptions(cardHighlightOptions)
+    if (!isSameData(includeWorkItemTypes, savedIncludeWorkItemTypes, 2)) saveIncludeWorkItemTypes?.(includeWorkItemTypes)
+    if (!isSameData(sprintFilter, savedSprintFilter, 3)) saveSprintFilter?.(sprintFilter)
+    if (hideUsersWithNoActivity !== savedHideUsersWithNoActivity) saveHideUsersWithNoActivity?.(hideUsersWithNoActivity)
+    if (hideUsersWithOnlyStaleDoneWork !== savedHideUsersWithOnlyStaleDoneWork) saveHideUsersWithOnlyStaleDoneWork?.(hideUsersWithOnlyStaleDoneWork)
+    if (compactCards !== savedCompactCards) saveCompactCards?.(compactCards)
+    if (includeQaTestersInStandup !== savedIncludeQaTestersInStandup) saveIncludeQaTestersInStandup?.(includeQaTestersInStandup)
+    if (!isSameData(effortSuggestions, savedEffortSuggestions, 2)) saveEffortSuggestions?.(effortSuggestions)
+    onClose()
+  }
   const orderedRules = useMemo(() => tagRules, [tagRules])
   const [activeTab, setActiveTab] = useState<'work-item-types' | 'sprints' | 'tag-rules' | 'freshness' | 'display' | 'members' | 'editing'>('work-item-types')
   const [newIterationPathInput, setNewIterationPathInput] = useState('')
@@ -636,7 +683,8 @@ export function HiddenTagsDialog({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSave} variant="contained">Save</Button>
       </DialogActions>
     </Dialog>
   )

@@ -14,6 +14,7 @@ type UseBoardPreferencesResult = {
   tagRulesByTeam: Record<string, TagRule[]>
   setTagRules: (value: TagRule[] | ((previous: TagRule[]) => TagRule[])) => void
   setTagRulesForTeam: (teamId: string, rules: TagRule[]) => void
+  applyCommittedPreferences: (teamId: string, importedRules: Record<string, TagRule[]>, teamIds: string[]) => void
 }
 
 const TAG_RULES_STORAGE_KEY = 'standup:tag-rules'
@@ -52,7 +53,9 @@ export function useBoardPreferences(teamProfiles: TeamProfile[]): UseBoardPrefer
   const tagRules = tagRulesByTeam[selectedTeamId] ?? loadStoredTagRulesForTeam(selectedTeamId)
 
   useEffect(() => {
-    localStorage.setItem(SELECTED_TEAM_STORAGE_KEY, selectedTeamId)
+    if (localStorage.getItem(SELECTED_TEAM_STORAGE_KEY) !== selectedTeamId) {
+      localStorage.setItem(SELECTED_TEAM_STORAGE_KEY, selectedTeamId)
+    }
   }, [selectedTeamId])
 
   useEffect(() => {
@@ -91,6 +94,13 @@ export function useBoardPreferences(teamProfiles: TeamProfile[]): UseBoardPrefer
     }))
   }
 
+  const applyCommittedPreferences = (teamId: string, importedRules: Record<string, TagRule[]>, teamIds: string[]) => {
+    setSelectedTeamId(teamId)
+    setTagRulesByTeam((current) => ({
+      ...Object.fromEntries(Object.entries(current).filter(([id]) => teamIds.includes(id))), ...importedRules,
+    }))
+  }
+
   return {
     selectedTeamId,
     onTeamChange: setSelectedTeamId,
@@ -102,5 +112,6 @@ export function useBoardPreferences(teamProfiles: TeamProfile[]): UseBoardPrefer
     tagRulesByTeam,
     setTagRules,
     setTagRulesForTeam,
+    applyCommittedPreferences,
   }
 }

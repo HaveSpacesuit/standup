@@ -740,20 +740,44 @@ test('the options dialog sets compact rows, the density shared with the Developm
   assert.match(document.getElementById(checkbox.getAttribute('aria-describedby')!)!.textContent!, /Development and QA/)
 
   await act(async () => checkbox.click())
+  assert.deepEqual(changes, [])
+
+  await act(async () => optionsButton(opened, 'Save').click())
   assert.deepEqual(changes, [true])
-
-  await act(async () => [...opened.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
   await waitFor(() => dialog() === null)
 })
 
-test('Escape dismisses the options dialog', async (t) => {
-  const host = await render(t)
-  await act(async () => button(host, 'Backlog options').click())
-  assert.ok(dialog())
-
-  await act(async () => dialog()!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
-  await waitFor(() => dialog() === null)
-})
+for (const dismiss of ['Cancel', 'Escape', 'backdrop']) {
+  test(`${dismiss} discards Backlog options and reopening restores the applied settings`, async (t) => {
+    const changes: unknown[] = []
+    const host = await renderWithOptions(t, {
+      onBacklogOptionsChange: (next: BacklogOptions) => changes.push(next),
+      onCompactRowsChange: (next: boolean) => changes.push(next),
+    })
+    const opened = await openOptions(host)
+    const compact = [...opened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+      .find((input) => input.closest('label')?.textContent === 'Compact rows')!
+    await act(async () => compact.click())
+    await typeInto(thresholdInput(opened, 'Moderate from Value'), '10')
+    await typeInto(thresholdInput(opened, 'Default budget (pts)'), '')
+    if (dismiss === 'Cancel') {
+      await act(async () => optionsButton(opened, 'Cancel').click())
+    } else if (dismiss === 'Escape') {
+      await act(async () => opened.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    } else {
+      await act(async () => document.querySelector<HTMLElement>('.MuiBackdrop-root')!.click())
+    }
+    await waitFor(() => dialog() === null)
+    assert.deepEqual(changes, [])
+    assert.deepEqual(tierBugIds(host), { top: [102], low: [103, 101] })
+    const reopened = await openOptions(host)
+    assert.equal(thresholdInput(reopened, 'Moderate from Value').value, '12')
+    assert.equal(thresholdInput(reopened, 'Default budget (pts)').value, '10')
+    assert.equal(reopened.querySelector('[role="alert"]'), null)
+    assert.equal([...reopened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+      .find((input) => input.closest('label')?.textContent === 'Compact rows')!.checked, false)
+  })
+}
 
 type BacklogOptions = NonNullable<PageProps['backlogOptions']>
 const tierBugIds = (host: Element) => Object.fromEntries([...host.querySelectorAll('tbody')].map((body) => [
@@ -782,6 +806,14 @@ const renderWithOptions = (t: TestContext, overrides: Partial<PageProps> = {}) =
 async function openOptions(host: Element) {
   await act(async () => button(host, 'Backlog options').click())
   return dialog()!
+}
+
+const optionsButton = (opened: Element, label: string) =>
+  [...opened.querySelectorAll('button')].find((candidate) => candidate.textContent === label)!
+
+async function saveOptions(opened: Element) {
+  await act(async () => optionsButton(opened, 'Save').click())
+  await waitFor(() => dialog() === null)
 }
 
 function thresholdInput(opened: Element, label: string) {
@@ -972,7 +1004,7 @@ test('re-rendering a table body leaves its memoized rows alone', async (t) => {
   assert.ok(host.querySelector('tbody > tr')!.classList.contains('MuiTableRow-hover'), 'rows keep the hover highlight')
 })
 
-test('the options dialog sets the tier thresholds, applying them once all three make sense together', async (t) => {
+test('the options dialog applies valid tier thresholds only on Save', async (t) => {
   const changes: BacklogOptions[] = []
   const host = await renderWithOptions(t, { onBacklogOptionsChange: (next: BacklogOptions) => changes.push(next) })
   const opened = await openOptions(host)
@@ -994,6 +1026,9 @@ test('the options dialog sets the tier thresholds, applying them once all three 
   assert.deepEqual([top, high, medium].map((input) => input.getAttribute('aria-invalid')), ['true', 'true', 'false'])
   assert.match(high.getAttribute('aria-describedby')!, new RegExp(`\\b${alert.id}\\b`), 'the message is tied to the fields it flags')
   assert.deepEqual(changes, [], 'the tiers keep the last thresholds that made sense')
+  await act(async () => optionsButton(opened, 'Save').click())
+  assert.deepEqual(changes, [])
+  assert.ok(document.activeElement === top, 'Save focuses the first invalid field')
 
   await typeInto(high, '')
   assert.equal(opened.querySelector('[role="alert"]')!.textContent, 'Enter a Value above 0 for each tier.')
@@ -1002,24 +1037,34 @@ test('the options dialog sets the tier thresholds, applying them once all three 
   await typeInto(high, '30')
   await typeInto(medium, '10')
   assert.equal(opened.querySelector('[role="alert"]'), null)
-  assert.deepEqual(changes.map((change) => change.tierThresholds), [{ top: 80, high: 30, medium: 12 }, { top: 80, high: 30, medium: 10 }])
-  assert.deepEqual(tierBugIds(host), { top: [102], medium: [103], low: [101] }, 'the list regroups straight away')
+  assert.deepEqual(changes, [])
+  assert.deepEqual(tierBugIds(host), { top: [102], low: [103, 101] }, 'draft edits do not regroup the list')
+  await saveOptions(opened)
+  assert.deepEqual(changes.map((change) => change.tierThresholds), [{ top: 80, high: 30, medium: 10 }])
+  assert.deepEqual(tierBugIds(host), { top: [102], medium: [103], low: [101] }, 'the list regroups after saving')
   assert.equal(tierHeader(host, 'Moderate').querySelector('.backlog-tier-range')!.textContent, 'Value 10–30')
 })
 
-test('turning "Start with the Minimal tier collapsed" on or off applies to the list straight away', async (t) => {
+test('turning "Start with the Minimal tier collapsed" on or off applies only after Save', async (t) => {
   const host = await renderWithOptions(t)
   assert.deepEqual(listedIds(host), [102, 103, 101])
-  const opened = await openOptions(host)
-  const checkbox = [...opened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+  let opened = await openOptions(host)
+  let checkbox = [...opened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
     .find((input) => input.closest('label')?.textContent === 'Start with the Minimal tier collapsed')!
   assert.equal(checkbox.checked, false)
 
   await act(async () => checkbox.click())
   assert.equal(checkbox.checked, true)
+  assert.deepEqual(listedIds(host), [102, 103, 101])
+  await saveOptions(opened)
   assert.deepEqual(listedIds(host), [102])
 
+  opened = await openOptions(host)
+  checkbox = [...opened.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
+    .find((input) => input.closest('label')?.textContent === 'Start with the Minimal tier collapsed')!
   await act(async () => checkbox.click())
+  assert.deepEqual(listedIds(host), [102])
+  await saveOptions(opened)
   assert.deepEqual(listedIds(host), [102, 103, 101])
 })
 
@@ -1227,10 +1272,15 @@ test('the options dialog sets how old a New bug is before the chip flags it', as
 
   await typeInto(months, '24')
   assert.equal(opened.querySelector('[role="alert"]'), null)
+  assert.deepEqual(changes, [])
+  await saveOptions(opened)
   assert.deepEqual(changes.map((change) => change.agingMonths), [24])
   assert.equal(facetLabel(host, 'old').getAttribute('aria-label'), 'Older than 2 years, 1 bug')
 
-  await typeInto(months, '30')
+  const reopened = await openOptions(host)
+  await typeInto(thresholdInput(reopened, 'Flag New bugs older than (months)'), '30')
+  assert.equal(facetLabel(host, 'old').getAttribute('aria-label'), 'Older than 2 years, 1 bug')
+  await saveOptions(reopened)
   assert.equal(facetLabel(host, 'old').getAttribute('aria-label'), 'Older than 30 months, 0 bugs', 'about 26 months old is not flagged')
 })
 
@@ -1406,11 +1456,15 @@ test('the strip\'s skip checkboxes are the team options, and the options dialog 
   await typeInto(defaultBudget, '1000')
   assert.equal(section.querySelector('[role="alert"]')!.textContent, 'Enter a whole number of points from 1 to 999.')
   await typeInto(defaultBudget, '3')
+  assert.equal(changes.at(-1)!.defaultPlanBudget, 10)
+  assert.equal(budgetInput(host).value, '10')
+  await act(async () => optionCheckbox('Skip bugs without an Effort').click())
+  assert.equal(stripCheckbox(host, 'Skip unestimated').checked, true)
+  await saveOptions(opened)
   assert.equal(changes.at(-1)!.defaultPlanBudget, 3)
   assert.equal(budgetInput(host).value, '3', 'an unedited budget follows the default')
   assert.deepEqual(pickedIds(host), [201, 204])
 
-  await act(async () => optionCheckbox('Skip bugs without an Effort').click())
   assert.equal(changes.at(-1)!.skipUnestimatedBugs, false)
   assert.equal(stripCheckbox(host, 'Skip unestimated').checked, false)
 })

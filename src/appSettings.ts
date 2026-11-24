@@ -11,6 +11,7 @@ export type TeamProfile = {
 }
 
 export const TEAM_PROFILES_STORAGE_KEY = 'standup:team-profiles'
+export const COLOR_SCHEME_STORAGE_KEY = 'standup:color-scheme'
 const DEFAULT_PAT_ORGANIZATION = 'bentleycs'
 
 export function getTeamProfileLabel(team: TeamProfile): string {

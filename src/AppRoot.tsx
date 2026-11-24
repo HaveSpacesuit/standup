@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Root } from '@stratakit/mui'
 import App from './App.tsx'
-
-const COLOR_SCHEME_STORAGE_KEY = 'standup:color-scheme'
+import { COLOR_SCHEME_STORAGE_KEY } from './appSettings'
 
 type ColorScheme = 'light' | 'dark'
 
@@ -17,10 +16,6 @@ function getInitialColorScheme(): ColorScheme {
 
 export default function AppRoot() {
   const [colorScheme, setColorScheme] = useState<ColorScheme>(getInitialColorScheme)
-
-  useEffect(() => {
-    localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, colorScheme)
-  }, [colorScheme])
 
   const handleToggleColorScheme = () => {
     setColorScheme((current) => (current === 'dark' ? 'light' : 'dark'))

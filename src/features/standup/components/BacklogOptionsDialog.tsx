@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Box,
   Button,
@@ -20,6 +20,7 @@ import {
 } from '../utils/backlogOptions'
 import { BACKLOG_TIER_COLORS, BACKLOG_TIERS, type BacklogTierKey } from '../utils/backlogTiers'
 import { MIN_ADJUSTED_EFFORT } from '../utils/backlogValue'
+import { isSameData } from '../utils/sameData'
 
 const COMPACT_ROWS_HELP_ID = 'backlog-compact-rows-help'
 const TIERS_HELP_ID = 'backlog-tiers-help'
@@ -91,29 +92,14 @@ function checkThresholds(thresholds: BacklogTierThresholds): { invalid: Set<Thre
   return { invalid, message: 'Each threshold must be lower than the one above it.' }
 }
 
-/**
- * The tier thresholds, edited as text so a half-typed number can be shown. A change applies as soon as all three make
- * sense together; until then the tiers keep the last thresholds that did. The dialog unmounts its content when it
- * closes, so reopening it starts again from the saved thresholds.
- */
 function TierThresholdFields({
-  thresholds,
+  draft,
   onChange,
 }: {
-  thresholds: BacklogTierThresholds
-  onChange: (next: BacklogTierThresholds) => void
+  draft: ThresholdDraft
+  onChange: (next: ThresholdDraft) => void
 }) {
-  const [draft, setDraft] = useState(() => toDraft(thresholds))
   const problem = checkThresholds(parseDraft(draft))
-
-  const handleChange = (key: ThresholdKey, value: string) => {
-    const nextDraft = { ...draft, [key]: value }
-    setDraft(nextDraft)
-    const next = parseDraft(nextDraft)
-    if (!checkThresholds(next)) {
-      onChange(next)
-    }
-  }
 
   return (
     <>
@@ -133,7 +119,7 @@ function TierThresholdFields({
                 )}
                 value={draft[key]}
                 error={invalid}
-                onChange={(event) => handleChange(key, event.target.value)}
+                onChange={(event) => onChange({ ...draft, [key]: event.target.value })}
                 slotProps={{
                   htmlInput: {
                     min: 1,
@@ -163,10 +149,11 @@ function TierThresholdFields({
   )
 }
 
-/**
- * A whole number edited as text, so a half-typed number can be shown, and applied once it is in range. The dialog
- * unmounts its content when it closes, so reopening it starts again from the saved number.
- */
+const validWholeNumber = (input: string, max: number) => {
+  const value = input.trim() ? Number(input) : Number.NaN
+  return Number.isInteger(value) && value >= 1 && value <= max
+}
+
 function WholeNumberField({
   label,
   value,
@@ -178,8 +165,8 @@ function WholeNumberField({
   width,
 }: {
   label: string
-  value: number
-  onChange: (next: number) => void
+  value: string
+  onChange: (next: string) => void
   max: number
   /** The plural unit for the error, as in "Enter a whole number of months from 1 to 120." */
   unit: string
@@ -187,9 +174,7 @@ function WholeNumberField({
   errorId: string
   width: number
 }) {
-  const [draft, setDraft] = useState(() => String(value))
-  const isValid = (next: number) => Number.isInteger(next) && next >= 1 && next <= max
-  const invalid = !isValid(draft.trim() ? Number(draft) : Number.NaN)
+  const invalid = !validWholeNumber(value, max)
 
   return (
     <>
@@ -197,15 +182,9 @@ function WholeNumberField({
         size="small"
         type="number"
         label={label}
-        value={draft}
+        value={value}
         error={invalid}
-        onChange={(event) => {
-          setDraft(event.target.value)
-          const next = event.target.value.trim() ? Number(event.target.value) : Number.NaN
-          if (isValid(next)) {
-            onChange(next)
-          }
-        }}
+        onChange={(event) => onChange(event.target.value)}
         slotProps={{
           htmlInput: {
             min: 1,
@@ -228,15 +207,50 @@ function WholeNumberField({
 export function BacklogOptionsDialog({
   open,
   onClose,
-  compactRows,
+  compactRows: savedCompactRows,
   onCompactRowsChange,
-  backlogOptions,
+  backlogOptions: savedOptions,
   onBacklogOptionsChange,
 }: BacklogOptionsDialogProps) {
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [compactRows, setCompactRows] = useState(savedCompactRows)
+  const [backlogOptions, setBacklogOptions] = useState(savedOptions)
+  const [thresholds, setThresholds] = useState(() => toDraft(savedOptions.tierThresholds))
+  const [agingMonths, setAgingMonths] = useState(String(savedOptions.agingMonths))
+  const [defaultPlanBudget, setDefaultPlanBudget] = useState(String(savedOptions.defaultPlanBudget))
+  useEffect(() => {
+    if (open) {
+      setCompactRows(savedCompactRows)
+      setBacklogOptions(savedOptions)
+      setThresholds(toDraft(savedOptions.tierThresholds))
+      setAgingMonths(String(savedOptions.agingMonths))
+      setDefaultPlanBudget(String(savedOptions.defaultPlanBudget))
+    }
+    // Reset only on opening, not while editing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+  const valid = !checkThresholds(parseDraft(thresholds))
+    && validWholeNumber(agingMonths, MAX_AGING_MONTHS)
+    && validWholeNumber(defaultPlanBudget, MAX_PLAN_BUDGET)
+  const save = () => {
+    if (!valid) {
+      contentRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+      return
+    }
+    const next = {
+      ...backlogOptions,
+      tierThresholds: parseDraft(thresholds),
+      agingMonths: Number(agingMonths),
+      defaultPlanBudget: Number(defaultPlanBudget),
+    }
+    if (compactRows !== savedCompactRows) onCompactRowsChange(compactRows)
+    if (!isSameData(next, savedOptions, 3)) onBacklogOptionsChange(next)
+    onClose()
+  }
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Backlog options</DialogTitle>
-      <DialogContent>
+      <DialogContent ref={contentRef}>
         <Box component="section" aria-labelledby="backlog-options-display">
           <Typography id="backlog-options-display" variant="body-md" render={<h3 />} sx={{ fontWeight: 700, mt: 0, mb: 0.5 }}>
             Display
@@ -250,7 +264,7 @@ export function BacklogOptionsDialog({
             control={(
               <Checkbox
                 checked={compactRows}
-                onChange={(_, checked) => onCompactRowsChange(checked)}
+                onChange={(_, checked) => setCompactRows(checked)}
                 slotProps={{ input: { 'aria-describedby': COMPACT_ROWS_HELP_ID } }}
               />
             )}
@@ -266,15 +280,15 @@ export function BacklogOptionsDialog({
             Severity, Impact, or Effort changes.
           </Typography>
           <TierThresholdFields
-            thresholds={backlogOptions.tierThresholds}
-            onChange={(tierThresholds) => onBacklogOptionsChange({ ...backlogOptions, tierThresholds })}
+            draft={thresholds}
+            onChange={setThresholds}
           />
           <FormControlLabel
             label={`Start with the ${BACKLOG_TIERS[3].name} tier collapsed`}
             control={(
               <Checkbox
                 checked={backlogOptions.startLowCollapsed}
-                onChange={(_, checked) => onBacklogOptionsChange({ ...backlogOptions, startLowCollapsed: checked })}
+                onChange={(_, checked) => setBacklogOptions({ ...backlogOptions, startLowCollapsed: checked })}
               />
             )}
           />
@@ -290,8 +304,8 @@ export function BacklogOptionsDialog({
           </Typography>
           <WholeNumberField
             label="Flag New bugs older than (months)"
-            value={backlogOptions.agingMonths}
-            onChange={(agingMonths) => onBacklogOptionsChange({ ...backlogOptions, agingMonths })}
+            value={agingMonths}
+            onChange={setAgingMonths}
             max={MAX_AGING_MONTHS}
             unit="months"
             helpId={AGING_HELP_ID}
@@ -310,8 +324,8 @@ export function BacklogOptionsDialog({
           </Typography>
           <WholeNumberField
             label="Default budget (pts)"
-            value={backlogOptions.defaultPlanBudget}
-            onChange={(defaultPlanBudget) => onBacklogOptionsChange({ ...backlogOptions, defaultPlanBudget })}
+            value={defaultPlanBudget}
+            onChange={setDefaultPlanBudget}
             max={MAX_PLAN_BUDGET}
             unit="points"
             helpId={PLAN_HELP_ID}
@@ -324,7 +338,7 @@ export function BacklogOptionsDialog({
               control={(
                 <Checkbox
                   checked={backlogOptions.skipPlannedBugs}
-                  onChange={(_, checked) => onBacklogOptionsChange({ ...backlogOptions, skipPlannedBugs: checked })}
+                  onChange={(_, checked) => setBacklogOptions({ ...backlogOptions, skipPlannedBugs: checked })}
                 />
               )}
             />
@@ -333,7 +347,7 @@ export function BacklogOptionsDialog({
               control={(
                 <Checkbox
                   checked={backlogOptions.skipUnestimatedBugs}
-                  onChange={(_, checked) => onBacklogOptionsChange({ ...backlogOptions, skipUnestimatedBugs: checked })}
+                  onChange={(_, checked) => setBacklogOptions({ ...backlogOptions, skipUnestimatedBugs: checked })}
                 />
               )}
             />
@@ -341,7 +355,8 @@ export function BacklogOptionsDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={save} variant="contained">Save</Button>
       </DialogActions>
     </Dialog>
   )

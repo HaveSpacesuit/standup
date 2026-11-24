@@ -20,10 +20,18 @@ Object.assign(globalThis, {
 
 // The page reads its saved pipelines and options from the bare `localStorage` global; start it empty.
 const storage = new Map<string, string>()
+let storageFailureKey: string | null = null
 const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
-  value: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) },
+  value: {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      if (key === storageFailureKey) throw new Error('Browser storage quota exceeded.')
+      storage.set(key, value)
+    },
+    removeItem: (key: string) => storage.delete(key),
+  },
 })
 
 const { createRoot } = await import('react-dom/client')
@@ -54,6 +62,7 @@ async function render(t: TestContext, props: { pat?: string | null; rememberLast
     await act(async () => root.unmount())
     host.remove()
     storage.clear()
+    storageFailureKey = null
   })
   const setActive = async (isActive: boolean) => {
     const page = createElement(TestsPage, { pat: null, defaultOrg: 'example-org', defaultProject: 'example-project', ...props, isActive })
@@ -73,6 +82,19 @@ async function waitFor(condition: () => boolean) {
 
 const button = (host: Element, label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)
 const dialog = () => document.querySelector('[role="dialog"]')
+const optionsButton = (label: string) => [...dialog()!.querySelectorAll('button')].find((candidate) => candidate.textContent === label)!
+const settingsInput = (label: string) => {
+  const fieldLabel = [...dialog()!.querySelectorAll('label')].find((candidate) => candidate.textContent === label)!
+  return document.getElementById(fieldLabel.htmlFor) as HTMLInputElement
+}
+const setNativeValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!
+async function typeSetting(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    input.focus()
+    setNativeValue.call(input, value)
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  })
+}
 
 test('the header offers Test options and the empty state points to it', async (t) => {
   const host = await render(t)
@@ -137,7 +159,7 @@ test('with pipelines to load, Rows is the first view; each view has its own skel
   assert.equal(storage.get('standup:last-view:tests'), 'rows')
 })
 
-test('Test options opens a dialog and tab list with the same name, and Close dismisses it', async (t) => {
+test('Test options opens a dialog and tab list with the same name, and Cancel dismisses it', async (t) => {
   const host = await render(t)
   assert.equal(dialog(), null)
 
@@ -150,7 +172,7 @@ test('Test options opens a dialog and tab list with the same name, and Close dis
   assert.deepEqual([...opened.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent), ['Options', 'Pipelines'])
   assert.doesNotMatch(opened.textContent!, /Daily result|Show at most one result|Overlay/)
 
-  await act(async () => [...opened.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
+  await act(async () => optionsButton('Cancel').click())
   await waitFor(() => dialog() === null)
 })
 
@@ -161,8 +183,126 @@ test('Test options sets when a pipeline counts as having no recent runs or fewer
   assert.ok(labels.includes('Flag no recent runs after (working days)'))
   assert.ok(labels.includes('Flag fewer tests below (% of usual)'))
   assert.equal(dialog()!.querySelector('h3')?.textContent, 'Pipeline health')
-  await act(async () => [...dialog()!.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Close')!.click())
+  await act(async () => optionsButton('Cancel').click())
   await waitFor(() => dialog() === null)
+})
+
+for (const dismiss of ['Cancel', 'Escape', 'backdrop']) {
+  test(`Test options discard numeric and pipeline edits on ${dismiss}, then reset on reopening`, async (t) => {
+    const pipeline = { id: 'web', orgName: 'org', projectName: 'Example', kind: 'build', definitionId: 7, name: 'Web', stageName: 'E2E' }
+    storage.set('standup:test-pipelines', JSON.stringify([pipeline]))
+    const host = await render(t)
+    const before = [...storage]
+    await act(async () => button(host, 'Test options')!.click())
+    await typeSetting(settingsInput('Lookback (days)'), '14')
+    await typeSetting(settingsInput('Flag no recent runs after (working days)'), '5')
+    // Leaving a field and switching tabs used to save immediately.
+    await act(async () => dialog()!.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click())
+    await typeSetting(dialog()!.querySelector<HTMLInputElement>('[aria-label="Short name for Web · E2E"]')!, 'PWW')
+    await act(async () => optionsButton('Remove').click())
+    assert.deepEqual([...storage], before)
+    if (dismiss === 'Cancel') {
+      await act(async () => optionsButton('Cancel').click())
+    } else if (dismiss === 'Escape') {
+      await act(async () => dialog()!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    } else {
+      await act(async () => document.querySelector<HTMLElement>('.MuiBackdrop-root')!.click())
+    }
+    await waitFor(() => dialog() === null)
+    assert.deepEqual([...storage], before)
+    await act(async () => button(host, 'Test options')!.click())
+    assert.equal(settingsInput('Lookback (days)').value, '60')
+    assert.equal(settingsInput('Flag no recent runs after (working days)').value, '2')
+    await act(async () => dialog()!.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click())
+    assert.match(dialog()!.textContent!, /Web · E2E/)
+    assert.equal(dialog()!.querySelector<HTMLInputElement>('[aria-label="Short name for Web · E2E"]')!.value, '')
+  })
+}
+
+test('Test options validate every field before saving numeric and pipeline changes together', async (t) => {
+  storage.set('standup:test-pipelines', JSON.stringify([
+    { id: 'web', orgName: 'org', projectName: 'Example', kind: 'build', definitionId: 7, name: 'Web', stageName: 'E2E' },
+  ]))
+  const host = await render(t)
+  const before = [...storage]
+  await act(async () => button(host, 'Test options')!.click())
+  await typeSetting(settingsInput('Lookback (days)'), '14')
+  await typeSetting(settingsInput('Flag no recent runs after (working days)'), '0')
+  await typeSetting(settingsInput('Flag fewer tests below (% of usual)'), '65')
+  await act(async () => dialog()!.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
+  await typeSetting(settingsInput('Pass rate threshold (%)'), '98.5')
+  await act(async () => dialog()!.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click())
+  await act(async () => optionsButton('Remove').click())
+  await act(async () => optionsButton('Save').click())
+  assert.ok(dialog(), 'invalid settings keep the dialog open')
+  assert.match(dialog()!.textContent!, /whole number of working days from 1 to 30/)
+  assert.ok(document.activeElement === settingsInput('Flag no recent runs after (working days)'))
+  assert.deepEqual([...storage], before, 'no valid setting is committed while another is invalid')
+  await typeSetting(settingsInput('Flag no recent runs after (working days)'), '5')
+  await act(async () => optionsButton('Save').click())
+  await waitFor(() => dialog() === null)
+  assert.equal(storage.get('standup:test-pipelines'), '[]')
+  assert.equal(storage.get('standup:test-lookback-days'), '14')
+  assert.deepEqual(JSON.parse(storage.get('standup:test-health-options')!), { staleDays: 5, fewerPercent: 65 })
+  assert.deepEqual(JSON.parse(storage.get('standup:test-pass-rate-filter')!), { enabled: true, threshold: 98.5 })
+})
+
+test('editing or discarding Test options does not reload results; saving a lookback change reloads once', async (t) => {
+  storage.set('standup:test-pipelines', JSON.stringify([
+    { id: 'web', orgName: 'org', projectName: 'Example', kind: 'build', definitionId: 7, name: 'Web', stageName: 'E2E' },
+  ]))
+  let resultQueries = 0
+  const previousFetch = globalThis.fetch
+  globalThis.fetch = (async (input: URL, init?: RequestInit) => {
+    const url = new URL(input)
+    if (url.protocol !== 'https:') return previousFetch(input, init)
+    if (url.pathname.endsWith('/_apis/build/builds')) resultQueries += 1
+    return new Response(JSON.stringify({ value: [] }), { headers: { 'content-type': 'application/json' } })
+  }) as typeof fetch
+  t.after(() => { globalThis.fetch = previousFetch })
+  const host = await render(t, { pat: 'token' })
+  await waitFor(() => resultQueries === 1 && !host.textContent?.includes('Syncing'))
+  await act(async () => button(host, 'Test options')!.click())
+  await typeSetting(settingsInput('Lookback (days)'), '14')
+  await act(async () => dialog()!.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1].click())
+  await typeSetting(dialog()!.querySelector<HTMLInputElement>('[aria-label="Short name for Web · E2E"]')!, 'PWW')
+  assert.equal(resultQueries, 1)
+  await act(async () => optionsButton('Cancel').click())
+  await waitFor(() => dialog() === null)
+  assert.equal(resultQueries, 1)
+  await act(async () => button(host, 'Test options')!.click())
+  await typeSetting(settingsInput('Lookback (days)'), '14')
+  await act(async () => optionsButton('Save').click())
+  await waitFor(() => dialog() === null && resultQueries === 2)
+  assert.equal(resultQueries, 2)
+})
+
+test('a later Test options storage failure rolls back earlier writes and leaves the view unchanged', async (t) => {
+  storage.set('standup:test-lookback-days', '60')
+  const host = await render(t)
+  const before = [...storage]
+  await act(async () => button(host, 'Test options')!.click())
+  await typeSetting(settingsInput('Lookback (days)'), '14')
+  await typeSetting(settingsInput('Flag no recent runs after (working days)'), '5')
+  storageFailureKey = 'standup:test-health-options'
+  await act(async () => optionsButton('Save').click())
+  assert.ok(dialog(), 'failed Save keeps the draft open')
+  assert.match(dialog()!.textContent!, /Browser storage quota exceeded/)
+  assert.deepEqual([...storage], before, 'the successful lookback write is restored')
+  assert.equal(settingsInput('Lookback (days)').value, '14', 'the draft remains available to correct or retry')
+  await act(async () => optionsButton('Cancel').click())
+  await waitFor(() => dialog() === null)
+  await act(async () => button(host, 'Test options')!.click())
+  assert.equal(settingsInput('Lookback (days)').value, '60', 'runtime options were not partly applied')
+  assert.equal(settingsInput('Flag no recent runs after (working days)').value, '2')
+  assert.deepEqual([...storage], before)
+  storageFailureKey = null
+  await typeSetting(settingsInput('Lookback (days)'), '14')
+  await typeSetting(settingsInput('Flag no recent runs after (working days)'), '5')
+  await act(async () => optionsButton('Save').click())
+  await waitFor(() => dialog() === null)
+  assert.equal(storage.get('standup:test-lookback-days'), '14')
+  assert.deepEqual(JSON.parse(storage.get('standup:test-health-options')!), { staleDays: 5, fewerPercent: 80 })
 })
 
 test('failing tests load only when a change is opened, labelled against the previous run; Esc closes the run, then the focus', async (t) => {

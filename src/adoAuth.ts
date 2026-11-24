@@ -21,8 +21,8 @@ export const PAT_SCOPES = [
 ] as const
 
 // Legacy key — PATs were previously persisted to localStorage. Migrated to sessionStorage.
-const LOCAL_STORAGE_PAT_KEY = 'standup:azdo-pat'
-const SESSION_STORAGE_PAT_KEY = 'standup:azdo-pat-session'
+export const LOCAL_STORAGE_PAT_KEY = 'standup:azdo-pat'
+export const SESSION_STORAGE_PAT_KEY = 'standup:azdo-pat-session'
 
 let patSessionController = new AbortController()
 
@@ -63,9 +63,13 @@ export function saveStoredPat(pat: string): StoredPatState {
   return { pat: normalizedPat }
 }
 
-export function clearStoredPat(): void {
+export function resetPatSession(): void {
   patSessionController.abort()
   patSessionController = new AbortController()
+}
+
+export function clearStoredPat(): void {
   localStorage.removeItem(LOCAL_STORAGE_PAT_KEY)
   sessionStorage.removeItem(SESSION_STORAGE_PAT_KEY)
+  resetPatSession()
 }

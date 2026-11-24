@@ -9,6 +9,7 @@ import { useBacklogPageModel } from './features/standup/hooks/useBacklogPageMode
 import { useBoardViewModel } from './features/standup/hooks/useBoardViewModel'
 import { useQualityAssurancePageModel } from './features/standup/hooks/useQualityAssurancePageModel'
 import { useStandupAppState } from './features/standup/hooks/useStandupAppState'
+import type { GlobalSettingsDraft } from './features/standup/hooks/useStandupAppState'
 import { useTeamDataTransferActions } from './features/standup/hooks/useTeamDataTransferActions'
 import { buildPatCreationUrl, resolvePatOrganization } from './appSettings'
 import type { AssignmentOptions } from './features/standup/utils/assignmentOptions'
@@ -44,17 +45,14 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     rememberLastView,
     autoRefresh,
     autoRefreshError,
-    setAutoRefreshPersisted,
-    handleTeamProfilesChange,
+    saveGlobalSettings,
     replaceTeamProfiles,
     handlePatSave,
-    handlePatClear,
     setQaOptionsForTeam,
     setQaCardHighlightOptionsPersisted,
     setAssignmentCardHighlightOptionsPersisted,
     setAssignmentOptionsForTeam,
     setBacklogOptionsForTeam,
-    setRememberLastViewPersisted,
   } = useStandupAppState()
 
   const {
@@ -65,6 +63,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     tagRulesByTeam,
     setTagRules,
     setTagRulesForTeam,
+    applyCommittedPreferences,
     quickFilterInput,
     setQuickFilterInput,
     selectedMemberFilter,
@@ -152,11 +151,11 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     setAssignmentCardHighlightOptionsPersisted(next)
   }
 
-  const handleAssignmentOptionsChange = (next: AssignmentOptions) => {
+  const handleAssignmentOptionsChange = (next: (current: AssignmentOptions) => AssignmentOptions) => {
     setAssignmentOptionsForTeam(selectedTeamId, next)
   }
 
-  const { handleExportTeamData, handleImportTeamData } = useTeamDataTransferActions({
+  const { handleExportTeamData } = useTeamDataTransferActions({
     teamProfiles,
     qaOptionsByTeam,
     assignmentOptionsByTeam,
@@ -171,6 +170,14 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
     setTagRulesForTeam,
     onTeamChange,
   })
+
+  const handleSaveSettings = (draft: GlobalSettingsDraft) => {
+    const committed = saveGlobalSettings(draft)
+    if (committed.selectedTeamId !== selectedTeamId || draft.imports.length || draft.teamProfiles.length !== teamProfiles.length) {
+      applyCommittedPreferences(committed.selectedTeamId, committed.importedTagRules, draft.teamProfiles.map((team) => team.id))
+    }
+    if (draft.colorScheme !== undefined && draft.colorScheme !== colorScheme) onToggleColorScheme()
+  }
 
   const {
     quickFilterInput: qualityAssuranceQuickFilterInput,
@@ -207,21 +214,15 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
       <AppNavigationRail
         activeView={activeView}
         colorScheme={colorScheme}
-        onToggleColorScheme={onToggleColorScheme}
         rememberLastView={rememberLastView}
         autoRefresh={autoRefresh}
         autoRefreshError={autoRefreshError}
-        onAutoRefreshChange={setAutoRefreshPersisted}
-        onRememberLastViewChange={setRememberLastViewPersisted}
         patConfigured={patConfigured}
         patValue={storedPatState?.pat ?? ''}
-        onPatSave={handlePatSave}
-        onPatClear={handlePatClear}
         onExportTeamData={handleExportTeamData}
-        onImportTeamData={handleImportTeamData}
         selectedTeamId={selectedTeamId}
         teamProfiles={teamProfiles}
-        onTeamProfilesChange={handleTeamProfilesChange}
+        onSaveSettings={handleSaveSettings}
         patCreationUrl={patCreationUrl}
       />
 
@@ -281,19 +282,19 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           projectWorkItemStatesError,
           retryProjectWorkItemStates,
           includeWorkItemTypes: selectedAssignmentWorkItemTypes,
-          onIncludeWorkItemTypesChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, includeWorkItemTypes: next }),
+          onIncludeWorkItemTypesChange: (next) => handleAssignmentOptionsChange((current) => ({ ...current, includeWorkItemTypes: next })),
           sprintFilter: assignmentOptions.sprintFilter,
-          onSprintFilterChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, sprintFilter: next }),
+          onSprintFilterChange: (next) => handleAssignmentOptionsChange((current) => ({ ...current, sprintFilter: next })),
           hideUsersWithNoActivity: assignmentOptions.hideUsersWithNoActivity,
-          onHideUsersWithNoActivityChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, hideUsersWithNoActivity: next }),
+          onHideUsersWithNoActivityChange: (next) => handleAssignmentOptionsChange((current) => ({ ...current, hideUsersWithNoActivity: next })),
           hideUsersWithOnlyStaleDoneWork: assignmentOptions.hideUsersWithOnlyStaleDoneWork,
-          onHideUsersWithOnlyStaleDoneWorkChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, hideUsersWithOnlyStaleDoneWork: next }),
+          onHideUsersWithOnlyStaleDoneWorkChange: (next) => handleAssignmentOptionsChange((current) => ({ ...current, hideUsersWithOnlyStaleDoneWork: next })),
           compactCards: assignmentOptions.compactCards,
-          onCompactCardsChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, compactCards: next }),
+          onCompactCardsChange: (next) => handleAssignmentOptionsChange((current) => ({ ...current, compactCards: next })),
           includeQaTestersInStandup: assignmentOptions.includeQaTestersInStandup,
-          onIncludeQaTestersInStandupChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, includeQaTestersInStandup: next }),
+          onIncludeQaTestersInStandupChange: (next) => handleAssignmentOptionsChange((current) => ({ ...current, includeQaTestersInStandup: next })),
           effortSuggestions: assignmentOptions.effortSuggestions,
-          onEffortSuggestionsChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, effortSuggestions: next }),
+          onEffortSuggestionsChange: (next) => handleAssignmentOptionsChange((current) => ({ ...current, effortSuggestions: next })),
           qaBuckets,
           qaTesters,
           qaBucketsLoading,
@@ -386,7 +387,7 @@ function App({ colorScheme, onToggleColorScheme }: AppProps) {
           error: backlogBugsError,
           syncedAt: backlogSyncedAt,
           compactRows: assignmentOptions.compactCards,
-          onCompactRowsChange: (next) => handleAssignmentOptionsChange({ ...assignmentOptions, compactCards: next }),
+          onCompactRowsChange: (next) => handleAssignmentOptionsChange((current) => ({ ...current, compactCards: next })),
           backlogOptions,
           onBacklogOptionsChange: (next) => setBacklogOptionsForTeam(selectedTeamId, next),
           rememberLastView,

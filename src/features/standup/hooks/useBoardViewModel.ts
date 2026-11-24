@@ -65,6 +65,7 @@ type UseBoardViewModelResult = {
   tagRulesByTeam: Record<string, TagRule[]>
   setTagRules: (value: TagRule[] | ((previous: TagRule[]) => TagRule[])) => void
   setTagRulesForTeam: (teamId: string, rules: TagRule[]) => void
+  applyCommittedPreferences: (teamId: string, importedRules: Record<string, TagRule[]>, teamIds: string[]) => void
   quickFilterInput: string
   setQuickFilterInput: (value: string) => void
   selectedMemberFilter: string
@@ -170,6 +171,7 @@ export function useBoardViewModel({
     tagRulesByTeam,
     setTagRules,
     setTagRulesForTeam,
+    applyCommittedPreferences,
   } = useBoardPreferences(teamProfiles)
   // A rule without a match applies to nothing, so adding one, or picking its action, leaves the board alone. Keyed by
   // value, like the triage options.
@@ -591,6 +593,7 @@ export function useBoardViewModel({
     tagRulesByTeam,
     setTagRules,
     setTagRulesForTeam,
+    applyCommittedPreferences,
     quickFilterInput,
     setQuickFilterInput,
     selectedMemberFilter,

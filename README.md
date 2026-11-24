@@ -17,9 +17,14 @@ The default view is a standup-style Kanban board that:
 - highlights recent changes or project-specific work-item activity
 - adds PR-only cards for pull requests in the selected repository that are not already linked to visible work items
 
-In Development options, a tag rule's typed match applies once typing pauses, on Enter, or on leaving
-the field, so the board is filtered again once per change rather than on every keystroke. A rule
-with no match yet applies to nothing.
+All settings/options dialogs use **Save** to apply pending changes and close. **Cancel**, Escape,
+or clicking outside the dialog discards the entire draft; reopening starts from the applied settings.
+This includes global Settings and Development, QA, Triage, Backlog, and Test options. Editing options
+does not change the current view or persist settings until Save.
+
+In Development options, a tag rule's typed match updates the draft once typing pauses, on Enter,
+or on leaving the field. The board uses the new rules only after Save. A rule with no match yet
+applies to nothing.
 
 Development board cards show only what the card's row, column, and the current sprint do not already
 say. Each card has a leading edge in its column's color, the work item type, ID, effort, and a
@@ -547,7 +552,7 @@ Table columns keep their widths when tiers expand or collapse, including when ev
 The Bug column takes the remaining space; narrow windows scroll horizontally. Long sprint and state labels end in an
 ellipsis, with their full text available in tooltips.
 
-Backlog options > Value tiers sets the lowest Value of Top, Substantial, and Moderate; anything below Moderate is Minimal. Each threshold must be above 0 and lower than the one above it. Until all three are valid, the fields that conflict are marked with a message and the tiers keep the last valid thresholds; a valid change applies straight away. **Start with the Minimal tier collapsed** (on by default) sets whether Minimal opens collapsed, and turning it on or off collapses or expands Minimal at once. These Backlog options are saved per team in this browser and included in team exports; importing an export made before they existed uses the defaults. Stored option keys and Value thresholds are unchanged by the tier names.
+Backlog options > Value tiers sets the lowest Value of Top, Substantial, and Moderate; anything below Moderate is Minimal. Each threshold must be above 0 and lower than the one above it. Conflicting fields are marked with a message, and invalid numbers prevent Save from applying any pending options. Valid changes regroup the list only after Save. **Start with the Minimal tier collapsed** (on by default) sets whether Minimal opens collapsed, and saving a changed choice collapses or expands Minimal. These Backlog options are saved per team in this browser and included in team exports; importing an export made before they existed uses the defaults. Stored option keys and Value thresholds are unchanged by the tier names.
 
 Between the header and the table, a one-line summary ribbon describes the whole backlog, including bugs the quick filter hides. It shows:
 
@@ -571,7 +576,7 @@ Below the ribbon, a **Needs attention** bar works like the one on the Developmen
 
 Each chip counts the bugs the quick filter leaves. Pressing a chip dims the other bugs without hiding or reordering them, says how many bugs it highlights, and adds "· N match" to each tier header, which counts the matches in a collapsed tier too. A dimmed row comes back to full strength on hover or focus. Pressing the chip again, or **Clear**, turns it off, and the chip is not saved, so it resets when you leave the page.
 
-Backlog options > Needs attention sets the age for the last chip, from 1 to 120 months (12 by default). It applies once the number is valid and is saved and exported with the other Backlog options.
+Backlog options > Needs attention sets the age for the last chip, from 1 to 120 months (12 by default). A valid number applies on Save and is exported with the other Backlog options.
 
 **Plan a sprint** in the header picks the highest-Value bugs that fit an effort budget, for filling a sprint or spare capacity. Like **Start standup**, it is a primary button that steps aside while planning: it opens a strip under Needs attention, moves focus to the budget, and adds two columns to the table: a checkbox before the rank and **Running** after Effort. Going down the ranked list, the planner picks each bug that fits what is left of the budget and passes over one that doesn't, so a smaller bug further down can still fill the gap. It picks from the listed bugs: the quick filter's matches, narrowed to the pressed Needs attention chip when there is one; the other bugs' checkboxes are disabled. A bug without an Effort counts as 4 pts. Picked rows are tinted, Running shows each pick's effort added to the picks above it, and a dashed cut line under the last pick reads "Cut line · 9 of 10 pts · 3 bugs above". A bug passed over above the line says why in Running: This sprint, Next sprint, No effort, Too big, or Unchecked. Each tier header adds "· N picked".
 
@@ -688,7 +693,8 @@ to all configured pipelines without refetching results. Disabling it restores th
 Rows and Calendar use every run and read each day's lowest or worst result; there is no configurable daily aggregation.
 Under "Pipeline health", Options sets when a pipeline is flagged: "Flag no recent runs after
 (working days)" (2 by default) and "Flag fewer tests below (% of usual)" (80 by default). Both
-are saved in browser local storage when the field loses focus. In Pipelines, each configured
+are saved in browser local storage with the other pending options on Save. Pipeline additions,
+removals, and short-name edits also stay pending until Save. In Pipelines, each configured
 pipeline has an optional "Short name" (up to 24 characters) that replaces the default short name
 on its health tile and in chart tooltips; leave it blank to use the default.
 
@@ -912,9 +918,9 @@ From Settings > Teams, you can:
 - export the selected team's configuration and saved page options as a JSON file
 - import a JSON export from another teammate or environment
 
-The import path validates the payload before applying it, so malformed data is rejected rather than silently corrupting local settings.
+The import path validates the payload before staging it, so malformed data is rejected rather than silently corrupting local settings. Team additions, edits, removals, reordering, and imports stay pending until the global Settings **Save** action; the team editor's **Save team** only stages that team's edits. Export uses the team's draft configuration and pending imported options. Cancel discards all pending global changes, including PAT and display preferences.
 
-Unreadable saved team profiles or QA options produce a recovery warning. Only readable profiles are loaded; unreadable QA options use defaults (all types and sprints, a 21-day lookback, no hidden-tag filters, and default classification). Back up the affected browser local-storage entry before importing a team backup or saving a replacement configuration. Closing QA Options without changes preserves unreadable data; **Use default QA options** explicitly replaces it with defaults.
+Unreadable saved team profiles or QA options produce a recovery warning. Only readable profiles are loaded; unreadable QA options use defaults (all types and sprints, a 21-day lookback, no hidden-tag filters, and default classification). Back up the affected browser local-storage entry before importing a team backup or saving a replacement configuration. Dismissing QA Options preserves unreadable data; **Use default QA options** stages a replacement with defaults, which is persisted only on **Save**.
 
 ## Features and workflows
 

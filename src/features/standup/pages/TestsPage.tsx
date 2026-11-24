@@ -29,10 +29,9 @@ import { useAutoRefresh } from '../hooks/useAutoRefresh'
 import { DEFAULT_AUTO_REFRESH, type AutoRefreshOptions } from '../utils/autoRefresh'
 import {
   DEFAULT_TEST_LOOKBACK_DAYS, loadTestLookbackDays, loadTestPipelines,
-  saveTestLookbackDays, saveTestPipelines, testLookbackStart, testPipelineSource, testStageLabel, type TestPipeline,
+  saveTestSettings, testLookbackStart, testPipelineSource, testStageLabel, type TestPipeline, type TestSettings,
   DEFAULT_TEST_PASS_RATE_FILTER, filterTestPointsByPassRate, loadTestPassRateFilter,
-  saveTestPassRateFilter, type TestPassRateFilter,
-  DEFAULT_TEST_HEALTH_OPTIONS, loadTestHealthOptions, saveTestHealthOptions, type TestHealthOptions,
+  DEFAULT_TEST_HEALTH_OPTIONS, loadTestHealthOptions,
 } from '../utils/testPipelines'
 import {
   createTestTimeAxis, pluralizeTests, TEST_HEALTH_STATUS_LABELS, testChanges, testPipelineHealth, testPipelineShortName,
@@ -174,56 +173,29 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [activeSelection, focusedEntry, settingsOpen, isActive])
 
-  const updateHealthOptions = (next: TestHealthOptions) => {
+  const updateSettings = (next: TestSettings) => {
     try {
-      saveTestHealthOptions(next)
-      setHealthOptions(next)
-      setHealthStorageError(null)
+      saveTestSettings(next, { pipelines, lookbackDays, passRateFilter, healthOptions })
+      if (JSON.stringify(next.pipelines) !== JSON.stringify(pipelines)) {
+        setPipelines(next.pipelines)
+        setError(null)
+      }
+      if (next.lookbackDays !== lookbackDays) {
+        setLookbackDays(next.lookbackDays)
+        setLookbackStorageError(null)
+        setError(null)
+      }
+      if (JSON.stringify(next.passRateFilter) !== JSON.stringify(passRateFilter)) {
+        setPassRateFilter(next.passRateFilter)
+        setPassRateFilterStorageError(null)
+      }
+      if (JSON.stringify(next.healthOptions) !== JSON.stringify(healthOptions)) {
+        setHealthOptions(next.healthOptions)
+        setHealthStorageError(null)
+      }
       return null
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause)
-      setHealthStorageError(message)
-      return message
-    }
-  }
-
-  const updatePassRateFilter = (next: TestPassRateFilter) => {
-    try {
-      saveTestPassRateFilter(next)
-      setPassRateFilter(next)
-      setPassRateFilterStorageError(null)
-      return null
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause)
-      setPassRateFilterStorageError(message)
-      return message
-    }
-  }
-
-  const updatePipelines = (next: TestPipeline[]) => {
-    try {
-      saveTestPipelines(next)
-      setPipelines(next)
-      setError(null)
-      return null
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause)
-      setError(message)
-      return message
-    }
-  }
-
-  const updateLookbackDays = (days: number) => {
-    try {
-      saveTestLookbackDays(days)
-      setLookbackDays(days)
-      setLookbackStorageError(null)
-      setError(null)
-      return null
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause)
-      setError(message)
-      return message
+      return cause instanceof Error ? cause.message : String(cause)
     }
   }
 
@@ -420,10 +392,10 @@ export function TestsPage({ pat, defaultOrg, defaultProject, teamIterations = []
       <TestsSettingsDialog
         open={settingsOpen} onClose={() => setSettingsOpen(false)} pat={pat}
         defaultOrg={defaultOrg} defaultProject={defaultProject}
-        pipelines={pipelines} onChange={updatePipelines}
-        lookbackDays={lookbackDays} onLookbackDaysChange={updateLookbackDays}
-        passRateFilter={passRateFilter} onPassRateFilterChange={updatePassRateFilter}
-        healthOptions={healthOptions} onHealthOptionsChange={updateHealthOptions}
+        pipelines={pipelines} onSave={updateSettings}
+        lookbackDays={lookbackDays}
+        passRateFilter={passRateFilter}
+        healthOptions={healthOptions}
       />
     </>
   )

@@ -37,6 +37,7 @@ const server = await createServer({
           }
         }
         export const useMemo = (calculate) => calculate()
+        export const useRef = (initial) => useState(() => ({ current: initial }))[0]
       `
       if (id === '\0qa-test:react/jsx-runtime' || id === '\0qa-test:react/jsx-dev-runtime') return `
         export const jsx = (type, props) => ({ type, props })
@@ -139,7 +140,7 @@ test('Assignments selectors have purpose and tag-rule context in accessible name
   assert.equal(find(tree, (node) => node.type === 'Select')?.props['aria-label'], 'Destination for tag rule Blocked')
 })
 
-test('Assignments member option defaults off and reports both toggle values', () => {
+test('Assignments member options stage both toggle values until Save', () => {
   hooks.reset()
   const changes: boolean[] = []
   const props = {
@@ -160,7 +161,7 @@ test('Assignments member option defaults off and reports both toggle values', ()
   assert.equal(checkbox.props.checked, false)
   ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
   hooks.beginRender()
-  tree = HiddenTagsDialog({ ...props, hideUsersWithNoActivity: true })
+  tree = HiddenTagsDialog(props)
   label = find(tree, (node) => node.props.label === 'Hide users with no activity')!
   checkbox = label.props.control as Element
   assert.equal(checkbox.props.checked, true)
@@ -171,12 +172,17 @@ test('Assignments member option defaults off and reports both toggle values', ()
   assert.equal(checkbox.props.checked, false)
   ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
   hooks.beginRender()
-  tree = HiddenTagsDialog({ ...props, includeQaTestersInStandup: true })
+  tree = HiddenTagsDialog(props)
   label = find(tree, (node) => node.props.label === 'Include QA testers in standup')!
   checkbox = label.props.control as Element
   assert.equal(checkbox.props.checked, true)
   ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, false)
-  assert.deepEqual(changes, [true, false, true, false])
+  assert.deepEqual(changes, [], 'neither toggling on nor back off applies changes')
+  ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
+  hooks.beginRender()
+  tree = HiddenTagsDialog(props)
+  ;(find(tree, (node) => node.type === 'Button' && node.props.children === 'Save')!.props.onClick as () => void)()
+  assert.deepEqual(changes, [true], 'only the final changed setting is saved')
 })
 
 test('Assignments inactive member setting defaults false for missing and older settings', () => {
@@ -263,6 +269,7 @@ test('Assignments stale done member option is always shown but only enabled with
   const props = {
     open: true, tagRules: [], onChange: () => {}, onClose: () => {},
     cardHighlightOptions: { freshDays: 1, staleDays: 7 }, onCardHighlightOptionsChange: () => {},
+    onHideUsersWithNoActivityChange: () => {},
     onHideUsersWithOnlyStaleDoneWorkChange: (next: boolean) => { changes.push(next) },
   }
   hooks.beginRender()
@@ -289,21 +296,34 @@ test('Assignments stale done member option is always shown but only enabled with
   const help = find(HiddenTagsDialog(props), (node) => node.props.id === describedBy)!
   assert.ok(help)
   assert.match(String(help.props.children), /Requires Hide users with no activity\.$/)
-  option = staleDoneOption({ hideUsersWithNoActivity: true })
+  const setNoActivity = (checked: boolean) => {
+    hooks.beginRender()
+    const label = find(HiddenTagsDialog(props), (node) => node.props.label === 'Hide users with no activity')!
+    ;((label.props.control as Element).props.onChange as (event: null, checked: boolean) => void)(null, checked)
+  }
+  setNoActivity(true)
+  option = staleDoneOption()
   assert.equal(option.label.props.disabled, false)
   assert.equal(option.checkbox.props.checked, false)
   ;(option.checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
 
   // A saved value is shown, not cleared, while the no-activity option is off.
-  option = staleDoneOption({ hideUsersWithOnlyStaleDoneWork: true })
+  setNoActivity(false)
+  option = staleDoneOption()
   assert.equal(option.label.props.disabled, true)
   assert.equal(option.checkbox.props.checked, true)
 
-  option = staleDoneOption({ hideUsersWithNoActivity: true, hideUsersWithOnlyStaleDoneWork: true })
+  setNoActivity(true)
+  option = staleDoneOption()
   assert.equal(option.label.props.disabled, false)
   assert.equal(option.checkbox.props.checked, true)
   ;(option.checkbox.props.onChange as (event: null, checked: boolean) => void)(null, false)
-  assert.deepEqual(changes, [true, false])
+  assert.deepEqual(changes, [])
+  ;(option.checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
+  hooks.beginRender()
+  const savedTree = HiddenTagsDialog(props)
+  ;(find(savedTree, (node) => node.type === 'Button' && node.props.children === 'Save')!.props.onClick as () => void)()
+  assert.deepEqual(changes, [true])
 })
 
 test('Assignments stale done member setting defaults false for missing and older settings', () => {
@@ -393,10 +413,15 @@ test('Development options Display tab toggles compact cards and explains them', 
   assert.match(String(help.props.children), /Hover over or focus a card to see all of its details\.$/)
   ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
 
-  checkbox = compactOption({ compactCards: true })
+  checkbox = compactOption()
   assert.equal(checkbox.props.checked, true)
   ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, false)
-  assert.deepEqual(changes, [true, false])
+  assert.deepEqual(changes, [])
+  ;(checkbox.props.onChange as (event: null, checked: boolean) => void)(null, true)
+  hooks.beginRender()
+  const savedTree = HiddenTagsDialog(props)
+  ;(find(savedTree, (node) => node.type === 'Button' && node.props.children === 'Save')!.props.onClick as () => void)()
+  assert.deepEqual(changes, [true])
 })
 
 test('Assignments compact card setting defaults false for missing and older settings', () => {
@@ -409,6 +434,76 @@ test('Assignments compact card setting defaults false for missing and older sett
     assert.deepEqual(parseStoredAssignmentOptions(serializeAssignmentOptions(options)), options)
   }
 })
+
+for (const action of ['Save', 'Cancel', 'escapeKeyDown', 'backdropClick']) {
+  test(`Development options stage filters, freshness, density, rules and effort until ${action}`, () => {
+    hooks.reset()
+    const saved = new Map<string, string>()
+    const record = (key: string) => (value: unknown) => saved.set(key, JSON.stringify(value))
+    const props = {
+      open: true, onClose: () => { props.open = false },
+      tagRules: [], onChange: record('rules'),
+      cardHighlightOptions: { freshDays: 1, staleDays: 7 }, onCardHighlightOptionsChange: record('freshness'),
+      includeWorkItemTypes: [], projectWorkItemTypes: ['Bug'], onIncludeWorkItemTypesChange: record('types'),
+      sprintFilter: { current: true, next: true, nextNext: false, iterationPaths: [] }, onSprintFilterChange: record('sprints'),
+      compactCards: false, onCompactCardsChange: record('compact'),
+      effortSuggestions: [1, 2], onEffortSuggestionsChange: record('effort'),
+    }
+    let tree: Element
+    const render = () => {
+      hooks.beginRender()
+      tree = HiddenTagsDialog(props)
+      hooks.flushEffects()
+      hooks.beginRender()
+      tree = HiddenTagsDialog(props)
+    }
+    const node = (match: (node: Element) => boolean) => {
+      const result = find(tree, match)
+      assert.ok(result)
+      return result
+    }
+    const tab = (value: string) => {
+      ;(node((node) => node.type === 'Tabs').props.onChange as Function)(null, value)
+      render()
+    }
+    render()
+    ;(node((node) => node.type === 'Select' && node.props['aria-label'] === 'Work item types').props.onChange as Function)({ target: { value: ['Bug'] } })
+    tab('sprints')
+    ;((node((node) => node.props.label === 'Current sprint').props.control as Element).props.onChange as Function)({ target: { checked: false } })
+    tab('freshness')
+    ;(node((node) => node.props.label === 'Fresh threshold (days)').props.onChange as Function)({ target: { value: '3' } })
+    tab('display')
+    ;((node((node) => node.props.label === 'Compact cards').props.control as Element).props.onChange as Function)(null, true)
+    tab('tag-rules')
+    ;(node((node) => node.type === 'Button' && node.props.children === 'Add rule').props.onClick as Function)()
+    tab('editing')
+    ;(node((node) => Array.isArray(node.props.value) && JSON.stringify(node.props.value) === '[1,2]').props.onChange as Function)([1, 2, 3])
+    render()
+    assert.equal(saved.size, 0)
+    if (action === 'Save' || action === 'Cancel') {
+      ;(node((node) => node.type === 'Button' && node.props.children === action).props.onClick as Function)()
+    } else {
+      ;(node((node) => node.type === 'Dialog').props.onClose as Function)({}, action)
+    }
+    if (action === 'Save') {
+      assert.deepEqual([...saved.keys()], ['rules', 'freshness', 'types', 'sprints', 'compact', 'effort'])
+      assert.deepEqual(JSON.parse(saved.get('freshness')!), { freshDays: 3, staleDays: 7 })
+      assert.deepEqual(JSON.parse(saved.get('types')!), ['Bug'])
+      assert.equal(JSON.parse(saved.get('sprints')!).current, false)
+      assert.equal(saved.get('compact'), 'true')
+      assert.deepEqual(JSON.parse(saved.get('effort')!), [1, 2, 3])
+    } else {
+      assert.equal(saved.size, 0)
+      render()
+      props.open = true
+      render()
+      tab('display')
+      assert.equal((node((node) => node.props.label === 'Compact cards').props.control as Element).props.checked, false)
+      tab('editing')
+      assert.ok(node((node) => Array.isArray(node.props.value) && JSON.stringify(node.props.value) === '[1,2]'))
+    }
+  })
+}
 
 test('Assignments compact card setting is persisted per team and restored after reload', (t) => {
   const profile = {
@@ -713,8 +808,8 @@ function setup(unreadable = false) {
   }
 }
 
-for (const closeVia of ['button', 'escapeKeyDown', 'backdropClick']) {
-  test(`Freshness stays draft-only until closing via ${closeVia}`, () => {
+for (const closeVia of ['Save', 'Cancel', 'escapeKeyDown', 'backdropClick']) {
+  test(`Freshness handles ${closeVia} without applying changes before Save`, () => {
     const dialog = setup()
     dialog.change('Fresh threshold (days)', '30')
     dialog.change('Stale threshold (days)', '40')
@@ -725,16 +820,17 @@ for (const closeVia of ['button', 'escapeKeyDown', 'backdropClick']) {
     assert.equal(dialog.node((node) => node.props.label === 'Fresh threshold (days)').props.value, 30)
     assert.equal(dialog.node((node) => node.props.label === 'Stale threshold (days)').props.value, 40)
 
-    if (closeVia === 'button') {
-      const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Close')
+    if (closeVia === 'Save' || closeVia === 'Cancel') {
+      const close = dialog.node((node) => node.type === 'Button' && node.props.children === closeVia)
       ;(close.props.onClick as () => void)()
     } else {
       const modal = dialog.node((node) => node.type === 'Dialog')
       ;(modal.props.onClose as (event: unknown, reason: string) => void)({}, closeVia)
     }
-    assert.deepEqual(dialog.calls, ['freshness', 'close'])
-    assert.deepEqual(dialog.committed(), { freshDays: 30, staleDays: 40 })
-    assert.equal(dialog.storage.get(dialog.storageKey), '{"freshDays":30,"staleDays":40}')
+    const saved = closeVia === 'Save'
+    assert.deepEqual(dialog.calls, saved ? ['freshness', 'close'] : ['close'])
+    assert.deepEqual(dialog.committed(), saved ? { freshDays: 30, staleDays: 40 } : { freshDays: 1, staleDays: 7 })
+    assert.equal(dialog.storage.get(dialog.storageKey), saved ? '{"freshDays":30,"staleDays":40}' : '{"freshDays":1,"staleDays":7}')
 
     dialog.render()
     dialog.props.cardHighlightOptions = { freshDays: 2, staleDays: 9 }
@@ -763,7 +859,7 @@ for (const closeVia of ['button', 'escapeKeyDown', 'backdropClick']) {
     const dialog = setup(true)
     assert.match(String(dialog.node((node) => node.type === 'Alert').props.children), /could not be read/)
     if (closeVia === 'button') {
-      const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Close')
+      const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Cancel')
       ;(close.props.onClick as () => void)()
     } else {
       const modal = dialog.node((node) => node.type === 'Dialog')
@@ -777,20 +873,20 @@ for (const closeVia of ['button', 'escapeKeyDown', 'backdropClick']) {
 test('changing only freshness preserves unreadable QA options', () => {
   const dialog = setup(true)
   dialog.change('Fresh threshold (days)', '3')
-  const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Close')
+  const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Save')
   ;(close.props.onClick as () => void)()
   assert.deepEqual(dialog.calls, ['freshness', 'close'])
   assert.equal(dialog.storage.get(dialog.qaStorageKey), '{bad')
 })
 
-test('editing QA options deliberately replaces unreadable data on close', () => {
+test('editing QA options deliberately replaces unreadable data on Save', () => {
   const dialog = setup(true)
   const tabs = dialog.node((node) => node.type === 'Tabs')
   ;(tabs.props.onChange as (event: null, value: number) => void)(null, 1)
   dialog.render()
   dialog.change('Lookback window (days)', '14')
   assert.equal(dialog.storage.get(dialog.qaStorageKey), '{bad')
-  const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Close')
+  const close = dialog.node((node) => node.type === 'Button' && node.props.children === 'Save')
   ;(close.props.onClick as () => void)()
   assert.deepEqual(dialog.calls, ['options', 'close'])
   assert.equal(JSON.parse(dialog.storage.get(dialog.qaStorageKey)!).lookbackDays, 14)
@@ -800,8 +896,32 @@ test('explicitly accepting defaults replaces unreadable QA options', () => {
   const dialog = setup(true)
   const reset = dialog.node((node) => node.type === 'Button' && node.props.children === 'Use default QA options')
   ;(reset.props.onClick as () => void)()
+  assert.deepEqual(dialog.calls, [])
+  assert.equal(dialog.storage.get(dialog.qaStorageKey), '{bad')
+  dialog.render()
+  const save = dialog.node((node) => node.type === 'Button' && node.props.children === 'Save')
+  ;(save.props.onClick as () => void)()
   assert.deepEqual(dialog.calls, ['options', 'close'])
   assert.equal(dialog.storage.get(dialog.qaStorageKey), serializeQaOptions(parseStoredQaOptions(null)))
+})
+
+test('Cancel discards edited QA query options and staged recovery defaults', () => {
+  const dialog = setup(true)
+  const tabs = dialog.node((node) => node.type === 'Tabs')
+  ;(tabs.props.onChange as Function)(null, 1)
+  dialog.render()
+  dialog.change('Lookback window (days)', '14')
+  ;(dialog.node((node) => node.type === 'Button' && node.props.children === 'Use default QA options').props.onClick as Function)()
+  dialog.render()
+  ;(dialog.node((node) => node.type === 'Button' && node.props.children === 'Cancel').props.onClick as Function)()
+  assert.deepEqual(dialog.calls, ['close'])
+  assert.equal(dialog.storage.get(dialog.qaStorageKey), '{bad')
+  dialog.render()
+  dialog.props.open = true
+  dialog.render()
+  ;(dialog.node((node) => node.type === 'Button' && node.props.children === 'Save').props.onClick as Function)()
+  assert.deepEqual(dialog.calls, ['close', 'close'], 'a discarded recovery choice does not persist on a later Save')
+  assert.equal(dialog.storage.get(dialog.qaStorageKey), '{bad')
 })
 
 test('app state preserves corrupt profiles without seeding and clears recovery after replacement', (t) => {

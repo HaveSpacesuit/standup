@@ -108,7 +108,7 @@ export function QaOptionsDialog({
   const isMobile = useMediaQuery('(max-width:599.95px)')
   // Edit against a local draft so expensive query-affecting changes (the work item type
   // allow-list and sprint filter) are only committed — and the data reload only triggered —
-  // when the dialog closes.
+  // when Save is selected.
   const [draft, setDraft] = useState<QaOptions>(() => ({
     ...options,
     lookbackDays: normalizeQaLookbackDays(options.lookbackDays),
@@ -122,6 +122,7 @@ export function QaOptionsDialog({
     testing: '', done: '', development: '', new: '',
   })
   const [activeTab, setActiveTab] = useState(0)
+  const [acceptDefaults, setAcceptDefaults] = useState(false)
   const updateCardHighlightOptions = (changes: Partial<CardHighlightOptions>) => {
     setCardHighlightDraft((current) => normalizeCardHighlightOptions({ ...current, ...changes }))
   }
@@ -137,6 +138,7 @@ export function QaOptionsDialog({
       setNewIterationPathInput('')
       setTagGroupInputs({ testing: '', done: '', development: '', new: '' })
       setActiveTab(initialTab === 'testers' ? TESTERS_TAB : 0)
+      setAcceptDefaults(false)
     }
     // Only re-sync the draft when the dialog is (re)opened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,8 +166,8 @@ export function QaOptionsDialog({
     nextNext: resolveRelativeSprintName(teamIterations, 2),
   }), [teamIterations])
 
-  const handleClose = () => {
-    if (serializeQaOptions(draft) !== serializeQaOptions(options)) {
+  const handleSave = () => {
+    if (acceptDefaults || serializeQaOptions(draft) !== serializeQaOptions(options)) {
       onChange(draft)
     }
     if (cardHighlightDraft.freshDays !== cardHighlightOptions.freshDays || cardHighlightDraft.staleDays !== cardHighlightOptions.staleDays) {
@@ -273,7 +275,7 @@ export function QaOptionsDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>QA Options</DialogTitle>
 
       {recoveryWarning ? <Alert severity="warning" role="alert">{recoveryWarning}</Alert> : null}
@@ -807,14 +809,12 @@ export function QaOptionsDialog({
       <DialogActions>
         {recoveryWarning ? (
           <Button onClick={() => {
-            onChange(options)
-            if (cardHighlightDraft.freshDays !== cardHighlightOptions.freshDays || cardHighlightDraft.staleDays !== cardHighlightOptions.staleDays) {
-              onCardHighlightOptionsChange(cardHighlightDraft)
-            }
-            onClose()
+            setDraft(options)
+            setAcceptDefaults(true)
           }}>Use default QA options</Button>
         ) : null}
-        <Button onClick={handleClose}>Close</Button>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSave} variant="contained">Save</Button>
       </DialogActions>
     </Dialog>
   )

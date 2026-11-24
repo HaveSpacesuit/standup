@@ -6,10 +6,13 @@ type Props = {
   options: AutoRefreshOptions
   error: string | null
   onChange: (options: AutoRefreshOptions) => void
+  minutesValue?: string
+  onMinutesChange?: (minutes: string) => void
 }
 
-export function AutoRefreshSettings({ options, error, onChange }: Props) {
-  const [minutes, setMinutes] = useState(String(options.minutes))
+export function AutoRefreshSettings({ options, error, onChange, minutesValue, onMinutesChange }: Props) {
+  const [localMinutes, setMinutes] = useState(String(options.minutes))
+  const minutes = minutesValue ?? localMinutes
   const valid = minutes.trim() !== '' && isValidRefreshMinutes(Number(minutes))
   return (
     <Box>
@@ -40,6 +43,7 @@ export function AutoRefreshSettings({ options, error, onChange }: Props) {
           onChange={(event) => {
             const input = event.target.value
             setMinutes(input)
+            onMinutesChange?.(input)
             if (input.trim() && isValidRefreshMinutes(Number(input))) onChange({ ...options, minutes: Number(input) })
           }}
           sx={{ mt: 2 }}

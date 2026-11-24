@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react'
-import { clearStoredPat, loadStoredPat, saveStoredPat, type StoredPatState } from '../../../adoAuth'
+import { useMemo, useRef, useState } from 'react'
+import { LOCAL_STORAGE_PAT_KEY, SESSION_STORAGE_PAT_KEY, clearStoredPat, loadStoredPat, resetPatSession, saveStoredPat, type StoredPatState } from '../../../adoAuth'
 import type { TeamProfile } from '../../../appSettings'
-import { saveTeamProfiles } from '../../../appSettings'
+import { COLOR_SCHEME_STORAGE_KEY, TEAM_PROFILES_STORAGE_KEY, saveTeamProfiles } from '../../../appSettings'
+import { parseImportedTeamData, type TeamDataExport } from '../../../teamDataTransfer'
+import type { TagRule } from '../../../ado/workItemStatus'
+import { validateTeamProfile } from '../utils/teamProfileValidation'
 import { loadTeamProfilesWithDefaultsAndRecovery } from '../../../defaultTeamSeed'
 import type { CardHighlightOptions } from '../utils/cardHighlightOptions'
 import {
@@ -20,14 +23,30 @@ import {
 } from '../utils/assignmentOptions'
 import type { BacklogOptions } from '../utils/backlogOptions'
 import { backlogOptionsStorageKey, parseStoredBacklogOptions, serializeBacklogOptions } from '../utils/backlogOptions'
-import { loadRememberLastView, saveRememberLastView } from '../utils/lastViews'
-import { DEFAULT_AUTO_REFRESH, loadAutoRefresh, saveAutoRefresh, type AutoRefreshOptions } from '../utils/autoRefresh'
+import { REMEMBER_LAST_VIEW_STORAGE_KEY, loadRememberLastView, saveRememberLastView } from '../utils/lastViews'
+import { AUTO_REFRESH_STORAGE_KEY, DEFAULT_AUTO_REFRESH, isValidRefreshMinutes, loadAutoRefresh, saveAutoRefresh, type AutoRefreshOptions } from '../utils/autoRefresh'
 import type { QaOptions } from '../utils/qaOptions'
 import { parseStoredQaOptionsWithRecovery, qaOptionsStorageKey, serializeQaOptions } from '../utils/qaOptions'
 import { SELECTED_TEAM_STORAGE_KEY, tagRulesStorageKey } from './useBoardPreferences'
 import { loadTriageSettings, parseTriageOptions, triageOptionsStorageKey, type TriageOptions, type TriageSettings } from '../utils/triageOptions'
 import { triageNotDuplicatesStorageKey } from '../utils/triageNotDuplicates'
 import { triageVisitStorageKey } from '../utils/triageVisits'
+import { createDefaultAssignmentOptions } from '../utils/standupOptionDefaults'
+
+export type GlobalSettingsDraft = {
+  teamProfiles: TeamProfile[]
+  imports: TeamDataExport[]
+  selectedTeamId: string
+  rememberLastView: boolean
+  autoRefresh: AutoRefreshOptions
+  colorScheme?: 'light' | 'dark'
+  pat?: string | null
+}
+
+export type GlobalSettingsCommit = {
+  selectedTeamId: string
+  importedTagRules: Record<string, TagRule[]>
+}
 
 type UseStandupAppStateResult = {
   teamProfiles: TeamProfile[]
@@ -45,7 +64,7 @@ type UseStandupAppStateResult = {
   rememberLastView: boolean
   autoRefresh: AutoRefreshOptions
   autoRefreshError: string | null
-  setAutoRefreshPersisted: (next: AutoRefreshOptions) => void
+  setAutoRefreshPersisted: (next: AutoRefreshOptions) => boolean
   handleTeamProfilesChange: (nextTeamProfiles: TeamProfile[]) => void
   replaceTeamProfiles: (nextTeamProfiles: TeamProfile[]) => void
   handlePatSave: (pat: string) => void
@@ -53,9 +72,10 @@ type UseStandupAppStateResult = {
   setQaOptionsForTeam: (teamId: string, next: QaOptions) => void
   setQaCardHighlightOptionsPersisted: (teamId: string, next: CardHighlightOptions) => void
   setAssignmentCardHighlightOptionsPersisted: (next: CardHighlightOptions) => void
-  setAssignmentOptionsForTeam: (teamId: string, next: AssignmentOptions) => void
+  setAssignmentOptionsForTeam: (teamId: string, next: AssignmentOptions | ((current: AssignmentOptions) => AssignmentOptions)) => void
   setBacklogOptionsForTeam: (teamId: string, next: BacklogOptions) => void
   setRememberLastViewPersisted: (next: boolean) => void
+  saveGlobalSettings: (draft: GlobalSettingsDraft) => GlobalSettingsCommit
 }
 
 function buildQaOptionsByTeam(teamProfiles: TeamProfile[]): Record<string, ReturnType<typeof parseStoredQaOptionsWithRecovery>> {
@@ -134,6 +154,7 @@ export function useStandupAppState(): UseStandupAppStateResult {
   const [assignmentOptionsByTeam, setAssignmentOptionsByTeam] = useState<Record<string, AssignmentOptions>>(() =>
     buildAssignmentOptionsByTeam(teamProfiles),
   )
+  const assignmentOptionsRef = useRef(assignmentOptionsByTeam)
   const [backlogOptionsByTeam, setBacklogOptionsByTeam] = useState<Record<string, BacklogOptions>>(() =>
     buildBacklogOptionsByTeam(teamProfiles),
   )
@@ -156,8 +177,10 @@ export function useStandupAppState(): UseStandupAppStateResult {
       saveAutoRefresh(next)
       setAutoRefresh(next)
       setAutoRefreshError(null)
+      return true
     } catch (cause) {
       setAutoRefreshError(`Unable to save auto-refresh settings: ${cause instanceof Error ? cause.message : String(cause)}`)
+      return false
     }
   }
 
@@ -183,6 +206,9 @@ export function useStandupAppState(): UseStandupAppStateResult {
     }
 
     persistTeamProfiles(nextTeamProfiles)
+    assignmentOptionsRef.current = Object.fromEntries(
+      Object.entries(assignmentOptionsRef.current).filter(([teamId]) => nextTeamIds.has(teamId)),
+    )
     setQaSettingsByTeam((previous) => Object.fromEntries(
       Object.entries(previous).filter(([teamId]) => nextTeamIds.has(teamId)),
     ))
@@ -227,19 +253,21 @@ export function useStandupAppState(): UseStandupAppStateResult {
     localStorage.setItem(ASSIGNMENTS_CARD_HIGHLIGHT_OPTIONS_STORAGE_KEY, serializeCardHighlightOptions(next))
   }
 
-  const setAssignmentOptionsForTeam = (teamId: string, next: AssignmentOptions) => {
-    setAssignmentOptionsByTeam((previous) => ({ ...previous, [teamId]: next }))
+  const setAssignmentOptionsForTeam = (teamId: string, update: AssignmentOptions | ((current: AssignmentOptions) => AssignmentOptions)) => {
+    const next = typeof update === 'function' ? update(assignmentOptionsRef.current[teamId] ?? createDefaultAssignmentOptions()) : update
     localStorage.setItem(assignmentOptionsStorageKey(teamId), serializeAssignmentOptions(next))
+    assignmentOptionsRef.current = { ...assignmentOptionsRef.current, [teamId]: next }
+    setAssignmentOptionsByTeam((previous) => ({ ...previous, [teamId]: next }))
   }
 
   const setBacklogOptionsForTeam = (teamId: string, next: BacklogOptions) => {
-    setBacklogOptionsByTeam((previous) => ({ ...previous, [teamId]: next }))
     localStorage.setItem(backlogOptionsStorageKey(teamId), serializeBacklogOptions(next))
+    setBacklogOptionsByTeam((previous) => ({ ...previous, [teamId]: next }))
   }
 
   const setRememberLastViewPersisted = (next: boolean) => {
-    setRememberLastView(next)
     saveRememberLastView(next)
+    setRememberLastView(next)
   }
 
   const setTriageOptionsForTeam = (teamId: string, next: TriageOptions) => {
@@ -255,6 +283,125 @@ export function useStandupAppState(): UseStandupAppStateResult {
       }))
       throw new Error(error)
     }
+  }
+
+  const saveGlobalSettings = (draft: GlobalSettingsDraft): GlobalSettingsCommit => {
+    const nextTeamIds = new Set<string>()
+    for (const team of draft.teamProfiles) {
+      const validationError = validateTeamProfile(team)
+      if (validationError) throw new Error(validationError.message)
+      if (!team.id.trim() || nextTeamIds.has(team.id)) throw new Error('Team IDs must be non-empty and unique.')
+      nextTeamIds.add(team.id)
+    }
+    if (!isValidRefreshMinutes(draft.autoRefresh.minutes)) throw new Error('Enter a whole number of minutes greater than 0.')
+    const pat = draft.pat === undefined || draft.pat === null ? draft.pat : draft.pat.trim()
+    if (pat === '') throw new Error('Azure DevOps PAT is required.')
+    const imports = draft.imports.map((data) => parseImportedTeamData(JSON.stringify(data)))
+    const importedIds = new Set<string>()
+    for (const data of imports) {
+      if (!nextTeamIds.has(data.teamProfile.id)) throw new Error('The imported team must be included in the saved team profiles.')
+      if (importedIds.has(data.teamProfile.id)) throw new Error('Each team can only be imported once per Save.')
+      importedIds.add(data.teamProfile.id)
+    }
+    const selectedTeamId = imports.at(-1)?.teamProfile.id
+      ?? (nextTeamIds.has(draft.selectedTeamId) ? draft.selectedTeamId : draft.teamProfiles[0]?.id ?? '')
+    const changes: { storage: Storage; key: string; value: string | null }[] = []
+    const write = (key: string, value: string | null, storage = localStorage) => changes.push({ storage, key, value })
+    if (JSON.stringify(draft.teamProfiles) !== JSON.stringify(teamProfiles) || imports.length) {
+      write(TEAM_PROFILES_STORAGE_KEY, JSON.stringify(draft.teamProfiles))
+    }
+    for (const team of teamProfiles) {
+      if (!nextTeamIds.has(team.id)) {
+        for (const key of [
+          qaOptionsStorageKey(team.id), qaCardHighlightOptionsStorageKey(team.id), assignmentOptionsStorageKey(team.id),
+          backlogOptionsStorageKey(team.id), triageOptionsStorageKey(team.id), triageVisitStorageKey(team.id),
+          triageNotDuplicatesStorageKey(team.id), tagRulesStorageKey(team.id),
+        ]) write(key, null)
+      }
+    }
+    for (const data of imports) {
+      const id = data.teamProfile.id
+      write(assignmentOptionsStorageKey(id), serializeAssignmentOptions(data.assignmentOptions))
+      write(qaOptionsStorageKey(id), serializeQaOptions(data.qaOptions))
+      write(backlogOptionsStorageKey(id), serializeBacklogOptions(data.backlogOptions))
+      write(triageOptionsStorageKey(id), JSON.stringify(data.triageOptions))
+      write(tagRulesStorageKey(id), JSON.stringify(data.assignmentTagRules))
+    }
+    if (selectedTeamId !== draft.selectedTeamId) write(SELECTED_TEAM_STORAGE_KEY, selectedTeamId)
+    if (draft.rememberLastView !== rememberLastView) write(REMEMBER_LAST_VIEW_STORAGE_KEY, String(draft.rememberLastView))
+    if (draft.autoRefresh.enabled !== autoRefresh.enabled || draft.autoRefresh.minutes !== autoRefresh.minutes) {
+      write(AUTO_REFRESH_STORAGE_KEY, JSON.stringify(draft.autoRefresh))
+    }
+    if (draft.colorScheme !== undefined) write(COLOR_SCHEME_STORAGE_KEY, draft.colorScheme)
+    if (pat !== undefined) {
+      write(SESSION_STORAGE_PAT_KEY, pat, sessionStorage)
+      if (pat === null) write(LOCAL_STORAGE_PAT_KEY, null)
+    }
+    const committed = {
+      selectedTeamId,
+      importedTagRules: Object.fromEntries(imports.map((data) => [data.teamProfile.id, data.assignmentTagRules])),
+    }
+    if (!changes.length) return committed
+
+    // Snapshot every affected entry before the first write; no runtime settings change until all writes succeed.
+    const pending = changes.map((change) => ({ ...change, previous: change.storage.getItem(change.key) }))
+      .filter((change) => change.previous !== change.value)
+    const attempted: typeof pending = []
+    try {
+      for (const change of pending) {
+        attempted.push(change)
+        if (change.value === null) change.storage.removeItem(change.key)
+        else change.storage.setItem(change.key, change.value)
+      }
+    } catch (cause) {
+      const rollbackErrors: Error[] = []
+      for (const change of attempted.reverse()) {
+        try {
+          if (change.previous === null) change.storage.removeItem(change.key)
+          else change.storage.setItem(change.key, change.previous)
+        } catch (rollbackCause) {
+          rollbackErrors.push(new Error(`Could not restore ${change.key}: ${rollbackCause instanceof Error ? rollbackCause.message : String(rollbackCause)}`))
+        }
+      }
+      const message = `Unable to save Settings: ${cause instanceof Error ? cause.message : String(cause)}`
+      if (rollbackErrors.length) {
+        throw new AggregateError([cause, ...rollbackErrors], `${message}. Rollback also failed: ${rollbackErrors.map((error) => error.message).join('; ')}`)
+      }
+      throw new Error(message, { cause })
+    }
+
+    if (JSON.stringify(draft.teamProfiles) !== JSON.stringify(teamProfiles) || imports.length) {
+      setTeamProfiles({ profiles: draft.teamProfiles, unreadable: false })
+    }
+    const retained = <T,>(previous: Record<string, T>) => Object.fromEntries(
+      Object.entries(previous).filter(([id]) => nextTeamIds.has(id)),
+    )
+    setQaSettingsByTeam((previous) => ({
+      ...retained(previous),
+      ...Object.fromEntries(imports.map((data) => [data.teamProfile.id, { options: data.qaOptions, unreadable: false }])),
+    }))
+    setQaCardHighlightOptionsByTeam((previous) => retained(previous))
+    assignmentOptionsRef.current = {
+      ...retained(assignmentOptionsRef.current), ...Object.fromEntries(imports.map((data) => [data.teamProfile.id, data.assignmentOptions])),
+    }
+    setAssignmentOptionsByTeam(assignmentOptionsRef.current)
+    setBacklogOptionsByTeam((previous) => ({
+      ...retained(previous), ...Object.fromEntries(imports.map((data) => [data.teamProfile.id, data.backlogOptions])),
+    }))
+    setTriageSettingsByTeam((previous) => ({
+      ...retained(previous),
+      ...Object.fromEntries(imports.map((data) => [data.teamProfile.id, { options: data.triageOptions, error: null }])),
+    }))
+    setRememberLastView(draft.rememberLastView)
+    if (draft.autoRefresh.enabled !== autoRefresh.enabled || draft.autoRefresh.minutes !== autoRefresh.minutes) {
+      setAutoRefresh(draft.autoRefresh)
+      setAutoRefreshError(null)
+    }
+    if (pat !== undefined) {
+      if (pat === null) resetPatSession()
+      setStoredPatState(pat === null ? null : { pat })
+    }
+    return committed
   }
 
   return {
@@ -284,5 +431,6 @@ export function useStandupAppState(): UseStandupAppStateResult {
     setAssignmentOptionsForTeam,
     setBacklogOptionsForTeam,
     setRememberLastViewPersisted,
+    saveGlobalSettings,
   }
 }
