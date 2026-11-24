@@ -155,6 +155,51 @@ const click = (element: Element) => act(async () => (element as HTMLElement).cli
 const byText = (selector: string, text: string) =>
   [...document.querySelectorAll<HTMLElement>(selector)].find((element) => element.textContent?.trim().startsWith(text))!
 const toastText = () => document.querySelector('.MuiSnackbar-root .MuiAlert-message')?.textContent ?? ''
+
+test('reloading PR approvals updates the developer attention flags without reloading the board', async (t) => {
+  const item = makePullRequestCard(456, { approvalCount: 1, reviewPolicy: { requiredApprovals: 2, state: 'pending' } })
+  const other = makePullRequestCard(457, { approvalCount: 1, reviewPolicy: { requiredApprovals: 2, state: 'pending' } })
+  const { host, engine } = await render(t, [item, other])
+  const lane = () => host.querySelector('[data-lane="ana"]')!
+  assert.match(lane().textContent ?? '', /2 need approval/)
+  engine.pullRequestRead = {
+    card: makePullRequestCard(456, { approvalCount: 2, reviewPolicy: { requiredApprovals: 2, state: 'passing' } }),
+    status: 'active',
+  }
+  await click(card(-456).querySelector('[aria-label="Reload PR 456 from Azure DevOps (R)"]')!)
+  assert.match(lane().textContent ?? '', /1 needs approval/)
+  assert.doesNotMatch(lane().textContent ?? '', /2 need approval/)
+  assert.match(card(-456).textContent ?? '', /2\/2/)
+})
+
+test('reloading linked PRs updates developer flags when checks pass and reviews are satisfied', async (t) => {
+  const pending = makePullRequest(456, {
+    approvalCount: 1, reviewPolicy: { requiredApprovals: 2, state: 'pending' },
+    checks: {
+      state: 'failing', total: 1, passing: 0, pending: 0, failing: 1, failingNames: ['Build'],
+      checks: [{ name: 'Build', state: 'failing', optional: false, expired: false, source: 'build' }],
+    },
+  })
+  const { host, engine } = await render(t, [makeItem(1, { status: 'Review', state: 'In Code Review', activePullRequests: [pending] })])
+  const lane = () => host.querySelector('[data-lane="ana"]')!
+  assert.match(lane().textContent ?? '', /1 failing check/)
+  assert.match(lane().textContent ?? '', /1 needs approval/)
+  engine.linkedPullRequests = {
+    active: [{
+      ...pending, approvalCount: 2, reviewPolicy: { requiredApprovals: 2, state: 'passing' },
+      checks: {
+        state: 'passing', total: 1, passing: 1, pending: 0, failing: 0, failingNames: [],
+        checks: [{ name: 'Build', state: 'passing', optional: false, expired: false, source: 'build' }],
+      },
+    }],
+    linkedIds: [456],
+  }
+  await click(card(1).querySelector('[aria-label*="from Azure DevOps (R)"]')!)
+  assert.doesNotMatch(lane().textContent ?? '', /failing check|needs approval/)
+  assert.match(lane().textContent ?? '', /1 ready to complete/)
+  assert.deepEqual(engine.reloadOptions, [{ pullRequests: true }])
+})
+
 /** The toast's StrataKit status, such as `Success`, which also colours its icon and border. */
 const toastSeverity = () => /\bMuiAlert-color(\w+)/.exec(document.querySelector('.MuiSnackbar-root [role="alert"]')?.className ?? '')?.[1]
 const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
