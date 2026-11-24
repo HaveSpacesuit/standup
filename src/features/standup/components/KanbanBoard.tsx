@@ -134,6 +134,7 @@ export const KanbanBoard = memo(function KanbanBoard({
   const isSprintLens = lens === 'sprint'
   const replayingAt = isSprintLens ? replayAt : null
   const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({})
+  const [collapsedColumns, setCollapsedColumns] = useState<ReadonlySet<StatusColumn>>(() => new Set())
   const [attentionFacet, setAttentionFacet] = useState<AttentionFacetKey | null>(null)
   // Explicit choices only; lanes without one fall back to their defaultCollapsed.
   const [collapseOverrides, setCollapseOverrides] = useState<Record<string, boolean>>({})
@@ -320,7 +321,10 @@ export const KanbanBoard = memo(function KanbanBoard({
     return counts
   }, [shownItems])
 
-  const layout = useMemo(() => getBoardLayout(statusItemCounts.Blocked > 0), [statusItemCounts.Blocked])
+  const layout = useMemo(
+    () => getBoardLayout(statusItemCounts.Blocked > 0, undefined, isSprintLens ? undefined : collapsedColumns),
+    [collapsedColumns, isSprintLens, statusItemCounts.Blocked],
+  )
 
   const cardsByCell = useMemo(() => {
     const initial = rows.reduce<Record<string, WorkItemSummary[]>>((acc, row) => {
@@ -560,6 +564,13 @@ export const KanbanBoard = memo(function KanbanBoard({
             highlightedItemIds={highlightedItemIds}
             statusMatchCounts={statusMatchCounts}
             signalsByItemId={replayBoard ? undefined : attention.signalsByItemId}
+            collapsedColumns={isSprintLens ? undefined : collapsedColumns}
+            onToggleColumnCollapsed={isSprintLens ? undefined : (status) => setCollapsedColumns((current) => {
+              const next = new Set(current)
+              if (next.has(status)) next.delete(status)
+              else next.add(status)
+              return next
+            })}
             collapsedRowKeys={collapsedRowKeys}
             // Standup decides which lane is open, so manual collapsing pauses until it ends.
             onToggleRowCollapsed={presentingRowKey ? undefined : toggleRowCollapsed}

@@ -182,4 +182,26 @@ test('the corner offers collapse and expand all only when lanes can collapse', (
   withDocument(renderGrid({ onToggleRowCollapsed: undefined, onSetAllRowsCollapsed: undefined }), (document) => {
     assert.equal(document.querySelector('button[aria-expanded]'), null)
   })
+
 })
+
+for (const rowCollapsed of [false, true]) {
+  test(`collapsed columns show per-lane pips, counts and attention (${rowCollapsed ? 'collapsed' : 'expanded'} rows)`, () => {
+    const collapsedColumns = new Set(['Active', 'Done', 'New'])
+    withDocument(renderGrid({
+      layout: getBoardLayout(true, undefined, collapsedColumns),
+      collapsedColumns,
+      collapsedRowKeys: rowCollapsed ? new Set(['alex']) : new Set(),
+    }), (document) => {
+      const cells = [...document.querySelectorAll('[data-collapsed-column-cell]')]
+      assert.equal(cells.length, 6)
+      const active = cells.find((cell) => cell.textContent?.includes('Active: 2 cards'))!
+      assert.ok(active)
+      assert.equal(active.querySelector('[data-collapsed-summary]')?.getAttribute('aria-hidden'), 'true')
+      assert.equal(active.querySelector('[data-collapsed-summary]')?.firstElementChild?.children.length, 2)
+      assert.match(active.textContent!, /1 failing check, 1 needs approval/)
+      assert.ok(cells.some((cell) => cell.textContent?.includes('Done: 2 cards')))
+      assert.ok(cells.some((cell) => cell.textContent?.includes('New: none')))
+    })
+  })
+}

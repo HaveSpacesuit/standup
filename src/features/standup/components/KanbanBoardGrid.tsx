@@ -3,6 +3,7 @@ import { useTheme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
 import svgCollapseRowsAll from '@stratakit/icons/collapse-rows-all.svg'
 import svgExpandRowsAll from '@stratakit/icons/expand-rows-all.svg'
+import svgChevronRight from '@stratakit/icons/chevron-right.svg'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
 import type { WorkItemSummary } from '../../../ado/queryEngine'
@@ -48,6 +49,7 @@ import { QuickAssignCell } from './QuickAssignCell'
 
 const NO_SIGNALS: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>> = new Map()
 const NO_COLLAPSED_ROWS: ReadonlySet<string> = new Set()
+const NO_COLLAPSED_COLUMNS: ReadonlySet<StatusColumn> = new Set()
 
 /** A lane-level fact shown as a badge in the lane head, such as how much scope was added. */
 export type LaneNote = {
@@ -103,6 +105,8 @@ type KanbanBoardGridProps = {
   statusMatchCounts?: Record<StatusColumn, number> | null
   /** Each card's Needs attention signals, for the lane summaries. */
   signalsByItemId?: ReadonlyMap<number, ReadonlySet<AttentionFacetKey>>
+  collapsedColumns?: ReadonlySet<StatusColumn>
+  onToggleColumnCollapsed?: (status: StatusColumn) => void
   collapsedRowKeys?: ReadonlySet<string>
   /** Lanes can only be collapsed when these are provided. */
   onToggleRowCollapsed?: (rowKey: string) => void
@@ -143,6 +147,8 @@ export function KanbanBoardGrid({
   highlightedItemIds = null,
   statusMatchCounts = null,
   signalsByItemId = NO_SIGNALS,
+  collapsedColumns = NO_COLLAPSED_COLUMNS,
+  onToggleColumnCollapsed,
   collapsedRowKeys = NO_COLLAPSED_ROWS,
   onToggleRowCollapsed,
   onSetAllRowsCollapsed,
@@ -157,11 +163,22 @@ export function KanbanBoardGrid({
   const theme = useTheme()
   const scrollerRef = useRef<HTMLDivElement>(null)
   const cardsAreaRef = useRef<HTMLDivElement>(null)
+  const columnToFocus = useRef<StatusColumn | null>(null)
   const { gridTemplate, minWidth, blockedRail } = layout
   const headerHeight = columnFlows ? BOARD_FLOW_HEADER_HEIGHT : BOARD_HEADER_HEIGHT
   // Blocked is the only tinted column, and only while it holds cards.
   const blockedTint = `color-mix(in srgb, ${getStatusColumnColor('Blocked', theme.palette)} 8%, transparent)`
-  const isRail = (status: StatusColumn) => status === 'Blocked' && blockedRail
+  const isRail = (status: StatusColumn) => collapsedColumns.has(status) || (status === 'Blocked' && blockedRail)
+  const toggleColumn = (status: StatusColumn) => {
+    columnToFocus.current = status
+    onToggleColumnCollapsed?.(status)
+  }
+  useEffect(() => {
+    const status = columnToFocus.current
+    if (!status) return
+    scrollerRef.current?.querySelector<HTMLButtonElement>(`[data-column-toggle="${status}"]`)?.focus()
+    columnToFocus.current = null
+  }, [collapsedColumns])
   const laneSummaries = useMemo(
     () => new Map<string, LaneSummary>(rows.map((row) => [row.key, getLaneSummary(row.key, cardsByCell, signalsByItemId)])),
     [cardsByCell, rows, signalsByItemId],
@@ -316,7 +333,20 @@ export function KanbanBoardGrid({
                 ) : null}
               </Box>
 
-              {STATUS_COLUMNS.map((status, columnIndex) => isRail(status) ? (
+              {STATUS_COLUMNS.map((status, columnIndex) => isRail(status) && collapsedColumns.has(status) ? (
+                <Box key={status} data-column-header={status} sx={{ height: headerHeight, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: columnIndex > 0 ? COLUMN_DIVIDER : undefined }}>
+                  <Typography render={<h2 />} variant="body-sm" sx={visuallyHiddenSx}>{status}</Typography>
+                  <IconButton
+                    size="small"
+                    label={`Expand ${status} column`}
+                    aria-expanded={false}
+                    data-column-toggle={status}
+                    onClick={() => toggleColumn(status)}
+                  >
+                    <ColumnRailMark color={getStatusColumnColor(status, theme.palette)} count={statusItemCounts[status]} />
+                  </IconButton>
+                </Box>
+              ) : isRail(status) ? (
                 <AppTooltip key={status} title="No blocked cards" placement="bottom">
                   <Box
                     tabIndex={0}
@@ -418,6 +448,17 @@ export function KanbanBoardGrid({
                     </Box>
                     {columnFlows ? <ColumnFlowLine status={status} flow={columnFlows[status]} /> : null}
                   </Box>
+                  {onToggleColumnCollapsed ? (
+                    <IconButton
+                      size="small"
+                      label={`Collapse ${status} column`}
+                      aria-expanded={true}
+                      data-column-toggle={status}
+                      onClick={() => toggleColumn(status)}
+                    >
+                      <Icon href={svgChevronRight} style={{ transform: 'rotate(180deg)' }} />
+                    </IconButton>
+                  ) : null}
                 </Box>
               ))}
             </Box>
@@ -466,7 +507,7 @@ export function KanbanBoardGrid({
                     alignItems: 'flex-start',
                   }}
                 >
-                  {isRail(status) ? (
+                  {isRail(status) && !collapsedColumns.has(status) ? (
                     <Box
                       component="span"
                       sx={{
@@ -482,7 +523,7 @@ export function KanbanBoardGrid({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      Blocked · none
+                      {status} · {statusItemCounts[status] || 'none'}
                     </Box>
                   ) : null}
                 </Box>
@@ -521,18 +562,41 @@ export function KanbanBoardGrid({
                   const frame = presenting ? presentingFrameShadow({ right: columnIndex === STATUS_COLUMNS.length - 1 }) : undefined
                   const dropTarget = getDropTarget(row.key, status)
                   if (isRail(status)) {
+                    const items = cardsByCell[cellKey] ?? []
+                    const highlightedCount = highlightedItemIds
+                      ? row.ghost ? 0 : items.filter((item) => highlightedItemIds.has(item.id)).length
+                      : null
                     return (
                       <Box
                         key={cellKey}
+                        data-collapsed-column-cell={collapsedColumns.has(status) ? status : undefined}
                         {...dropTarget?.attributes}
                         sx={{
                           position: dropTarget?.slots ? 'relative' : undefined,
                           borderBottom: '1px solid',
                           borderColor: 'divider',
                           boxShadow: frame,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: 0,
+                          px: 0.5,
+                          py: 0.75,
+                          opacity: highlightedCount === 0 ? 0.35 : undefined,
                           ...getDropCellSx(dropTarget?.state, frame),
                         }}
                       >
+                        {collapsedColumns.has(status) ? (
+                          <CollapsedLaneSummary
+                            status={status}
+                            items={items}
+                            signalsByItemId={signalsByItemId}
+                            highlightedCount={highlightedCount}
+                            ghost={row.ghost}
+                            narrow
+                          />
+                        ) : null}
                         {renderSlots(dropTarget, true)}
                       </Box>
                     )

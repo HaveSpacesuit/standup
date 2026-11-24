@@ -34,6 +34,14 @@ test('the lane column width can be changed without changing the status tracks', 
   assert.equal(layout.minWidth, getBoardLayout(true).minWidth + 32)
 })
 
+test('manually collapsed columns become rails without changing the other tracks', () => {
+  const layout = getBoardLayout(true, undefined, new Set(['New', 'Done']))
+  assert.equal(layout.gridTemplate, '208px minmax(220px, 1fr) 44px minmax(250px, 1.2fr) minmax(250px, 1.2fr) 44px')
+  assert.equal(layout.minWidth, getBoardLayout(true).minWidth - 210 - 200 + 88)
+  assert.equal(layout.blockedRail, false)
+  assert.equal(getBoardLayout(true, undefined, new Set(['Blocked'])).blockedRail, true)
+})
+
 test('New and Done are always compact; Compact cards extends it to every column', () => {
   for (const status of ['New', 'Done']) {
     assert.equal(isCompactStatusColumn(status, false), true)

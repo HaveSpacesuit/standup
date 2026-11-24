@@ -156,6 +156,30 @@ const byText = (selector: string, text: string) =>
   [...document.querySelectorAll<HTMLElement>(selector)].find((element) => element.textContent?.trim().startsWith(text))!
 const toastText = () => document.querySelector('.MuiSnackbar-root .MuiAlert-message')?.textContent ?? ''
 
+test('developer columns collapse to counted rails and expand with focus and lane totals preserved', async (t) => {
+  const { host } = await render(t, [
+    makeItem(1, { status: 'Done', state: 'Done', effort: 5 }),
+    makeItem(2, { status: 'Active', state: 'Committed', effort: 8 }),
+  ])
+  const lane = () => host.querySelector('[data-lane="ana"]')!.textContent
+  const before = lane()
+  const collapse = host.querySelector('[aria-label="Collapse Done column"]')!
+  assert.equal(collapse.getAttribute('aria-expanded'), 'true')
+  await click(collapse)
+  assert.equal(card(1), null)
+  assert.ok(card(2))
+  const expand = host.querySelector('[aria-label="Expand Done column"]')!
+  assert.equal(expand.getAttribute('aria-expanded'), 'false')
+  assert.equal(document.activeElement === expand, true)
+  assert.equal(expand.querySelector('[data-column-rail-mark]')?.textContent, '1')
+  assert.match(host.querySelector('[data-collapsed-column-cell="Done"]')?.textContent ?? '', /Done: 1 card/)
+  assert.equal(lane(), before)
+  await click(expand)
+  assert.ok(card(1))
+  assert.equal(document.activeElement === host.querySelector('[aria-label="Collapse Done column"]'), true)
+  assert.equal(lane(), before)
+})
+
 test('reloading PR approvals updates the developer attention flags without reloading the board', async (t) => {
   const item = makePullRequestCard(456, { approvalCount: 1, reviewPolicy: { requiredApprovals: 2, state: 'pending' } })
   const other = makePullRequestCard(457, { approvalCount: 1, reviewPolicy: { requiredApprovals: 2, state: 'pending' } })

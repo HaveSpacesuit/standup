@@ -347,10 +347,12 @@ type CollapsedCellSummaryProps = {
   highlightedCount: number | null
   /** Cards that have left the board's scope: outlined pips and no attention flags. */
   ghost?: boolean
+  /** Stack the count and wrap pips and flags to fit a collapsed column's narrow rail. */
+  narrow?: boolean
 }
 
 /** A collapsed lane's cell: a pip per card, the count, and an icon per attention signal present. */
-export function CollapsedCellSummary({ label, count, color, flags, highlightedCount, ghost = false }: CollapsedCellSummaryProps) {
+export function CollapsedCellSummary({ label, count, color, flags, highlightedCount, ghost = false, narrow = false }: CollapsedCellSummaryProps) {
   if (count === 0) {
     return (
       <>
@@ -375,9 +377,9 @@ export function CollapsedCellSummary({ label, count, color, flags, highlightedCo
         component="span"
         aria-hidden="true"
         data-collapsed-summary=""
-        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}
+        sx={{ display: 'inline-flex', flexDirection: narrow ? 'column' : 'row', alignItems: 'center', gap: 0.75, minWidth: 0 }}
       >
-        <Box component="span" sx={{ display: 'inline-flex', gap: '2px', flex: '0 0 auto' }}>
+        <Box component="span" sx={{ display: 'inline-flex', gap: '2px', flex: '0 0 auto', flexWrap: narrow ? 'wrap' : undefined, justifyContent: 'center', maxWidth: narrow ? 30 : undefined }}>
           {Array.from({ length: Math.min(count, COLLAPSED_PIP_LIMIT) }, (_, index) => (
             <Box
               key={index}
@@ -402,7 +404,7 @@ export function CollapsedCellSummary({ label, count, color, flags, highlightedCo
           {count}
         </Typography>
         {shownFlags.length > 0 ? (
-          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: '2px', flexWrap: narrow ? 'wrap' : undefined, justifyContent: 'center', maxWidth: narrow ? 32 : undefined }}>
             {shownFlags.map((flag) => (
               <Icon key={flag.key} href={flag.iconHref} style={{ color: toneIconColor(flag.tone) }} />
             ))}
@@ -421,10 +423,11 @@ type CollapsedLaneSummaryProps = {
   highlightedCount: number | null
   /** Cards that have left the board's scope: outlined pips and no attention flags. */
   ghost?: boolean
+  narrow?: boolean
 }
 
 /** A Development lane's collapsed cell. */
-export function CollapsedLaneSummary({ status, items, signalsByItemId, highlightedCount, ghost = false }: CollapsedLaneSummaryProps) {
+export function CollapsedLaneSummary({ status, items, signalsByItemId, highlightedCount, ghost = false, narrow = false }: CollapsedLaneSummaryProps) {
   const theme = useTheme()
   // Every Blocked card is flagged blocked, so the column already says it.
   const flags = getLaneFlags(items, signalsByItemId).filter(({ facet }) => facet.key !== 'blocked').map(toLaneHeadFlag)
@@ -437,6 +440,7 @@ export function CollapsedLaneSummary({ status, items, signalsByItemId, highlight
       flags={flags}
       highlightedCount={highlightedCount}
       ghost={ghost}
+      narrow={narrow}
     />
   )
 }

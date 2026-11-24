@@ -111,6 +111,12 @@ once. Collapsed lanes are not saved.
 
 Row chevrons on Development, QA, and Backlog point right when collapsed and down when expanded.
 
+In Development's **Developers** view, each expanded column header has a collapse control.
+Collapsed columns become narrow rails with a total card count and per-lane placeholder ticks,
+counts, and attention icons, like collapsed rows. Hover or focus the header to see the column's
+name, and select its expand button to restore its cards. This changes only the layout: lane totals and attention counts still
+include those cards. Column choices stay through in-place updates and reset when leaving the view.
+
 Start standup in the toolbar walks the team one person at a time. The speaker's lane is outlined,
 expanded with every card shown, and scrolled into view; every other lane collapses to one line. A
 Standup bar above the board shows a turn timer (amber after two minutes), the speaker with their

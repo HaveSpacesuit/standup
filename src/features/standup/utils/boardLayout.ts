@@ -36,10 +36,14 @@ export type BoardLayout = {
   blockedRail: boolean
 }
 
-export function getBoardLayout(hasBlockedCards: boolean, laneColumnWidth = LANE_COLUMN_WIDTH): BoardLayout {
-  const blockedRail = !hasBlockedCards
+export function getBoardLayout(
+  hasBlockedCards: boolean,
+  laneColumnWidth = LANE_COLUMN_WIDTH,
+  collapsedColumns: ReadonlySet<StatusColumn> = new Set(),
+): BoardLayout {
+  const blockedRail = !hasBlockedCards || collapsedColumns.has('Blocked')
   const tracks = STATUS_COLUMNS.map((status) => {
-    if (status === 'Blocked' && blockedRail) {
+    if (collapsedColumns.has(status) || (status === 'Blocked' && blockedRail)) {
       return { template: `${BLOCKED_RAIL_WIDTH}px`, min: BLOCKED_RAIL_WIDTH }
     }
 

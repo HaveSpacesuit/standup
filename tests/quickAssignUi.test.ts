@@ -158,6 +158,7 @@ for (const [name, patch] of patchFailures) {
 test('Sprint view has no Quick assign action', async (t) => {
   const host = await render(t, { lens: 'sprint' })
   assert.equal(host.querySelectorAll('[aria-label^="Quick assign"]').length, 0)
+  assert.equal(host.querySelectorAll('[data-column-toggle]').length, 0)
 })
 
 test('a filtered developer with no cards can still open the scoped unassigned queue', async (t) => {
