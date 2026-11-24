@@ -174,7 +174,10 @@ and those cards are flagged Added mid-sprint in the Needs attention bar. **Remov
 collapsed by default. It shows the cards taken out of the sprint as dashed outlines with
 struck-through effort, in the column they left from, along with where they went ("Moved to
 Sprint 43 · Nov 1") and notes summing up those destinations. Removed cards never count toward the
-attention bar or column totals. Each Sprint view column header also gets a flow line. It shows a
+attention bar or column totals. Moving or editing a card refreshes the affected sprint's scope
+in place, so added and removed lanes update without a full view refresh. Moving the last
+current-sprint card out still leaves its removed lane available.
+Each Sprint view column header also gets a flow line. It shows a
 sparkline of the column's effort on each working day so far, leaving room for the days still to
 come. Beside it is the change since the sprint started: Done going up is green, Blocked going up is
 red, and Blocked going down is green. Active and Review also show how long their longest-staying card

@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AdoQueryEngine, CurrentIterationInfo, ResolvedWorkItemAssignee, SprintScopeChanges, TeamMember, WorkItemSummary } from '../../../ado/queryEngine'
 import type { TeamProfile } from '../../../appSettings'
 import type { TagRule } from '../../../ado/workItemStatus'
 import { mapWithConcurrency } from '../../../ado/concurrency'
 import { applyTagRulesToItem, matchesQuickFilter, matchesTeamMemberFilter, normalizeQuickFilterText } from '../utils/boardFilters'
 import { parseDateOnly } from '../utils/dateOnly'
+import { useWorkItemPatches } from './useWorkItemPatches'
+import { workItemUrlFor } from '../../../ado/workItemPatch'
 
 export type SprintScopeState =
   | { status: 'loading' }
@@ -49,10 +51,22 @@ export function useSprintScopeChanges({
   reloadNonce,
 }: UseSprintScopeChangesArgs): SprintScopeState {
   const [loaded, setLoaded] = useState<LoadedScope | null>(null)
+  const [refreshNonce, setRefreshNonce] = useState(0)
+  const forceRefresh = useRef(false)
   const sprintStart = parseDateOnly(currentIteration?.startDate)?.toISOString()
   const iterationPath = currentIteration?.fullName
   const typesKey = includeWorkItemTypes.join('|')
   const key = JSON.stringify([team.id, team.orgName, team.projectName, team.areaPath, iterationPath, sprintStart, typesKey, reloadNonce, members.map((member) => member.uniqueName ?? member.displayName)])
+
+  useWorkItemPatches(adoQueryEngine, (patch) => {
+    if (!iterationPath || !sprintStart || patch.preview
+      || patch.workItemUrl.toLowerCase() !== workItemUrlFor(team, patch.id).toLowerCase()) return
+    const inCurrentSprint = patch.fields.iterationPath?.trim().toLowerCase() === iterationPath?.trim().toLowerCase()
+    const wasInSprint = loaded?.key !== key || loaded.changes?.startItemIds.includes(patch.id)
+    if (!inCurrentSprint && !wasInSprint) return
+    forceRefresh.current = true
+    setRefreshNonce((current) => current + 1)
+  })
 
   useEffect(() => {
     if (!adoQueryEngine || !iterationPath || !sprintStart) {
@@ -68,8 +82,11 @@ export function useSprintScopeChanges({
       return lookup
     }, {})
 
+    const refresh = forceRefresh.current
+    forceRefresh.current = false
     adoQueryEngine.getSprintScopeChanges(team, iterationPath, sprintStart, abortController.signal, {
       includeWorkItemTypes: typesKey ? typesKey.split('|') : [],
+      forceRefresh: refresh,
     })
       .then(async (changes) => {
         const resolved = await mapWithConcurrency(changes.removedItems, 6, async (item) => ({
@@ -91,7 +108,7 @@ export function useSprintScopeChanges({
     }
     // `key` captures every input that changes the query or assignee resolution.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adoQueryEngine, key])
+  }, [adoQueryEngine, key, refreshNonce])
 
   return useMemo<SprintScopeState>(() => {
     if (!adoQueryEngine || !iterationPath || !sprintStart || loaded?.key !== key) {

@@ -269,6 +269,13 @@ test('sprint scope only applies while the current sprint is on the board', () =>
   assert.equal(resolveSprintLensScope([scopeItem(1, 'Sprint 10')], 'Sprint 10', scope), scope)
   assert.equal(resolveSprintLensScope([scopeItem(1, 'Sprint 11')], 'Sprint 10', scope), null)
   assert.equal(resolveSprintLensScope([scopeItem(1, 'Sprint 10')], 'Sprint 10', undefined), null)
+  const moved = scopeItem(1, 'Sprint 11')
+  const removedScope = { ...scope, removedItems: [moved] }
+  assert.equal(resolveSprintLensScope([moved], 'Sprint 10', removedScope), removedScope,
+    'moving the last current-sprint card out keeps its removed lane visible')
+  assert.deepEqual(getSprintLensRows([moved], { currentIterationName: 'Sprint 10', scope: removedScope })
+    .slice(0, 3).map((row: { key: string }) => row.key),
+  [SCOPE_COMMITTED_ROW_KEY, SCOPE_ADDED_ROW_KEY, SCOPE_REMOVED_ROW_KEY])
 
   const options = { currentIterationName: 'Sprint 10', scope }
   assert.equal(getSprintLensRowKey(scopeItem(1, 'Sprint 10'), options), SCOPE_COMMITTED_ROW_KEY)

@@ -41,10 +41,17 @@ const { TriageInbox } = await server.ssrLoadModule('/src/features/standup/compon
 const { WorkItemPreviewPanel } = await server.ssrLoadModule('/src/features/standup/components/WorkItemPreviewPanel.tsx')
 const { applyTriagePatch, getTriageReasons } = await server.ssrLoadModule('/src/ado/triageApi.ts')
 const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
+const { useSprintScopeChanges } = await server.ssrLoadModule('/src/features/standup/hooks/useSprintScopeChanges.ts')
 
 const team = { orgName: 'org', projectName: 'Project', iterationPath: 'Project' }
 const ana = { displayName: 'Ana', uniqueName: 'ana@example.invalid' }
 const bo = { displayName: 'Bo', uniqueName: 'bo@example.invalid' }
+const iterationWindow = {
+  current: { name: 'S1', fullName: 'Project\\S1', startDate: '2026-01-01', finishDate: '2026-01-14' },
+  next: { name: 'S2', fullName: 'Project\\S2', startDate: '2026-01-15', finishDate: '2026-01-28' },
+}
+const scopeTeam = { ...team, id: 'team', areaPath: 'Project', displayName: 'Team', teamName: 'Team', repoName: '' }
+const scopeMembers = [ana, bo]
 const pbiStates = [
   { name: 'New', category: 'Proposed' },
   { name: 'Approved', category: 'Proposed' },
@@ -72,12 +79,29 @@ function createFakeEngine(items: PatchableWorkItem[]) {
   const listeners = new Set<(patch: WorkItemPatch) => void>()
   const pullRequestListeners = new Set<(patch: PullRequestPatch) => void>()
   const publish = (patch: WorkItemPatch) => listeners.forEach((listener) => listener(patch))
+  let cachedScope: { startItemIds: number[]; removedItems: WorkItemSummary[] } | null = null
   const engine = {
     updates: [] as Update[],
     reloads: 0,
     reloadOptions: [] as unknown[],
     failure: null as Error | null,
     gate: null as Promise<void> | null,
+    scopeReads: [] as boolean[],
+    async getSprintScopeChanges(_team: unknown, path: string, _start: string, _signal: AbortSignal, options: { forceRefresh?: boolean }) {
+      engine.scopeReads.push(Boolean(options.forceRefresh))
+      if (cachedScope && !options.forceRefresh) return cachedScope
+      const startItemIds = items.filter((item) => item.iterationPath === path).map((item) => item.id)
+      const removedItems = items.filter((item) => startItemIds.includes(item.id) && saved.get(item.id)?.iterationPath !== path)
+        .map((item): WorkItemSummary => ({
+          ...item, ...saved.get(item.id)!, status: item.status ?? 'New',
+          sprintName: saved.get(item.id)?.iterationPath?.split('\\').at(-1),
+        }))
+      cachedScope = { startItemIds, removedItems }
+      return cachedScope
+    },
+    async resolveWorkItemAssignee(_team: unknown, _lookup: unknown, item: WorkItemSummary) {
+      return { kind: 'team-member', label: item.assignedTo?.displayName ?? '' }
+    },
     /** What a reload that asks for pull requests reads; `unavailable` when they can't be read. */
     linkedPullRequests: undefined as WorkItemPatch['pullRequests'] | 'unavailable',
     /** What reading a pull request card again finds. */
@@ -121,30 +145,34 @@ function createFakeEngine(items: PatchableWorkItem[]) {
   return engine
 }
 
-function Harness({ engine, initialItems, tagRules }: { engine: ReturnType<typeof createFakeEngine>; initialItems: WorkItemSummary[]; tagRules: unknown[] }) {
+function Harness({ engine, initialItems, tagRules, lens }: { engine: ReturnType<typeof createFakeEngine>; initialItems: WorkItemSummary[]; tagRules: unknown[]; lens: 'people' | 'sprint' }) {
   const [items, setItems] = useState(initialItems)
   useWorkItemPatches(engine, (patch: WorkItemPatch) => setItems((current) => applyWorkItemPatch(current, patch)))
   usePullRequestPatches(engine, (patch: PullRequestPatch) => setItems((current) => applyPullRequestPatch(current, patch)))
+  const sprintScope = useSprintScopeChanges({
+    adoQueryEngine: engine, team: scopeTeam, currentIteration: lens === 'sprint' ? iterationWindow.current : null,
+    includeWorkItemTypes: [], tagRules, members: scopeMembers, quickFilterInput: '', selectedMemberFilter: '', reloadNonce: 0,
+  })
   const editor = useWorkItemEditor({
     engine, team, statesByType: { 'product backlog item': pbiStates }, projectStates: pbiStates, iterations: [],
     members: [ana, bo], knownTags: [], effortSuggestions: [3, 5], tagRules,
   })
   return createElement(WorkItemEditingProvider, { editor },
     createElement(KanbanBoard, {
-      lens: 'people', patConfigured: true, isLoading: false, membersError: null, workItemsError: null, assigneesError: null,
+      lens, sprintScope, iterationWindow, patConfigured: true, isLoading: false, membersError: null, workItemsError: null, assigneesError: null,
       members: [ana, bo], selectedMemberFilter: '', workItems: items, currentIterationName: 'S1',
       changeHighlightsByItemId: {}, rolledOverItemIds: {}, teamIterations: [], tagRules,
       workItemAssignees: Object.fromEntries(items.map((item) => [item.id, { kind: 'team-member', label: item.assignedTo?.displayName ?? '' }])),
     }))
 }
 
-async function render(t: TestContext, items: WorkItemSummary[], tagRules: unknown[] = []) {
+async function render(t: TestContext, items: WorkItemSummary[], tagRules: unknown[] = [], lens: 'people' | 'sprint' = 'people') {
   const engine = createFakeEngine(items)
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
   t.after(async () => { await act(async () => root.unmount()); host.remove() })
-  await act(async () => root.render(createElement(Root, null, createElement(Harness, { engine, initialItems: items, tagRules }))))
+  await act(async () => root.render(createElement(Root, null, createElement(Harness, { engine, initialItems: items, tagRules, lens }))))
   return { host, engine }
 }
 
@@ -370,6 +398,42 @@ test('dragging a card to another person’s column assigns it and changes its st
   assert.equal(engine.updates[0].changes.assignedTo?.uniqueName, bo.uniqueName)
   assert.equal(document.querySelector('[data-board-drag-ghost]') === null, true)
   assert.equal(isIn(1, 'bo', 'Active'), true)
+})
+
+test('dragging between sprints updates removed and added scope lanes without a view refresh', async (t) => {
+  const { engine } = await render(t, [
+    makeItem(1),
+    makeItem(2, { iterationPath: 'Project\\S2', sprintName: 'S2' }),
+    makeItem(3),
+  ], [], 'sprint')
+  await settle()
+  assert.deepEqual(engine.scopeReads, [false])
+  await dragCard(1, () => cell('sprint:s2', 'New'), 'drop', async () => {
+    assert.deepEqual(engine.scopeReads, [false], 'drag previews must not reload sprint scope')
+  })
+  assert.deepEqual(engine.scopeReads, [false, true])
+  await click(document.querySelector('[aria-label="Expand Removed from sprint"]')!)
+  assert.match(cell('scope:removed', 'New').textContent ?? '', /Card 1/)
+
+  await click(document.querySelector('[aria-label="Expand S2"]')!)
+  await dragCard(2, () => cell('scope:added', 'New'))
+  assert.deepEqual(engine.scopeReads, [false, true, true])
+  assert.equal(isIn(2, 'scope:added', 'New'), true)
+  assert.match(cell('scope:removed', 'New').textContent ?? '', /Card 1/)
+
+  await dragCard(1, () => cell('scope:added', 'New'))
+  assert.equal(isIn(1, 'scope:committed', 'New'), true)
+  assert.doesNotMatch(cell('scope:removed', 'New').textContent ?? '', /Card 1/)
+  assert.equal(engine.reloads, 0)
+})
+
+test('moving the last current-sprint card out keeps the removed scope lane available', async (t) => {
+  await render(t, [makeItem(1), makeItem(2, { iterationPath: 'Project\\S2', sprintName: 'S2' })], [], 'sprint')
+  await settle()
+  await dragCard(1, () => cell('sprint:s2', 'New'))
+  assert.ok(document.querySelector('[data-lane="scope:removed"]'))
+  await click(document.querySelector('[aria-label="Expand Removed from sprint"]')!)
+  assert.match(cell('scope:removed', 'New').textContent ?? '', /Card 1/)
 })
 
 test('a column with several of the card’s states saves the one pointed at', async (t) => {

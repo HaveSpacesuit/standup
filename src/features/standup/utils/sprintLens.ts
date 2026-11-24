@@ -57,14 +57,16 @@ function isCurrentSprintItem(item: WorkItemSummary, currentIterationName: string
 
 /**
  * The scope to split the current sprint by: only once sprint-start membership has loaded and the
- * current sprint is on the board, so filtering it out keeps plain sprint lanes.
+ * current sprint or one of its removed cards is on the board, so moving its last card out
+ * still leaves the removed lane visible.
  */
 export function resolveSprintLensScope(
   items: readonly WorkItemSummary[],
   currentIterationName: string | null,
   scope: SprintLensScope | null | undefined,
 ): SprintLensScope | null {
-  if (!scope || !items.some((item) => isSprintLensItem(item) && isCurrentSprintItem(item, currentIterationName))) {
+  if (!scope || (!items.some((item) => isSprintLensItem(item) && isCurrentSprintItem(item, currentIterationName))
+    && !scope.removedItems.some((removed) => items.some((item) => item.id === removed.id)))) {
     return null
   }
 
@@ -258,6 +260,9 @@ export function getSprintLensRows(items: readonly WorkItemSummary[], options: Sp
   }
 
   const currentKey = options.currentIterationName ? getSprintRowKey(options.currentIterationName) : null
+  if (currentKey && options.scope && options.currentIterationName) {
+    sprintNames.set(currentKey, options.currentIterationName)
+  }
   const hasCurrent = currentKey !== null && sprintNames.has(currentKey)
   const laneCount = sprintNames.size + (hasNoSprint ? 1 : 0)
   const sorted = [...sprintNames.entries()].sort(([leftKey, left], [rightKey, right]) => {

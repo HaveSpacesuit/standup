@@ -264,7 +264,7 @@ export class AdoQueryEngine {
     iterationPath: string,
     sprintStart: string,
     _signal?: AbortSignal,
-    options?: { includeWorkItemTypes?: string[] },
+    options?: { includeWorkItemTypes?: string[]; forceRefresh?: boolean },
   ): Promise<SprintScopeChanges> {
     const sortedTypes = [...(options?.includeWorkItemTypes ?? [])].sort()
     const cacheKey = `${team.id}:${JSON.stringify([team.areaPath.toLowerCase(), iterationPath.toLowerCase(), sprintStart, sortedTypes.map((type) => type.toLowerCase())])}`
@@ -274,7 +274,7 @@ export class AdoQueryEngine {
       iterationPath,
       sprintStart,
       sortedTypes,
-    ))
+    ), options?.forceRefresh)
   }
 
   clearDevelopmentDataCache(teamId?: string): void {
