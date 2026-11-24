@@ -2,6 +2,7 @@ import type { TeamIterationOption, WorkItemSummary } from '../../../ado/types'
 import { DEFAULT_TAG_RULES, resolveMatchingTagRules, shouldHideByTagRules, type TagRule } from '../../../ado/workItemStatus'
 import { applyTagRulesToItem } from './boardFilters'
 import { compareRankedBacklogBugs, rankBacklogBug } from './backlogValue'
+import { findNextIteration } from './backlogSprint'
 
 export function isQuickAssignable(item: WorkItemSummary, tagRules: TagRule[] = DEFAULT_TAG_RULES): boolean {
   const type = item.workItemType?.trim().toLowerCase()
@@ -15,7 +16,7 @@ export function isQuickAssignable(item: WorkItemSummary, tagRules: TagRule[] = D
     && applyTagRulesToItem(item, tagRules)?.status === 'New'
 }
 
-export type QuickAssignGroup = { key: string; label: string; items: WorkItemSummary[] }
+export type QuickAssignGroup = { key: string; label: string; detail?: 'Current sprint' | 'Next sprint'; items: WorkItemSummary[] }
 
 const normalize = (value: string) => value.trim().toLowerCase()
 const time = (value?: string) => {
@@ -30,11 +31,19 @@ export function getQuickAssignGroups(
   tagRules: TagRule[] = DEFAULT_TAG_RULES,
 ): QuickAssignGroup[] {
   const iterationByPath = new Map(iterations.map((iteration) => [normalize(iteration.path), iteration]))
+  const next = findNextIteration(iterations)
   const groups = new Map<string, QuickAssignGroup>()
   for (const item of items) {
     if (!isQuickAssignable(item, tagRules)) continue
     const key = normalize(item.iterationPath ?? '')
-    const group = groups.get(key) ?? { key, label: iterationByPath.get(key)?.name ?? item.sprintName ?? item.iterationPath ?? 'No sprint', items: [] }
+    const iteration = iterationByPath.get(key)
+    const group = groups.get(key) ?? {
+      key,
+      label: iteration?.name ?? item.sprintName ?? item.iterationPath ?? 'No sprint',
+      detail: iteration?.timeFrame === 'current' ? 'Current sprint'
+        : iteration && iteration === next ? 'Next sprint' : undefined,
+      items: [],
+    }
     group.items.push(item)
     groups.set(key, group)
   }

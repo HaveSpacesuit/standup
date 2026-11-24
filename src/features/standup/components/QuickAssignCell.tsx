@@ -87,10 +87,16 @@ export function QuickAssignCell({ developer, controller }: { developer: Identity
                   sx={{
                     position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.default',
                     px: 1.5, py: 1, fontWeight: 600, color: 'text.secondary',
+                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1,
                     borderBlock: '1px solid var(--stratakit-color-border-neutral-muted)',
                   }}
                 >
                   {group.label}
+                  {group.detail ? (
+                    <Box component="span" sx={{ ml: 'auto', color: 'text.secondary', fontSize: 12, fontWeight: 400, whiteSpace: 'nowrap' }}>
+                      {group.detail}
+                    </Box>
+                  ) : null}
                 </Typography>
                 {group.items.map((item) => (
                   <Box

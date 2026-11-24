@@ -28,7 +28,11 @@ const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 const { DEFAULT_TAG_RULES } = await server.ssrLoadModule('/src/ado/workItemStatus.ts')
 const team = { id: 'team', orgName: 'org', projectName: 'Project', areaPath: 'Project\\Team', displayName: 'Team', teamName: 'Team', repoName: '', iterationPath: 'Project' }
 const developer = { displayName: 'Developer', uniqueName: 'dev@example.invalid' }
-const iterations = [{ name: 'S1', path: 'Project\\S1', timeFrame: 'current', startDate: '2026-01-01' }]
+const iterations = [
+  { name: 'S1', path: 'Project\\S1', timeFrame: 'current', startDate: '2026-01-01' },
+  { name: 'S2', path: 'Project\\S2', timeFrame: 'future', startDate: '2026-02-01' },
+  { name: 'S3', path: 'Project\\S3', timeFrame: 'future', startDate: '2026-03-01' },
+]
 const makeItem = (id: number, fields: Partial<WorkItemSummary> = {}): WorkItemSummary => ({
   id, title: `Candidate ${id}`, state: 'Approved', workItemType: 'Product Backlog Item', status: 'New',
   iterationPath: 'Project\\S1', sprintName: 'S1', effort: 8,
@@ -36,9 +40,14 @@ const makeItem = (id: number, fields: Partial<WorkItemSummary> = {}): WorkItemSu
 })
 const engine = new AdoQueryEngine('nonfunctional-test-token')
 
-function Harness({ lens = 'people', emptyDeveloper = false }: { lens?: 'people' | 'sprint'; emptyDeveloper?: boolean }) {
+function Harness({ lens = 'people', emptyDeveloper = false, extraSprints = false }: { lens?: 'people' | 'sprint'; emptyDeveloper?: boolean; extraSprints?: boolean }) {
   const [scopeKey, setScopeKey] = useState('scope')
-  const [items, setItems] = useState([...(emptyDeveloper ? [] : [makeItem(100, { assignedTo: developer })]), makeItem(1), makeItem(2, { workItemType: 'Bug', workItemIconUrl: 'https://example.test/icons/insect', effort: undefined })])
+  const [items, setItems] = useState([...(emptyDeveloper ? [] : [makeItem(100, { assignedTo: developer })]), makeItem(1), makeItem(2, { workItemType: 'Bug', workItemIconUrl: 'https://example.test/icons/insect', effort: undefined }),
+    ...(extraSprints ? [
+      makeItem(3, { iterationPath: 'Project\\S2', sprintName: 'S2' }),
+      makeItem(4, { iterationPath: 'Project\\S3', sprintName: 'S3' }),
+    ] : []),
+  ])
   const controller = useQuickAssign({
     engine, team, items, iterations, tagRules: DEFAULT_TAG_RULES, scopeKey,
     onAssigned: (updated: WorkItemSummary) => setItems((current) => current.map((item) => item.id === updated.id ? updated : item)),
@@ -67,6 +76,14 @@ async function render(t: TestContext, props = {}) {
 const click = (element: Element) => act(async () => (element as HTMLElement).click())
 const button = (host: Element, text: string) => [...host.querySelectorAll('button')].find((item) => item.textContent?.trim() === text)!
 const trigger = (host: Element) => host.querySelector('[aria-label="Quick assign to Developer"]')!
+
+test('quick assign displays current and next sprint labels beside their group headings', async (t) => {
+  const host = await render(t, { extraSprints: true })
+  await click(trigger(host))
+  const headings = [...host.querySelectorAll('[role="radiogroup"] h4')]
+  assert.deepEqual(headings.map((heading) => heading.textContent), ['S1Current sprint', 'S2Next sprint', 'S3'])
+  assert.equal(host.querySelectorAll('input[type="radio"]').length, 4)
+})
 
 test('inline queue ignores the board person filter, shows only compact metadata, assigns explicitly, closes, and restores focus', async (t) => {
   let writes = 0

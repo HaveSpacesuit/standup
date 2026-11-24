@@ -61,6 +61,29 @@ test('PBI missing dates sort last and bug ties use Backlog severity, age, then I
   assert.deepEqual(ids(bugs), [[4, 5, 6]])
 })
 
+test('current and earliest future sprint headers are labeled by full path, not name or group order', () => {
+  const iterations: TeamIterationOption[] = [
+    { ...iteration('Project\\S3', '2026-05-01'), timeFrame: 'future' },
+    iteration('Project\\S1', '2026-03-01'),
+    { ...iteration('Project\\S2', '2026-04-01'), timeFrame: 'future' },
+    { ...iteration('Project\\S0', '2026-02-01'), timeFrame: 'past' },
+  ]
+  const items = ['PROJECT\\s1', 'Project\\S2', 'Project\\S3', 'Project\\S0', 'Other\\S1']
+    .map((iterationPath, index) => item(index + 1, { iterationPath }))
+  const details = (candidates: WorkItemSummary[], options: TeamIterationOption[]) =>
+    getQuickAssignGroups(candidates, options).map((group: { key: string; detail?: string }) => [group.key, group.detail])
+  assert.deepEqual(details(items, iterations), [
+    ['project\\s0', undefined],
+    ['project\\s1', 'Current sprint'],
+    ['project\\s2', 'Next sprint'],
+    ['project\\s3', undefined],
+    ['other\\s1', undefined],
+  ])
+  assert.deepEqual(details([items[2]], iterations), [['project\\s3', undefined]],
+    'a later populated group is not next when the actual next sprint has no candidates')
+  assert.deepEqual(details([items[0]], []), [['project\\s1', undefined]])
+})
+
 function apiItem(fields: Record<string, unknown> = {}) {
   return { id: 1, rev: 7, fields: {
     'System.Title': 'Candidate', 'System.WorkItemType': 'Product Backlog Item', 'System.State': 'Approved',

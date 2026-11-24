@@ -831,7 +831,9 @@ visible on touch devices). Select an item from the inline sprint-grouped list, t
 **Assign to [developer]**. Only unassigned, unblocked PBIs and Bugs in New within the loaded
 team/type/sprint scope are offered, excluding items with an Effort of 0 (items with no Effort
 are still offered); board person and text filters do not restrict this list.
-Sprints are ordered oldest first, with undated/unrecognized sprints last. Within each sprint,
+Sprints are ordered oldest first, with undated/unrecognized sprints last. Headers mark the
+current sprint and the team's earliest future sprint as **Current sprint** and **Next sprint**.
+Within each sprint,
 PBIs come first by effort descending and creation date ascending; Bugs follow by the Backlog
 value ranking. Rows use the cards' type icons, bold IDs, and numeric effort badges, without
 dates or value scores. Assignment changes only Assigned To:
