@@ -4,11 +4,15 @@ import type { AdoQueryEngine, TeamIterationOption, WorkItemSummary } from '../..
 import { isAssignmentAccessError } from '../../../ado/workItemAssignmentApi'
 import type { TeamProfile } from '../../../appSettings'
 import type { TagRule } from '../../../ado/workItemStatus'
+import { workItemUrlFor } from '../../../ado/workItemPatch'
 import { getQuickAssignGroups, isQuickAssignable } from '../utils/quickAssign'
 import { toErrorMessage } from './queryErrors'
+import type { WorkItemPreviewSource } from './useWorkItemPreview'
 
 export type QuickAssignController = {
   attentionTags?: readonly string[]
+  previewSource?: WorkItemPreviewSource | null
+  getWorkItemUrl: (id: number) => string
   groups: ReturnType<typeof getQuickAssignGroups>
   developer: IdentityRef | null
   busy: boolean
@@ -21,7 +25,7 @@ export type QuickAssignController = {
 }
 
 export function useQuickAssign({
-  engine, team, items, iterations, tagRules, scopeKey, onAssigned, onRefresh, attentionTags,
+  engine, team, items, iterations, tagRules, scopeKey, onAssigned, onRefresh, attentionTags, previewSource,
 }: {
   engine: AdoQueryEngine | null
   team: TeamProfile
@@ -32,6 +36,7 @@ export function useQuickAssign({
   onAssigned: (item: WorkItemSummary) => void
   onRefresh: () => void
   attentionTags?: readonly string[]
+  previewSource?: WorkItemPreviewSource | null
 }): QuickAssignController {
   const scope = useMemo(() => ({ engine, team, scopeKey, tagRules }), [engine, team, scopeKey, tagRules])
   const activeScope = useRef(scope)
@@ -47,6 +52,8 @@ export function useQuickAssign({
   return {
     ...current,
     attentionTags,
+    previewSource,
+    getWorkItemUrl: (id) => workItemUrlFor(team, id),
     groups,
     open: (developer) => {
       if (!pending.current) setState({ scope, developer, busy: false, error: null, success: null })

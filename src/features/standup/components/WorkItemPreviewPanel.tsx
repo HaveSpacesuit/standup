@@ -509,7 +509,7 @@ export function WorkItemPreviewDetails({ item, load, images, required, now = new
   const { preview, error } = load
   if (error) {
     return (
-      <Alert severity="error" sx={{ mt: 1.75 }} action={<Button size="small" onClick={load.retry}>Retry</Button>}>
+      <Alert severity="error" role="alert" sx={{ mt: 1.75 }} action={<Button size="small" onClick={load.retry}>Retry</Button>}>
         {error}
       </Alert>
     )

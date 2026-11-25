@@ -4,7 +4,8 @@ import { after, test, type TestContext } from 'node:test'
 import { act, createElement, Fragment, useState } from 'react'
 import { JSDOM } from 'jsdom'
 import { createServer } from 'vite'
-import type { WorkItemSummary } from '../src/ado/types.ts'
+import type { WorkItemPreview, WorkItemSummary } from '../src/ado/types.ts'
+import type { WorkItemPreviewSource } from '../src/features/standup/hooks/useWorkItemPreview.ts'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
 for (const name of ['localStorage', 'sessionStorage'] as const) {
@@ -16,6 +17,7 @@ Object.assign(globalThis, {
   window: dom.window, document: dom.window.document, Document: dom.window.Document,
   Element: dom.window.Element, HTMLElement: dom.window.HTMLElement, Node: dom.window.Node,
   ShadowRoot: dom.window.ShadowRoot, MutationObserver: dom.window.MutationObserver,
+  DOMParser: dom.window.DOMParser,
   IS_REACT_ACT_ENVIRONMENT: true,
 })
 const { createRoot } = await import('react-dom/client')
@@ -40,7 +42,13 @@ const makeItem = (id: number, fields: Partial<WorkItemSummary> = {}): WorkItemSu
 })
 const engine = new AdoQueryEngine('nonfunctional-test-token')
 
-function Harness({ lens = 'people', emptyDeveloper = false, extraSprints = false, attention = false }: { lens?: 'people' | 'sprint'; emptyDeveloper?: boolean; extraSprints?: boolean; attention?: boolean }) {
+function Harness({ lens = 'people', emptyDeveloper = false, extraSprints = false, attention = false, previewSource }: {
+  lens?: 'people' | 'sprint'
+  emptyDeveloper?: boolean
+  extraSprints?: boolean
+  attention?: boolean
+  previewSource?: WorkItemPreviewSource
+}) {
   const [scopeKey, setScopeKey] = useState('scope')
   const [items, setItems] = useState([...(emptyDeveloper ? [] : [makeItem(100, { assignedTo: developer })]), makeItem(1, { tags: attention ? ['release', 'E2E'] : [] }), makeItem(2, { workItemType: 'Bug', workItemIconUrl: 'https://example.test/icons/insect', effort: undefined, tags: attention ? ['Released'] : [] }),
     ...(extraSprints ? [
@@ -49,6 +57,7 @@ function Harness({ lens = 'people', emptyDeveloper = false, extraSprints = false
     ] : []),
   ])
   const controller = useQuickAssign({
+    previewSource,
     attentionTags: attention ? ['E2E', 'Release'] : [],
     engine, team, items, iterations, tagRules: DEFAULT_TAG_RULES, scopeKey,
     onAssigned: (updated: WorkItemSummary) => setItems((current) => current.map((item) => item.id === updated.id ? updated : item)),
@@ -56,6 +65,9 @@ function Harness({ lens = 'people', emptyDeveloper = false, extraSprints = false
   })
   return createElement(Fragment, null,
     createElement('button', { onClick: () => setScopeKey('other') }, 'Switch scope'),
+    createElement('button', { onClick: () => controller.open({ displayName: 'Other developer', uniqueName: 'other@example.invalid' }) }, 'Switch developer'),
+    createElement('button', { onClick: controller.close }, 'Close picker'),
+    createElement('button', { onClick: () => setItems((current) => current.filter((item) => item.id !== 2)) }, 'Remove candidate'),
     createElement(KanbanBoard, {
     quickAssign: controller, lens, patConfigured: true, isLoading: false, membersError: null, workItemsError: null, assigneesError: null,
     members: [developer], selectedMemberFilter: 'Developer',
@@ -77,6 +89,18 @@ async function render(t: TestContext, props = {}) {
 const click = (element: Element) => act(async () => (element as HTMLElement).click())
 const button = (host: Element, text: string) => [...host.querySelectorAll('button')].find((item) => item.textContent?.trim() === text)!
 const trigger = (host: Element) => host.querySelector('[aria-label="Quick assign to Developer"]')!
+const previewButton = (host: Element, id: number) => host.querySelector<HTMLButtonElement>(`[aria-label="Preview ${id}"]`)!
+const previewDialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
+const makePreview = (id: number, text: WorkItemPreview['text'] = {}): WorkItemPreview => ({
+  id, text, attachments: [], comments: [], commentCount: 0, links: [], hyperlinks: [], developmentLinks: 0,
+})
+const makePreviewSource = (load: WorkItemPreviewSource['load']): WorkItemPreviewSource => ({
+  key: 'preview-test', load, peek: () => undefined, images: { canLoad: () => false, load: () => null },
+})
+const openPreview = async (host: Element, id: number) => {
+  await act(async () => previewButton(host, id).focus())
+  await click(previewButton(host, id))
+}
 
 test('attention badges use exact names without adding or reordering eligible candidates', async (t) => {
   const host = await render(t, { attention: true })
@@ -207,3 +231,96 @@ test('duplicate submissions are prevented and a late response cannot update a di
   await click(trigger(host))
   assert.equal(host.querySelectorAll('input[type="radio"]').length, 2)
 })
+
+test('previewing loads only on demand, keeps radio selection and scroll, and Escape returns to the queue before assignment', async (t) => {
+  const pending = Promise.withResolvers<WorkItemPreview>()
+  const reads: number[] = []
+  const assigned: number[] = []
+  t.mock.method(engine, 'assignWorkItem', async (_team: unknown, item: WorkItemSummary) => {
+    assigned.push(item.id)
+    return { ...item, assignedTo: developer }
+  })
+  const host = await render(t, { previewSource: makePreviewSource(async (id) => { reads.push(id); return pending.promise }) })
+  await click(trigger(host))
+  const queue = host.querySelector<HTMLElement>('[role="radiogroup"]')!
+  const preview = previewButton(host, 2)
+  assert.equal(preview.closest('label'), null)
+  assert.equal(preview.getAttribute('aria-haspopup'), 'dialog')
+  await act(async () => {
+    preview.dispatchEvent(new dom.window.MouseEvent('mouseover', { bubbles: true }))
+    preview.focus()
+  })
+  await click(host.querySelector('input[value="1"]')!)
+  queue.scrollTop = 120
+  assert.deepEqual(reads, [])
+  await openPreview(host, 2)
+  const dialog = previewDialog()!
+  assert.ok(dialog)
+  assert.match(dialog.textContent!, /Loading details/)
+  assert.deepEqual(reads, [2])
+  assert.deepEqual(assigned, [])
+  assert.equal(host.querySelector<HTMLInputElement>('input[value="1"]')!.checked, true)
+  assert.equal(host.querySelector<HTMLInputElement>('input[value="2"]')!.checked, false)
+  assert.ok(dialog.contains(document.activeElement))
+  await act(async () => pending.resolve({
+    ...makePreview(2, { reproSteps: '<ol><li>Open the file</li><li>Observe the crash</li></ol>', description: '<p>More context</p>' }),
+    comments: [{ id: 10, at: '2026-01-01', html: '<p>Useful discussion</p>' }], commentCount: 1,
+  }))
+  assert.match(dialog.textContent!, /Repro steps.*Open the file.*Description.*More context.*Attachments.*Comments.*Useful discussion.*Links/)
+  assert.equal(dialog.querySelectorAll('input, [aria-label^="Edit"]').length, 0)
+  assert.equal(dialog.querySelector('a')?.getAttribute('href'), 'https://dev.azure.com/org/Project/_workitems/edit/2')
+  await act(async () => document.activeElement!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+  assert.equal(previewDialog(), null)
+  assert.equal(trigger(host).getAttribute('aria-expanded'), 'true')
+  assert.equal(document.activeElement, preview)
+  assert.equal(queue.scrollTop, 120)
+  assert.deepEqual(reads, [2], 'neither selecting nor reading prefetches another candidate')
+  await click(button(host, 'Assign to Developer'))
+  assert.deepEqual(assigned, [1])
+  assert.equal(trigger(host).getAttribute('aria-expanded'), 'false')
+})
+
+test('preview errors can be retried and empty content does not select or assign the candidate', async (t) => {
+  let attempts = 0
+  const host = await render(t, {
+    previewSource: makePreviewSource(async (id) => {
+      if (++attempts === 1) throw new Error('Preview could not be read.')
+      return makePreview(id)
+    }),
+  })
+  await click(trigger(host))
+  await openPreview(host, 2)
+  assert.match(previewDialog()!.querySelector('[role="alert"]')!.textContent!, /Preview could not be read/)
+  assert.equal(button(host, 'Assign to Developer').disabled, true)
+  await click(button(previewDialog()!, 'Retry'))
+  assert.match(previewDialog()!.textContent!, /Repro steps are empty/)
+  assert.equal(attempts, 2)
+  await click(button(previewDialog()!, 'Close'))
+  assert.equal(previewDialog(), null)
+  assert.equal(document.activeElement, previewButton(host, 2))
+  assert.equal(host.querySelector('input:checked'), null)
+  assert.equal(host.querySelectorAll('input[type="radio"]').length, 2)
+})
+
+for (const change of ['Switch scope', 'Switch developer', 'Close picker', 'Remove candidate']) {
+  test(`${change} dismisses the preview and ignores its late response`, async (t) => {
+    const pending = Promise.withResolvers<WorkItemPreview>()
+    const host = await render(t, { previewSource: makePreviewSource(() => pending.promise) })
+    await click(trigger(host))
+    await openPreview(host, 2)
+    assert.ok(previewDialog())
+    await click(button(host, change))
+    assert.equal(previewDialog(), null)
+    if (change === 'Remove candidate') {
+      assert.equal(document.activeElement, button(host, 'Close'))
+      assert.equal(host.querySelectorAll('input[type="radio"]').length, 1)
+    } else {
+      assert.equal(document.activeElement, trigger(host))
+      await click(trigger(host))
+    }
+    await act(async () => pending.resolve(makePreview(2, { reproSteps: '<p>Stale response</p>' })))
+    assert.equal(previewDialog(), null)
+    assert.doesNotMatch(document.body.textContent!, /Stale response/)
+    assert.equal(host.querySelector('input:checked'), null)
+  })
+}

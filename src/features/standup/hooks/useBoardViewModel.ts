@@ -396,6 +396,16 @@ export function useBoardViewModel({
       : null,
     [dataQueryEngine, previewTeamId, previewOrgName, previewProjectName, qaReloadNonce],
   )
+  const quickAssignPreview = useMemo(
+    () => dataQueryEngine && previewTeamId && previewOrgName && previewProjectName
+      ? createWorkItemPreviewSource(
+        dataQueryEngine,
+        { id: previewTeamId, orgName: previewOrgName, projectName: previewProjectName },
+        `${previewTeamId}:development:${developmentReloadNonce}`,
+      )
+      : null,
+    [dataQueryEngine, previewTeamId, previewOrgName, previewProjectName, developmentReloadNonce],
+  )
 
   const {
     workItemStates: projectWorkItemStates,
@@ -532,6 +542,7 @@ export function useBoardViewModel({
   const onRefresh = () => refreshCurrentView(true)
   const quickAssign = useQuickAssign({
     attentionTags,
+    previewSource: quickAssignPreview,
     engine: scopedQueryEngine,
     team: effectiveTeam,
     items: boardItems,

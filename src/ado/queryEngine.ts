@@ -283,6 +283,7 @@ export class AdoQueryEngine {
   }
 
   clearDevelopmentDataCache(teamId?: string): void {
+    clearTeamEntries(this.workItemPreviewCache, teamId)
     if (teamId) {
       for (const key of this.sprintScopeChangesCache.keys()) {
         if (key.startsWith(`${teamId}:`)) {

@@ -7,6 +7,7 @@ import type { WorkItemPreview } from '../src/ado/types.ts'
 const server = await createServer({ configFile: false, server: { middlewareMode: true, ws: false } })
 after(() => server.close())
 const { fetchWorkItemPreview, resolveAdoAttachmentRequest, PREVIEW_COMMENT_LIMIT } = await server.ssrLoadModule('/src/ado/workItemPreviewApi.ts')
+const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 
 const guid = '0f8fad5b-d9cb-469f-a165-70867728950e'
 const team = { orgName: 'org', projectName: 'My Project' }
@@ -161,4 +162,33 @@ test('the preview fails when the work item itself cannot be read', async () => {
   await assert.rejects(fetchWorkItemPreview(fakeClient({ item: () => ({ id: 42 }) }), team, 42), {
     message: 'Azure DevOps returned an invalid work item response.',
   })
+})
+
+test('development refresh invalidates preview reads for that team only, or all teams when unspecified', async (t) => {
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    requests++
+    return new Response(JSON.stringify(url.includes('/comments')
+      ? { comments: [] }
+      : { id: 42, fields: { 'System.Description': `<p>Read ${requests}</p>` } }),
+    { headers: { 'Content-Type': 'application/json' } })
+  })
+  const engine = new AdoQueryEngine('nonfunctional-test-token')
+  const firstTeam = { ...team, id: 'team' }
+  const otherTeam = { ...team, id: 'team-other' }
+  const first = await engine.getWorkItemPreview(firstTeam, 42)
+  const other = await engine.getWorkItemPreview(otherTeam, 42)
+  assert.equal(await engine.getWorkItemPreview(firstTeam, 42), first)
+  assert.equal(requests, 4)
+
+  engine.clearDevelopmentDataCache(firstTeam.id)
+  const refreshed = await engine.getWorkItemPreview(firstTeam, 42)
+  assert.notEqual(refreshed, first)
+  assert.equal(await engine.getWorkItemPreview(otherTeam, 42), other)
+  assert.equal(requests, 6)
+
+  engine.clearDevelopmentDataCache()
+  assert.notEqual(await engine.getWorkItemPreview(firstTeam, 42), refreshed)
+  assert.notEqual(await engine.getWorkItemPreview(otherTeam, 42), other)
+  assert.equal(requests, 10)
 })

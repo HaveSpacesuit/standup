@@ -1,6 +1,7 @@
-import { Alert, Box, Button, Radio, Typography } from '@mui/material'
+import { Alert, Box, Button, IconButton, Radio, Typography } from '@mui/material'
 import { Icon } from '@stratakit/mui'
 import svgAdd from '@stratakit/icons/add.svg'
+import svgVisibilityShow from '@stratakit/icons/visibility-show.svg'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { IdentityRef } from '../../../ado/identity'
 import type { QuickAssignController } from '../hooks/useQuickAssign'
@@ -8,6 +9,8 @@ import { EffortBadge, WorkItemTypeIcon } from './WorkItemCardParts'
 import { visuallyHiddenSx } from './developmentCardDisplay'
 import { AttentionTags } from './AttentionTags'
 import { matchingAttentionTags } from '../utils/attentionTags'
+import { AppTooltip } from './AppTooltip'
+import { QuickAssignPreviewDialog } from './QuickAssignPreviewDialog'
 
 const isSameDeveloper = (a: IdentityRef, b: IdentityRef) => a.uniqueName ? a.uniqueName === b.uniqueName : a.displayName === b.displayName
 
@@ -17,16 +20,27 @@ export function QuickAssignCell({ developer, controller }: { developer: Identity
   const picker = useRef<HTMLElement>(null)
   const wasOpen = useRef(false)
   const [selected, setSelected] = useState<number | null>(null)
+  const [previewId, setPreviewId] = useState<number | null>(null)
   const open = controller.developer !== null && isSameDeveloper(developer, controller.developer)
   const name = developer.displayName ?? developer.uniqueName ?? 'developer'
   const selectedItem = controller.groups.flatMap((group) => group.items).find((item) => item.id === selected)
+  const previewItem = open && controller.previewSource
+    ? controller.groups.flatMap((group) => group.items).find((item) => item.id === previewId)
+    : undefined
   const announcement = controller.success && isSameDeveloper(developer, controller.success.developer) ? controller.success.message : ''
 
   useEffect(() => {
     setSelected(null)
+    setPreviewId(null)
     if (!open && wasOpen.current) trigger.current?.focus()
     wasOpen.current = open
   }, [open])
+
+  useEffect(() => {
+    if (previewId === null || previewItem) return
+    setPreviewId(null)
+    if (open) picker.current?.querySelector<HTMLButtonElement>('button')?.focus()
+  }, [open, previewId, previewItem])
 
   useEffect(() => {
     if (open && !controller.busy) {
@@ -102,12 +116,11 @@ export function QuickAssignCell({ developer, controller }: { developer: Identity
                 </Typography>
                 {group.items.map((item) => (
                   <Box
-                    component="label"
                     key={item.id}
                     sx={{
                       // MUI gives the radio input z-index 1; contain it so it scrolls beneath the sticky sprint header.
                       isolation: 'isolate',
-                      display: 'flex', gap: 1.25, alignItems: 'center', px: 1, py: 1.25, m: 0.5,
+                      display: 'flex', gap: 1, alignItems: 'center', px: 1, m: 0.5,
                       borderRadius: 1, cursor: controller.busy ? 'default' : 'pointer',
                       bgcolor: item.id === selected ? 'var(--stratakit-color-bg-glow-on-surface-accent-hover)' : undefined,
                       '&:hover': {
@@ -117,19 +130,35 @@ export function QuickAssignCell({ developer, controller }: { developer: Identity
                       '&:has(input:focus-visible)': { outline: '2px solid var(--stratakit-color-border-info-base)', outlineOffset: -2 },
                     }}
                   >
-                    <Radio name={id} value={item.id} checked={selected === item.id} disabled={controller.busy} onChange={() => setSelected(item.id)} sx={{ flexShrink: 0, alignSelf: 'baseline' }} />
-                    <Typography component="span" variant="body-sm" sx={{ flex: 1, minWidth: 0, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
-                      <WorkItemTypeIcon item={item} />
-                      {!item.workItemIconUrl ? <Box component="span" sx={visuallyHiddenSx}>{item.workItemType} </Box> : null}
-                      <Box component="strong" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>{item.id}</Box>
-                      {' '}{item.title}
-                      <AttentionTags tags={matchingAttentionTags(item, controller.attentionTags ?? [])} />
-                    </Typography>
-                    <Box component="span" sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                      {typeof item.effort === 'number' && Number.isFinite(item.effort)
-                        ? <EffortBadge effort={item.effort} />
-                        : <Typography component="span" variant="caption-md" color="text.secondary">Not estimated</Typography>}
+                    <Box component="label" sx={{ display: 'flex', flex: 1, minWidth: 0, gap: 1.25, alignItems: 'center', py: 1.25, cursor: 'inherit' }}>
+                      <Radio name={id} value={item.id} checked={selected === item.id} disabled={controller.busy} onChange={() => setSelected(item.id)} sx={{ flexShrink: 0, alignSelf: 'baseline' }} />
+                      <Typography component="span" variant="body-sm" sx={{ flex: 1, minWidth: 0, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
+                        <WorkItemTypeIcon item={item} />
+                        {!item.workItemIconUrl ? <Box component="span" sx={visuallyHiddenSx}>{item.workItemType} </Box> : null}
+                        <Box component="strong" sx={{ fontWeight: 600, color: 'text.secondary', mr: 0.5, fontVariantNumeric: 'tabular-nums' }}>{item.id}</Box>
+                        {' '}{item.title}
+                        <AttentionTags tags={matchingAttentionTags(item, controller.attentionTags ?? [])} />
+                      </Typography>
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                        {typeof item.effort === 'number' && Number.isFinite(item.effort)
+                          ? <EffortBadge effort={item.effort} />
+                          : <Typography component="span" variant="caption-md" color="text.secondary">Not estimated</Typography>}
+                      </Box>
                     </Box>
+                    {controller.previewSource ? (
+                      <AppTooltip title="Preview work item" describeChild>
+                        <IconButton
+                          nativeButton
+                          size="small"
+                          aria-label={`Preview ${item.id}`}
+                          aria-haspopup="dialog"
+                          disabled={controller.busy}
+                          onClick={() => setPreviewId(item.id)}
+                        >
+                          <Icon href={svgVisibilityShow} />
+                        </IconButton>
+                      </AppTooltip>
+                    ) : null}
                   </Box>
                 ))}
               </Box>
@@ -146,6 +175,14 @@ export function QuickAssignCell({ developer, controller }: { developer: Identity
             </Button>
           </Box>
         </Box>
+      ) : null}
+      {previewItem && controller.previewSource ? (
+        <QuickAssignPreviewDialog
+          item={previewItem}
+          source={controller.previewSource}
+          workItemUrl={previewItem.workItemUrl ?? controller.getWorkItemUrl(previewItem.id)}
+          onClose={() => setPreviewId(null)}
+        />
       ) : null}
     </Box>
   )

@@ -882,9 +882,16 @@ dates or value scores. Matching team Attention tags appear as badges on already-
 they do not add candidates, change ordering, or relax assignment rules. Assignment changes only Assigned To:
 state and sprint stay unchanged. After a successful assignment the picker closes, focus returns to
 **Quick assign**, and screen readers announce the assignment; reopen it to assign another item.
+For more context, use a row's **Preview** button. A read-only dialog shows the description or
+repro steps and other populated text fields, followed by attachments, recent comments, and links.
+Details load only when you open the preview, not on hover or radio selection. Close the dialog
+with **Close**, **Escape**, or a click outside it to return to the queue without changing the
+selected item or scroll position. Previewing never assigns the item; use **Assign to [developer]**
+after closing the preview. The dialog also links to the full item in Azure DevOps.
 The board updates in place: the card appears in the developer's New cell and leaves the list, and
 Backlog, Triage, and QA Activity show the new assignee from their already-loaded data. The only
-Azure DevOps requests are the item read and the write. Other changes, including the assignment's
+Azure DevOps requests for assignment itself are the item read and the write; opening a preview
+makes additional read-only requests, cached until a refresh or confirmed item change. Other changes, including the assignment's
 card highlight, appear on the next refresh. Concurrent changes are
 protected with a revision check. The failed write is never retried; instead the item is re-read.
 If the assignment turns out to have been saved, it is reported as a success. If the item changed
