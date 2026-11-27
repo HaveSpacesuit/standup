@@ -13,6 +13,7 @@ const {
   toPlainText, TRIAGE_HISTORY_LIMIT,
 } = await server.ssrLoadModule('/src/ado/triageApi.ts')
 const { getWorkItemFields } = await server.ssrLoadModule('/src/ado/workItemPatch.ts')
+const { formatTriageParent } = await server.ssrLoadModule('/src/features/standup/utils/triageDisplay.ts')
 const { AdoQueryEngine } = await server.ssrLoadModule('/src/ado/queryEngine.ts')
 const metadata: ProjectWorkItemTypeInfo = {
   states: [], workItemTypes: ['Bug', 'Task'],
@@ -319,6 +320,31 @@ test('an edit works out again why each item is listed, so items it clears stay, 
   const { rules: _rules, ...withoutRules } = loaded
   const fieldsOnly = edit(withoutRules, 2, { state: 'Approved' })
   assert.equal(byId(fieldsOnly, 2).reasons.length, 1, 'without the rules an edit changes only the fields')
+})
+
+test('a saved link change shows the item’s new parent, titled once known, while an edit that did not read it keeps it', async () => {
+  const { client } = clientFor([raw(1, {}, 99), raw(2)])
+  const loaded = await fetchTriageItems(client, team, options, metadata)
+  type Parent = { id: number; title?: string; workItemUrl: string; unavailable: boolean }
+  type Item = { id: number; workItemUrl: string; parent?: Parent }
+  const byId = (result: { items: Item[] }, id: number) => result.items.find((item) => item.id === id)!
+  const patch = (result: typeof loaded, id: number, parent?: { id: number; title?: string } | null) => {
+    const item = byId(result, id)
+    return applyTriagePatch(result, { id, workItemUrl: item.workItemUrl, fields: getWorkItemFields(item), ...(parent === undefined ? {} : { parent }) })
+  }
+  assert.deepEqual(byId(loaded, 1).parent, { id: 99, title: 'Parent 99', workItemUrl: `https://dev.azure.com/${team.orgName}/Project/_workitems/edit/99`, unavailable: false })
+
+  const linked = patch(loaded, 2, { id: 456, title: 'Checkout' })
+  assert.deepEqual(byId(linked, 2).parent, { id: 456, title: 'Checkout', workItemUrl: `https://dev.azure.com/${team.orgName}/Project/_workitems/edit/456`, unavailable: false })
+  const untitled = patch(loaded, 2, { id: 456 })
+  assert.equal(byId(untitled, 2).parent?.title, undefined)
+  assert.equal(formatTriageParent(byId(untitled, 2).parent!), '456', 'a parent linked since the queue loaded shows its ID until it reloads')
+  assert.equal(formatTriageParent({ id: 99, workItemUrl: '', unavailable: true }), '99: Details unavailable')
+
+  assert.equal(byId(patch(loaded, 1, { id: 99 }), 1).parent, byId(loaded, 1).parent, 'the same parent keeps the title the queue read')
+  assert.equal(byId(patch(loaded, 1, undefined), 1).parent, byId(loaded, 1).parent, 'a field edit or preview leaves the parent alone')
+  assert.equal('parent' in byId(patch(loaded, 1, null), 1), false, 'a removed parent is gone')
+  assert.equal(byId(patch(loaded, 1, null), 2), byId(loaded, 2), 'other items are untouched')
 })
 
 test('query engine isolates normalized cache keys by team, scope and options, invalidates and retries failures', async (t) => {

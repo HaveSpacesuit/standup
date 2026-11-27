@@ -197,7 +197,7 @@ export function QaAttentionView({ attention, tags, representedIds, selectedTag, 
                       id={selection.selectedId} item={previewItem} editItem={selected}
                       facts={selected ? <><span>{selected.state}</span><span>{selected.assignedTo?.displayName ?? 'Unassigned'}</span><AttentionTags tags={matchingAttentionTags(selected, tags)} /></> : undefined}
                     >
-                      {previewItem ? <WorkItemPreviewDetails item={previewItem} load={load} images={previewSource.images} />
+                      {previewItem ? <WorkItemPreviewDetails item={previewItem} editItem={selected} load={load} images={previewSource.images} />
                         : <Typography sx={{ mt: 2 }}>This item no longer qualifies for attention.</Typography>}
                     </WorkItemPreviewPanel>
                   ) : null}

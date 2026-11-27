@@ -28,7 +28,7 @@ import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewToggleButton } from './WorkItemPreviewPanel'
-import { EditableFieldButton, EditTagsButton, WorkItemActions } from './WorkItemActions'
+import { AddParentButton, EditableFieldButton, EditTagsButton, WorkItemActions } from './WorkItemActions'
 import { getEditableRowProps, useWorkItemEditing } from './workItemEditingContext'
 import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { WorkItemTitle } from './WorkItemTitle'
@@ -346,7 +346,7 @@ function TriageInboxCard({
                 </span>
               </AppTooltip>
             </>
-          ) : null}
+          ) : editing?.canLink(item) ? <><Separator /><AddParentButton item={item} /></> : null}
           <WaitingText item={item} waitingTags={waitingTags} now={now} />
           <StaleText item={item} ageFlagDays={ageFlagDays} waitingTags={waitingTags} now={now} />
         </div>

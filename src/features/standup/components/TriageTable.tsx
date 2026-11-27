@@ -16,7 +16,7 @@ import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { NotSet, PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
 import { PreviewToggleButton } from './WorkItemPreviewPanel'
-import { EditableFieldButton, EditTagsButton, WorkItemActions } from './WorkItemActions'
+import { AddParentButton, EditableFieldButton, EditTagsButton, WorkItemActions } from './WorkItemActions'
 import { getEditableRowProps, useWorkItemEditing } from './workItemEditingContext'
 import { revealPreviewToggles, type PreviewControls } from './workItemPreviewDisplay'
 import { WorkItemTitle } from './WorkItemTitle'
@@ -181,7 +181,7 @@ export function TriageTable({
                   <TableCell sx={wrapSx}>
                     {item.parent ? (
                       <Link href={item.parent.workItemUrl} target="_blank" rel="noopener noreferrer">{formatTriageParent(item.parent)}</Link>
-                    ) : <NotSet />}
+                    ) : editing?.canLink(item) ? <AddParentButton item={item} /> : <NotSet />}
                   </TableCell>
                 ) : null}
               </TableRow>

@@ -40,7 +40,8 @@ import { useTriageItems } from './useTriageItems'
 import { useTriageSimilarSources, type TriageSimilarSources } from './useTriageSimilarSources'
 import { createWorkItemPreviewSource, type WorkItemPreviewSource } from './useWorkItemPreview'
 import { useQuickAssign, type QuickAssignController } from './useQuickAssign'
-import { useWorkItemEditor, type WorkItemEditor } from './useWorkItemEditor'
+import { useWorkItemEditor, type WorkItemEditor, type WorkItemLinkSuggestions } from './useWorkItemEditor'
+import { getQueueParentSuggestions } from '../utils/workItemLinkEditing'
 import { DEFAULT_EFFORT_SUGGESTIONS } from '../utils/assignmentOptions'
 import { normalizeTags } from '../../../ado/workItemUpdateApi'
 import { useAttentionItems, type AttentionItemsState } from './useAttentionItems'
@@ -566,6 +567,10 @@ export function useBoardViewModel({
   )
   const teamEffortSuggestions = assignmentOptionsByTeam?.[effectiveTeam.id]?.effortSuggestions
   const effortSuggestions = useMemo(() => teamEffortSuggestions ?? [...DEFAULT_EFFORT_SUGGESTIONS], [teamEffortSuggestions])
+  const parentSuggestions = useMemo<WorkItemLinkSuggestions>(
+    () => ({ label: 'Parents in the Triage queue', items: getQueueParentSuggestions(triageResult.items) }),
+    [triageResult.items],
+  )
   const workItemEditor = useWorkItemEditor({
     engine: dataQueryEngine,
     team: effectiveTeam,
@@ -576,6 +581,7 @@ export function useBoardViewModel({
     knownTags,
     effortSuggestions,
     tagRules: boardTagRules,
+    parentSuggestions,
   })
 
   const teamManagementUrl = useTeamManagementUrl({

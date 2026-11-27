@@ -123,7 +123,7 @@ function parseRelations(relations: unknown, team: Team) {
       const match = WORK_ITEM_PATH.exec(url.pathname)
       if (!match) continue
       const id = Number(match[1])
-      links.push({ label: text(attributes.name) ?? rel.split(/[.-]/).at(-1) ?? 'Link', id, workItemUrl: workItemUrl(team, id) })
+      links.push({ label: text(attributes.name) ?? rel.split(/[.-]/).at(-1) ?? 'Link', id, workItemUrl: workItemUrl(team, id), rel })
     }
   }
   // Stable, so links of one kind keep Azure DevOps' order.

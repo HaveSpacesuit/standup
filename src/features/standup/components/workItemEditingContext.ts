@@ -11,9 +11,13 @@ export type WorkItemEditingApi = {
   editor: WorkItemEditorActions
   openMenu: (item: EditableWorkItem, anchor: EditAnchor) => void
   openField: (item: EditableWorkItem, field: EditableWorkItemField, anchor: EditAnchor) => void
+  /** Opens the link editor, starting on a link type such as Parent when given one. */
+  openLink: (item: EditableWorkItem, anchor: EditAnchor, rel?: string) => void
+  /** Whether the item's links can be edited now: a work item, with a PAT that can edit. */
+  canLink: (item: EditableWorkItem) => boolean
   /** Opens the item's menu on right-click, Shift+F10 or the Menu key; text fields keep the browser's menu. */
   handleContextMenu: (item: EditableWorkItem, event: MouseEvent<HTMLElement>) => void
-  /** The field keys (S, A, I, E, V, P, T, F2) and R, while focus is in the item's card or row; only R on a pull request card. */
+  /** The field keys (S, A, I, E, V, P, T, F2), L and R, while focus is in the item's card or row; only R on a pull request card. */
   handleKeyDown: (item: EditableWorkItem, event: KeyboardEvent<HTMLElement>) => void
 }
 

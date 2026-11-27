@@ -257,15 +257,34 @@ export async function fetchTriageItems(
   return { items, warnings: [...new Set(warnings)], queryUrl, rules: { options, metadata } }
 }
 
+/** The item with the parent a patch from Azure DevOps read; a patch that doesn't know it leaves it as it was. */
+function withPatchedParent(item: TriageItem, parent: WorkItemPatch['parent']): TriageItem {
+  if (parent === undefined) return item
+  if (parent === null) {
+    if (!item.parent) return item
+    const next = { ...item }
+    delete next.parent
+    return next
+  }
+  if (item.parent?.id === parent.id) {
+    return parent.title && parent.title !== item.parent.title ? { ...item, parent: { ...item.parent, title: parent.title, unavailable: false } } : item
+  }
+  const workItemUrl = item.workItemUrl.replace(/\/_workitems\/edit\/\d+$/i, `/_workitems/edit/${parent.id}`)
+  return { ...item, parent: { id: parent.id, ...(parent.title ? { title: parent.title } : {}), workItemUrl, unavailable: false } }
+}
+
 /**
- * The queue with an edited item's fields, and with whether it still meets the Triage rules worked out again from them.
- * An item that no longer does is cleared: it keeps its place with no reasons, and with the reasons and tags it was
- * listed with, so the page can show it as cleared until it reloads. An undo, or any edit that meets the rules again,
- * lists it as before.
+ * The queue with an edited item's fields and parent, and with whether it still meets the Triage rules worked out again
+ * from them. An item that no longer does is cleared: it keeps its place with no reasons, and with the reasons and tags
+ * it was listed with, so the page can show it as cleared until it reloads. An undo, or any edit that meets the rules
+ * again, lists it as before.
  */
 export function applyTriagePatch(result: TriageResult, patch: WorkItemPatch): TriageResult {
-  const items = applyWorkItemPatch(result.items, patch)
-  if (items === result.items) return result
+  const patched = applyWorkItemPatch(result.items, patch)
+  if (patched === result.items) return result
+  const items = patch.parent === undefined
+    ? patched
+    : patched.map((item) => (matchesWorkItemPatch(item, patch) ? withPatchedParent(item, patch.parent) : item))
   const { rules } = result
   if (!rules) return { ...result, items }
   return {

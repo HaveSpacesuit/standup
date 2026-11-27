@@ -2,6 +2,7 @@ import { useId, useRef, type KeyboardEvent, type PointerEvent, type ReactNode, t
 import { Alert, Box, Button, IconButton, Link, Skeleton, Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { Icon } from '@stratakit/mui'
+import svgAdd from '@stratakit/icons/add.svg'
 import svgAttach from '@stratakit/icons/attach.svg'
 import svgChat from '@stratakit/icons/chat.svg'
 import svgDismiss from '@stratakit/icons/dismiss.svg'
@@ -16,7 +17,7 @@ import { PREVIEW_LINK_LIMIT } from '../../../ado/workItemPreviewApi'
 import { clampPreviewPanelWidth, PREVIEW_LIST_MIN_WIDTH, PREVIEW_PANEL_WIDTH } from '../hooks/usePreviewPanel'
 import type { WorkItemPreviewImages } from '../hooks/useWorkItemPreview'
 import { formatTriageMoment, formatTriageWhen } from '../utils/triageInbox'
-import { isEditableWorkItem, type EditableWorkItem } from '../utils/workItemEditing'
+import { isEditableWorkItem, LINK_SHORTCUT_KEY, type EditableWorkItem } from '../utils/workItemEditing'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR, visuallyHiddenSx } from './developmentCardDisplay'
 import { RichText } from './RichText'
@@ -181,6 +182,8 @@ const linkListSx: SxProps<Theme> = {
   listStyle: 'none',
   fontSize: 12.5,
   '& > li': { display: 'grid', gridTemplateColumns: '92px minmax(0, 1fr) auto', alignItems: 'baseline', gap: 1 },
+  '&.editable > li': { gridTemplateColumns: '92px minmax(0, 1fr) auto 22px' },
+  '& .remove-link': { alignSelf: 'center', width: 22, height: 22 },
   '& .relation': { color: TERTIARY_TEXT_COLOR, fontSize: 12 },
   '& .linked-id': { fontWeight: 650, fontVariantNumeric: 'tabular-nums', mr: 0.5 },
   '& a': { overflowWrap: 'anywhere' },
@@ -446,17 +449,46 @@ function Comments({ preview, workItemUrl, images, now }: {
   )
 }
 
-function Links({ preview, workItemUrl }: { preview: WorkItemPreview; workItemUrl: string }) {
+/** The item whose links the Links section can add and remove, while its links can be edited. */
+function useLinkEditing(editItem: EditableWorkItem | undefined) {
+  const editing = useWorkItemEditing()
+  return editing && editItem && isEditableWorkItem(editItem) && editing.canLink(editItem) ? { editing, item: editItem } : null
+}
+
+function Links({ preview, workItemUrl, editItem }: { preview: WorkItemPreview; workItemUrl: string; editItem?: EditableWorkItem }) {
+  const editable = useLinkEditing(editItem)
   const named = preview.links.slice(0, PREVIEW_LINK_LIMIT)
   const more = preview.links.length - named.length
-  if (!named.length && !preview.hyperlinks.length && !preview.developmentLinks) return <Box component="p" sx={noneSx}>No links</Box>
+  const busy = editable ? editable.editing.editor.isBusy(editable.item) : false
+  const addLink = editable ? (
+    <Button
+      size="small"
+      variant="text"
+      startIcon={<Icon href={svgAdd} />}
+      aria-haspopup="dialog"
+      aria-keyshortcuts={LINK_SHORTCUT_KEY}
+      disabled={busy}
+      onClick={(event) => editable.editing.openLink(editable.item, event.currentTarget)}
+      sx={{ mt: 0.75, ml: -1 }}
+    >
+      Add link
+    </Button>
+  ) : null
+  const remove = (link: WorkItemPreview['links'][number]) => {
+    if (!editable || !link.rel) return
+    const target = { id: link.id, title: link.title, workItemType: link.workItemType, state: link.state }
+    void editable.editing.editor.saveLinks(editable.item, { remove: [{ rel: link.rel, targetId: link.id }] }, { targets: [target] })
+  }
+  if (!named.length && !preview.hyperlinks.length && !preview.developmentLinks) {
+    return <><Box component="p" sx={noneSx}>No links</Box>{addLink}</>
+  }
   return (
     <>
       {named.length && preview.linkTitlesError !== undefined ? (
         <Alert severity="warning" sx={{ mb: 1 }}>Linked items could not be named. {preview.linkTitlesError}</Alert>
       ) : null}
       {named.length || preview.hyperlinks.length ? (
-        <Box component="ul" role="list" sx={linkListSx}>
+        <Box component="ul" role="list" className={editable ? 'editable' : undefined} sx={linkListSx}>
           {named.map((link, index) => (
             <li key={`${link.label}:${link.id}:${index}`}>
               <span className="relation">{link.label}</span>
@@ -465,6 +497,13 @@ function Links({ preview, workItemUrl }: { preview: WorkItemPreview; workItemUrl
                 {link.title ?? link.workItemType ?? 'Work item'}
               </Link>
               {link.state ? <StateLabel state={link.state} /> : <span />}
+              {editable ? (
+                link.rel ? (
+                  <IconButton className="remove-link" size="small" label={`Remove ${link.label} link to ${link.id}`} disabled={busy} onClick={() => remove(link)}>
+                    <Icon href={svgDismiss} />
+                  </IconButton>
+                ) : <span />
+              ) : null}
             </li>
           ))}
           {preview.hyperlinks.map((hyperlink, index) => (
@@ -472,6 +511,7 @@ function Links({ preview, workItemUrl }: { preview: WorkItemPreview; workItemUrl
               <span className="relation">Hyperlink</span>
               <Link href={hyperlink.url} target="_blank" rel="noopener noreferrer">{hyperlink.label}</Link>
               <span />
+              {editable ? <span /> : null}
             </li>
           ))}
         </Box>
@@ -488,6 +528,7 @@ function Links({ preview, workItemUrl }: { preview: WorkItemPreview; workItemUrl
           <Link href={workItemUrl} target="_blank" rel="noopener noreferrer">Azure DevOps</Link>
         </Box>
       ) : null}
+      {addLink}
     </>
   )
 }
@@ -497,6 +538,8 @@ export type PreviewLoad = { preview?: WorkItemPreview; loading: boolean; error?:
 
 type WorkItemPreviewDetailsProps = {
   item: Pick<PreviewWorkItem, 'workItemType' | 'workItemUrl'>
+  /** The item with its fields, when its links can be added and removed from the panel. */
+  editItem?: EditableWorkItem
   load: PreviewLoad
   images?: WorkItemPreviewImages
   /** Text fields the page expects filled in; empty ones are flagged rather than muted. */
@@ -505,7 +548,7 @@ type WorkItemPreviewDetailsProps = {
 }
 
 /** The item's text, attachments, newest comments and links, as Azure DevOps has them now. */
-export function WorkItemPreviewDetails({ item, load, images, required, now = new Date() }: WorkItemPreviewDetailsProps) {
+export function WorkItemPreviewDetails({ item, editItem, load, images, required, now = new Date() }: WorkItemPreviewDetailsProps) {
   const { preview, error } = load
   if (error) {
     return (
@@ -533,7 +576,7 @@ export function WorkItemPreviewDetails({ item, load, images, required, now = new
         <Comments preview={preview} workItemUrl={item.workItemUrl} images={images} now={now} />
       </PreviewSection>
       <PreviewSection heading="Links" iconHref={svgLink} count={preview.links.length + preview.hyperlinks.length}>
-        <Links preview={preview} workItemUrl={item.workItemUrl} />
+        <Links preview={preview} workItemUrl={item.workItemUrl} editItem={editItem} />
       </PreviewSection>
     </>
   )

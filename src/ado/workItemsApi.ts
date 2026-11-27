@@ -69,6 +69,7 @@ export type WorkItemApiItem = {
     'Microsoft.VSTS.Scheduling.Effort'?: unknown
     'Microsoft.VSTS.Scheduling.StoryPoints'?: unknown
     'Microsoft.VSTS.Scheduling.Size'?: unknown
+    'System.Parent'?: unknown
   }
   /** Only when the item is read with its relations expanded. */
   relations?: WorkItemRelation[]
@@ -77,6 +78,7 @@ export type WorkItemApiItem = {
 type WorkItemRelation = {
   rel?: string
   url?: string
+  attributes?: Record<string, unknown>
 }
 
 type WorkItemRelationsBatchResponse = {

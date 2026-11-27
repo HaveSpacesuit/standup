@@ -15,9 +15,11 @@ import {
   getItemLabel,
   hasItemActions,
   isPullRequestCard,
+  LINK_SHORTCUT_KEY,
   RELOAD_SHORTCUT_KEY,
   type EditableWorkItem,
 } from '../utils/workItemEditing'
+import { PARENT_LINK } from '../../../ado/workItemLinksApi'
 import { AppTooltip } from './AppTooltip'
 import { TERTIARY_TEXT_COLOR } from './developmentCardDisplay'
 import { haveSameDataProps } from '../utils/sameData'
@@ -254,6 +256,30 @@ export function EditTagsButton({ item }: { item: EditableWorkItem }) {
       <ButtonBase nativeButton className={EDIT_TAGS_CLASS} {...fieldButtonProps(editing, item, 'tags')} sx={[fieldButtonSx, tagButtonSx]}>
         <Icon href={svgAdd} alt="" style={tagButtonIconStyle} />
         Tag
+      </ButtonBase>
+    </AppTooltip>
+  )
+}
+
+/** "+ Parent" where an item without a parent would show one, opening the link editor on Parent. Renders nothing when its links can't be edited. */
+export function AddParentButton({ item }: { item: EditableWorkItem }) {
+  const editing = useWorkItemEditing()
+  if (!editing || !editing.canLink(item)) return null
+  return (
+    <AppTooltip title={`Add a parent (${LINK_SHORTCUT_KEY} for any link)`} describeChild>
+      <ButtonBase
+        nativeButton
+        aria-label={`Add a parent to ${getItemLabel(item)}`}
+        aria-haspopup="dialog"
+        data-add-parent={item.id}
+        onClick={(event: MouseEvent<HTMLElement>) => {
+          event.stopPropagation()
+          editing.openLink(item, event.currentTarget, PARENT_LINK)
+        }}
+        sx={[fieldButtonSx, tagButtonSx]}
+      >
+        <Icon href={svgAdd} alt="" style={tagButtonIconStyle} />
+        Parent
       </ButtonBase>
     </AppTooltip>
   )

@@ -44,6 +44,7 @@ export const FIELD_SHORTCUT_KEYS: Readonly<Record<EditableWorkItemField, string>
 }
 
 export const RELOAD_SHORTCUT_KEY = 'R'
+export const LINK_SHORTCUT_KEY = 'L'
 
 export const FIELD_EDIT_LABELS: Readonly<Record<EditableWorkItemField, string>> = {
   state: 'Change state',
@@ -60,7 +61,7 @@ export const SEVERITY_CHOICES: readonly string[] = ['1 - Critical', '2 - High', 
 export const IMPACT_CHOICES: readonly { value: number; description: string }[] = [1, 2, 3, 4]
   .map((value) => ({ value, description: getImpactDescription(value) ?? '' }))
 
-export type ShortcutAction = { kind: 'field'; field: EditableWorkItemField } | { kind: 'reload' }
+export type ShortcutAction = { kind: 'field'; field: EditableWorkItemField } | { kind: 'reload' } | { kind: 'link' }
 
 /**
  * The editing action a key press on a focused card or row asks for, if any. Shift+F10 and the Menu key are left to the
@@ -72,6 +73,7 @@ export function getShortcutAction(event: Pick<KeyboardEvent, 'key' | 'shiftKey' 
   const key = event.key.toUpperCase()
   if (key.length !== 1) return null
   if (key === RELOAD_SHORTCUT_KEY) return { kind: 'reload' }
+  if (key === LINK_SHORTCUT_KEY) return { kind: 'link' }
   const field = (Object.keys(FIELD_SHORTCUT_KEYS) as EditableWorkItemField[]).find((candidate) => FIELD_SHORTCUT_KEYS[candidate] === key)
   return field ? { kind: 'field', field } : null
 }

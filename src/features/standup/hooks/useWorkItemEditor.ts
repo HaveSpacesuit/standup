@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { AdoQueryEngine, PullRequestPatch } from '../../../ado/queryEngine'
 import type { TeamIterationOption, TeamMember } from '../../../ado/types'
+import type { WorkItemCurrentLink, WorkItemLinkChange, WorkItemLinkTarget, WorkItemLinkType } from '../../../ado/workItemLinksApi'
 import { getWorkItemFields, patchWorkItem } from '../../../ado/workItemPatch'
 import type { TagRule } from '../../../ado/workItemStatus'
 import type { ProjectWorkItemState } from '../../../ado/workItemTypesApi'
@@ -30,6 +31,8 @@ import {
   isPullRequestCard,
   type EditableWorkItem,
 } from '../utils/workItemEditing'
+import { loadRecentLinkTargets, rememberLinkTargets } from '../utils/recentLinkTargets'
+import { describeLinkChange, getDuplicateCloseState } from '../utils/workItemLinkEditing'
 import { toErrorMessage } from './queryErrors'
 
 export type WorkItemEditToast = {
@@ -38,6 +41,33 @@ export type WorkItemEditToast = {
   tone: 'success' | 'error' | 'warning' | 'info'
   message: string
   undo?: () => void
+  /** A follow-up the change suggests, such as closing an item just marked a duplicate. */
+  action?: { label: string; run: () => void }
+}
+
+/** Items the link editor suggests together, such as the open Features under the team's area path. */
+export type WorkItemLinkSuggestions = { label: string; items: WorkItemLinkTarget[] }
+
+/** What the link editor reads to show an item's links and find items to link it to. */
+export type WorkItemLinkSource = {
+  getLinks: (item: EditableWorkItem) => Promise<WorkItemCurrentLink[]>
+  /** The organization's link types beyond the common ones. */
+  getLinkTypes: () => Promise<WorkItemLinkType[]>
+  /** The item an ID or address names, or items with the typed words in their titles; never the item itself. */
+  search: (item: EditableWorkItem, query: string) => Promise<WorkItemLinkTarget[]>
+  /** Open items one backlog level above the item's type under the team's area path, or null when there's no such level. */
+  getParentCandidates: (item: EditableWorkItem) => Promise<WorkItemLinkSuggestions | null>
+  /** The items most recently linked to in the project. */
+  getRecent: () => WorkItemLinkTarget[]
+  /** Parents the team's items already have, such as those in the Triage queue. */
+  parentSuggestions: WorkItemLinkSuggestions | null
+}
+
+export type WorkItemLinkSaveOptions = {
+  /** The linked items as the editor showed them, for the confirmation and the recent picks. */
+  targets?: readonly WorkItemLinkTarget[]
+  /** The link types beyond the common ones, to name them in the confirmation. */
+  types?: readonly WorkItemLinkType[]
 }
 
 /** The choices the field editors offer. */
@@ -64,6 +94,13 @@ export type WorkItemEditor = {
   /** Saves the changes and shows them at once, undoing them on screen when the save fails. Resolves whether it saved. */
   save: (item: EditableWorkItem, changes: WorkItemFieldChanges) => Promise<boolean>
   /**
+   * Adds and removes the item's links to other work items, confirming with Undo; adding a parent replaces the one it had.
+   * Resolves whether it saved.
+   */
+  saveLinks: (item: EditableWorkItem, change: WorkItemLinkChange, options?: WorkItemLinkSaveOptions) => Promise<boolean>
+  /** Where the link editor finds items to link to; null without a connection to Azure DevOps. */
+  links: WorkItemLinkSource | null
+  /**
    * Reads the item fresh from Azure DevOps, updating it in every view without reloading the page: a work item with the
    * pull requests its card shows, or a pull request card's pull request.
    */
@@ -75,7 +112,7 @@ export type WorkItemEditor = {
 }
 
 /** What cards and rows use to edit their item. Their methods keep their identity while the options and toast change. */
-export type WorkItemEditorActions = Pick<WorkItemEditor, 'lockedReason' | 'canEdit' | 'canReload' | 'isBusy' | 'save' | 'reload' | 'notify'>
+export type WorkItemEditorActions = Pick<WorkItemEditor, 'lockedReason' | 'canEdit' | 'canReload' | 'isBusy' | 'save' | 'saveLinks' | 'reload' | 'notify'>
 
 type EditorScope = { engine: AdoQueryEngine | null; orgName: string; projectName: string }
 
@@ -100,10 +137,11 @@ function pickChanges(changes: WorkItemFieldChanges, names: readonly EditableWork
 }
 
 export function useWorkItemEditor({
-  engine, team, statesByType, projectStates, iterations, members, knownTags, effortSuggestions, tagRules,
+  engine, team, statesByType, projectStates, iterations, members, knownTags, effortSuggestions, tagRules, parentSuggestions,
 }: {
   engine: AdoQueryEngine | null
-  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'iterationPath'>
+  /** With its ID and area path, the link editor also suggests open items one backlog level up in the team's area. */
+  team: Pick<TeamProfile, 'orgName' | 'projectName' | 'iterationPath'> & Partial<Pick<TeamProfile, 'id' | 'areaPath'>>
   statesByType: Record<string, ProjectWorkItemState[]>
   projectStates: ProjectWorkItemState[]
   iterations: TeamIterationOption[]
@@ -111,6 +149,7 @@ export function useWorkItemEditor({
   knownTags: string[]
   effortSuggestions: number[]
   tagRules: TagRule[]
+  parentSuggestions?: WorkItemLinkSuggestions | null
 }): WorkItemEditor {
   const { orgName, projectName } = team
   const scope = useMemo<EditorScope>(() => ({ engine, orgName, projectName }), [engine, orgName, projectName])
@@ -193,6 +232,49 @@ export function useWorkItemEditor({
     }
   }, [engine, team, scope, canEdit, setBusy, showToast])
 
+  const writeLinks = useCallback(async (
+    item: EditableWorkItem,
+    change: WorkItemLinkChange,
+    linkOptions: WorkItemLinkSaveOptions,
+    undoable: boolean,
+  ): Promise<boolean> => {
+    if (!engine || !canEdit(item)) return false
+    const key = getItemKey(item)
+    if (busyKeys.current.has(key)) return false
+    const titles = Object.fromEntries((linkOptions.targets ?? []).flatMap((target) => (target.title ? [[target.id, target.title]] : [])))
+    setBusy(key, true)
+    try {
+      const { patch, added, removed } = await engine.updateWorkItemLinks(team, item.id, change, { titles })
+      if (activeScope.current !== scope) return true
+      if (undoable) rememberLinkTargets(team, (linkOptions.targets ?? []).filter((target) => added.some((link) => link.targetId === target.id)))
+      if (!patch) {
+        showToast({ tone: 'info', message: change.add?.length ? `#${item.id} already has that link.` : `#${item.id} no longer has that link.` })
+        return true
+      }
+      const saved = patchWorkItem(item, patch)
+      const closeState = undoable ? getDuplicateCloseState(added, getStatesForItem(item, statesByType, projectStates), saved.state) : undefined
+      showToast({
+        tone: 'success',
+        message: undoable ? describeLinkChange(item.id, added, removed, { types: linkOptions.types, titles }) : `#${item.id}: link change undone.`,
+        undo: undoable ? () => void writeLinks(saved, { add: removed, remove: added }, linkOptions, false) : undefined,
+        action: closeState ? { label: `Move to ${closeState}`, run: () => void write(saved, { state: closeState }, true) } : undefined,
+      })
+      return true
+    } catch (error) {
+      if (activeScope.current !== scope) return false
+      if (isWorkItemWriteAccessError(error)) {
+        setLocked({ engine, reason: toErrorMessage(error, 'Your PAT cannot edit work items.') })
+      } else {
+        // The save may have failed partway; show whatever Azure DevOps has now.
+        void engine.reloadWorkItem(team, item.id).catch(() => undefined)
+      }
+      showToast({ tone: 'error', message: toErrorMessage(error, `#${item.id}’s links could not be saved. Reload it and try again.`) })
+      return false
+    } finally {
+      setBusy(key, false)
+    }
+  }, [engine, team, scope, canEdit, setBusy, showToast, write, statesByType, projectStates])
+
   const reload = useCallback(async (item: EditableWorkItem): Promise<void> => {
     if (!engine || !canReload(item)) return
     const key = getItemKey(item)
@@ -240,6 +322,25 @@ export function useWorkItemEditor({
   const { busy, toast } = current
   const isBusy = useCallback((item: EditableWorkItem) => busy.has(getItemKey(item)), [busy])
   const save = useCallback((item: EditableWorkItem, changes: WorkItemFieldChanges) => write(item, changes, true), [write])
+  const saveLinks = useCallback(
+    (item: EditableWorkItem, change: WorkItemLinkChange, linkOptions: WorkItemLinkSaveOptions = {}) => writeLinks(item, change, linkOptions, true),
+    [writeLinks],
+  )
+  const { id: teamId, areaPath } = team
+  const links = useMemo<WorkItemLinkSource | null>(() => {
+    if (!engine) return null
+    const project = { orgName, projectName }
+    return {
+      getLinks: (item) => engine.getWorkItemLinks(project, item.id),
+      getLinkTypes: () => engine.getWorkItemLinkTypes(project),
+      search: (item, query) => engine.searchWorkItems(project, query, { excludeId: item.id }),
+      getParentCandidates: async (item) => (teamId && areaPath !== undefined
+        ? engine.getParentCandidates({ id: teamId, orgName, projectName, areaPath }, item.workItemType)
+        : null),
+      getRecent: () => loadRecentLinkTargets(project),
+      parentSuggestions: parentSuggestions?.items.length ? parentSuggestions : null,
+    }
+  }, [engine, orgName, projectName, teamId, areaPath, parentSuggestions])
   const dismissToast = useCallback(() => setState((previous) => ({ ...previous, toast: null })), [])
   const notify = useCallback((message: string, tone: WorkItemEditToast['tone'] = 'info') => showToast({ tone, message }), [showToast])
   return useMemo<WorkItemEditor>(() => ({
@@ -249,9 +350,11 @@ export function useWorkItemEditor({
     canReload,
     isBusy,
     save,
+    saveLinks,
+    links,
     reload,
     toast,
     dismissToast,
     notify,
-  }), [options, lockedReason, canEdit, canReload, isBusy, save, reload, toast, dismissToast, notify])
+  }), [options, lockedReason, canEdit, canReload, isBusy, save, saveLinks, links, reload, toast, dismissToast, notify])
 }

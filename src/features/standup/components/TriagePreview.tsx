@@ -1,5 +1,5 @@
 import type { RefObject } from 'react'
-import { Box } from '@mui/material'
+import { Box, Link } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import svgDuplicate from '@stratakit/icons/duplicate.svg'
 import svgInbox from '@stratakit/icons/inbox.svg'
@@ -7,7 +7,7 @@ import svgStatusSuccess from '@stratakit/icons/status-success.svg'
 import type { TriageItem, WorkItemPreviewTextField } from '../../../ado/types'
 import type { WorkItemPreviewImages } from '../hooks/useWorkItemPreview'
 import type { BacklogSprintResolver } from '../utils/backlogSprint'
-import { TRIAGE_CLEARED_NOTE } from '../utils/triageDisplay'
+import { formatTriageParent, TRIAGE_CLEARED_NOTE } from '../utils/triageDisplay'
 import type { TriageCheck, TriageReadinessChecks } from '../utils/triageOptions'
 import { describeTriageClearing, getTriageChecksFor, hasTriageChecks, isTriageCleared } from '../utils/triageRules'
 import type { TriageMatch } from '../utils/triageSimilar'
@@ -16,7 +16,8 @@ import { TriageEntryLine } from './TriageInbox'
 import { TriageMatchStrip } from './TriageSimilar'
 import { describeTriageMatch } from './triageSimilarDisplay'
 import { NotSet, PersonLabel, SprintLabel, StateLabel } from './WorkItemFields'
-import { EditableFieldButton } from './WorkItemActions'
+import { AddParentButton, EditableFieldButton } from './WorkItemActions'
+import { useWorkItemEditing } from './workItemEditingContext'
 import { PreviewSection, WorkItemPreviewDetails, WorkItemPreviewPanel, type PreviewLoad } from './WorkItemPreviewPanel'
 
 const noteSx: SxProps<Theme> = { mt: 0.75, fontSize: 12, color: 'text.secondary' }
@@ -49,6 +50,20 @@ type TriagePreviewPanelProps = {
   match?: TriageMatch
   onCompare?: (itemId: number) => void
   now?: Date
+}
+
+/** The item's parent, or "+ Parent" while one can be added; nothing otherwise. */
+function ParentFact({ item }: { item: TriageItem }) {
+  const editing = useWorkItemEditing()
+  if (!item.parent && !editing?.canLink(item)) return null
+  return (
+    <span>
+      <span className="label">Parent</span>
+      {item.parent ? (
+        <Link href={item.parent.workItemUrl} target="_blank" rel="noopener noreferrer">{formatTriageParent(item.parent)}</Link>
+      ) : <AddParentButton item={item} />}
+    </span>
+  )
 }
 
 /**
@@ -93,6 +108,7 @@ export function TriagePreviewPanel({
         <span className="label">Tags</span>
         <EditableFieldButton item={item} field="tags">{item.tags.length ? item.tags.join(', ') : <NotSet />}</EditableFieldButton>
       </span>
+      <ParentFact item={item} />
     </>
   )
 
@@ -112,7 +128,7 @@ export function TriagePreviewPanel({
           <TriageMatchStrip itemId={item.id} match={match} detail={describeTriageMatch(match, resolveSprint, now)} onCompare={onCompare} />
         </PreviewSection>
       ) : null}
-      <WorkItemPreviewDetails item={item} load={load} images={images} required={required} now={now} />
+      <WorkItemPreviewDetails item={item} editItem={item} load={load} images={images} required={required} now={now} />
     </WorkItemPreviewPanel>
   )
 }

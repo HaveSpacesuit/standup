@@ -121,6 +121,7 @@ test('the preview reads the text, attachments, links and newest comments', async
     ['Forward', 8, null, null],
   ])
   assert.equal(preview.links[0].workItemUrl, 'https://dev.azure.com/org/My%20Project/_workitems/edit/5')
+  assert.deepEqual(preview.links.map((link) => link.rel), ['System.LinkTypes.Hierarchy-Reverse', 'System.LinkTypes.Related', 'System.LinkTypes.Duplicate-Forward'], 'so a link can be removed')
   assert.deepEqual(preview.hyperlinks, [{ url: 'https://example.test/case/1', label: 'Support case' }])
   assert.equal(preview.developmentLinks, 2)
 

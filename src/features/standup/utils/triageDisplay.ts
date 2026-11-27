@@ -68,9 +68,10 @@ export function describeTriageAge(since: string, age: TriageAge): string {
   return `In triage since ${formatCreatedDate(since)} · ${age.workingDays} working ${age.workingDays === 1 ? 'day' : 'days'}`
 }
 
-/** The Parent column's text, such as "99: Parent feature". */
+/** The Parent column's text, such as "99: Parent feature", or just the ID for a parent linked since the queue loaded. */
 export function formatTriageParent(parent: NonNullable<TriageItem['parent']>): string {
-  return `${parent.id}: ${parent.title ?? 'Details unavailable'}`
+  if (parent.title) return `${parent.id}: ${parent.title}`
+  return parent.unavailable ? `${parent.id}: Details unavailable` : String(parent.id)
 }
 
 function shown(value: string | number | undefined): string {

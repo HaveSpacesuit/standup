@@ -236,6 +236,8 @@ export type WorkItemPreviewLink = {
   label: string
   id: number
   workItemUrl: string
+  /** The link type's reference name, such as System.LinkTypes.Hierarchy-Reverse, which removing the link needs. */
+  rel?: string
   title?: string
   workItemType?: string
   state?: string

@@ -1,12 +1,13 @@
 import './stratakitNodeGlobals.ts'
 import assert from 'node:assert/strict'
 import { after, test, type TestContext } from 'node:test'
-import { act, createElement, useState } from 'react'
+import { act, createElement, useMemo, useState } from 'react'
 import { JSDOM } from 'jsdom'
 import { createServer } from 'vite'
 import type { TriageItem, TriageResult, WorkItemPullRequestSummary, WorkItemSummary } from '../src/ado/types.ts'
 import type { WorkItemFieldChanges, WorkItemFields } from '../src/ado/workItemUpdateApi.ts'
 import type { PatchableWorkItem, PullRequestPatch, WorkItemPatch } from '../src/ado/workItemPatch.ts'
+import type { WorkItemLinkChange, WorkItemLinkSpec, WorkItemLinkTarget } from '../src/ado/workItemLinksApi.ts'
 import type { FieldEditorProps } from '../src/features/standup/components/WorkItemFieldEditors.tsx'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' })
@@ -38,10 +39,12 @@ const { applyPullRequestPatch, applyWorkItemPatch, getWorkItemFields, workItemUr
 const { applyFieldChanges } = await server.ssrLoadModule('/src/ado/workItemUpdateApi.ts')
 const { TriageTable } = await server.ssrLoadModule('/src/features/standup/components/TriageTable.tsx')
 const { TriageInbox } = await server.ssrLoadModule('/src/features/standup/components/TriageInbox.tsx')
-const { WorkItemPreviewPanel } = await server.ssrLoadModule('/src/features/standup/components/WorkItemPreviewPanel.tsx')
+const { WorkItemPreviewDetails, WorkItemPreviewPanel } = await server.ssrLoadModule('/src/features/standup/components/WorkItemPreviewPanel.tsx')
 const { applyTriagePatch, getTriageReasons } = await server.ssrLoadModule('/src/ado/triageApi.ts')
 const { createBacklogSprintResolver } = await server.ssrLoadModule('/src/features/standup/utils/backlogSprint.ts')
 const { useSprintScopeChanges } = await server.ssrLoadModule('/src/features/standup/hooks/useSprintScopeChanges.ts')
+const { DUPLICATE_OF_LINK, isSingleTargetLink, PARENT_LINK } = await server.ssrLoadModule('/src/ado/workItemLinksApi.ts')
+const { getQueueParentSuggestions } = await server.ssrLoadModule('/src/features/standup/utils/workItemLinkEditing.ts')
 
 const team = { orgName: 'org', projectName: 'Project', iterationPath: 'Project' }
 const ana = { displayName: 'Ana', uniqueName: 'ana@example.invalid' }
@@ -140,6 +143,45 @@ function createFakeEngine(items: PatchableWorkItem[]) {
       const patch = { id: pullRequest.id, repositoryId: pullRequest.repositoryId, ...engine.pullRequestRead! }
       pullRequestListeners.forEach((listener) => listener(patch))
       return patch
+    },
+    /** Each item's links to other work items, as Azure DevOps has them. */
+    links: new Map<number, WorkItemLinkSpec[]>(),
+    linkUpdates: [] as { id: number; change: WorkItemLinkChange }[],
+    /** The items there are to link to, which searches find by ID or title words. */
+    linkTargets: [] as WorkItemLinkTarget[],
+    /** Like Azure DevOps, skips links the item already has and replaces its parent; publishes the item with its parent. */
+    async updateWorkItemLinks(scope: typeof team, id: number, change: WorkItemLinkChange, options: { titles?: Readonly<Record<number, string>> } = {}) {
+      engine.linkUpdates.push({ id, change })
+      if (engine.failure) throw engine.failure
+      const current = engine.links.get(id) ?? []
+      const has = (list: readonly WorkItemLinkSpec[], link: WorkItemLinkSpec) => list.some((other) => other.rel === link.rel && other.targetId === link.targetId)
+      const added = (change.add ?? []).filter((link) => !has(current, link))
+      const replaced = current.filter((link) => isSingleTargetLink(link.rel) && added.some((other) => other.rel === link.rel))
+      const removed = [...replaced, ...(change.remove ?? []).filter((link) => has(current, link))]
+      const next = [...current.filter((link) => !has(removed, link)), ...added]
+      engine.links.set(id, next)
+      if (!added.length && !removed.length) return { patch: null, added, removed }
+      const parent = next.find((link) => link.rel === PARENT_LINK)
+      const patch: WorkItemPatch = {
+        id, workItemUrl: workItemUrlFor(scope, id), fields: saved.get(id)!,
+        parent: parent ? { id: parent.targetId, title: options.titles?.[parent.targetId] } : null,
+      }
+      publish(patch)
+      return { patch, added, removed }
+    },
+    async getWorkItemLinks(_scope: unknown, id: number) {
+      return (engine.links.get(id) ?? []).map((link) => ({ ...link, target: engine.linkTargets.find((target) => target.id === link.targetId) }))
+    },
+    async getWorkItemLinkTypes() {
+      return [{ rel: 'Microsoft.VSTS.Common.TestedBy-Forward', name: 'Tested By' }]
+    },
+    async searchWorkItems(_scope: unknown, query: string, options: { excludeId?: number } = {}) {
+      const words = query.replace(/^#/, '').toLowerCase()
+      return engine.linkTargets.filter((target) => target.id !== options.excludeId
+        && (String(target.id) === words || Boolean(target.title?.toLowerCase().includes(words))))
+    },
+    async getParentCandidates() {
+      return null
     },
   }
   return engine
@@ -684,9 +726,10 @@ const makeTriageItem = (id: number, fields: Partial<TriageItem> = {}): TriageIte
 function TriageHarness({ engine, initialItems, view }: { engine: ReturnType<typeof createFakeEngine>; initialItems: TriageItem[]; view: 'table' | 'inbox' }) {
   const [result, setResult] = useState<TriageResult>({ items: initialItems, warnings: [], rules: triageRules })
   useWorkItemPatches(engine, (patch: WorkItemPatch) => setResult((current) => applyTriagePatch(current, patch)))
+  const parentSuggestions = useMemo(() => ({ label: 'Parents in the Triage queue', items: getQueueParentSuggestions(result.items) }), [result.items])
   const editor = useWorkItemEditor({
     engine, team, statesByType: { bug: bugStates }, projectStates: bugStates, iterations: [],
-    members: [ana, bo], knownTags: ['Triage', 'frontend'], effortSuggestions: [3, 5], tagRules: [],
+    members: [ana, bo], knownTags: ['Triage', 'frontend'], effortSuggestions: [3, 5], tagRules: [], parentSuggestions,
   })
   const props = {
     // As on the page, an item an edit clears stays listed until the queue reloads.
@@ -820,4 +863,164 @@ test('cards keep the same editing controls when the tag rules change or a toast 
   assert.ok(seen.every(({ editing }) => editing === seen[0].editing), 'one editing api across rule and toast changes')
   assert.deepEqual(seen[0].options?.tagRules, [])
   assert.equal(seen.at(-1)?.options?.tagRules, rules)
+})
+
+const linkDialog = () => document.querySelector<HTMLElement>('[role="dialog"]')
+/** The editor's heading, which names the dialog. */
+const linkDialogName = () => document.getElementById(linkDialog()?.getAttribute('aria-labelledby') ?? '')?.textContent
+const linkTypeShown = () => linkDialog()?.querySelector('.MuiSelect-select')?.textContent
+const linkOptions = () => [...document.querySelectorAll('.MuiAutocomplete-option')].map((option) => option.textContent)
+const linkGroups = () => [...document.querySelectorAll('.MuiAutocomplete-popper .MuiListSubheader-root')].map((group) => group.textContent)
+/** Waits out the link editor's pause before it searches, and the search. */
+const searched = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)) })
+const setNativeValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!
+const typeInto = (input: HTMLInputElement, text: string) => act(async () => {
+  setNativeValue.call(input, text)
+  input.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+})
+const linkInput = (label: string) => {
+  const field = [...linkDialog()!.querySelectorAll('label')].find((element) => element.textContent?.startsWith(label))!
+  return document.getElementById(field.htmlFor) as HTMLInputElement
+}
+const chooseLinkType = async (name: string) => {
+  await act(async () => {
+    linkDialog()!.querySelector('.MuiSelect-select')!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+  })
+  await click([...document.querySelectorAll('[role="listbox"] [role="option"]')].find((option) => option.textContent === name)!)
+}
+const submitLink = async () => {
+  await click(linkDialog()!.querySelector('button[type="submit"]')!)
+  await settle()
+}
+const undo = async () => {
+  await click(byText('.MuiSnackbar-root .MuiAlert-action button', 'Undo'))
+  await settle()
+}
+
+test('Add link… on a card’s menu links it to an item found by its ID, and Undo removes the link again', async (t) => {
+  t.after(() => localStorage.clear())
+  const { engine } = await render(t, [makeItem(1)])
+  engine.linkTargets = [{ id: 7, title: 'Checkout', workItemType: 'Feature', state: 'New' }]
+
+  await openMenu(1)
+  assert.equal(menuItems().includes('Add link…L'), true)
+  await click(byText('[role="menu"] [role="menuitem"]', 'Add link…'))
+  await settle()
+  assert.equal(linkDialogName(), 'Add link')
+  assert.equal(linkTypeShown(), 'Parent', 'an item without a parent starts on Parent')
+  assert.equal(linkDialog()!.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled, true, 'nothing to link to yet')
+
+  await typeInto(linkInput('Work item'), '#7')
+  await searched()
+  assert.deepEqual(linkOptions(), ['#7 CheckoutFeature · New'])
+  await click(document.querySelector('.MuiAutocomplete-option')!)
+  await submitLink()
+  assert.deepEqual(engine.linkUpdates, [{ id: 1, change: { add: [{ rel: PARENT_LINK, targetId: 7 }] } }])
+  assert.equal(toastText(), '#1: Parent → #7 Checkout.')
+  assert.equal(linkDialog(), null)
+
+  await undo()
+  assert.deepEqual(engine.linkUpdates[1], { id: 1, change: { add: [], remove: [{ rel: PARENT_LINK, targetId: 7 }] } })
+  assert.equal(toastText(), '#1: link change undone.')
+  assert.deepEqual(engine.links.get(1), [])
+})
+
+test('L opens the link editor; marking the item a duplicate, with a comment, offers to move it to its closed state', async (t) => {
+  t.after(() => localStorage.clear())
+  const { engine } = await render(t, [makeItem(1)])
+  engine.linkTargets = [{ id: 9, title: 'Same toast bug', workItemType: 'Bug', state: 'Committed' }]
+
+  await press(1, 'l')
+  await settle()
+  assert.equal(linkDialogName(), 'Add link')
+  await chooseLinkType('Duplicate Of')
+  assert.equal(linkTypeShown(), 'Duplicate Of')
+  await typeInto(linkInput('Work item'), 'toast')
+  await searched()
+  await click(byText('.MuiAutocomplete-option', '#9 Same toast bug'))
+  await typeInto(linkInput('Comment'), 'Reported twice')
+  await submitLink()
+  assert.deepEqual(engine.linkUpdates, [{ id: 1, change: { add: [{ rel: DUPLICATE_OF_LINK, targetId: 9, comment: 'Reported twice' }] } }])
+  assert.equal(toastText(), '#1: Duplicate Of → #9 Same toast bug.')
+
+  // Product backlog items have no Removed state here, so it offers their first Completed one.
+  await click(byText('.MuiSnackbar-root .MuiAlert-action button', 'Move to Done'))
+  await settle()
+  assert.deepEqual(engine.updates, [{ id: 1, changes: { state: 'Done' }, expected: { state: 'Approved' } }])
+  assert.equal(toastText().includes('#1: State → Done.'), true)
+})
+
+test('a Triage item without a parent gets one from its + Parent button, suggested from the queue, and shows it in place', async (t) => {
+  t.after(() => localStorage.clear())
+  const checkout = { id: 50, title: 'Checkout', workItemUrl: workItemUrlFor(team, 50), unavailable: false }
+  const engine = await renderTriage(t, [makeTriageItem(1), makeTriageItem(2, { parent: checkout })], 'table')
+  engine.links.set(2, [{ rel: PARENT_LINK, targetId: 50 }])
+  const parentCell = (id: number) => menuButtonFor(id)!.closest('tr')!.lastElementChild!
+  const addParent = () => document.querySelector<HTMLElement>('button[data-add-parent="1"]')
+  assert.equal(addParent()?.getAttribute('aria-label'), 'Add a parent to #1')
+  assert.equal(parentCell(2).textContent, '50: Checkout')
+  assert.equal(document.querySelector('button[data-add-parent="2"]'), null, 'an item with a parent shows it instead')
+
+  await click(addParent()!)
+  await settle()
+  assert.equal(linkDialogName(), 'Add parent')
+  assert.equal(linkTypeShown(), 'Parent')
+  // Opens the suggestions, as a click in the empty field or the Down arrow does.
+  await act(async () => {
+    linkInput('Work item').dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+  })
+  assert.deepEqual(linkGroups(), ['Parents in the Triage queue'])
+  assert.deepEqual(linkOptions(), ['#50 Checkout'])
+  await click(document.querySelector('.MuiAutocomplete-option')!)
+  await submitLink()
+  assert.deepEqual(engine.linkUpdates, [{ id: 1, change: { add: [{ rel: PARENT_LINK, targetId: 50 }] } }])
+  assert.equal(toastText(), '#1: Parent → #50 Checkout.')
+  assert.equal(parentCell(1).textContent, '50: Checkout', 'the row shows its new parent without the queue reloading')
+  assert.equal(addParent(), null)
+
+  await undo()
+  assert.equal(addParent() !== null, true, 'Undo takes the parent off again')
+})
+
+test('the preview’s links can be removed with their × and added from Add link, which starts on Related once the item has a parent', async (t) => {
+  t.after(() => localStorage.clear())
+  const item = makeItem(1)
+  const engine = createFakeEngine([item])
+  engine.links.set(1, [{ rel: PARENT_LINK, targetId: 5 }, { rel: 'System.LinkTypes.Related', targetId: 7 }])
+  engine.linkTargets = [{ id: 5, title: 'Checkout', workItemType: 'Feature', state: 'New' }, { id: 7, title: 'Toast bug', workItemType: 'Bug', state: 'Done' }]
+  const link = (id: number, label: string, rel: string) => ({
+    label, id, rel, workItemUrl: workItemUrlFor(team, id), ...engine.linkTargets.find((target) => target.id === id),
+  })
+  const preview = {
+    id: 1, text: {}, attachments: [], comments: [], commentCount: 0, developmentLinks: 0,
+    links: [link(5, 'Parent', PARENT_LINK), link(7, 'Related', 'System.LinkTypes.Related')],
+    hyperlinks: [{ url: 'https://example.test/spec', label: 'Spec' }],
+  }
+  function PreviewHarness() {
+    const editor = useWorkItemEditor({
+      engine, team, statesByType: { 'product backlog item': pbiStates }, projectStates: pbiStates, iterations: [],
+      members: [ana, bo], knownTags: [], effortSuggestions: [3, 5], tagRules: [],
+    })
+    return createElement(WorkItemEditingProvider, { editor }, createElement(WorkItemPreviewDetails, {
+      item, editItem: item, load: { preview, loading: false, retry: () => {} },
+    }))
+  }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  t.after(async () => { await act(async () => root.unmount()); host.remove() })
+  await act(async () => root.render(createElement(Root, null, createElement(PreviewHarness))))
+
+  assert.deepEqual([...host.querySelectorAll('.remove-link')].map((button) => button.getAttribute('aria-label')),
+    ['Remove Parent link to 5', 'Remove Related link to 7'], 'a hyperlink has no ×')
+  await click(host.querySelector('[aria-label="Remove Related link to 7"]')!)
+  await settle()
+  assert.deepEqual(engine.linkUpdates, [{ id: 1, change: { remove: [{ rel: 'System.LinkTypes.Related', targetId: 7 }] } }])
+  assert.equal(toastText(), '#1: Related link to #7 Toast bug removed.')
+
+  await click(byText('button', 'Add link'))
+  await settle()
+  assert.equal(linkTypeShown(), 'Related', 'it has a parent already')
+  assert.deepEqual([...linkDialog()!.querySelectorAll('[aria-label="Linked now"] [aria-label^="Remove"]')].map((button) => button.getAttribute('aria-label')),
+    ['Remove Parent #5 Checkout'])
 })

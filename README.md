@@ -413,14 +413,17 @@ skipped); after two weeks it switches to calendar time such as `3w`, as on Backl
 triage when it was created, or later if it qualified later: when its matched tag was last added, or
 when a new bug last moved back into its first state. A rule that began within an hour of creation
 counts from creation. Its tooltip gives the date the item entered triage and the working-day count.
-Parent is hidden while no item in the queue has one, since new items rarely do, and so is Assigned to
-unless you can edit, so an unassigned item can be assigned from its row; the choice is made from the
+Parent and Assigned to are hidden while no item in the queue has one, since new items rarely do,
+unless you can edit: then an item without a parent shows **+ Parent** in its place, to add one, and
+an unassigned item can be assigned from its row. The choice is made from the
 whole queue, so the columns stay put while the quick filter changes. Sprint places the iteration
 against the team's sprints as Backlog does (This sprint, Next sprint, a sprint name, or Backlog).
 Missing Severity, Impact, and Effort are flagged with a dashed `?`, as on Backlog, when they are one
 of the item type's readiness checks, and otherwise shown as a dash; unassigned items show a muted
 Unassigned. Triage has no Value score or raised-effort marker. Item and parent links open
-Azure DevOps for edits. An unavailable parent's known ID/link is retained with an explicit warning.
+Azure DevOps. An unavailable parent's known ID/link is retained with an explicit warning; a parent
+added since the queue loaded shows its title, or only its ID until the queue refreshes when the title
+was not known.
 Quick filtering searches the displayed text, including tags, why items are listed, readiness
 (**Ready to clear** or the missing field names), creator, type, sprint label, parent, and the
 similar-item match (such as **Possible regression of 2160021**); `/` and Ctrl/Cmd+F focus it.
@@ -454,7 +457,8 @@ Each card shows the type icon, ID, linked title, and the item's other tags, then
 **Filed** with when and by whom, or **Tagged “Triage”** or **Moved to New** with when, by whom, and
 the created date. The Why chips follow, then the state and the parent link, each only when it
 differs from a fresh item, except that the state always shows while you can edit, to change it in
-place. Cards have the Table's **+ Tag** button and **×** on tag chips. A waiting item says
+place. Cards have the Table's **+ Tag** button and **×** on tag chips, and, while you can edit, an
+item without a parent shows **+ Parent** where the parent link would be. A waiting item says
 which tag it carries and since when; once someone other than whoever added the tag comments after it
 was added, the card shows **replied** with the comment's start in a tooltip. An item past the age
 flag says how many working days it has been in triage. Below, a checklist marks each readiness check
@@ -509,7 +513,8 @@ scroll as usual while the panel is closed or has focus: click or tab into the pa
 with the keyboard.
 
 The panel's header shows the item's type, ID, and title, then its Severity, Impact, Effort, sprint,
-state, assignee, and tags as the Table shows them. Below that:
+state, assignee, and tags as the Table shows them, and its parent (or, while you can edit, **+ Parent**).
+Below that:
 
 - **Why it's here**: how the item arrived, as the Inbox card says, and what clears it. For a cleared
   item, that it leaves on the next refresh.
@@ -523,7 +528,9 @@ state, assignee, and tags as the Table shows them. Below that:
 - **Comments**: the newest five, with a link to the rest in Azure DevOps.
 - **Links**: linked work items with their titles and states (parent and child first, then
   duplicates and related items, up to 50 with a count of the rest), hyperlinks, and a count of
-  development links (pull requests, commits, and builds).
+  development links (pull requests, commits, and builds). While you can edit, **×** on a linked
+  item removes that link and **Add link** opens the link editor (see
+  [Linking work items](#linking-work-items)).
 
 Text and comments keep their structure (headings, lists, tables, code, and links) but not their
 colors, fonts, or sizes, so they read well in either theme, and nothing in them can run. Screenshots
@@ -671,7 +678,7 @@ The panel's header shows the bug's ID and title, then its sprint, state, assigne
   the rank may change once they are set.
 
 Below that are the bug's Repro steps and other text, attachments, comments, and links from Azure DevOps, loaded and
-shown as on Triage. Refresh reloads the previewed bug's details, and a bug that leaves the backlog on refresh stays in
+shown as on Triage, where links can be added and removed the same way. Refresh reloads the previewed bug's details, and a bug that leaves the backlog on refresh stays in
 the panel as **No longer in the backlog** until **Down** moves on. The panel shares its width with the Triage preview.
 The Map has a side panel of its own, so switching to the Map closes the preview, as does switching teams.
 
@@ -739,7 +746,7 @@ without one. Pull request cards have no fields to edit, but can be reloaded and 
 - **Cards**: hovering or focusing a card shows **Reload** and **Edit** (⋯) buttons on its top edge,
   or its bottom edge when the column header covers the top (always shown, on touch screens). **Edit**, a
   right-click, Shift+F10, or the Menu key opens the item's menu, which lists each field with its value,
-  then **Reload from Azure DevOps**, **Copy link**, and **Open in Azure DevOps**. **Copy link** copies
+  then **Add link…**, **Reload from Azure DevOps**, **Copy link**, and **Open in Azure DevOps**. **Copy link** copies
   the item as Azure DevOps does, such as "Bug 123: Title": rich-text editors paste it with "Bug 123"
   linked to the item, and plain-text editors paste the same text without the link. It works without
   edit access. A card that shows pull requests also lists **Copy link to PR 456** for each, which
@@ -749,10 +756,11 @@ without one. Pull request cards have no fields to edit, but can be reloaded and 
   **Reload from Azure DevOps**, **Copy link** ("Pull request 456: Title"), and **Open in Azure DevOps**.
 - **Tables, Inbox cards, and preview panels**: each field's value is a button that opens its editor,
   and rows and Inbox cards have the same **Reload** and **Edit** buttons and menu. On Triage, **+ Tag**
-  after an item's tags opens the Tags editor, and **×** on a Why tag chip removes that tag.
+  after an item's tags opens the Tags editor, **×** on a Why tag chip removes that tag, and **+ Parent**
+  on an item without a parent opens the link editor set to Parent.
 - **Keys**: while a card, row, or preview panel has focus, **S** edits State, **A** Assigned To, **I**
-  Iteration, **E** Effort, **V** Severity, **P** Impact, **T** Tags, **F2** the title, and **R** reloads
-  the item. The same keys work inside the menu.
+  Iteration, **E** Effort, **V** Severity, **P** Impact, **T** Tags, **F2** the title, **L** adds a
+  link, and **R** reloads the item. The same keys work inside the menu.
 
 Editors are small popovers: states grouped by category, team members (and Unassigned) with a
 search, sprints grouped as current, upcoming, and recent with the team's backlog, the team's effort
@@ -788,6 +796,39 @@ moved to Approved or into an excluded sprint, stays in place marked **Cleared** 
 refreshes, and **Undo** restores it (see [Triage view](#triage-view)).
 Otherwise items do not join or leave a list until the page refreshes, so an item that newly
 qualifies for triage joins on the next refresh.
+
+#### Linking work items
+
+**Add link…** in an item's menu, **L**, Triage's **+ Parent**, or **Add link** in a preview panel's
+Links section opens the link editor, which adds a link from the item to another work item:
+
+- **Link type**: Parent, Child, Related, Duplicate Of, Duplicate, Predecessor, and Successor first,
+  then the organization's other link types that can be edited, such as Tested By. It starts on
+  Parent, or on Related once the item has a parent; **+ Parent** starts on Parent.
+- **Work item**: type an ID (`#123` or `123`), paste its Azure DevOps link (an item in another
+  organization can't be linked), or type words from its title to search the project (the 20 most
+  recently changed items with every word). Before anything is typed, it suggests the items you linked
+  to most recently in this browser and, for a parent, the parents other items in the Triage queue
+  have, most used first, and the open items one backlog level up (such as Features for a Product
+  Backlog Item or Bug) under the team's area path.
+- **Comment** (optional): saved on the link, as Azure DevOps shows it in the item's Links tab.
+
+The editor lists the item's current links, each with **×** to remove it. An item has only one parent
+and is a duplicate of only one item, so linking another replaces it, and the editor says which link it
+replaces (the button reads **Change parent** or **Replace link**). It refuses a link the item already
+has, a parent that is the item's own child, and a child that already has another parent (change that
+from the child).
+
+The save reads the item fresh and adds and removes the links in one write, guarded by its revision, the
+same as field edits; a link the item already has is skipped rather than added twice. Once saved, the
+item shows its new parent in every view that lists it, Triage included, and a child gained or lost
+shows its new parent too. A toast confirms the change, such as "#123: Parent → #456 Checkout.", with
+**Undo**, which puts back the links it removed, with their comments. Marking an item **Duplicate Of**
+another also offers **Move to** its type's Removed state (or, without one, its first Completed state)
+to close it, unless it is closed already. In a preview panel, **×** on a linked item removes that link
+with the same toast and **Undo**. Links need the same Work Items (Read & write) scope as field edits.
+The items you link to are remembered in this browser per project
+(`standup:recent-link-targets:<org>/<project>`), not in team exports.
 
 #### Drag and drop on Development
 

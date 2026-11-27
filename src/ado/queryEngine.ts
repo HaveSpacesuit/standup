@@ -19,6 +19,24 @@ import type { QualityAssuranceRawData } from './workItemsApi'
 import { applyTriagePatch, fetchTriageItems } from './triageApi'
 import type { TriageResult, WorkItemPreview } from './types'
 import { fetchWorkItemPreview, resolveAdoAttachmentRequest } from './workItemPreviewApi'
+import {
+  CHILD_LINK,
+  fetchParentCandidates,
+  fetchWorkItemLinks,
+  fetchWorkItemLinkTargets,
+  fetchWorkItemLinkTypes,
+  getParentCategory,
+  PARENT_LINK,
+  readParentId,
+  sameLinkType,
+  searchWorkItems,
+  updateWorkItemLinks,
+  type WorkItemCurrentLink,
+  type WorkItemLinkChange,
+  type WorkItemLinkSpec,
+  type WorkItemLinkTarget,
+  type WorkItemLinkType,
+} from './workItemLinksApi'
 import { getTriageQueryOptions, hasTriageRules, parseTriageOptions, type TriageQueryOptions } from '../features/standup/utils/triageOptions'
 import { fetchAttentionItems } from './workItemsApi'
 import { parseAttentionTags } from '../features/standup/utils/attentionTags'
@@ -31,6 +49,9 @@ export type { WorkItemPatch, PullRequestPatch } from './workItemPatch'
 
 /** A reloaded work item; `pullRequestsUnavailable` when its linked pull requests were asked for but couldn't be read. */
 export type WorkItemReload = WorkItemPatch & { pullRequestsUnavailable?: boolean }
+
+/** A link save: the item as saved, or null when it already had the links, and what actually changed. */
+export type WorkItemLinkUpdate = { patch: WorkItemPatch | null; added: WorkItemLinkSpec[]; removed: WorkItemLinkSpec[] }
 
 // Shared cache-key builders so a getter and its corresponding `clear*Cache` method can never
 // drift apart and silently stop invalidating (each key shape is defined in exactly one place).
@@ -123,6 +144,8 @@ export class AdoQueryEngine {
   private readonly workItemUpdatesCache = new Map<string, Promise<WorkItemUpdate[]>>()
   private readonly workItemPreviewCache = new Map<string, Promise<WorkItemPreview>>()
   private readonly attachmentCache = new Map<string, Promise<Blob>>()
+  private readonly workItemLinkTypesCache = new Map<string, Promise<WorkItemLinkType[]>>()
+  private readonly parentCandidatesCache = new Map<string, Promise<WorkItemLinkTarget[]>>()
   private readonly workItemPatchListeners = new Set<(patch: WorkItemPatch) => void>()
   private readonly pullRequestPatchListeners = new Set<(patch: PullRequestPatch) => void>()
   constructor(pat: string, defaultApiVersion = '7.1') {
@@ -156,7 +179,7 @@ export class AdoQueryEngine {
   }
 
   private async getProjectWorkItemTypeInfo(
-    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName'>,
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
     _signal?: AbortSignal,
   ): Promise<ProjectWorkItemTypeInfo> {
     const cacheKey = orgProjectCacheKey(team)
@@ -408,7 +431,7 @@ export class AdoQueryEngine {
     })
   }
 
-  /** Clears the Triage queue, the closed bugs its similar items compare with, and the previewed items. */
+  /** Clears the Triage queue, the closed bugs its similar items compare with, the previewed items, and likely parents. */
   clearTriageDataCache(teamId?: string): void {
     for (const cache of [this.triageItemsCache, this.closedBugsCache]) {
       for (const key of cache.keys()) {
@@ -416,6 +439,7 @@ export class AdoQueryEngine {
       }
     }
     clearTeamEntries(this.workItemPreviewCache, teamId)
+    this.parentCandidatesCache.clear()
   }
 
   clearTeamIterationsCache(teamId: string): void {
@@ -541,6 +565,79 @@ export class AdoQueryEngine {
   }
 
   /**
+   * Adds and removes links between a work item and others in one save, then shows the item, with its parent, in every
+   * cached list and subscribed view. An item it became, or stopped being, the parent of shows its new parent too, and
+   * every linked item's details show the link from its side.
+   *
+   * @param options.titles Titles the view knows for linked items, so a new parent shows its title without another read.
+   */
+  async updateWorkItemLinks(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    id: number,
+    change: WorkItemLinkChange,
+    options: { titles?: Readonly<Record<number, string>> } = {},
+  ): Promise<WorkItemLinkUpdate> {
+    const result = await updateWorkItemLinks(this.client, team, id, change)
+    const { added, removed } = result
+    if (!added.length && !removed.length) return { patch: null, added, removed }
+    const changed = [...added, ...removed]
+    const parentId = readParentId(result.item)
+    let parentTitle = parentId === undefined ? undefined : options.titles?.[parentId]
+    if (parentId !== undefined && !parentTitle && changed.some((link) => sameLinkType(link.rel, PARENT_LINK))) {
+      parentTitle = (await fetchWorkItemLinkTargets(this.client, team.orgName, [parentId]).catch(() => []))[0]?.title
+    }
+    const patch = this.publishWorkItem(team, id, result, undefined, parentTitle)
+    for (const link of changed) this.clearWorkItemPreview(team, link.targetId)
+    const children = [...new Set(changed.filter((link) => sameLinkType(link.rel, CHILD_LINK)).map((link) => link.targetId))]
+    await Promise.all(children.map(async (childId) => {
+      try {
+        const read = await readWorkItem(this.client, team, childId)
+        this.publishWorkItem(team, childId, read, undefined, readParentId(read.item) === id ? result.fields.title : undefined)
+      } catch {
+        // The link is saved; the child shows its new parent when it next loads.
+      }
+    }))
+    return { patch, added, removed }
+  }
+
+  /** The item's links to other work items, read fresh, with what the picker shows of each linked item. */
+  async getWorkItemLinks(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id: number): Promise<WorkItemCurrentLink[]> {
+    return fetchWorkItemLinks(this.client, team, id)
+  }
+
+  /** The organization's link types beyond the common ones, such as Tested By. */
+  async getWorkItemLinkTypes(team: Pick<TeamProfile, 'orgName'>): Promise<WorkItemLinkType[]> {
+    return this.getOrLoadCached(this.workItemLinkTypesCache, team.orgName.trim().toLowerCase(), () => fetchWorkItemLinkTypes(this.client, team.orgName))
+  }
+
+  /** Work items to link to: the one an ID or address names, or the project's items with the typed words in their titles. */
+  async searchWorkItems(
+    team: Pick<TeamProfile, 'orgName' | 'projectName'>,
+    query: string,
+    options: { excludeId?: number } = {},
+  ): Promise<WorkItemLinkTarget[]> {
+    return searchWorkItems(this.client, team, query, options)
+  }
+
+  /**
+   * The open items under the team's area path one backlog level above the type, such as its Features for a Bug: the
+   * likely parents for its new items. Null when the type has no level above it.
+   */
+  async getParentCandidates(
+    team: Pick<TeamProfile, 'id' | 'orgName' | 'projectName' | 'areaPath'>,
+    workItemType: string | undefined,
+  ): Promise<{ label: string; items: WorkItemLinkTarget[] } | null> {
+    const level = getParentCategory(workItemType)
+    if (!level) return null
+    const key = `${team.id}:${orgProjectCacheKey(team)}:${team.areaPath.trim().toLowerCase()}:${level.category}`
+    const items = await this.getOrLoadCached(this.parentCandidatesCache, key, async () => {
+      const { statesByType } = await this.getProjectWorkItemTypeInfo(team)
+      return fetchParentCandidates(this.client, team, level.category, statesByType)
+    })
+    return { label: level.label, items }
+  }
+
+  /**
    * Reads one pull request card fresh from Azure DevOps and shows it in every cached list and subscribed view, or takes
    * it off them once the board no longer shows it.
    */
@@ -585,11 +682,15 @@ export class AdoQueryEngine {
     id: number,
     { item, fields }: WorkItemReadResult,
     pullRequests?: LinkedPullRequests,
+    parentTitle?: string,
   ): WorkItemPatch {
     this.clearAttentionDataCache()
     const changedAt = (item.fields as Record<string, unknown> | undefined)?.['System.ChangedDate']
     const patch: WorkItemPatch = { id, workItemUrl: workItemUrlFor(team, id), fields, changedAt: typeof changedAt === 'string' ? changedAt : undefined }
     if (pullRequests) patch.pullRequests = pullRequests
+    // Azure DevOps returns every field it has, so an item without System.Parent has no parent.
+    const parentId = readParentId(item)
+    patch.parent = parentId === undefined ? null : { id: parentId, ...(parentTitle ? { title: parentTitle } : {}) }
     const apply = <T extends { id: number; workItemUrl?: string; title: string }>(items: T[]) => applyWorkItemPatch(items, patch)
     patchCachedValues(this.teamWorkItemsCache, apply)
     patchCachedValues(this.backlogBugsCache, apply)
@@ -602,12 +703,16 @@ export class AdoQueryEngine {
       if (candidates === data.candidates) return data
       return { ...data, candidates, ...await this.getQualityAssuranceItemHistory(team, data, id) }
     })
+    this.clearWorkItemPreview(team, id)
+    for (const listener of this.workItemPatchListeners) listener(patch)
+    return patch
+  }
+
+  private clearWorkItemPreview(team: Pick<TeamProfile, 'orgName' | 'projectName'>, id: number): void {
     const previewSuffix = `:${orgProjectCacheKey(team)}:${id}`
     for (const key of this.workItemPreviewCache.keys()) {
       if (key.endsWith(previewSuffix)) this.workItemPreviewCache.delete(key)
     }
-    for (const listener of this.workItemPatchListeners) listener(patch)
-    return patch
   }
 
   /** A QA list's history with one item's history read again; when that read fails, QA marks the item's history unavailable. */

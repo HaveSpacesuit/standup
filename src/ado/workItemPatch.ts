@@ -16,6 +16,11 @@ export type WorkItemPatch = {
   preview?: boolean
   /** The item's linked pull requests, when the patch comes from a reload that read them too. */
   pullRequests?: LinkedPullRequests
+  /**
+   * The item's parent, null when it has none, when the patch comes from Azure DevOps; with its title when the save knew
+   * it, such as a parent just linked.
+   */
+  parent?: { id: number; title?: string } | null
 }
 
 /** Any list item that shows a work item's editable fields: board cards, backlog bugs and triage items. */

@@ -61,7 +61,7 @@ function props() {
 /** Just enough of the editing controls to render with; `canEdit` is false once a write found the PAT read-only. */
 const editingWith = (canEdit: boolean) => ({
   editor: { canEdit: () => canEdit, isBusy: () => false },
-  openMenu: noop, openField: noop, handleContextMenu: noop, handleKeyDown: noop,
+  openMenu: noop, openField: noop, openLink: noop, canLink: () => canEdit, handleContextMenu: noop, handleKeyDown: noop,
 })
 function render(overrides: Record<string, unknown> = {}, editing: unknown = null) {
   const page = createElement(TriagePage, { ...props(), ...overrides })
@@ -251,14 +251,15 @@ test('without editing, Assigned to and Parent are hidden while no item in the qu
   } finally { assignedOnly.window.close() }
 })
 
-test('Assigned to also shows while items can be assigned from it, with each unassigned cell a button', () => {
+test('Assigned to and Parent also show while items can be assigned or given a parent from them, with each empty cell a button', () => {
   const unassigned = { result: { items: [emptyBug, emptyStory], warnings: [] } }
   const editable = renderDocument(unassigned, editingWith(true))
   try {
     const table = editable.window.document.querySelector('table')!
-    assert.deepEqual(headersOf(table), COLUMN_HEADERS.filter((header) => header !== 'Parent'))
-    const cell = cellsOf(table.querySelector('tbody tr')!)['Assigned to']
-    assert.equal(cell.querySelector('button[data-edit-field="assignedTo"]')?.getAttribute('aria-label'), 'Assigned to: Unassigned. Change')
+    assert.deepEqual(headersOf(table), COLUMN_HEADERS)
+    const cells = cellsOf(table.querySelector('tbody tr')!)
+    assert.equal(cells['Assigned to'].querySelector('button[data-edit-field="assignedTo"]')?.getAttribute('aria-label'), 'Assigned to: Unassigned. Change')
+    assert.equal(cells.Parent.querySelector('button[data-add-parent]')?.textContent, 'Parent')
   } finally { editable.window.close() }
 
   const locked = renderDocument(unassigned, editingWith(false))

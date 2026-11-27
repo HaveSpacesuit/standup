@@ -160,7 +160,7 @@ export function BacklogPreviewPanel({
       <PreviewSection heading="Value" iconHref={svgSortDescending}>
         <BacklogValueBreakdown bug={bug} editItem={editItem} totalBugCount={totalBugCount} tierThresholds={tierThresholds} />
       </PreviewSection>
-      <WorkItemPreviewDetails item={item} load={load} images={images} now={now} />
+      <WorkItemPreviewDetails item={item} editItem={editItem} load={load} images={images} now={now} />
     </WorkItemPreviewPanel>
   )
 }

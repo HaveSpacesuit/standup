@@ -118,10 +118,10 @@ export function TriagePage(props: Props) {
   const compareItem = compareId === null ? undefined : result.items.find((item) => item.id === compareId)
   const compareMatch = compareId === null ? undefined : matches.get(compareId)
   // From the whole queue, not the filtered rows, so the columns hold still while typing in the quick filter. Assigned to
-  // also shows while items can be assigned from it.
+  // and Parent also show while items can be assigned or given a parent from them.
   const editing = useWorkItemEditing()
   const showAssignee = result.items.some((item) => item.assignedTo || editing?.editor.canEdit(item))
-  const showParent = result.items.some((item) => item.parent)
+  const showParent = result.items.some((item) => item.parent || editing?.canLink(item))
   const canLoad = props.patConfigured && props.teamOptions.length > 0
   const rulesEnabled = hasTriageRules(options)
   const showCount = canLoad && rulesEnabled && !isLoading && !error && !settingsError
